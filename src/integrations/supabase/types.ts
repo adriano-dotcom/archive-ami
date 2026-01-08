@@ -529,6 +529,7 @@ export type Database = {
           cnpj: string | null
           company: string | null
           complement: string | null
+          cpf: string | null
           created_at: string
           email: string | null
           first_contact_date: string
@@ -568,6 +569,7 @@ export type Database = {
           cnpj?: string | null
           company?: string | null
           complement?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           first_contact_date?: string
@@ -607,6 +609,7 @@ export type Database = {
           cnpj?: string | null
           company?: string | null
           complement?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           first_contact_date?: string

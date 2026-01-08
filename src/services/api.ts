@@ -281,7 +281,7 @@ export const api = {
   },
 
   /**
-   * Fetch contacts from database with deal/owner/pipeline/conversation data
+   * Fetch contacts from database with deal/owner/pipeline/conversation/policies data
    */
   fetchContacts: async (): Promise<Contact[]> => {
     // Fetch contacts
@@ -302,7 +302,7 @@ export const api = {
 
     // Fetch deals with owner and pipeline info
     const contactIds = contactsData.map(c => c.id);
-    const [dealsResult, conversationsResult] = await Promise.all([
+    const [dealsResult, conversationsResult, policiesResult, installmentsResult] = await Promise.all([
       supabase
         .from('deals')
         .select(`
@@ -320,11 +320,22 @@ export const api = {
         .from('conversations')
         .select('contact_id, is_active, status, updated_at')
         .in('contact_id', contactIds)
-        .order('updated_at', { ascending: false })
+        .order('updated_at', { ascending: false }),
+      supabase
+        .from('policies')
+        .select('id, contact_id, insurer')
+        .in('contact_id', contactIds),
+      supabase
+        .from('installments')
+        .select('contact_id, value, status, days_overdue')
+        .in('contact_id', contactIds)
+        .eq('status', 'overdue')
     ]);
 
     const dealsData = dealsResult.data;
     const conversationsData = conversationsResult.data;
+    const policiesData = policiesResult.data;
+    const installmentsData = installmentsResult.data;
 
     // Create a map of contact_id to deal info (most recent deal per contact)
     const dealsByContact = new Map<string, any>();
@@ -342,6 +353,24 @@ export const api = {
       }
     });
 
+    // Create maps for policies count and insurers
+    const policiesByContact = new Map<string, { count: number; insurers: Set<string> }>();
+    (policiesData || []).forEach(policy => {
+      const existing = policiesByContact.get(policy.contact_id) || { count: 0, insurers: new Set() };
+      existing.count += 1;
+      if (policy.insurer) existing.insurers.add(policy.insurer);
+      policiesByContact.set(policy.contact_id, existing);
+    });
+
+    // Create maps for overdue installments
+    const overdueByContact = new Map<string, { totalValue: number; maxDays: number }>();
+    (installmentsData || []).forEach(inst => {
+      const existing = overdueByContact.get(inst.contact_id) || { totalValue: 0, maxDays: 0 };
+      existing.totalValue += Number(inst.value) || 0;
+      existing.maxDays = Math.max(existing.maxDays, inst.days_overdue || 0);
+      overdueByContact.set(inst.contact_id, existing);
+    });
+
     // Format CNPJ for display
     const formatCNPJDisplay = (cnpj: string | null) => {
       if (!cnpj) return undefined;
@@ -350,11 +379,21 @@ export const api = {
       return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`;
     };
 
+    // Format CPF for display
+    const formatCPFDisplay = (cpf: string | null) => {
+      if (!cpf) return undefined;
+      const digits = cpf.replace(/\D/g, '');
+      if (digits.length !== 11) return cpf;
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+    };
+
     return contactsData.map(c => {
       const deal = dealsByContact.get(c.id);
       const owner = deal?.team_members;
       const pipeline = deal?.pipelines;
       const conversation = conversationsByContact.get(c.id);
+      const policyData = policiesByContact.get(c.id);
+      const overdueData = overdueByContact.get(c.id);
 
       return {
         id: c.id,
@@ -363,6 +402,7 @@ export const api = {
         email: c.email || '',
         company: (c as any).company || undefined,
         cnpj: formatCNPJDisplay((c as any).cnpj),
+        cpf: formatCPFDisplay((c as any).cpf),
         cep: (c as any).cep || undefined,
         street: (c as any).street || undefined,
         number: (c as any).number || undefined,
@@ -393,6 +433,11 @@ export const api = {
         // Conversation data
         conversationActive: conversation?.is_active ?? null,
         conversationStatus: conversation?.status || undefined,
+        // Policies data (segurados)
+        policiesCount: policyData?.count || 0,
+        insurers: policyData ? Array.from(policyData.insurers) : [],
+        overdueValue: overdueData?.totalValue || 0,
+        maxDaysOverdue: overdueData?.maxDays || 0,
       };
     });
   },

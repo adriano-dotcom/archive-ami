@@ -32,6 +32,7 @@ const statusOptions = [
 interface ExtendedContact extends Contact {
   company?: string;
   cnpj?: string;
+  cpf?: string;
   cep?: string;
   street?: string;
   number?: string;
@@ -60,6 +61,11 @@ interface ExtendedContact extends Contact {
   // Conversation data
   conversationActive?: boolean | null;
   conversationStatus?: string;
+  // Policies data (segurados)
+  policiesCount?: number;
+  insurers?: string[];
+  overdueValue?: number;
+  maxDaysOverdue?: number;
 }
 
 const Contacts: React.FC = () => {
@@ -76,7 +82,7 @@ const Contacts: React.FC = () => {
   const [contactToDelete, setContactToDelete] = useState<ExtendedContact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound' | 'facebook' | 'google'>('inbound');
+  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound' | 'facebook' | 'google' | 'segurados'>('inbound');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   
   // Bulk selection state
@@ -216,7 +222,7 @@ const Contacts: React.FC = () => {
     }
   };
 
-  // Filtrar por origem (inbound/outbound/facebook)
+  // Filtrar por origem (inbound/outbound/facebook/google/segurados)
   const inboundContacts = contacts.filter(contact => 
     (contact.lead_source === 'inbound' || contact.whatsapp_id) && contact.lead_source !== 'facebook' && contact.lead_source !== 'google'
   );
@@ -232,6 +238,11 @@ const Contacts: React.FC = () => {
   const googleContacts = contacts.filter(contact => 
     contact.lead_source === 'google'
   );
+  
+  // Segurados = contatos com pelo menos 1 apólice
+  const seguradosContacts = contacts.filter(contact => 
+    (contact as ExtendedContact).policiesCount && (contact as ExtendedContact).policiesCount! > 0
+  );
 
   // Filtrar pela aba ativa + termo de busca + status + outros filtros
   const getFilteredContacts = () => {
@@ -241,7 +252,9 @@ const Contacts: React.FC = () => {
         ? facebookContacts 
         : activeTab === 'google'
           ? googleContacts
-          : outboundContacts;
+          : activeTab === 'segurados'
+            ? seguradosContacts
+            : outboundContacts;
     
     let filtered = baseContacts;
     
@@ -1213,7 +1226,7 @@ const Contacts: React.FC = () => {
       </div>
 
       {/* Tabs Inbound/Outbound */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'inbound' | 'outbound' | 'facebook' | 'google')} className="mb-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'inbound' | 'outbound' | 'facebook' | 'google' | 'segurados')} className="mb-6">
         <TabsList className="bg-slate-900/50 border border-slate-800 p-1">
           <TabsTrigger 
             value="inbound" 
@@ -1249,6 +1262,15 @@ const Contacts: React.FC = () => {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
             Google ({googleContacts.length})
+          </TabsTrigger>
+          <TabsTrigger 
+            value="segurados"
+            className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-6"
+          >
+            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Segurados ({seguradosContacts.length})
           </TabsTrigger>
         </TabsList>
 
