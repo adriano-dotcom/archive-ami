@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, User, Phone, Mail, Building2, FileText, Loader2, MapPin, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneInternational } from '@/utils/phoneFormatter';
+import { CompanySelector } from './segurados/CompanySelector';
 
 interface CreateContactModalProps {
   open: boolean;
@@ -120,6 +121,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
     cpf: '',
     role: '',
     is_billing_contact: false,
+    company_id: null as string | null,
     company: '',
     cnpj: '',
     notes: '',
@@ -136,10 +138,30 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
   const resetForm = () => {
     setFormData({ 
       name: '', phone: '', email: '', cpf: '', role: '', is_billing_contact: false,
-      company: '', cnpj: '', notes: '', cep: '', street: '', number: '', 
+      company_id: null, company: '', cnpj: '', notes: '', cep: '', street: '', number: '', 
       complement: '', neighborhood: '', city: '', state: ''
     });
     setErrors({});
+  };
+
+  const handleCompanySelect = (companyId: string | null, company: any) => {
+    if (company) {
+      setFormData(prev => ({
+        ...prev,
+        company_id: companyId,
+        company: company.razao_social || company.nome_fantasia || '',
+        cnpj: company.cnpj || '',
+        city: company.city || prev.city,
+        state: company.state || prev.state
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        company_id: null,
+        company: '',
+        cnpj: ''
+      }));
+    }
   };
 
   // Busca CEP via ViaCEP API
@@ -270,6 +292,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
         cpf: formData.cpf.replace(/\D/g, '') || null,
         role: formData.role.trim() || null,
         is_billing_contact: formData.is_billing_contact,
+        company_id: formData.company_id,
         company: formData.company.trim() || null,
         cnpj: cnpjDigits,
         notes: formData.notes.trim() || null,
@@ -426,40 +449,50 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
               Dados da Empresa
             </h3>
 
-            <div className="space-y-2">
-              <Label htmlFor="cnpj" className="text-slate-300">
-                CNPJ
-                <span className="text-xs text-slate-500 ml-2">(preencha para buscar dados automaticamente)</span>
-              </Label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input
-                  id="cnpj"
-                  value={formData.cnpj}
-                  onChange={(e) => handleCNPJChange(e.target.value)}
-                  placeholder="12.345.678/0001-90"
-                  className="pl-10 bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
-                />
-                {loadingCNPJ && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 animate-spin" />
-                )}
-              </div>
-              {errors.cnpj && <p className="text-xs text-red-400">{errors.cnpj}</p>}
-            </div>
+            {/* Company Selector */}
+            <CompanySelector
+              value={formData.company_id}
+              onChange={handleCompanySelect}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="company" className="text-slate-300">Empresa</Label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input
-                  id="company"
-                  value={formData.company}
-                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                  placeholder="Nome da empresa"
-                  className="pl-10 bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
-                />
-              </div>
-            </div>
+            {!formData.company_id && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="cnpj" className="text-slate-300">
+                    CNPJ
+                    <span className="text-xs text-slate-500 ml-2">(ou preencha manualmente)</span>
+                  </Label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Input
+                      id="cnpj"
+                      value={formData.cnpj}
+                      onChange={(e) => handleCNPJChange(e.target.value)}
+                      placeholder="12.345.678/0001-90"
+                      className="pl-10 bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
+                    />
+                    {loadingCNPJ && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 animate-spin" />
+                    )}
+                  </div>
+                  {errors.cnpj && <p className="text-xs text-red-400">{errors.cnpj}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="company" className="text-slate-300">Empresa</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Input
+                      id="company"
+                      value={formData.company}
+                      onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                      placeholder="Nome da empresa"
+                      className="pl-10 bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="role" className="text-slate-300">Cargo</Label>
