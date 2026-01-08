@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Kanban, Code2, Megaphone, Target } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Kanban, Code2, Megaphone, Target, Receipt } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
@@ -14,6 +14,7 @@ const allMenuItems = [
   { id: 'chat', label: 'Chat Ao Vivo', icon: MessageSquare, adminOnly: false },
   { id: 'contacts', label: 'Contatos', icon: Users, adminOnly: false },
   { id: 'scheduling', label: 'Agendamentos', icon: Calendar, adminOnly: false },
+  { id: 'collections', label: 'Cobrança', icon: Receipt, adminOnly: true },
   { id: 'campaigns', label: 'Campanhas', icon: Target, adminOnly: true },
   { id: 'prospecting', label: 'Prospecção', icon: Megaphone, adminOnly: true },
   { id: 'team', label: 'Equipe', icon: ShieldCheck, adminOnly: true },
