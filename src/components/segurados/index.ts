@@ -8,6 +8,7 @@ export { CompanySelector } from './CompanySelector';
 export { ImportCompaniesModal } from './ImportCompaniesModal';
 export { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
 export { ImportCompaniesWithContactsModal } from './ImportCompaniesWithContactsModal';
+export { ImportDocumentAIModal } from './ImportDocumentAIModal';
 export { SeguradosTab } from './SeguradosTab';
 export { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 export { AddContactToCompanyModal } from './AddContactToCompanyModal';

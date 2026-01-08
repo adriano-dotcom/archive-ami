@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
@@ -16,6 +16,7 @@ import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { ImportCompaniesModal } from './ImportCompaniesModal';
 import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
 import { ImportCompaniesWithContactsModal } from './ImportCompaniesWithContactsModal';
+import { ImportDocumentAIModal } from './ImportDocumentAIModal';
 import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
@@ -61,6 +62,7 @@ export const SeguradosTab: React.FC = () => {
   const [showImportCompanies, setShowImportCompanies] = useState(false);
   const [showImportContacts, setShowImportContacts] = useState(false);
   const [showImportCompaniesWithContacts, setShowImportCompaniesWithContacts] = useState(false);
+  const [showImportDocumentAI, setShowImportDocumentAI] = useState(false);
   
   // Edit/Delete states
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -407,6 +409,11 @@ export const SeguradosTab: React.FC = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-slate-900 border-slate-700">
+            <DropdownMenuItem onClick={() => setShowImportDocumentAI(true)} className="gap-2 cursor-pointer">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Importar com IA (PDF/Excel/Imagem)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-700" />
             <DropdownMenuItem onClick={() => setShowImportCompaniesWithContacts(true)} className="gap-2 cursor-pointer">
               <Building2 className="w-4 h-4 text-purple-400" />
               Empresas + Contatos (CSV)
@@ -419,6 +426,7 @@ export const SeguradosTab: React.FC = () => {
               <User className="w-4 h-4 text-emerald-400" />
               Apenas Contatos (CSV)
             </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-700" />
             <DropdownMenuItem onClick={downloadCompaniesWithContactsTemplate} className="gap-2 cursor-pointer">
               <Download className="w-4 h-4 text-purple-400" />
               Template Empresas + Contatos
@@ -606,6 +614,13 @@ export const SeguradosTab: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Document AI Modal */}
+      <ImportDocumentAIModal
+        open={showImportDocumentAI}
+        onOpenChange={setShowImportDocumentAI}
+        onSuccess={loadData}
+      />
     </div>
   );
 };
