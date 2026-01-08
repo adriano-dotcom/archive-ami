@@ -80,6 +80,7 @@ interface ExtractedInstallment {
   insured_name: string;
   insured_document: string;
   insured_phone?: string;
+  insured_email?: string;
   branch?: string;
   product?: string;
   status: string;
@@ -88,6 +89,10 @@ interface ExtractedInstallment {
   source?: string;
   confidence: number;
   selected: boolean;
+  // Matching status
+  matchStatus?: 'matched_document' | 'matched_phone' | 'matched_name' | 'new';
+  matchedContactId?: string;
+  matchedContactName?: string;
 }
 
 interface UploadedFile {
@@ -201,6 +206,136 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     } catch {
       return dateStr;
     }
+  };
+
+  // Normalize text for comparison (remove accents, lowercase)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .trim();
+  };
+
+  // Intelligent matching function to link installments to existing contacts
+  const matchInstallmentsToContacts = async (installments: ExtractedInstallment[]): Promise<ExtractedInstallment[]> => {
+    const matchedInstallments: ExtractedInstallment[] = [];
+    
+    for (const inst of installments) {
+      let matchStatus: ExtractedInstallment['matchStatus'] = 'new';
+      let matchedContactId: string | undefined;
+      let matchedContactName: string | undefined;
+      
+      const docClean = inst.insured_document?.replace(/\D/g, '') || '';
+      
+      // Priority 1: Match by CPF/CNPJ (most reliable)
+      if (docClean.length === 11) {
+        const { data: contactByCpf } = await supabase
+          .from('contacts')
+          .select('id, name')
+          .eq('cpf', docClean)
+          .maybeSingle();
+        
+        if (contactByCpf) {
+          matchStatus = 'matched_document';
+          matchedContactId = contactByCpf.id;
+          matchedContactName = contactByCpf.name || undefined;
+        }
+      } else if (docClean.length === 14) {
+        // For CNPJ, find company and its billing contact
+        const { data: company } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('cnpj', docClean)
+          .maybeSingle();
+        
+        if (company) {
+          const { data: billingContact } = await supabase
+            .from('contacts')
+            .select('id, name')
+            .eq('company_id', company.id)
+            .eq('is_billing_contact', true)
+            .maybeSingle();
+          
+          if (billingContact) {
+            matchStatus = 'matched_document';
+            matchedContactId = billingContact.id;
+            matchedContactName = billingContact.name || undefined;
+          }
+        }
+      }
+      
+      // Priority 2: Match by phone (if no document match)
+      if (!matchedContactId && inst.insured_phone) {
+        const phoneClean = inst.insured_phone.replace(/\D/g, '');
+        if (phoneClean.length >= 10) {
+          // Try exact match first
+          let { data: contactByPhone } = await supabase
+            .from('contacts')
+            .select('id, name')
+            .eq('phone_number', phoneClean)
+            .maybeSingle();
+          
+          // If no exact match, try matching last 9 digits
+          if (!contactByPhone && phoneClean.length >= 9) {
+            const last9 = phoneClean.slice(-9);
+            const { data: contactByPartialPhone } = await supabase
+              .from('contacts')
+              .select('id, name, phone_number')
+              .ilike('phone_number', `%${last9}`)
+              .limit(1);
+            
+            if (contactByPartialPhone && contactByPartialPhone.length > 0) {
+              contactByPhone = contactByPartialPhone[0];
+            }
+          }
+          
+          if (contactByPhone) {
+            matchStatus = 'matched_phone';
+            matchedContactId = contactByPhone.id;
+            matchedContactName = contactByPhone.name || undefined;
+          }
+        }
+      }
+      
+      // Priority 3: Match by name (similarity search)
+      if (!matchedContactId && inst.insured_name) {
+        const normalizedName = normalizeText(inst.insured_name);
+        const nameParts = normalizedName.split(' ').filter(p => p.length > 2);
+        
+        if (nameParts.length >= 2) {
+          // Search using first and last significant name parts
+          const searchPattern = `%${nameParts[0]}%${nameParts[nameParts.length - 1]}%`;
+          
+          const { data: contactsByName } = await supabase
+            .from('contacts')
+            .select('id, name')
+            .ilike('name', searchPattern)
+            .limit(1);
+          
+          if (contactsByName && contactsByName.length > 0) {
+            matchStatus = 'matched_name';
+            matchedContactId = contactsByName[0].id;
+            matchedContactName = contactsByName[0].name || undefined;
+          }
+        }
+      }
+      
+      matchedInstallments.push({
+        ...inst,
+        matchStatus,
+        matchedContactId,
+        matchedContactName
+      });
+    }
+    
+    const matchedCount = matchedInstallments.filter(i => i.matchStatus !== 'new').length;
+    if (matchedCount > 0) {
+      toast.success(`${matchedCount} parcela(s) vinculada(s) a clientes existentes`);
+    }
+    
+    return matchedInstallments;
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -520,16 +655,23 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         isEditing: false
       }));
 
-      const extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
+      let extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
         ...inst,
         id: `installment-${i}-${Date.now()}`,
-        selected: true
+        selected: true,
+        matchStatus: 'new' as const
       }));
 
       if (extractedCompanies.length === 0 && extractedContacts.length === 0 && extractedInstallments.length === 0) {
         toast.warning('Nenhum dado foi identificado nos documentos');
         setStep('upload');
         return;
+      }
+
+      // Run intelligent matching for installments
+      if (extractedInstallments.length > 0) {
+        toast.info('Vinculando parcelas a clientes existentes...');
+        extractedInstallments = await matchInstallmentsToContacts(extractedInstallments);
       }
 
       setCompanies(extractedCompanies);
@@ -701,10 +843,11 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         const inst = selectedInstallments[i];
         
         try {
-          // First, find or create contact based on document
-          let contactId: string | null = null;
+          // Use pre-matched contact if available
+          let contactId: string | null = inst.matchedContactId || null;
           
-          if (inst.insured_phone) {
+          // If not pre-matched, try to find contact from our import map
+          if (!contactId && inst.insured_phone) {
             contactId = contactIdMap.get(inst.insured_phone) || null;
           }
           
@@ -747,25 +890,35 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // Create contact if not found and we have a phone
-          if (!contactId && inst.insured_phone) {
-            const cleanPhone = inst.insured_phone.replace(/\D/g, '');
-            if (cleanPhone.length >= 10) {
-              const { data: newContact } = await supabase
-                .from('contacts')
-                .upsert({
-                  phone_number: cleanPhone,
-                  name: inst.insured_name,
-                  cpf: inst.insured_document?.length === 11 ? inst.insured_document : null,
-                  cnpj: inst.insured_document?.length === 14 ? inst.insured_document : null,
-                  is_billing_contact: true
-                }, { onConflict: 'phone_number' })
-                .select('id')
-                .single();
-              
-              if (newContact) {
-                contactId = newContact.id;
-              }
+          // Create contact if not found - either with phone or with pending phone
+          if (!contactId) {
+            const cleanPhone = inst.insured_phone?.replace(/\D/g, '') || '';
+            const docClean = inst.insured_document?.replace(/\D/g, '') || '';
+            
+            // Generate phone: real phone, or temporary based on document/name
+            let phoneNumber = cleanPhone.length >= 10 ? cleanPhone : null;
+            if (!phoneNumber) {
+              // Create with pending phone for later manual update
+              phoneNumber = docClean ? `PENDENTE_${docClean}` : `PENDENTE_${Date.now()}`;
+            }
+            
+            const { data: newContact } = await supabase
+              .from('contacts')
+              .upsert({
+                phone_number: phoneNumber,
+                name: inst.insured_name,
+                email: inst.insured_email || null,
+                cpf: docClean.length === 11 ? docClean : null,
+                cnpj: docClean.length === 14 ? docClean : null,
+                is_billing_contact: true,
+                lead_source: 'import_cobranca',
+                tags: cleanPhone.length < 10 ? ['telefone_pendente'] : null
+              }, { onConflict: 'phone_number' })
+              .select('id')
+              .single();
+            
+            if (newContact) {
+              contactId = newContact.id;
             }
           }
           
@@ -894,6 +1047,39 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       return <Badge className="bg-amber-500/20 text-amber-400 text-xs">Média</Badge>;
     } else {
       return <Badge className="bg-red-500/20 text-red-400 text-xs">Baixa</Badge>;
+    }
+  };
+
+  const getMatchStatusBadge = (status?: ExtractedInstallment['matchStatus'], matchedName?: string) => {
+    switch (status) {
+      case 'matched_document':
+        return (
+          <Badge className="bg-emerald-500/20 text-emerald-400 text-xs whitespace-nowrap">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            CPF/CNPJ
+          </Badge>
+        );
+      case 'matched_phone':
+        return (
+          <Badge className="bg-blue-500/20 text-blue-400 text-xs whitespace-nowrap">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Telefone
+          </Badge>
+        );
+      case 'matched_name':
+        return (
+          <Badge className="bg-amber-500/20 text-amber-400 text-xs whitespace-nowrap">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Nome
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-purple-500/20 text-purple-400 text-xs whitespace-nowrap">
+            <User className="w-3 h-3 mr-1" />
+            Novo
+          </Badge>
+        );
     }
   };
 
@@ -1214,13 +1400,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                         <TableRow className="bg-slate-800/50 hover:bg-slate-800/50">
                           <TableHead className="w-10"></TableHead>
                           <TableHead>Segurado</TableHead>
+                          <TableHead>Vinculação</TableHead>
                           <TableHead>CPF/CNPJ</TableHead>
                           <TableHead>Apólice</TableHead>
                           <TableHead className="text-center">Parcela</TableHead>
                           <TableHead className="text-right">Valor</TableHead>
                           <TableHead>Vencimento</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead className="text-center">Conf.</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1235,8 +1421,16 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                                 onCheckedChange={() => toggleInstallmentSelection(inst.id)}
                               />
                             </TableCell>
-                            <TableCell className="font-medium text-slate-200 max-w-[200px] truncate">
-                              {inst.insured_name}
+                            <TableCell className="font-medium text-slate-200 max-w-[180px]">
+                              <div className="truncate" title={inst.insured_name}>{inst.insured_name}</div>
+                              {inst.matchedContactName && inst.matchedContactName !== inst.insured_name && (
+                                <div className="text-xs text-slate-500 truncate" title={`Vinculado a: ${inst.matchedContactName}`}>
+                                  → {inst.matchedContactName}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {getMatchStatusBadge(inst.matchStatus, inst.matchedContactName)}
                             </TableCell>
                             <TableCell className="text-slate-400 text-sm">
                               {formatDocument(inst.insured_document)}
@@ -1265,9 +1459,6 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             </TableCell>
                             <TableCell>
                               {getStatusBadge(inst.status)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {getConfidenceBadge(inst.confidence)}
                             </TableCell>
                           </TableRow>
                         ))}
