@@ -24,10 +24,8 @@ import { SeguradosTab } from './segurados';
 
 const statusOptions = [
   { value: 'new', label: 'Novo Lead', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  { value: 'lead', label: 'Em Qualificação', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
-  { value: 'qualified', label: 'Qualificado', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
   { value: 'customer', label: 'Cliente Ativo', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  { value: 'churned', label: 'Perdido', color: 'bg-slate-800 text-slate-400 border-slate-700' }
+  { value: 'third_party_claim', label: 'Terceiro Sinistro', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
 ];
 
 interface ExtendedContact extends Contact {
