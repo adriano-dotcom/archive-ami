@@ -354,7 +354,7 @@ export const ImportPanel: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg text-slate-200">Mapear Colunas</CardTitle>
-                <CardDescription>
+                <CardDescription className="text-slate-400">
                   Associe as colunas do arquivo aos campos do sistema
                 </CardDescription>
               </div>
@@ -376,15 +376,15 @@ export const ImportPanel: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {REQUIRED_FIELDS.map(field => (
                 <div key={field.key} className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2 text-slate-100">
                     {field.label}
-                    {field.required && <Badge variant="outline" className="text-xs">Obrigatório</Badge>}
+                    {field.required && <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/50">Obrigatório</Badge>}
                   </Label>
                   <Select 
                     value={columnMapping[field.key] || '__none__'} 
                     onValueChange={(v) => handleMappingChange(field.key, v === '__none__' ? '' : v)}
                   >
-                    <SelectTrigger className="bg-slate-800/50 border-white/10">
+                    <SelectTrigger className="bg-slate-800/50 border-white/20 text-slate-100">
                       <SelectValue placeholder="Selecione a coluna" />
                     </SelectTrigger>
                     <SelectContent>
@@ -401,7 +401,7 @@ export const ImportPanel: React.FC = () => {
             </div>
 
             <div className="flex gap-4 mt-6">
-              <Button variant="outline" onClick={resetImport} className="border-white/10">
+              <Button variant="outline" onClick={resetImport} className="border-white/20 text-slate-200 hover:bg-slate-700/50">
                 Cancelar
               </Button>
               <Button 
@@ -416,7 +416,7 @@ export const ImportPanel: React.FC = () => {
                   const name = prompt('Nome do mapeamento:');
                   if (name) saveMappingMutation.mutate(name);
                 }}
-                className="border-white/10"
+                className="border-white/20 text-slate-200 hover:bg-slate-700/50"
               >
                 Salvar Mapeamento
               </Button>
