@@ -109,6 +109,12 @@ NÃO inclua explicações, apenas o JSON.`;
 const INSURANCE_EXTRACTION_PROMPT = `Você é um especialista em processamento de relatórios de inadimplência de seguradoras brasileiras.
 Analise o documento e extraia TODAS as parcelas pendentes/inadimplentes.
 
+EXTRAÇÃO DE DADOS DE CONTATO (MUITO IMPORTANTE):
+- Sempre tente extrair o TELEFONE do segurado/cliente quando disponível no documento
+- Procure por padrões como: (XX) XXXXX-XXXX, XX XXXXX-XXXX, 11999998888, etc.
+- Extraia EMAIL se disponível: procure por padrões user@domain.com
+- Se o telefone ou email estiver em qualquer lugar do documento associado ao segurado, extraia-o
+
 SEGURADORAS CONHECIDAS E SEUS FORMATOS:
 
 1. AKAD Digital: 
@@ -157,12 +163,13 @@ REGRAS DE EXTRAÇÃO:
 1. DATAS: Converta SEMPRE para formato YYYY-MM-DD (ex: 25/12/2025 → 2025-12-25)
 2. VALORES: Remova R$, pontos de milhar, converta vírgula decimal para ponto (ex: R$ 1.234,56 → 1234.56)
 3. CPF/CNPJ: Apenas números (11 dígitos = CPF, 14 dígitos = CNPJ)
-4. TELEFONE: Se encontrar, apenas números com DDD (10-11 dígitos)
-5. STATUS: Use "PENDENTE", "VENCIDO" ou "ATRASADO"
-6. days_overdue: Calcule se houver "dias em atraso" ou se a data de vencimento for anterior a hoje
-7. policy_number: Número da apólice (pode incluir barra e endosso, ex: "540/592978")
-8. endorsement: Se separado, extraia o número do endosso
-9. branch: Ramo do seguro se disponível (ex: 309, 312, 531)
+4. TELEFONE: SEMPRE tente extrair se disponível, apenas números com DDD (10-11 dígitos). Procure em qualquer parte do documento.
+5. EMAIL: Extraia se disponível no documento, associado ao segurado
+6. STATUS: Use "PENDENTE", "VENCIDO" ou "ATRASADO"
+7. days_overdue: Calcule se houver "dias em atraso" ou se a data de vencimento for anterior a hoje
+8. policy_number: Número da apólice (pode incluir barra e endosso, ex: "540/592978")
+9. endorsement: Se separado, extraia o número do endosso
+10. branch: Ramo do seguro se disponível (ex: 309, 312, 531)
 
 IMPORTANTE:
 - Extraia TODAS as linhas/parcelas do documento
@@ -187,7 +194,8 @@ Retorne APENAS um JSON válido no formato:
       "cancellation_date": "2026-02-23",
       "insured_name": "MBL TRANSPORTES E NEGOCIOS LTDA",
       "insured_document": "12467840000148",
-      "insured_phone": "",
+      "insured_phone": "43999998888",
+      "insured_email": "contato@mbl.com.br",
       "branch": "309",
       "product": "Transporte",
       "status": "PENDENTE",

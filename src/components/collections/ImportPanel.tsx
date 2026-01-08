@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, FileSpreadsheet, Check, X, AlertTriangle, Loader2, Download } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, X, AlertTriangle, Loader2, Download, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { ImportDocumentAIModal } from '@/components/segurados/ImportDocumentAIModal';
 
 interface ColumnMapping {
   [key: string]: string;
@@ -38,6 +39,7 @@ export const ImportPanel: React.FC = () => {
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'importing' | 'done'>('upload');
   const [importProgress, setImportProgress] = useState({ success: 0, error: 0, total: 0 });
+  const [showAIImportModal, setShowAIImportModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: savedMappings } = useQuery({
@@ -333,19 +335,41 @@ export const ImportPanel: React.FC = () => {
               </p>
             </div>
 
-            <div className="mt-6 flex justify-center">
-              <Button 
-                variant="outline" 
-                onClick={downloadTemplate}
-                className="gap-2 border-white/10"
-              >
-                <Download className="w-4 h-4" />
-                Baixar Template de Exemplo
-              </Button>
+            <div className="mt-6 flex flex-col items-center gap-4">
+              <div className="flex gap-4">
+                <Button 
+                  onClick={() => setShowAIImportModal(true)}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Importar com IA
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={downloadTemplate}
+                  className="gap-2 border-white/20 text-slate-200 hover:bg-slate-700/50"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Template
+                </Button>
+              </div>
+              <p className="text-sm text-slate-500">
+                Ou arraste um arquivo CSV/Excel para mapeamento manual
+              </p>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* AI Import Modal */}
+      <ImportDocumentAIModal 
+        open={showAIImportModal}
+        onOpenChange={setShowAIImportModal}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['installments'] });
+          queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
+        }}
+      />
 
       {/* Mapping Step */}
       {step === 'mapping' && (
