@@ -23,11 +23,11 @@ interface ParsedRow {
 const REQUIRED_FIELDS = [
   { key: 'name', label: 'Nome do Segurado', required: false },
   { key: 'phone', label: 'Telefone', required: false },
-  { key: 'policy_number', label: 'Nº Apólice', required: true },
+  { key: 'policy_number', label: 'Nº Apólice', required: false },
   { key: 'insurer', label: 'Seguradora', required: false },
-  { key: 'installment', label: 'Nº Parcela', required: true },
-  { key: 'value', label: 'Valor', required: true },
-  { key: 'due_date', label: 'Vencimento', required: true },
+  { key: 'installment', label: 'Nº Parcela', required: false },
+  { key: 'value', label: 'Valor', required: false },
+  { key: 'due_date', label: 'Vencimento', required: false },
   { key: 'email', label: 'Email', required: false },
   { key: 'cpf', label: 'CPF/CNPJ', required: false },
 ];
