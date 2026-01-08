@@ -133,6 +133,26 @@ SEGURADORAS CONHECIDAS E SEUS FORMATOS:
    - Campos: Parceiro de Negócio, Segurado, CPF/CNPJ, Apólice, Parcela, Valor Parcela, Vencimento
    - Sistema Origem: ACX
 
+6. Porto Seguro:
+   - Campos: APÓLICE, SEGURADO, CPF/CNPJ, PARCELA, VALOR, VENCIMENTO, SITUAÇÃO
+   - Pode ter "Porto Seguro" ou "portoseguro" no cabeçalho/rodapé
+   - Sistema Portal do Corretor ou extranet
+
+7. HDI Seguros:
+   - Campos: PROPOSTA, APÓLICE, SEGURADO, CPF/CNPJ, PRÊMIO, DATA VENCIMENTO
+   - Relatório pode ter "HDI" ou "hdi.com.br"
+   - Portal do Corretor HDI
+
+8. Mapfre:
+   - Campos: APÓLICE, ENDOSSO, SEGURADO, CPF/CNPJ, PARCELA, VALOR, VENCIMENTO
+   - Pode ter "MAPFRE" ou "mapfre.com.br" no documento
+   - Relatório de pendências ou comissões
+
+9. Bradesco Seguros:
+   - Campos: APÓLICE, SEGURADO, CPF/CNPJ, PARCELA, PRÊMIO, VENCIMENTO, STATUS
+   - Relatório pode ter "Bradesco Seguros" ou "bradescoseguros.com.br"
+   - Portal de corretores Bradesco
+
 REGRAS DE EXTRAÇÃO:
 1. DATAS: Converta SEMPRE para formato YYYY-MM-DD (ex: 25/12/2025 → 2025-12-25)
 2. VALORES: Remova R$, pontos de milhar, converta vírgula decimal para ponto (ex: R$ 1.234,56 → 1234.56)
@@ -186,38 +206,83 @@ function detectInsuranceReport(fileName: string, textContent?: string): { isInsu
   const lowerName = fileName.toLowerCase();
   const lowerContent = (textContent || '').toLowerCase();
   
-  // Check filename patterns
+  // ===== DETECÇÃO POR NOME DO ARQUIVO =====
+  
+  // AKAD
   if (lowerName.includes('inadimplente') || lowerName.includes('akaddigital') || lowerName.includes('akad')) {
     return { isInsurance: true, insurer: 'AKAD' };
   }
+  // Allianz
   if (lowerName.includes('gerararquivoservlet') || lowerName.includes('allianz')) {
     return { isInsurance: true, insurer: 'ALLIANZ' };
   }
+  // Tokio Marine
   if (lowerName.includes('gestao_de_inadimplentes') || lowerName.includes('tokio') || lowerName.includes('tokiomarine')) {
     return { isInsurance: true, insurer: 'TOKIO MARINE' };
   }
+  // Sompo
   if (lowerName.includes('sompo') || lowerName.includes('parcelas')) {
     return { isInsurance: true, insurer: 'SOMPO' };
   }
+  // ACX
   if (lowerName.includes('acx')) {
     return { isInsurance: true, insurer: 'ACX' };
   }
+  // Porto Seguro
+  if (lowerName.includes('portoseguro') || lowerName.includes('porto_seguro') || lowerName.includes('porto-seguro')) {
+    return { isInsurance: true, insurer: 'PORTO SEGURO' };
+  }
+  // HDI
+  if (lowerName.includes('hdi')) {
+    return { isInsurance: true, insurer: 'HDI' };
+  }
+  // Mapfre
+  if (lowerName.includes('mapfre')) {
+    return { isInsurance: true, insurer: 'MAPFRE' };
+  }
+  // Bradesco Seguros
+  if (lowerName.includes('bradesco') || lowerName.includes('bradescoseguros')) {
+    return { isInsurance: true, insurer: 'BRADESCO SEGUROS' };
+  }
   
-  // Check content patterns
+  // ===== DETECÇÃO POR CONTEÚDO DO DOCUMENTO =====
+  
+  // Allianz
   if (lowerContent.includes('pol_susep') || lowerContent.includes('dt_prev_canc')) {
     return { isInsurance: true, insurer: 'ALLIANZ' };
   }
+  // Tokio Marine
   if (lowerContent.includes('premio_liq_atual') || lowerContent.includes('dt_prev_cancelamento')) {
     return { isInsurance: true, insurer: 'TOKIO MARINE' };
   }
+  // Sompo
   if (lowerContent.includes('parcelas de apólice') || lowerContent.includes('sompo.com.br')) {
     return { isInsurance: true, insurer: 'SOMPO' };
   }
-  if (lowerContent.includes('dias em atraso') || lowerContent.includes('situação') && lowerContent.includes('apólice')) {
-    return { isInsurance: true, insurer: 'UNKNOWN' };
-  }
+  // ACX
   if (lowerContent.includes('sistema origem') && lowerContent.includes('acx')) {
     return { isInsurance: true, insurer: 'ACX' };
+  }
+  // Porto Seguro
+  if (lowerContent.includes('porto seguro') || lowerContent.includes('portoseguro.com.br') || lowerContent.includes('portal corretor porto')) {
+    return { isInsurance: true, insurer: 'PORTO SEGURO' };
+  }
+  // HDI
+  if (lowerContent.includes('hdi seguros') || lowerContent.includes('hdi.com.br') || lowerContent.includes('portal hdi')) {
+    return { isInsurance: true, insurer: 'HDI' };
+  }
+  // Mapfre
+  if (lowerContent.includes('mapfre') || lowerContent.includes('mapfre.com.br')) {
+    return { isInsurance: true, insurer: 'MAPFRE' };
+  }
+  // Bradesco Seguros
+  if (lowerContent.includes('bradesco seguros') || lowerContent.includes('bradescoseguros.com.br') || lowerContent.includes('portal bradesco')) {
+    return { isInsurance: true, insurer: 'BRADESCO SEGUROS' };
+  }
+  
+  // Detecção genérica de relatório de seguros
+  if (lowerContent.includes('dias em atraso') || (lowerContent.includes('situação') && lowerContent.includes('apólice'))) {
+    return { isInsurance: true, insurer: 'UNKNOWN' };
   }
   
   return { isInsurance: false };
