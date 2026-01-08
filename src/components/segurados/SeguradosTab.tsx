@@ -15,6 +15,7 @@ import { EditCompanyModal } from './EditCompanyModal';
 import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { ImportCompaniesModal } from './ImportCompaniesModal';
 import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
+import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -65,6 +66,9 @@ export const SeguradosTab: React.FC = () => {
   const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
   const [deletingSegurado, setDeletingSegurado] = useState<SeguradoPF | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Company details drawer
+  const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
 
   const downloadCompaniesTemplate = () => {
     const headers = 'cnpj;razao_social;nome_fantasia;cep;cidade;estado\n';
@@ -252,7 +256,7 @@ export const SeguradosTab: React.FC = () => {
   };
 
   const handleSelectCompany = (company: Company) => {
-    toast.info(`Detalhes da empresa: ${company.razao_social}`);
+    setSelectedCompanyDetails(company);
   };
 
   const handleSelectSegurado = (segurado: SeguradoPF) => {
@@ -510,6 +514,19 @@ export const SeguradosTab: React.FC = () => {
         open={showImportContacts}
         onOpenChange={setShowImportContacts}
         onSuccess={loadData}
+      />
+
+      {/* Company Details Drawer */}
+      <CompanyDetailsDrawer
+        open={!!selectedCompanyDetails}
+        onOpenChange={(open) => !open && setSelectedCompanyDetails(null)}
+        company={selectedCompanyDetails}
+        onEdit={() => {
+          const company = selectedCompanyDetails;
+          setSelectedCompanyDetails(null);
+          setEditingCompany(company);
+        }}
+        onRefresh={loadData}
       />
 
       {/* Delete Confirmation Dialogs */}
