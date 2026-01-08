@@ -93,7 +93,6 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
 
   const [formData, setFormData] = useState({
     name: '',
-    call_name: '',
     cpf: '',
     phone: '',
     email: '',
@@ -129,7 +128,6 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
 
       setFormData({
         name: data.name || '',
-        call_name: data.call_name || '',
         cpf: data.cpf ? formatCPF(data.cpf) : '',
         phone: data.phone_number || '',
         email: data.email || '',
@@ -240,7 +238,6 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
         .from('contacts')
         .update({
           name: formData.name.trim(),
-          call_name: formData.call_name.trim() || null,
           phone_number: phoneDigits,
           cpf: cpfDigits,
           email: formData.email.trim() || null,
@@ -312,20 +309,6 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
                 </div>
 
                 <div>
-                  <Label className="text-slate-300">
-                    Nome WhatsApp
-                    <span className="text-xs text-slate-500 ml-2">(opcional)</span>
-                  </Label>
-                  <Input
-                    value={formData.call_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, call_name: e.target.value }))}
-                    placeholder="Ex: João, Maria, Sr. Carlos"
-                    className="bg-slate-950 border-slate-700 text-slate-100"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Nome usado nos disparos de WhatsApp</p>
-                </div>
-
-                <div>
                   <Label className="text-slate-300">CPF</Label>
                   <div className="relative">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -342,7 +325,7 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-slate-300">Telefone *</Label>
+                    <Label className="text-slate-300">WhatsApp *</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
                       <PhoneInput

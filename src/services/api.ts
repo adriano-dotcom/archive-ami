@@ -462,7 +462,6 @@ export const api = {
    */
   updateContact: async (id: string, data: {
     name?: string;
-    call_name?: string | null;
     phone_number?: string;
     email?: string | null;
     company?: string | null;
