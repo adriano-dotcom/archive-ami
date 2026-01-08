@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
 import { CreateCompanyModal } from './CreateCompanyModal';
 import { CreateSeguradoPFModal } from './CreateSeguradoPFModal';
+import { ImportCompaniesModal } from './ImportCompaniesModal';
+import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -50,6 +53,33 @@ export const SeguradosTab: React.FC = () => {
   const [seguradosPF, setSeguradosPF] = useState<SeguradoPF[]>([]);
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
+  const [showImportCompanies, setShowImportCompanies] = useState(false);
+  const [showImportContacts, setShowImportContacts] = useState(false);
+
+  const downloadCompaniesTemplate = () => {
+    const headers = 'cnpj;razao_social;nome_fantasia;cep;cidade;estado\n';
+    const example = '12345678000190;Empresa ABC Ltda;ABC Transportes;86000000;Londrina;PR\n';
+    const blob = new Blob([headers + example], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_empresas.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadContactsTemplate = () => {
+    const headers = 'nome;telefone;email;cpf;cnpj;cargo;contato_cobranca;cep;cidade;estado\n';
+    const example1 = 'João Silva;43999998888;joao@email.com;12345678900;12345678000190;Gerente;sim;86000000;Londrina;PR\n';
+    const example2 = 'Maria Santos;43988887777;maria@email.com;98765432100;;;nao;86000000;Londrina;PR\n';
+    const blob = new Blob([headers + example1 + example2], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_contatos_segurados.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const loadCompanies = async () => {
     try {
@@ -257,6 +287,35 @@ export const SeguradosTab: React.FC = () => {
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+
+        {/* Import Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="border-white/10 gap-2">
+              <Upload className="w-4 h-4" />
+              Importar
+              <ChevronDown className="w-3 h-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-slate-900 border-slate-700">
+            <DropdownMenuItem onClick={() => setShowImportCompanies(true)} className="gap-2 cursor-pointer">
+              <Building2 className="w-4 h-4 text-blue-400" />
+              Importar Empresas (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowImportContacts(true)} className="gap-2 cursor-pointer">
+              <User className="w-4 h-4 text-emerald-400" />
+              Importar Contatos (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={downloadCompaniesTemplate} className="gap-2 cursor-pointer">
+              <Download className="w-4 h-4 text-slate-400" />
+              Template Empresas
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={downloadContactsTemplate} className="gap-2 cursor-pointer">
+              <Download className="w-4 h-4 text-slate-400" />
+              Template Contatos
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         
         {activeSubTab === 'pj' ? (
           <Button
@@ -335,6 +394,16 @@ export const SeguradosTab: React.FC = () => {
       <CreateSeguradoPFModal
         open={showCreateSeguradoPF}
         onOpenChange={setShowCreateSeguradoPF}
+        onSuccess={loadData}
+      />
+      <ImportCompaniesModal
+        open={showImportCompanies}
+        onOpenChange={setShowImportCompanies}
+        onSuccess={loadData}
+      />
+      <ImportContactsSeguradosModal
+        open={showImportContacts}
+        onOpenChange={setShowImportContacts}
         onSuccess={loadData}
       />
     </div>
