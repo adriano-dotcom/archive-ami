@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ProspectingDashboard from './components/ProspectingDashboard';
@@ -20,6 +21,8 @@ import { UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
+
+const queryClient = new QueryClient();
 
 // Default redirect component - redirects all users to /chat
 const DefaultRedirect: React.FC = () => {
@@ -50,46 +53,48 @@ const AppLayout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <CompanySettingsProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Auth Route */}
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
-            <Route path="/meeting/:id" element={<MeetingRoom />} />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <CompanySettingsProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Auth Route */}
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
+              <Route path="/meeting/:id" element={<MeetingRoom />} />
 
-            {/* Rotas Internas (Com Sidebar) - Protected */}
-            <Route element={
-              <ProtectedRoute>
-                <UnreadMessagesProvider>
-                  <AppLayout />
-                </UnreadMessagesProvider>
-              </ProtectedRoute>
-            }>
-              <Route path="/" element={<DefaultRedirect />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/kanban" element={<Kanban />} />
-              <Route path="/chat" element={<ChatInterface />} />
-              <Route path="/contacts" element={<Contacts />} />
-              <Route path="/scheduling" element={<Scheduling />} />
-              <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
-              <Route path="/functions" element={<AdminRoute><Functions /></AdminRoute>} />
-              <Route path="/prospecting" element={<AdminRoute><ProspectingDashboard /></AdminRoute>} />
-              <Route path="/campaigns" element={<AdminRoute><CampaignsDashboard /></AdminRoute>} />
-              <Route path="/collections" element={<AdminRoute><CollectionsDashboard /></AdminRoute>} />
-              <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-        <Toaster 
-          position="top-right"
-          richColors
-          theme="dark"
-        />
-      </CompanySettingsProvider>
-    </AuthProvider>
+              {/* Rotas Internas (Com Sidebar) - Protected */}
+              <Route element={
+                <ProtectedRoute>
+                  <UnreadMessagesProvider>
+                    <AppLayout />
+                  </UnreadMessagesProvider>
+                </ProtectedRoute>
+              }>
+                <Route path="/" element={<DefaultRedirect />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/kanban" element={<Kanban />} />
+                <Route path="/chat" element={<ChatInterface />} />
+                <Route path="/contacts" element={<Contacts />} />
+                <Route path="/scheduling" element={<Scheduling />} />
+                <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
+                <Route path="/functions" element={<AdminRoute><Functions /></AdminRoute>} />
+                <Route path="/prospecting" element={<AdminRoute><ProspectingDashboard /></AdminRoute>} />
+                <Route path="/campaigns" element={<AdminRoute><CampaignsDashboard /></AdminRoute>} />
+                <Route path="/collections" element={<AdminRoute><CollectionsDashboard /></AdminRoute>} />
+                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+          <Toaster 
+            position="top-right"
+            richColors
+            theme="dark"
+          />
+        </CompanySettingsProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
