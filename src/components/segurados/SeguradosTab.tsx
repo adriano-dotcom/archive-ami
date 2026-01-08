@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, Filter, RefreshCw } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
+import { CreateCompanyModal } from './CreateCompanyModal';
+import { CreateSeguradoPFModal } from './CreateSeguradoPFModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -46,6 +48,8 @@ export const SeguradosTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [seguradosPF, setSeguradosPF] = useState<SeguradoPF[]>([]);
+  const [showCreateCompany, setShowCreateCompany] = useState(false);
+  const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
 
   const loadCompanies = async () => {
     try {
@@ -253,6 +257,26 @@ export const SeguradosTab: React.FC = () => {
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+        
+        {activeSubTab === 'pj' ? (
+          <Button
+            size="sm"
+            onClick={() => setShowCreateCompany(true)}
+            className="bg-blue-600 hover:bg-blue-700 gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Empresa
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={() => setShowCreateSeguradoPF(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Segurado PF
+          </Button>
+        )}
       </div>
 
       {/* Sub-tabs for PJ and PF */}
@@ -301,6 +325,18 @@ export const SeguradosTab: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modals */}
+      <CreateCompanyModal
+        open={showCreateCompany}
+        onOpenChange={setShowCreateCompany}
+        onSuccess={loadData}
+      />
+      <CreateSeguradoPFModal
+        open={showCreateSeguradoPF}
+        onOpenChange={setShowCreateSeguradoPF}
+        onSuccess={loadData}
+      />
     </div>
   );
 };

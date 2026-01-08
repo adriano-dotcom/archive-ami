@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, User, Phone, Mail, Building2, FileText, Loader2, MapPin, Search, Download, Upload } from 'lucide-react';
+import { X, User, Phone, Mail, Building2, FileText, Loader2, MapPin, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -117,9 +117,11 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
     name: '',
     phone: '',
     email: '',
+    cpf: '',
+    role: '',
+    is_billing_contact: false,
     company: '',
     cnpj: '',
-    fleet_size: '',
     notes: '',
     cep: '',
     street: '',
@@ -127,31 +129,15 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
     complement: '',
     neighborhood: '',
     city: '',
-    state: '',
-    leadSource: 'inbound' as 'inbound' | 'outbound'
+    state: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [listCounts, setListCounts] = useState({ inbound: 0, outbound: 0 });
-
-  // Fetch list counts when modal opens
-  useEffect(() => {
-    const fetchCounts = async () => {
-      const { data } = await supabase
-        .from('contacts')
-        .select('lead_source');
-      
-      const inbound = data?.filter(c => c.lead_source === 'inbound').length || 0;
-      const outbound = data?.filter(c => c.lead_source === 'outbound').length || 0;
-      setListCounts({ inbound, outbound });
-    };
-    if (open) fetchCounts();
-  }, [open]);
 
   const resetForm = () => {
     setFormData({ 
-      name: '', phone: '', email: '', company: '', cnpj: '', fleet_size: '', notes: '',
-      cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '',
-      leadSource: 'inbound'
+      name: '', phone: '', email: '', cpf: '', role: '', is_billing_contact: false,
+      company: '', cnpj: '', notes: '', cep: '', street: '', number: '', 
+      complement: '', neighborhood: '', city: '', state: ''
     });
     setErrors({});
   };
@@ -281,9 +267,11 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
         name: formData.name.trim(),
         phone_number: phoneDigits,
         email: formData.email.trim() || null,
+        cpf: formData.cpf.replace(/\D/g, '') || null,
+        role: formData.role.trim() || null,
+        is_billing_contact: formData.is_billing_contact,
         company: formData.company.trim() || null,
         cnpj: cnpjDigits,
-        fleet_size: formData.fleet_size ? parseInt(formData.fleet_size) : null,
         notes: formData.notes.trim() || null,
         cep: cepDigits,
         street: formData.street.trim() || null,
@@ -292,7 +280,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
         neighborhood: formData.neighborhood.trim() || null,
         city: formData.city.trim() || null,
         state: formData.state || null,
-        lead_source: formData.leadSource
+        lead_source: 'inbound'
       });
 
       if (error) throw error;
@@ -353,44 +341,6 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
-          {/* Seletor de Lista */}
-          <div className="space-y-2">
-            <Label className="text-slate-300">
-              Cadastrar na Lista <span className="text-red-400">*</span>
-            </Label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, leadSource: 'inbound' }))}
-                className={cn(
-                  "flex flex-col items-center p-4 rounded-xl border-2 transition-all",
-                  formData.leadSource === 'inbound'
-                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-400"
-                    : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600"
-                )}
-              >
-                <Download className="w-5 h-5 mb-2" />
-                <span className="font-medium">Inbound</span>
-                <span className="text-xs text-slate-500">({listCounts.inbound})</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, leadSource: 'outbound' }))}
-                className={cn(
-                  "flex flex-col items-center p-4 rounded-xl border-2 transition-all",
-                  formData.leadSource === 'outbound'
-                    ? "border-purple-500 bg-purple-500/10 text-purple-400"
-                    : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600"
-                )}
-              >
-                <Upload className="w-5 h-5 mb-2" />
-                <span className="font-medium">Outbound</span>
-                <span className="text-xs text-slate-500">({listCounts.outbound})</span>
-              </button>
-            </div>
-          </div>
-
           {/* Dados Pessoais */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-slate-400 border-b border-slate-800 pb-2">
@@ -445,8 +395,28 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
                     className="pl-10 bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
                   />
                 </div>
-                {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+              {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cpf" className="text-slate-300">CPF</Label>
+              <Input
+                id="cpf"
+                value={formData.cpf}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  let formatted = digits;
+                  if (digits.length <= 3) formatted = digits;
+                  else if (digits.length <= 6) formatted = `${digits.slice(0,3)}.${digits.slice(3)}`;
+                  else if (digits.length <= 9) formatted = `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6)}`;
+                  else formatted = `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9,11)}`;
+                  setFormData(prev => ({ ...prev, cpf: formatted }));
+                }}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
+              />
             </div>
           </div>
 
@@ -492,16 +462,27 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fleet_size" className="text-slate-300">Automotor (Qtd. Veículos)</Label>
+              <Label htmlFor="role" className="text-slate-300">Cargo</Label>
               <Input
-                id="fleet_size"
-                type="number"
-                min="0"
-                value={formData.fleet_size}
-                onChange={(e) => setFormData(prev => ({ ...prev, fleet_size: e.target.value }))}
-                placeholder="Ex: 15"
+                id="role"
+                value={formData.role}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                placeholder="Ex: Gerente, Diretor"
                 className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_billing_contact"
+                checked={formData.is_billing_contact}
+                onChange={(e) => setFormData(prev => ({ ...prev, is_billing_contact: e.target.checked }))}
+                className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500"
+              />
+              <Label htmlFor="is_billing_contact" className="text-slate-300 cursor-pointer">
+                Contato de Cobrança
+              </Label>
             </div>
           </div>
 
