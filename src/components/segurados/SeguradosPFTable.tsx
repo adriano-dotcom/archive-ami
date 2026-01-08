@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText } from 'lucide-react';
+import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -24,13 +24,17 @@ interface SeguradosPFTableProps {
   loading: boolean;
   onSelectSegurado: (segurado: SeguradoPF) => void;
   onOpenConversation: (contactId: string) => void;
+  onEditSegurado: (segurado: SeguradoPF) => void;
+  onDeleteSegurado: (segurado: SeguradoPF) => void;
 }
 
 export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({ 
   segurados, 
   loading, 
   onSelectSegurado,
-  onOpenConversation
+  onOpenConversation,
+  onEditSegurado,
+  onDeleteSegurado
 }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -184,6 +188,28 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                     }}
                   >
                     <MessageSquare className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-slate-400 hover:text-blue-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditSegurado(segurado);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-slate-400 hover:text-red-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSegurado(segurado);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                   <Button 
                     variant="ghost" 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Phone, ChevronRight, Users, AlertTriangle } from 'lucide-react';
+import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,12 +23,16 @@ interface CompaniesTableProps {
   companies: Company[];
   loading: boolean;
   onSelectCompany: (company: Company) => void;
+  onEditCompany: (company: Company) => void;
+  onDeleteCompany: (company: Company) => void;
 }
 
 export const CompaniesTable: React.FC<CompaniesTableProps> = ({ 
   companies, 
   loading, 
-  onSelectCompany 
+  onSelectCompany,
+  onEditCompany,
+  onDeleteCompany
 }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -154,9 +158,38 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                 )}
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200">
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-slate-400 hover:text-blue-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditCompany(company);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-slate-400 hover:text-red-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteCompany(company);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-slate-400 hover:text-slate-200"
+                    onClick={() => onSelectCompany(company)}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

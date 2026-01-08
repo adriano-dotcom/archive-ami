@@ -6,10 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
 import { CreateCompanyModal } from './CreateCompanyModal';
 import { CreateSeguradoPFModal } from './CreateSeguradoPFModal';
+import { EditCompanyModal } from './EditCompanyModal';
+import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { ImportCompaniesModal } from './ImportCompaniesModal';
 import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +58,13 @@ export const SeguradosTab: React.FC = () => {
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
   const [showImportCompanies, setShowImportCompanies] = useState(false);
   const [showImportContacts, setShowImportContacts] = useState(false);
+  
+  // Edit/Delete states
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editingSegurado, setEditingSegurado] = useState<SeguradoPF | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
+  const [deletingSegurado, setDeletingSegurado] = useState<SeguradoPF | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const downloadCompaniesTemplate = () => {
     const headers = 'cnpj;razao_social;nome_fantasia;cep;cidade;estado\n';
@@ -242,13 +252,92 @@ export const SeguradosTab: React.FC = () => {
   };
 
   const handleSelectCompany = (company: Company) => {
-    // TODO: Open company details drawer
     toast.info(`Detalhes da empresa: ${company.razao_social}`);
   };
 
   const handleSelectSegurado = (segurado: SeguradoPF) => {
-    // TODO: Open contact details drawer
     toast.info(`Detalhes do segurado: ${segurado.name}`);
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!deletingCompany) return;
+    
+    setDeleteLoading(true);
+    try {
+      // Check for linked contacts
+      const { count: contactsCount } = await supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', deletingCompany.id);
+
+      if (contactsCount && contactsCount > 0) {
+        toast.error(`Esta empresa possui ${contactsCount} contatos vinculados. Desvincule-os antes de excluir.`);
+        return;
+      }
+
+      // Check for linked policies
+      const { count: policiesCount } = await supabase
+        .from('policies')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', deletingCompany.id);
+
+      if (policiesCount && policiesCount > 0) {
+        toast.error(`Esta empresa possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        return;
+      }
+
+      // Delete company
+      const { error } = await supabase
+        .from('companies')
+        .delete()
+        .eq('id', deletingCompany.id);
+
+      if (error) throw error;
+
+      toast.success('Empresa excluída com sucesso!');
+      setDeletingCompany(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      toast.error('Erro ao excluir empresa');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteSegurado = async () => {
+    if (!deletingSegurado) return;
+    
+    setDeleteLoading(true);
+    try {
+      // Check for linked policies
+      const { count: policiesCount } = await supabase
+        .from('policies')
+        .select('*', { count: 'exact', head: true })
+        .eq('contact_id', deletingSegurado.id);
+
+      if (policiesCount && policiesCount > 0) {
+        toast.error(`Este segurado possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        return;
+      }
+
+      // Delete contact
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', deletingSegurado.id);
+
+      if (error) throw error;
+
+      toast.success('Segurado excluído com sucesso!');
+      setDeletingSegurado(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting segurado:', error);
+      toast.error('Erro ao excluir segurado');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   // Filter data based on search term
@@ -369,6 +458,8 @@ export const SeguradosTab: React.FC = () => {
               companies={filteredCompanies}
               loading={loading}
               onSelectCompany={handleSelectCompany}
+              onEditCompany={(company) => setEditingCompany(company)}
+              onDeleteCompany={(company) => setDeletingCompany(company)}
             />
           </Card>
         </TabsContent>
@@ -380,6 +471,8 @@ export const SeguradosTab: React.FC = () => {
               loading={loading}
               onSelectSegurado={handleSelectSegurado}
               onOpenConversation={handleOpenConversation}
+              onEditSegurado={(segurado) => setEditingSegurado(segurado)}
+              onDeleteSegurado={(segurado) => setDeletingSegurado(segurado)}
             />
           </Card>
         </TabsContent>
@@ -396,6 +489,18 @@ export const SeguradosTab: React.FC = () => {
         onOpenChange={setShowCreateSeguradoPF}
         onSuccess={loadData}
       />
+      <EditCompanyModal
+        open={!!editingCompany}
+        company={editingCompany}
+        onOpenChange={() => setEditingCompany(null)}
+        onSuccess={loadData}
+      />
+      <EditSeguradoPFModal
+        open={!!editingSegurado}
+        segurado={editingSegurado}
+        onOpenChange={() => setEditingSegurado(null)}
+        onSuccess={loadData}
+      />
       <ImportCompaniesModal
         open={showImportCompanies}
         onOpenChange={setShowImportCompanies}
@@ -406,6 +511,55 @@ export const SeguradosTab: React.FC = () => {
         onOpenChange={setShowImportContacts}
         onSuccess={loadData}
       />
+
+      {/* Delete Confirmation Dialogs */}
+      <AlertDialog open={!!deletingCompany} onOpenChange={() => setDeletingCompany(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Empresa</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir a empresa <strong className="text-slate-200">{deletingCompany?.nome_fantasia || deletingCompany?.razao_social}</strong>? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteCompany}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteLoading ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deletingSegurado} onOpenChange={() => setDeletingSegurado(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Segurado</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir o segurado <strong className="text-slate-200">{deletingSegurado?.name}</strong>? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSegurado}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteLoading ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
