@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
   Upload, 
   Sparkles, 
@@ -20,7 +21,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Edit2,
-  Trash2
+  Trash2,
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -82,6 +85,7 @@ const ACCEPTED_TYPES = [
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB - triggers sequential mode recommendation
 
 export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess }) => {
   const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'importing'>('upload');
@@ -91,6 +95,17 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
+  const [sequentialMode, setSequentialMode] = useState(false);
+
+  // Check if any file is large and auto-enable sequential mode
+  const hasLargeFiles = files.some(f => f.file.size > LARGE_FILE_THRESHOLD);
+
+  useEffect(() => {
+    if (hasLargeFiles && !sequentialMode) {
+      setSequentialMode(true);
+      toast.info('Modo sequencial ativado para arquivos grandes');
+    }
+  }, [hasLargeFiles]);
 
   const resetState = () => {
     setStep('upload');
@@ -99,6 +114,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setContacts([]);
     setImporting(false);
     setImportProgress({ current: 0, total: 0 });
+    setSequentialMode(false);
   };
 
   const handleClose = () => {
@@ -201,14 +217,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     });
   };
 
-  const processFiles = async () => {
-    if (files.length === 0) {
-      toast.error('Selecione pelo menos um arquivo');
-      return;
-    }
-
-    setStep('processing');
-
+  // Process files in parallel (all at once)
+  const processFilesParallel = async () => {
     // Update all files to processing
     setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, progress: 10 })));
 
@@ -249,6 +259,170 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       // Update files to done
       setFiles(prev => prev.map(f => ({ ...f, status: 'done' as const, progress: 100 })));
 
+      return data;
+    } catch (error: any) {
+      console.error('Error processing files:', error);
+      setFiles(prev => prev.map(f => ({ 
+        ...f, 
+        status: 'error' as const, 
+        error: error.message || 'Erro ao processar' 
+      })));
+      throw error;
+    }
+  };
+
+  // Process files sequentially (one at a time) - recommended for large files
+  const processFilesSequential = async () => {
+    const allCompanies: any[] = [];
+    const allContacts: any[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+
+      // Skip already processed files
+      if (f.status === 'done') continue;
+
+      // Update status of current file
+      setFiles(prev => prev.map((pf, idx) => 
+        idx === i ? { ...pf, status: 'processing' as const, progress: 10 } : pf
+      ));
+
+      try {
+        const base64 = await fileToBase64(f.file);
+        setFiles(prev => prev.map((pf, idx) => 
+          idx === i ? { ...pf, progress: 40 } : pf
+        ));
+
+        // Send only this file
+        const { data, error } = await supabase.functions.invoke('extract-documents', {
+          body: { 
+            files: [{
+              name: f.file.name,
+              type: f.file.type,
+              content: base64
+            }]
+          }
+        });
+
+        if (error) throw error;
+
+        // Merge results
+        allCompanies.push(...(data.companies || []));
+        allContacts.push(...(data.contacts || []));
+
+        // Mark as done
+        setFiles(prev => prev.map((pf, idx) => 
+          idx === i ? { ...pf, status: 'done' as const, progress: 100 } : pf
+        ));
+
+      } catch (error: any) {
+        // Mark error but continue with next files
+        console.error(`Error processing file ${f.file.name}:`, error);
+        setFiles(prev => prev.map((pf, idx) => 
+          idx === i ? { ...pf, status: 'error' as const, error: error.message || 'Erro ao processar' } : pf
+        ));
+      }
+    }
+
+    return { companies: allCompanies, contacts: allContacts };
+  };
+
+  // Retry a single file that failed
+  const retryFile = async (index: number) => {
+    const f = files[index];
+    
+    setFiles(prev => prev.map((pf, idx) => 
+      idx === index ? { ...pf, status: 'processing' as const, progress: 10, error: undefined } : pf
+    ));
+
+    try {
+      const base64 = await fileToBase64(f.file);
+      setFiles(prev => prev.map((pf, idx) => 
+        idx === index ? { ...pf, progress: 40 } : pf
+      ));
+
+      const { data, error } = await supabase.functions.invoke('extract-documents', {
+        body: { 
+          files: [{
+            name: f.file.name,
+            type: f.file.type,
+            content: base64
+          }]
+        }
+      });
+
+      if (error) throw error;
+
+      // Merge new results with existing
+      const newCompanies: ExtractedCompany[] = (data.companies || []).map((c: any, i: number) => ({
+        ...c,
+        id: `company-retry-${index}-${i}-${Date.now()}`,
+        selected: true,
+        isEditing: false
+      }));
+
+      const newContacts: ExtractedContact[] = (data.contacts || []).map((c: any, i: number) => ({
+        ...c,
+        id: `contact-retry-${index}-${i}-${Date.now()}`,
+        selected: true,
+        isEditing: false
+      }));
+
+      setCompanies(prev => [...prev, ...newCompanies]);
+      setContacts(prev => [...prev, ...newContacts]);
+
+      setFiles(prev => prev.map((pf, idx) => 
+        idx === index ? { ...pf, status: 'done' as const, progress: 100 } : pf
+      ));
+
+      toast.success(`Arquivo processado: ${newCompanies.length} empresas, ${newContacts.length} contatos`);
+
+    } catch (error: any) {
+      console.error(`Error retrying file ${f.file.name}:`, error);
+      setFiles(prev => prev.map((pf, idx) => 
+        idx === index ? { ...pf, status: 'error' as const, error: error.message || 'Erro ao processar' } : pf
+      ));
+      toast.error(`Erro ao reprocessar ${f.file.name}`);
+    }
+  };
+
+  // Continue to review with partial results
+  const continueWithResults = () => {
+    const doneFiles = files.filter(f => f.status === 'done').length;
+    if (doneFiles > 0 && (companies.length > 0 || contacts.length > 0)) {
+      setStep('review');
+      toast.info(`Continuando com ${doneFiles} arquivo(s) processado(s)`);
+    } else {
+      toast.error('Nenhum arquivo foi processado com sucesso');
+      setStep('upload');
+    }
+  };
+
+  const processFiles = async () => {
+    if (files.length === 0) {
+      toast.error('Selecione pelo menos um arquivo');
+      return;
+    }
+
+    setStep('processing');
+
+    try {
+      let data;
+
+      if (sequentialMode) {
+        data = await processFilesSequential();
+      } else {
+        data = await processFilesParallel();
+      }
+
+      // Check if all files failed
+      const allFailed = files.every(f => f.status === 'error');
+      if (allFailed) {
+        toast.error('Erro ao processar todos os documentos');
+        setStep('upload');
+        return;
+      }
+
       // Process results
       const extractedCompanies: ExtractedCompany[] = (data.companies || []).map((c: any, i: number) => ({
         ...c,
@@ -274,17 +448,20 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       setContacts(extractedContacts);
       setStep('review');
 
-      toast.success(`Identificados: ${extractedCompanies.length} empresas, ${extractedContacts.length} contatos`);
+      const errorCount = files.filter(f => f.status === 'error').length;
+      if (errorCount > 0) {
+        toast.warning(`Identificados: ${extractedCompanies.length} empresas, ${extractedContacts.length} contatos (${errorCount} arquivo(s) com erro)`);
+      } else {
+        toast.success(`Identificados: ${extractedCompanies.length} empresas, ${extractedContacts.length} contatos`);
+      }
 
     } catch (error: any) {
       console.error('Error processing files:', error);
-      setFiles(prev => prev.map(f => ({ 
-        ...f, 
-        status: 'error' as const, 
-        error: error.message || 'Erro ao processar' 
-      })));
       toast.error('Erro ao processar documentos');
-      setStep('upload');
+      // Don't go back to upload in sequential mode - let user retry individual files
+      if (!sequentialMode) {
+        setStep('upload');
+      }
     }
   };
 
@@ -497,12 +674,19 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               {/* File List */}
               {files.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-slate-300">Arquivos selecionados:</h4>
+                  <h4 className="text-sm font-medium text-slate-300">
+                    Arquivos selecionados: {files.length}
+                  </h4>
                   {files.map((f, index) => (
                     <div key={index} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
                       {getFileIcon(f.file.type)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-200 truncate">{f.file.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-slate-200 truncate">{f.file.name}</p>
+                          {f.file.size > LARGE_FILE_THRESHOLD && (
+                            <Badge className="bg-amber-500/20 text-amber-400 text-xs shrink-0">Grande</Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">
                           {(f.file.size / 1024 / 1024).toFixed(2)} MB
                         </p>
@@ -517,6 +701,28 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                       </Button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Sequential Mode Toggle */}
+              {files.length > 0 && (
+                <div className="flex items-center gap-3 p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+                  <Switch
+                    checked={sequentialMode}
+                    onCheckedChange={setSequentialMode}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-300">Processamento Sequencial</p>
+                    <p className="text-xs text-slate-500">
+                      Processa um arquivo por vez (evita timeout, permite retry individual)
+                    </p>
+                  </div>
+                  {hasLargeFiles && (
+                    <Badge className="bg-amber-500/20 text-amber-400 text-xs shrink-0">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Recomendado
+                    </Badge>
+                  )}
                 </div>
               )}
 
@@ -541,18 +747,32 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             <div className="space-y-4 py-8">
               <div className="text-center mb-6">
                 <Loader2 className="w-12 h-12 mx-auto text-amber-400 animate-spin mb-4" />
-                <p className="text-lg text-slate-200">Processando documentos com IA...</p>
-                <p className="text-sm text-slate-500">Isso pode levar alguns segundos</p>
+                <p className="text-lg text-slate-200">
+                  {sequentialMode 
+                    ? `Processando arquivo ${files.filter(f => f.status === 'done').length + 1} de ${files.length}...`
+                    : 'Processando documentos com IA...'
+                  }
+                </p>
+                <p className="text-sm text-slate-500">
+                  {sequentialMode 
+                    ? 'Modo sequencial: cada arquivo é processado individualmente'
+                    : 'Isso pode levar alguns segundos'
+                  }
+                </p>
               </div>
 
               {files.map((f, index) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center gap-3">
                     {getFileIcon(f.file.type)}
-                    <span className="text-sm text-slate-300 flex-1">{f.file.name}</span>
-                    {f.status === 'done' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                    {f.status === 'error' && <AlertCircle className="w-5 h-5 text-red-400" />}
-                    {f.status === 'processing' && <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />}
+                    <span className="text-sm text-slate-300 flex-1 truncate">{f.file.name}</span>
+                    {f.file.size > LARGE_FILE_THRESHOLD && (
+                      <Badge className="bg-amber-500/20 text-amber-400 text-xs shrink-0">Grande</Badge>
+                    )}
+                    {f.status === 'done' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
+                    {f.status === 'error' && <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />}
+                    {f.status === 'processing' && <Loader2 className="w-5 h-5 text-amber-400 animate-spin shrink-0" />}
+                    {f.status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-slate-600 shrink-0" />}
                   </div>
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div
@@ -563,9 +783,51 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                       style={{ width: `${f.progress}%` }}
                     />
                   </div>
-                  {f.error && <p className="text-xs text-red-400">{f.error}</p>}
+                  {f.error && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-red-400 flex-1">{f.error}</p>
+                      {sequentialMode && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => retryFile(index)}
+                          className="text-xs h-6 px-2"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Tentar novamente
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
+
+              {/* Continue with partial results button */}
+              {sequentialMode && files.some(f => f.status === 'error') && files.some(f => f.status === 'done') && (
+                <div className="pt-4 border-t border-slate-700">
+                  <Button
+                    variant="outline"
+                    onClick={continueWithResults}
+                    className="w-full"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Continuar com {files.filter(f => f.status === 'done').length} arquivo(s) processado(s)
+                  </Button>
+                </div>
+              )}
+
+              {/* Back button for errors */}
+              {files.every(f => f.status === 'error') && (
+                <div className="pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep('upload')}
+                    className="w-full"
+                  >
+                    Voltar e tentar novamente
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
