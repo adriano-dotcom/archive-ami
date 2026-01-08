@@ -60,7 +60,10 @@ export const ImportPanel: React.FC = () => {
     const firstLine = lines[0];
     const delimiter = firstLine.includes(';') ? ';' : ',';
     
-    const headers = firstLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+    const headers = firstLine
+      .split(delimiter)
+      .map((h) => h.trim().replace(/"/g, ''))
+      .map((h, i) => (h && h.trim() ? h : `__col_${i + 1}__`));
     const rows: ParsedRow[] = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -386,8 +389,10 @@ export const ImportPanel: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">-- Não mapear --</SelectItem>
-                      {headers.map(h => (
-                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      {headers.map((h, i) => (
+                        <SelectItem key={`${i}-${h}`} value={h}>
+                          {h.startsWith('__col_') ? `(Sem cabeçalho) ${h}` : h}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
