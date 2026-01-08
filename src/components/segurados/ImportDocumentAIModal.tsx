@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Upload, 
   Sparkles, 
@@ -23,10 +24,15 @@ import {
   Edit2,
   Trash2,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  Receipt,
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ExtractedCompany {
   id: string;
@@ -58,6 +64,30 @@ interface ExtractedContact {
   confidence: number;
   selected: boolean;
   isEditing?: boolean;
+}
+
+interface ExtractedInstallment {
+  id: string;
+  insurer: string;
+  policy_number: string;
+  endorsement?: string;
+  receipt_number?: string;
+  installment_number: number;
+  total_installments?: number;
+  value: number;
+  due_date: string;
+  cancellation_date?: string;
+  insured_name: string;
+  insured_document: string;
+  insured_phone?: string;
+  branch?: string;
+  product?: string;
+  status: string;
+  days_overdue?: number;
+  commission?: number;
+  source?: string;
+  confidence: number;
+  selected: boolean;
 }
 
 interface UploadedFile {
@@ -92,6 +122,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [companies, setCompanies] = useState<ExtractedCompany[]>([]);
   const [contacts, setContacts] = useState<ExtractedContact[]>([]);
+  const [installments, setInstallments] = useState<ExtractedInstallment[]>([]);
+  const [insurerDetected, setInsurerDetected] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
@@ -112,6 +144,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setFiles([]);
     setCompanies([]);
     setContacts([]);
+    setInstallments([]);
+    setInsurerDetected(null);
     setImporting(false);
     setImportProgress({ current: 0, total: 0 });
     setSequentialMode(false);
@@ -134,6 +168,19 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   };
 
+  const formatCPF = (cpf: string) => {
+    const clean = cpf.replace(/\D/g, '');
+    if (clean.length !== 11) return cpf;
+    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  const formatDocument = (doc: string) => {
+    const clean = doc.replace(/\D/g, '');
+    if (clean.length === 14) return formatCNPJ(clean);
+    if (clean.length === 11) return formatCPF(clean);
+    return doc;
+  };
+
   const formatPhone = (phone: string) => {
     const clean = phone.replace(/\D/g, '');
     if (clean.length === 11) {
@@ -142,6 +189,18 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       return clean.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
     }
     return phone;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(parseISO(dateStr), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -275,6 +334,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const processFilesSequential = async () => {
     const allCompanies: any[] = [];
     const allContacts: any[] = [];
+    const allInstallments: any[] = [];
+    let detectedInsurer: string | null = null;
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
@@ -309,6 +370,11 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         // Merge results
         allCompanies.push(...(data.companies || []));
         allContacts.push(...(data.contacts || []));
+        allInstallments.push(...(data.installments || []));
+        
+        if (data.insurer_detected && !detectedInsurer) {
+          detectedInsurer = data.insurer_detected;
+        }
 
         // Mark as done
         setFiles(prev => prev.map((pf, idx) => 
@@ -324,7 +390,12 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       }
     }
 
-    return { companies: allCompanies, contacts: allContacts };
+    return { 
+      companies: allCompanies, 
+      contacts: allContacts, 
+      installments: allInstallments,
+      insurer_detected: detectedInsurer 
+    };
   };
 
   // Retry a single file that failed
@@ -368,14 +439,25 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         isEditing: false
       }));
 
+      const newInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
+        ...inst,
+        id: `installment-retry-${index}-${i}-${Date.now()}`,
+        selected: true
+      }));
+
       setCompanies(prev => [...prev, ...newCompanies]);
       setContacts(prev => [...prev, ...newContacts]);
+      setInstallments(prev => [...prev, ...newInstallments]);
+      
+      if (data.insurer_detected && !insurerDetected) {
+        setInsurerDetected(data.insurer_detected);
+      }
 
       setFiles(prev => prev.map((pf, idx) => 
         idx === index ? { ...pf, status: 'done' as const, progress: 100 } : pf
       ));
 
-      toast.success(`Arquivo processado: ${newCompanies.length} empresas, ${newContacts.length} contatos`);
+      toast.success(`Arquivo processado: ${newCompanies.length} empresas, ${newContacts.length} contatos, ${newInstallments.length} parcelas`);
 
     } catch (error: any) {
       console.error(`Error retrying file ${f.file.name}:`, error);
@@ -389,7 +471,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   // Continue to review with partial results
   const continueWithResults = () => {
     const doneFiles = files.filter(f => f.status === 'done').length;
-    if (doneFiles > 0 && (companies.length > 0 || contacts.length > 0)) {
+    if (doneFiles > 0 && (companies.length > 0 || contacts.length > 0 || installments.length > 0)) {
       setStep('review');
       toast.info(`Continuando com ${doneFiles} arquivo(s) processado(s)`);
     } else {
@@ -438,7 +520,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         isEditing: false
       }));
 
-      if (extractedCompanies.length === 0 && extractedContacts.length === 0) {
+      const extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
+        ...inst,
+        id: `installment-${i}-${Date.now()}`,
+        selected: true
+      }));
+
+      if (extractedCompanies.length === 0 && extractedContacts.length === 0 && extractedInstallments.length === 0) {
         toast.warning('Nenhum dado foi identificado nos documentos');
         setStep('upload');
         return;
@@ -446,13 +534,24 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
 
       setCompanies(extractedCompanies);
       setContacts(extractedContacts);
+      setInstallments(extractedInstallments);
+      
+      if (data.insurer_detected) {
+        setInsurerDetected(data.insurer_detected);
+      }
+      
       setStep('review');
 
       const errorCount = files.filter(f => f.status === 'error').length;
+      const summary = [];
+      if (extractedCompanies.length > 0) summary.push(`${extractedCompanies.length} empresas`);
+      if (extractedContacts.length > 0) summary.push(`${extractedContacts.length} contatos`);
+      if (extractedInstallments.length > 0) summary.push(`${extractedInstallments.length} parcelas`);
+      
       if (errorCount > 0) {
-        toast.warning(`Identificados: ${extractedCompanies.length} empresas, ${extractedContacts.length} contatos (${errorCount} arquivo(s) com erro)`);
+        toast.warning(`Identificados: ${summary.join(', ')} (${errorCount} arquivo(s) com erro)`);
       } else {
-        toast.success(`Identificados: ${extractedCompanies.length} empresas, ${extractedContacts.length} contatos`);
+        toast.success(`Identificados: ${summary.join(', ')}`);
       }
 
     } catch (error: any) {
@@ -485,18 +584,29 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setContacts(prev => prev.filter(c => c.id !== id));
   };
 
+  const toggleInstallmentSelection = (id: string) => {
+    setInstallments(prev => prev.map(inst => 
+      inst.id === id ? { ...inst, selected: !inst.selected } : inst
+    ));
+  };
+
+  const toggleAllInstallments = (selected: boolean) => {
+    setInstallments(prev => prev.map(inst => ({ ...inst, selected })));
+  };
+
   const handleImport = async () => {
     const selectedCompanies = companies.filter(c => c.selected);
     const selectedContacts = contacts.filter(c => c.selected);
+    const selectedInstallments = installments.filter(inst => inst.selected);
 
-    if (selectedCompanies.length === 0 && selectedContacts.length === 0) {
+    if (selectedCompanies.length === 0 && selectedContacts.length === 0 && selectedInstallments.length === 0) {
       toast.error('Selecione pelo menos um item para importar');
       return;
     }
 
     setStep('importing');
     setImporting(true);
-    const total = selectedCompanies.length + selectedContacts.length;
+    const total = selectedCompanies.length + selectedContacts.length + selectedInstallments.length;
     setImportProgress({ current: 0, total });
 
     try {
@@ -533,6 +643,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       }
 
       // Then import contacts
+      const contactIdMap = new Map<string, string>(); // phone or document -> id
+      
       for (let i = 0; i < selectedContacts.length; i++) {
         const contact = selectedContacts[i];
         
@@ -555,7 +667,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           }
         }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('contacts')
           .upsert({
             phone_number: contact.phone,
@@ -565,17 +677,205 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             role: contact.role || null,
             is_billing_contact: contact.is_billing_contact,
             company_id: companyId
-          }, { onConflict: 'phone_number' });
+          }, { onConflict: 'phone_number' })
+          .select('id')
+          .single();
 
         if (error) {
           console.error('Error importing contact:', error);
           toast.error(`Erro ao importar ${contact.name}`);
+        } else if (data) {
+          contactIdMap.set(contact.phone, data.id);
+          if (contact.cpf) {
+            contactIdMap.set(contact.cpf, data.id);
+          }
         }
 
         setImportProgress({ current: selectedCompanies.length + i + 1, total });
       }
 
-      toast.success(`Importação concluída! ${selectedCompanies.length} empresas, ${selectedContacts.length} contatos`);
+      // Import installments (create policies and installments)
+      const policyIdMap = new Map<string, string>(); // policy_number -> id
+      
+      for (let i = 0; i < selectedInstallments.length; i++) {
+        const inst = selectedInstallments[i];
+        
+        try {
+          // First, find or create contact based on document
+          let contactId: string | null = null;
+          
+          if (inst.insured_phone) {
+            contactId = contactIdMap.get(inst.insured_phone) || null;
+          }
+          
+          if (!contactId && inst.insured_document) {
+            // Try to find contact by document (CPF/CNPJ)
+            const docClean = inst.insured_document.replace(/\D/g, '');
+            
+            if (docClean.length === 11) {
+              // CPF
+              const { data: existingContact } = await supabase
+                .from('contacts')
+                .select('id')
+                .eq('cpf', docClean)
+                .maybeSingle();
+              
+              if (existingContact) {
+                contactId = existingContact.id;
+              }
+            } else if (docClean.length === 14) {
+              // CNPJ - find company and associated contact
+              const { data: existingCompany } = await supabase
+                .from('companies')
+                .select('id')
+                .eq('cnpj', docClean)
+                .maybeSingle();
+              
+              if (existingCompany) {
+                // Find billing contact for this company
+                const { data: billingContact } = await supabase
+                  .from('contacts')
+                  .select('id')
+                  .eq('company_id', existingCompany.id)
+                  .eq('is_billing_contact', true)
+                  .maybeSingle();
+                
+                if (billingContact) {
+                  contactId = billingContact.id;
+                }
+              }
+            }
+          }
+          
+          // Create contact if not found and we have a phone
+          if (!contactId && inst.insured_phone) {
+            const cleanPhone = inst.insured_phone.replace(/\D/g, '');
+            if (cleanPhone.length >= 10) {
+              const { data: newContact } = await supabase
+                .from('contacts')
+                .upsert({
+                  phone_number: cleanPhone,
+                  name: inst.insured_name,
+                  cpf: inst.insured_document?.length === 11 ? inst.insured_document : null,
+                  cnpj: inst.insured_document?.length === 14 ? inst.insured_document : null,
+                  is_billing_contact: true
+                }, { onConflict: 'phone_number' })
+                .select('id')
+                .single();
+              
+              if (newContact) {
+                contactId = newContact.id;
+              }
+            }
+          }
+          
+          // Find or create company if CNPJ
+          let companyId: string | null = null;
+          if (inst.insured_document?.replace(/\D/g, '').length === 14) {
+            const cnpj = inst.insured_document.replace(/\D/g, '');
+            
+            const { data: existingCompany } = await supabase
+              .from('companies')
+              .select('id')
+              .eq('cnpj', cnpj)
+              .maybeSingle();
+            
+            if (existingCompany) {
+              companyId = existingCompany.id;
+            } else {
+              const { data: newCompany } = await supabase
+                .from('companies')
+                .insert({
+                  cnpj: cnpj,
+                  razao_social: inst.insured_name
+                })
+                .select('id')
+                .single();
+              
+              if (newCompany) {
+                companyId = newCompany.id;
+              }
+            }
+          }
+          
+          // Find or create policy
+          let policyId = policyIdMap.get(inst.policy_number);
+          
+          if (!policyId) {
+            const { data: existingPolicy } = await supabase
+              .from('policies')
+              .select('id')
+              .eq('policy_number', inst.policy_number)
+              .eq('insurer', inst.insurer)
+              .maybeSingle();
+            
+            if (existingPolicy) {
+              policyId = existingPolicy.id;
+            } else {
+              const { data: newPolicy, error: policyError } = await supabase
+                .from('policies')
+                .insert({
+                  policy_number: inst.policy_number,
+                  insurer: inst.insurer,
+                  branch: inst.branch || null,
+                  product: inst.product || null,
+                  contact_id: contactId,
+                  company_id: companyId,
+                  status: 'active'
+                })
+                .select('id')
+                .single();
+              
+              if (policyError) {
+                console.error('Error creating policy:', policyError);
+              } else if (newPolicy) {
+                policyId = newPolicy.id;
+                policyIdMap.set(inst.policy_number, policyId);
+              }
+            }
+          }
+          
+          // Create installment
+          if (policyId) {
+            const { error: installmentError } = await supabase
+              .from('installments')
+              .upsert({
+                policy_id: policyId,
+                contact_id: contactId,
+                installment_number: inst.installment_number,
+                value: inst.value,
+                due_date: inst.due_date,
+                days_overdue: inst.days_overdue || 0,
+                status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
+                metadata: {
+                  receipt_number: inst.receipt_number,
+                  endorsement: inst.endorsement,
+                  cancellation_date: inst.cancellation_date,
+                  commission: inst.commission,
+                  source: inst.source
+                }
+              }, { 
+                onConflict: 'policy_id,installment_number',
+                ignoreDuplicates: false 
+              });
+            
+            if (installmentError) {
+              console.error('Error creating installment:', installmentError);
+            }
+          }
+        } catch (err) {
+          console.error('Error importing installment:', err);
+        }
+
+        setImportProgress({ current: selectedCompanies.length + selectedContacts.length + i + 1, total });
+      }
+
+      const summary = [];
+      if (selectedCompanies.length > 0) summary.push(`${selectedCompanies.length} empresas`);
+      if (selectedContacts.length > 0) summary.push(`${selectedContacts.length} contatos`);
+      if (selectedInstallments.length > 0) summary.push(`${selectedInstallments.length} parcelas`);
+      
+      toast.success(`Importação concluída! ${summary.join(', ')}`);
       onSuccess();
       handleClose();
 
@@ -597,13 +897,28 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    if (status === 'VENCIDO' || status === 'ATRASADO') {
+      return <Badge variant="destructive" className="text-xs">{status}</Badge>;
+    }
+    return <Badge variant="outline" className="text-xs">{status}</Badge>;
+  };
+
+  // Calculate installments summary
+  const selectedInstallmentsTotal = installments
+    .filter(inst => inst.selected)
+    .reduce((sum, inst) => sum + inst.value, 0);
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-slate-900 border-slate-700">
+      <DialogContent className="max-w-5xl max-h-[90vh] bg-slate-900 border-slate-700">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Sparkles className="w-5 h-5 text-amber-400" />
             Importar com IA (PDF, Excel, Imagem)
+            {insurerDetected && (
+              <Badge className="ml-2 bg-blue-500/20 text-blue-400">{insurerDetected}</Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -835,16 +1150,132 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           {step === 'review' && (
             <div className="space-y-6">
               {/* Summary */}
-              <div className="flex items-center gap-4 text-sm">
-                <Badge variant="outline" className="gap-1">
-                  <Building2 className="w-3 h-3" />
-                  {companies.filter(c => c.selected).length} empresas
-                </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <User className="w-3 h-3" />
-                  {contacts.filter(c => c.selected).length} contatos
-                </Badge>
+              <div className="flex items-center gap-4 text-sm flex-wrap">
+                {companies.length > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    <Building2 className="w-3 h-3" />
+                    {companies.filter(c => c.selected).length} empresas
+                  </Badge>
+                )}
+                {contacts.length > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    <User className="w-3 h-3" />
+                    {contacts.filter(c => c.selected).length} contatos
+                  </Badge>
+                )}
+                {installments.length > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    <Receipt className="w-3 h-3" />
+                    {installments.filter(i => i.selected).length} parcelas
+                  </Badge>
+                )}
+                {selectedInstallmentsTotal > 0 && (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 gap-1">
+                    <DollarSign className="w-3 h-3" />
+                    {formatCurrency(selectedInstallmentsTotal)}
+                  </Badge>
+                )}
               </div>
+
+              {/* Installments */}
+              {installments.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-amber-400" />
+                      Parcelas Inadimplentes
+                      {insurerDetected && (
+                        <Badge className="bg-blue-500/20 text-blue-400 text-xs ml-2">{insurerDetected}</Badge>
+                      )}
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAllInstallments(true)}
+                        className="text-xs"
+                      >
+                        Selecionar todas
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAllInstallments(false)}
+                        className="text-xs"
+                      >
+                        Desmarcar todas
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-lg border border-slate-700 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-800/50 hover:bg-slate-800/50">
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>Segurado</TableHead>
+                          <TableHead>CPF/CNPJ</TableHead>
+                          <TableHead>Apólice</TableHead>
+                          <TableHead className="text-center">Parcela</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center">Conf.</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {installments.map((inst) => (
+                          <TableRow 
+                            key={inst.id} 
+                            className={`${!inst.selected ? 'opacity-50' : ''} hover:bg-slate-800/30`}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={inst.selected}
+                                onCheckedChange={() => toggleInstallmentSelection(inst.id)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium text-slate-200 max-w-[200px] truncate">
+                              {inst.insured_name}
+                            </TableCell>
+                            <TableCell className="text-slate-400 text-sm">
+                              {formatDocument(inst.insured_document)}
+                            </TableCell>
+                            <TableCell className="text-slate-300">
+                              {inst.policy_number}
+                              {inst.endorsement && <span className="text-slate-500 text-xs ml-1">/{inst.endorsement}</span>}
+                            </TableCell>
+                            <TableCell className="text-center text-slate-400">
+                              {inst.installment_number}
+                              {inst.total_installments && `/${inst.total_installments}`}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-emerald-400">
+                              {formatCurrency(inst.value)}
+                            </TableCell>
+                            <TableCell className="text-slate-400">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(inst.due_date)}
+                              </div>
+                              {inst.days_overdue && inst.days_overdue > 0 && (
+                                <span className="text-xs text-red-400">
+                                  {inst.days_overdue} dias
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(inst.status)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {getConfidenceBadge(inst.confidence)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
 
               {/* Companies */}
               {companies.length > 0 && (
@@ -914,7 +1345,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             variant="ghost"
                             size="sm"
                             onClick={() => updateCompany(company.id, { isEditing: !company.isEditing })}
-                            className="text-slate-400 hover:text-slate-200"
+                            className="text-slate-400 hover:text-blue-400"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -960,7 +1391,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                               <Input
                                 value={contact.phone}
                                 onChange={(e) => updateContact(contact.id, { phone: e.target.value.replace(/\D/g, '') })}
-                                placeholder="WhatsApp"
+                                placeholder="Telefone"
                                 className="bg-slate-900/50 text-sm"
                               />
                               <Input
@@ -970,56 +1401,29 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                                 className="bg-slate-900/50 text-sm"
                               />
                               <Input
-                                value={contact.role || ''}
-                                onChange={(e) => updateContact(contact.id, { role: e.target.value })}
-                                placeholder="Cargo"
+                                value={contact.cpf || ''}
+                                onChange={(e) => updateContact(contact.id, { cpf: e.target.value.replace(/\D/g, '') })}
+                                placeholder="CPF"
                                 className="bg-slate-900/50 text-sm"
                               />
-                              <Select
-                                value={contact.company_cnpj || 'none'}
-                                onValueChange={(value) => updateContact(contact.id, { company_cnpj: value === 'none' ? undefined : value })}
-                              >
-                                <SelectTrigger className="bg-slate-900/50 text-sm">
-                                  <SelectValue placeholder="Vincular a empresa" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">Sem vínculo</SelectItem>
-                                  {companies.map((c) => (
-                                    <SelectItem key={c.cnpj} value={c.cnpj}>
-                                      {c.razao_social}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <div className="flex items-center gap-2">
-                                <Checkbox
-                                  checked={contact.is_billing_contact}
-                                  onCheckedChange={(checked) => updateContact(contact.id, { is_billing_contact: !!checked })}
-                                />
-                                <span className="text-sm text-slate-400">Contato de cobrança</span>
-                              </div>
                             </div>
                           ) : (
                             <>
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-slate-200">{contact.name}</span>
                                 {contact.role && (
-                                  <span className="text-sm text-slate-500">• {contact.role}</span>
+                                  <Badge variant="outline" className="text-xs">{contact.role}</Badge>
                                 )}
                                 {contact.is_billing_contact && (
-                                  <Badge className="bg-purple-500/20 text-purple-400 text-xs">Cobrança</Badge>
+                                  <Badge className="bg-blue-500/20 text-blue-400 text-xs">Cobrança</Badge>
                                 )}
                                 {getConfidenceBadge(contact.confidence)}
                               </div>
                               <p className="text-sm text-slate-400">
                                 {formatPhone(contact.phone)}
                                 {contact.email && ` • ${contact.email}`}
+                                {contact.cpf && ` • CPF: ${formatCPF(contact.cpf)}`}
                               </p>
-                              {contact.company_cnpj && (
-                                <p className="text-xs text-slate-500">
-                                  Empresa: {companies.find(c => c.cnpj === contact.company_cnpj)?.razao_social || formatCNPJ(contact.company_cnpj)}
-                                </p>
-                              )}
                             </>
                           )}
                           {contact.source && (
@@ -1031,7 +1435,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             variant="ghost"
                             size="sm"
                             onClick={() => updateContact(contact.id, { isEditing: !contact.isEditing })}
-                            className="text-slate-400 hover:text-slate-200"
+                            className="text-slate-400 hover:text-blue-400"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -1050,17 +1454,21 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 </div>
               )}
 
-              <div className="flex justify-between gap-2 pt-4 border-t border-slate-700">
-                <Button variant="outline" onClick={() => setStep('upload')}>
-                  Voltar
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-700">
+                <Button variant="outline" onClick={handleClose}>
+                  Cancelar
                 </Button>
                 <Button
                   onClick={handleImport}
-                  disabled={companies.filter(c => c.selected).length === 0 && contacts.filter(c => c.selected).length === 0}
+                  disabled={
+                    companies.filter(c => c.selected).length === 0 && 
+                    contacts.filter(c => c.selected).length === 0 &&
+                    installments.filter(i => i.selected).length === 0
+                  }
                   className="bg-emerald-600 hover:bg-emerald-700 gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Importar {companies.filter(c => c.selected).length} Empresas + {contacts.filter(c => c.selected).length} Contatos
+                  Importar Selecionados
                 </Button>
               </div>
             </div>
@@ -1068,15 +1476,17 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
 
           {/* Importing Step */}
           {step === 'importing' && (
-            <div className="py-8 text-center">
-              <Loader2 className="w-12 h-12 mx-auto text-emerald-400 animate-spin mb-4" />
-              <p className="text-lg text-slate-200 mb-2">Importando dados...</p>
-              <p className="text-sm text-slate-500 mb-4">
-                {importProgress.current} de {importProgress.total}
-              </p>
-              <div className="w-full max-w-xs mx-auto bg-slate-800 rounded-full h-2">
+            <div className="space-y-4 py-8">
+              <div className="text-center">
+                <Loader2 className="w-12 h-12 mx-auto text-emerald-400 animate-spin mb-4" />
+                <p className="text-lg text-slate-200">Importando dados...</p>
+                <p className="text-sm text-slate-500">
+                  {importProgress.current} de {importProgress.total} itens
+                </p>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-3">
                 <div
-                  className="h-2 rounded-full bg-emerald-500 transition-all"
+                  className="h-3 rounded-full bg-emerald-500 transition-all"
                   style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
                 />
               </div>
