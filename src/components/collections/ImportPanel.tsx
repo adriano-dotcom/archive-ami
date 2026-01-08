@@ -378,14 +378,14 @@ export const ImportPanel: React.FC = () => {
                     {field.required && <Badge variant="outline" className="text-xs">Obrigatório</Badge>}
                   </Label>
                   <Select 
-                    value={columnMapping[field.key] || ''} 
-                    onValueChange={(v) => handleMappingChange(field.key, v)}
+                    value={columnMapping[field.key] || '__none__'} 
+                    onValueChange={(v) => handleMappingChange(field.key, v === '__none__' ? '' : v)}
                   >
                     <SelectTrigger className="bg-slate-800/50 border-white/10">
                       <SelectValue placeholder="Selecione a coluna" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">-- Não mapear --</SelectItem>
+                      <SelectItem value="__none__">-- Não mapear --</SelectItem>
                       {headers.map(h => (
                         <SelectItem key={h} value={h}>{h}</SelectItem>
                       ))}
