@@ -116,6 +116,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
   
   const [formData, setFormData] = useState({
     name: '',
+    call_name: '',
     phone: '',
     email: '',
     cpf: '',
@@ -137,7 +138,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
 
   const resetForm = () => {
     setFormData({ 
-      name: '', phone: '', email: '', cpf: '', role: '', is_billing_contact: false,
+      name: '', call_name: '', phone: '', email: '', cpf: '', role: '', is_billing_contact: false,
       company_id: null, company: '', cnpj: '', notes: '', cep: '', street: '', number: '', 
       complement: '', neighborhood: '', city: '', state: ''
     });
@@ -287,6 +288,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
       
       const { error } = await supabase.from('contacts').insert({
         name: formData.name.trim(),
+        call_name: formData.call_name.trim() || null,
         phone_number: phoneDigits,
         email: formData.email.trim() || null,
         cpf: formData.cpf.replace(/\D/g, '') || null,
@@ -385,6 +387,21 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
                 />
               </div>
               {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="call_name" className="text-slate-300">
+                Nome WhatsApp
+                <span className="text-xs text-slate-500 ml-2">(opcional)</span>
+              </Label>
+              <Input
+                id="call_name"
+                value={formData.call_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, call_name: e.target.value }))}
+                placeholder="Ex: João, Maria, Sr. Carlos"
+                className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600"
+              />
+              <p className="text-xs text-slate-500">Nome usado nos disparos de WhatsApp. Se vazio, usará o primeiro nome.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
