@@ -29,12 +29,37 @@ interface ExtractedContact {
   confidence: number;
 }
 
+interface ExtractedInstallment {
+  insurer: string;
+  policy_number: string;
+  endorsement?: string;
+  receipt_number?: string;
+  installment_number: number;
+  total_installments?: number;
+  value: number;
+  due_date: string;
+  cancellation_date?: string;
+  insured_name: string;
+  insured_document: string;
+  insured_phone?: string;
+  branch?: string;
+  product?: string;
+  status: string;
+  days_overdue?: number;
+  commission?: number;
+  source?: string;
+  confidence: number;
+}
+
 interface ExtractionResult {
+  insurer_detected?: string;
   companies: ExtractedCompany[];
   contacts: ExtractedContact[];
+  installments: ExtractedInstallment[];
   raw_text?: string;
 }
 
+// Generic extraction prompt for company/contact documents
 const EXTRACTION_PROMPT = `Você é um especialista em extração de dados de documentos empresariais brasileiros.
 Analise o conteúdo fornecido e extraia TODAS as informações de empresas e contatos/pessoas que encontrar.
 
@@ -73,11 +98,130 @@ Retorne APENAS um JSON válido no formato:
       "is_billing_contact": true,
       "confidence": 90
     }
+  ],
+  "installments": []
+}
+
+Se não encontrar dados, retorne {"companies": [], "contacts": [], "installments": []}.
+NÃO inclua explicações, apenas o JSON.`;
+
+// Specialized prompt for insurance delinquency reports
+const INSURANCE_EXTRACTION_PROMPT = `Você é um especialista em processamento de relatórios de inadimplência de seguradoras brasileiras.
+Analise o documento e extraia TODAS as parcelas pendentes/inadimplentes.
+
+SEGURADORAS CONHECIDAS E SEUS FORMATOS:
+
+1. AKAD Digital: 
+   - Campos: PRODUTO, N° APOLICE, SEGURADO, CPF/CNPJ, VALOR DA PARCELA, DIAS EM ATRASO, SITUAÇÃO
+   - Arquivo geralmente tem "AkadDigital" ou "Inadimplentes" no nome
+
+2. Allianz:
+   - Campos: RECIBO, APOLICE, SEGURADO, CPF_CNPJ, PREMIO_TOTAL, VENCIMENTO, DT_PREV_CANC, POL_SUSEP
+   - Separador: ponto-e-vírgula (;)
+   - Arquivo geralmente tem "gerarArquivoServlet" no nome
+
+3. Tokio Marine:
+   - Campos: RECIBO, NOME_DO_SEGURADO, CPF_CNPJ, PREMIO_LIQ_ATUAL, VENCIMENTO, DT_PREV_CANCELAMENTO, COMISSAO
+   - Arquivo geralmente tem "GESTAO_DE_INADIMPLENTES" no nome
+
+4. Sompo:
+   - Campos: Apólice/Endosso/Parcela, Nome Segurado, Valor, Situação, Data Venc. Parcela
+   - Pode aparecer "Parcelas de Apólice" como título
+   - Site sompo.com.br
+
+5. ACX / Diversos:
+   - Campos: Parceiro de Negócio, Segurado, CPF/CNPJ, Apólice, Parcela, Valor Parcela, Vencimento
+   - Sistema Origem: ACX
+
+REGRAS DE EXTRAÇÃO:
+1. DATAS: Converta SEMPRE para formato YYYY-MM-DD (ex: 25/12/2025 → 2025-12-25)
+2. VALORES: Remova R$, pontos de milhar, converta vírgula decimal para ponto (ex: R$ 1.234,56 → 1234.56)
+3. CPF/CNPJ: Apenas números (11 dígitos = CPF, 14 dígitos = CNPJ)
+4. TELEFONE: Se encontrar, apenas números com DDD (10-11 dígitos)
+5. STATUS: Use "PENDENTE", "VENCIDO" ou "ATRASADO"
+6. days_overdue: Calcule se houver "dias em atraso" ou se a data de vencimento for anterior a hoje
+7. policy_number: Número da apólice (pode incluir barra e endosso, ex: "540/592978")
+8. endorsement: Se separado, extraia o número do endosso
+9. branch: Ramo do seguro se disponível (ex: 309, 312, 531)
+
+IMPORTANTE:
+- Extraia TODAS as linhas/parcelas do documento
+- Cada linha do relatório geralmente representa uma parcela diferente
+- Se o mesmo segurado tiver múltiplas parcelas, extraia cada uma separadamente
+
+Retorne APENAS um JSON válido no formato:
+{
+  "insurer_detected": "TOKIO MARINE",
+  "companies": [],
+  "contacts": [],
+  "installments": [
+    {
+      "insurer": "TOKIO MARINE",
+      "policy_number": "540/592978",
+      "endorsement": "2",
+      "receipt_number": "237291509",
+      "installment_number": 1,
+      "total_installments": 1,
+      "value": 536.90,
+      "due_date": "2025-12-25",
+      "cancellation_date": "2026-02-23",
+      "insured_name": "MBL TRANSPORTES E NEGOCIOS LTDA",
+      "insured_document": "12467840000148",
+      "insured_phone": "",
+      "branch": "309",
+      "product": "Transporte",
+      "status": "PENDENTE",
+      "days_overdue": 14,
+      "commission": 125.00,
+      "confidence": 95
+    }
   ]
 }
 
-Se não encontrar dados, retorne {\"companies\": [], \"contacts\": []}.
+Se não encontrar parcelas, retorne {"insurer_detected": null, "companies": [], "contacts": [], "installments": []}.
 NÃO inclua explicações, apenas o JSON.`;
+
+// Detect if document is an insurance delinquency report
+function detectInsuranceReport(fileName: string, textContent?: string): { isInsurance: boolean; insurer?: string } {
+  const lowerName = fileName.toLowerCase();
+  const lowerContent = (textContent || '').toLowerCase();
+  
+  // Check filename patterns
+  if (lowerName.includes('inadimplente') || lowerName.includes('akaddigital') || lowerName.includes('akad')) {
+    return { isInsurance: true, insurer: 'AKAD' };
+  }
+  if (lowerName.includes('gerararquivoservlet') || lowerName.includes('allianz')) {
+    return { isInsurance: true, insurer: 'ALLIANZ' };
+  }
+  if (lowerName.includes('gestao_de_inadimplentes') || lowerName.includes('tokio') || lowerName.includes('tokiomarine')) {
+    return { isInsurance: true, insurer: 'TOKIO MARINE' };
+  }
+  if (lowerName.includes('sompo') || lowerName.includes('parcelas')) {
+    return { isInsurance: true, insurer: 'SOMPO' };
+  }
+  if (lowerName.includes('acx')) {
+    return { isInsurance: true, insurer: 'ACX' };
+  }
+  
+  // Check content patterns
+  if (lowerContent.includes('pol_susep') || lowerContent.includes('dt_prev_canc')) {
+    return { isInsurance: true, insurer: 'ALLIANZ' };
+  }
+  if (lowerContent.includes('premio_liq_atual') || lowerContent.includes('dt_prev_cancelamento')) {
+    return { isInsurance: true, insurer: 'TOKIO MARINE' };
+  }
+  if (lowerContent.includes('parcelas de apólice') || lowerContent.includes('sompo.com.br')) {
+    return { isInsurance: true, insurer: 'SOMPO' };
+  }
+  if (lowerContent.includes('dias em atraso') || lowerContent.includes('situação') && lowerContent.includes('apólice')) {
+    return { isInsurance: true, insurer: 'UNKNOWN' };
+  }
+  if (lowerContent.includes('sistema origem') && lowerContent.includes('acx')) {
+    return { isInsurance: true, insurer: 'ACX' };
+  }
+  
+  return { isInsurance: false };
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -101,8 +245,10 @@ serve(async (req) => {
     }
 
     const allResults: ExtractionResult = {
+      insurer_detected: undefined,
       companies: [],
-      contacts: []
+      contacts: [],
+      installments: []
     };
 
     // Process each file
@@ -114,19 +260,42 @@ serve(async (req) => {
       let extractedText = '';
       let messages: any[] = [];
       
+      // For text-based files, decode first to detect content
+      if (type === 'text/csv' || type === 'application/vnd.ms-excel' || 
+          type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          type === 'text/plain') {
+        try {
+          extractedText = atob(content);
+        } catch {
+          extractedText = content;
+        }
+      }
+      
+      // Detect if this is an insurance report
+      const detection = detectInsuranceReport(name, extractedText);
+      const prompt = detection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
+      
+      if (detection.isInsurance) {
+        console.log(`Detected insurance report: ${detection.insurer}`);
+        if (!allResults.insurer_detected && detection.insurer) {
+          allResults.insurer_detected = detection.insurer;
+        }
+      }
+      
       // For images and PDFs, use Gemini Vision
       if (type.startsWith('image/') || type === 'application/pdf') {
-        // For PDFs converted to images or direct images
         const mimeType = type === 'application/pdf' ? 'application/pdf' : type;
         
         messages = [
-          { role: 'system', content: EXTRACTION_PROMPT },
+          { role: 'system', content: prompt },
           { 
             role: 'user', 
             content: [
               {
                 type: 'text',
-                text: `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
+                text: detection.isInsurance 
+                  ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora. Arquivo: ${name}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}`
+                  : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
               },
               {
                 type: 'image_url',
@@ -137,21 +306,20 @@ serve(async (req) => {
             ]
           }
         ];
-      } else if (type === 'text/csv' || type === 'application/vnd.ms-excel' || 
-                 type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                 type === 'text/plain') {
-        // For text-based files, decode and send as text
-        try {
-          extractedText = atob(content);
-        } catch {
-          extractedText = content;
-        }
-        
+      } else if (extractedText) {
+        // For text-based files with decoded content
         messages = [
-          { role: 'system', content: EXTRACTION_PROMPT },
+          { role: 'system', content: prompt },
           { 
             role: 'user', 
-            content: `Extraia todos os dados de empresas e contatos deste documento.
+            content: detection.isInsurance
+              ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.
+              
+Arquivo: ${name}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}
+
+Conteúdo:
+${extractedText}`
+              : `Extraia todos os dados de empresas e contatos deste documento.
             
 Arquivo: ${name}
 
@@ -163,11 +331,21 @@ ${extractedText}`
         // For other types, try to decode as text or send as image
         try {
           extractedText = atob(content);
+          const textDetection = detectInsuranceReport(name, extractedText);
+          const textPrompt = textDetection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
+          
           messages = [
-            { role: 'system', content: EXTRACTION_PROMPT },
+            { role: 'system', content: textPrompt },
             { 
               role: 'user', 
-              content: `Extraia todos os dados de empresas e contatos deste documento.
+              content: textDetection.isInsurance
+                ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.
+
+Arquivo: ${name}${textDetection.insurer ? ` (Seguradora detectada: ${textDetection.insurer})` : ''}
+
+Conteúdo:
+${extractedText}`
+                : `Extraia todos os dados de empresas e contatos deste documento.
               
 Arquivo: ${name}
 
@@ -178,13 +356,15 @@ ${extractedText}`
         } catch {
           // Treat as binary/image
           messages = [
-            { role: 'system', content: EXTRACTION_PROMPT },
+            { role: 'system', content: prompt },
             { 
               role: 'user', 
               content: [
                 {
                   type: 'text',
-                  text: `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
+                  text: detection.isInsurance
+                    ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora. Arquivo: ${name}`
+                    : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
                 },
                 {
                   type: 'image_url',
@@ -254,6 +434,11 @@ ${extractedText}`
           
           const parsed = JSON.parse(jsonStr);
           
+          // Update detected insurer if provided
+          if (parsed.insurer_detected && !allResults.insurer_detected) {
+            allResults.insurer_detected = parsed.insurer_detected;
+          }
+          
           // Add source info and merge results
           if (parsed.companies && Array.isArray(parsed.companies)) {
             for (const company of parsed.companies) {
@@ -283,6 +468,41 @@ ${extractedText}`
               }
             }
           }
+          
+          // Process installments
+          if (parsed.installments && Array.isArray(parsed.installments)) {
+            for (const installment of parsed.installments) {
+              installment.source = name;
+              
+              // Clean up document (CPF/CNPJ)
+              if (installment.insured_document) {
+                installment.insured_document = installment.insured_document.replace(/\D/g, '');
+              }
+              
+              // Clean up phone if present
+              if (installment.insured_phone) {
+                installment.insured_phone = installment.insured_phone.replace(/\D/g, '');
+                if (installment.insured_phone.length < 10 || installment.insured_phone.length > 11) {
+                  installment.insured_phone = '';
+                }
+              }
+              
+              // Ensure value is a number
+              if (typeof installment.value === 'string') {
+                installment.value = parseFloat(installment.value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+              }
+              
+              // Ensure installment_number is a number
+              if (typeof installment.installment_number === 'string') {
+                installment.installment_number = parseInt(installment.installment_number) || 1;
+              }
+              
+              // Validate required fields
+              if (installment.policy_number && installment.insured_name && installment.value > 0) {
+                allResults.installments.push(installment);
+              }
+            }
+          }
         } catch (parseError) {
           console.error(`Error parsing AI response for ${name}:`, parseError);
         }
@@ -306,13 +526,25 @@ ${extractedText}`
         uniqueContacts.set(contact.phone, contact);
       }
     }
+    
+    // Deduplicate installments by policy_number + installment_number (keep highest confidence)
+    const uniqueInstallments = new Map<string, ExtractedInstallment>();
+    for (const installment of allResults.installments) {
+      const key = `${installment.policy_number}-${installment.installment_number}`;
+      const existing = uniqueInstallments.get(key);
+      if (!existing || (installment.confidence > existing.confidence)) {
+        uniqueInstallments.set(key, installment);
+      }
+    }
 
     const result: ExtractionResult = {
+      insurer_detected: allResults.insurer_detected,
       companies: Array.from(uniqueCompanies.values()),
-      contacts: Array.from(uniqueContacts.values())
+      contacts: Array.from(uniqueContacts.values()),
+      installments: Array.from(uniqueInstallments.values())
     };
 
-    console.log(`Extraction complete: ${result.companies.length} companies, ${result.contacts.length} contacts`);
+    console.log(`Extraction complete: ${result.companies.length} companies, ${result.contacts.length} contacts, ${result.installments.length} installments`);
 
     return new Response(
       JSON.stringify(result),
