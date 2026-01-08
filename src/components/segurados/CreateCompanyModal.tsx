@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Building2, FileText, MapPin, Search, Loader2 } from 'lucide-react';
+import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,6 +14,14 @@ interface CreateCompanyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+}
+
+interface ContactForm {
+  name: string;
+  phone: string;
+  email: string;
+  role: string;
+  is_billing_contact: boolean;
 }
 
 const ESTADOS_BR = [
@@ -45,6 +54,14 @@ const formatCEP = (value: string) => {
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 5) return digits;
   return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
+};
+
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 };
 
 const validateCNPJ = (cnpj: string): boolean => {
@@ -97,6 +114,7 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     notes: ''
   });
 
+  const [contacts, setContacts] = useState<ContactForm[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const resetForm = () => {
@@ -105,7 +123,22 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
       inscricao_municipal: '', cep: '', street: '', number: '', complement: '',
       neighborhood: '', city: '', state: '', notes: ''
     });
+    setContacts([]);
     setErrors({});
+  };
+
+  const addContact = () => {
+    setContacts(prev => [...prev, { name: '', phone: '', email: '', role: '', is_billing_contact: false }]);
+  };
+
+  const removeContact = (index: number) => {
+    setContacts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateContact = (index: number, field: keyof ContactForm, value: string | boolean) => {
+    setContacts(prev => prev.map((contact, i) => 
+      i === index ? { ...contact, [field]: value } : contact
+    ));
   };
 
   const fetchCNPJ = async (cnpj: string) => {
@@ -207,6 +240,19 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
       newErrors.razao_social = 'Razão Social é obrigatória';
     }
 
+    // Validate contacts
+    contacts.forEach((contact, index) => {
+      if (!contact.name.trim()) {
+        newErrors[`contact_${index}_name`] = 'Nome é obrigatório';
+      }
+      const phoneDigits = contact.phone.replace(/\D/g, '');
+      if (!phoneDigits) {
+        newErrors[`contact_${index}_phone`] = 'WhatsApp é obrigatório';
+      } else if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+        newErrors[`contact_${index}_phone`] = 'WhatsApp inválido';
+      }
+    });
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -231,7 +277,7 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
         return;
       }
 
-      const { error } = await supabase.from('companies').insert({
+      const { data: companyData, error: companyError } = await supabase.from('companies').insert({
         cnpj: cnpjDigits,
         razao_social: formData.razao_social.trim(),
         nome_fantasia: formData.nome_fantasia.trim() || null,
@@ -245,9 +291,35 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
         city: formData.city.trim() || null,
         state: formData.state || null,
         notes: formData.notes.trim() || null
-      });
+      }).select('id').single();
 
-      if (error) throw error;
+      if (companyError) throw companyError;
+
+      // Insert contacts if any
+      if (contacts.length > 0 && companyData?.id) {
+        const contactsToInsert = contacts.map(contact => ({
+          name: contact.name.trim(),
+          phone_number: contact.phone.replace(/\D/g, ''),
+          email: contact.email.trim() || null,
+          role: contact.role.trim() || null,
+          is_billing_contact: contact.is_billing_contact,
+          company_id: companyData.id,
+          company: formData.nome_fantasia.trim() || formData.razao_social.trim(),
+          cep: cepDigits,
+          street: formData.street.trim() || null,
+          number: formData.number.trim() || null,
+          complement: formData.complement.trim() || null,
+          neighborhood: formData.neighborhood.trim() || null,
+          city: formData.city.trim() || null,
+          state: formData.state || null
+        }));
+
+        const { error: contactsError } = await supabase.from('contacts').insert(contactsToInsert);
+        if (contactsError) {
+          console.error('Error creating contacts:', contactsError);
+          toast.warning('Empresa criada, mas houve erro ao criar alguns contatos');
+        }
+      }
 
       toast.success('Empresa cadastrada com sucesso!');
       resetForm();
@@ -445,6 +517,91 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
               placeholder="Observações sobre a empresa..."
               className="bg-slate-950 border-slate-700 text-slate-100 min-h-[80px]"
             />
+          </div>
+
+          {/* Contatos da Empresa */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4" /> Contatos da Empresa
+              </h3>
+              <Button type="button" variant="outline" size="sm" onClick={addContact} className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
+            </div>
+
+            {contacts.length === 0 ? (
+              <p className="text-sm text-slate-500 italic">Nenhum contato adicionado. Clique em "Adicionar" para vincular pessoas à empresa.</p>
+            ) : (
+              <div className="space-y-4">
+                {contacts.map((contact, index) => (
+                  <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-slate-300 text-xs">Nome *</Label>
+                        <Input
+                          value={contact.name}
+                          onChange={(e) => updateContact(index, 'name', e.target.value)}
+                          placeholder="Nome completo"
+                          className="bg-slate-950 border-slate-700 text-slate-100 h-9"
+                        />
+                        {errors[`contact_${index}_name`] && <p className="text-xs text-red-400 mt-1">{errors[`contact_${index}_name`]}</p>}
+                      </div>
+                      <div>
+                        <Label className="text-slate-300 text-xs">WhatsApp *</Label>
+                        <Input
+                          value={contact.phone}
+                          onChange={(e) => updateContact(index, 'phone', formatPhone(e.target.value))}
+                          placeholder="(00) 00000-0000"
+                          className="bg-slate-950 border-slate-700 text-slate-100 h-9"
+                        />
+                        {errors[`contact_${index}_phone`] && <p className="text-xs text-red-400 mt-1">{errors[`contact_${index}_phone`]}</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-slate-300 text-xs">Email</Label>
+                        <Input
+                          type="email"
+                          value={contact.email}
+                          onChange={(e) => updateContact(index, 'email', e.target.value)}
+                          placeholder="email@empresa.com"
+                          className="bg-slate-950 border-slate-700 text-slate-100 h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-300 text-xs">Cargo</Label>
+                        <Input
+                          value={contact.role}
+                          onChange={(e) => updateContact(index, 'role', e.target.value)}
+                          placeholder="Ex: Financeiro, Gerente"
+                          className="bg-slate-950 border-slate-700 text-slate-100 h-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`billing-${index}`}
+                          checked={contact.is_billing_contact}
+                          onCheckedChange={(checked) => updateContact(index, 'is_billing_contact', checked as boolean)}
+                          className="border-slate-600"
+                        />
+                        <Label htmlFor={`billing-${index}`} className="text-sm text-slate-300 cursor-pointer">
+                          Contato de cobrança
+                        </Label>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeContact(index)} className="text-red-400 hover:text-red-300 hover:bg-red-900/20">
+                        <Trash2 className="w-4 h-4 mr-1" /> Remover
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-500">
+                  💡 Contatos de cobrança receberão WhatsApp e emails automáticos sobre parcelas.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
