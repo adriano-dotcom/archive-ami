@@ -20,6 +20,7 @@ import { Checkbox } from './ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { BulkSendTemplateModal } from './BulkSendTemplateModal';
 import { supabase } from '@/integrations/supabase/client';
+import { SeguradosTab } from './segurados';
 
 const statusOptions = [
   { value: 'new', label: 'Novo Lead', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -1443,6 +1444,10 @@ const Contacts: React.FC = () => {
 
         <TabsContent value="google" className="mt-0">
           <ContactsTable contacts={filteredContacts} />
+        </TabsContent>
+
+        <TabsContent value="segurados" className="mt-6">
+          <SeguradosTab />
         </TabsContent>
       </Tabs>
 

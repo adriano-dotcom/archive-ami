@@ -94,3 +94,41 @@ export const displayPhoneInternational = (phone: string | undefined | null): str
   const formatted = formatPhoneInternational(phone);
   return formatted || phone;
 };
+
+/**
+ * Format CPF for display: 123.456.789-00
+ */
+export const formatCPF = (cpf: string | undefined | null): string => {
+  if (!cpf) return '';
+  
+  const digits = cpf.replace(/\D/g, '');
+  
+  if (digits.length !== 11) return cpf;
+  
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
+/**
+ * Format CNPJ for display: 12.345.678/0001-00
+ */
+export const formatCNPJ = (cnpj: string | undefined | null): string => {
+  if (!cnpj) return '';
+  
+  const digits = cnpj.replace(/\D/g, '');
+  
+  if (digits.length !== 14) return cnpj;
+  
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+};
+
+/**
+ * Detect if document is CPF or CNPJ
+ */
+export const detectDocumentType = (doc: string): 'cpf' | 'cnpj' | 'unknown' => {
+  const digits = doc.replace(/\D/g, '');
+  
+  if (digits.length === 11) return 'cpf';
+  if (digits.length === 14) return 'cnpj';
+  
+  return 'unknown';
+};
