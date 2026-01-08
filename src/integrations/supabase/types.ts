@@ -517,6 +517,66 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          cep: string | null
+          city: string | null
+          cnpj: string
+          complement: string | null
+          created_at: string
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          metadata: Json | null
+          neighborhood: string | null
+          nome_fantasia: string | null
+          notes: string | null
+          number: string | null
+          razao_social: string
+          state: string | null
+          street: string | null
+          updated_at: string
+        }
+        Insert: {
+          cep?: string | null
+          city?: string | null
+          cnpj: string
+          complement?: string | null
+          created_at?: string
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          metadata?: Json | null
+          neighborhood?: string | null
+          nome_fantasia?: string | null
+          notes?: string | null
+          number?: string | null
+          razao_social: string
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cep?: string | null
+          city?: string | null
+          cnpj?: string
+          complement?: string | null
+          created_at?: string
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          metadata?: Json | null
+          neighborhood?: string | null
+          nome_fantasia?: string | null
+          notes?: string | null
+          number?: string | null
+          razao_social?: string
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           blocked_at: string | null
@@ -528,6 +588,7 @@ export type Database = {
           client_memory: Json | null
           cnpj: string | null
           company: string | null
+          company_id: string | null
           complement: string | null
           cpf: string | null
           created_at: string
@@ -535,6 +596,7 @@ export type Database = {
           first_contact_date: string
           fleet_size: number | null
           id: string
+          is_billing_contact: boolean | null
           is_blocked: boolean | null
           is_business: boolean | null
           last_activity: string
@@ -547,6 +609,7 @@ export type Database = {
           phone_number: string
           pipedrive_person_id: string | null
           profile_picture_url: string | null
+          role: string | null
           state: string | null
           street: string | null
           tags: string[] | null
@@ -568,6 +631,7 @@ export type Database = {
           client_memory?: Json | null
           cnpj?: string | null
           company?: string | null
+          company_id?: string | null
           complement?: string | null
           cpf?: string | null
           created_at?: string
@@ -575,6 +639,7 @@ export type Database = {
           first_contact_date?: string
           fleet_size?: number | null
           id?: string
+          is_billing_contact?: boolean | null
           is_blocked?: boolean | null
           is_business?: boolean | null
           last_activity?: string
@@ -587,6 +652,7 @@ export type Database = {
           phone_number: string
           pipedrive_person_id?: string | null
           profile_picture_url?: string | null
+          role?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
@@ -608,6 +674,7 @@ export type Database = {
           client_memory?: Json | null
           cnpj?: string | null
           company?: string | null
+          company_id?: string | null
           complement?: string | null
           cpf?: string | null
           created_at?: string
@@ -615,6 +682,7 @@ export type Database = {
           first_contact_date?: string
           fleet_size?: number | null
           id?: string
+          is_billing_contact?: boolean | null
           is_blocked?: boolean | null
           is_business?: boolean | null
           last_activity?: string
@@ -627,6 +695,7 @@ export type Database = {
           phone_number?: string
           pipedrive_person_id?: string | null
           profile_picture_url?: string | null
+          role?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
@@ -638,7 +707,15 @@ export type Database = {
           vertical?: string | null
           whatsapp_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_states: {
         Row: {
@@ -1895,6 +1972,7 @@ export type Database = {
       policies: {
         Row: {
           branch: string | null
+          company_id: string | null
           contact_id: string | null
           created_at: string
           end_date: string | null
@@ -1910,6 +1988,7 @@ export type Database = {
         }
         Insert: {
           branch?: string | null
+          company_id?: string | null
           contact_id?: string | null
           created_at?: string
           end_date?: string | null
@@ -1925,6 +2004,7 @@ export type Database = {
         }
         Update: {
           branch?: string | null
+          company_id?: string | null
           contact_id?: string | null
           created_at?: string
           end_date?: string | null
@@ -1939,6 +2019,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "policies_contact_id_fkey"
             columns: ["contact_id"]
