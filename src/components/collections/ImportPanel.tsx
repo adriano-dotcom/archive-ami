@@ -24,7 +24,7 @@ const REQUIRED_FIELDS = [
   { key: 'name', label: 'Nome do Segurado', required: false },
   { key: 'phone', label: 'Telefone', required: false },
   { key: 'policy_number', label: 'Nº Apólice', required: true },
-  { key: 'insurer', label: 'Seguradora', required: true },
+  { key: 'insurer', label: 'Seguradora', required: false },
   { key: 'installment', label: 'Nº Parcela', required: true },
   { key: 'value', label: 'Valor', required: true },
   { key: 'due_date', label: 'Vencimento', required: true },
