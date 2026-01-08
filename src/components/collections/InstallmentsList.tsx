@@ -1,0 +1,395 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface Installment {
+  id: string;
+  installment_number: number;
+  value: number;
+  due_date: string;
+  status: string;
+  days_overdue: number;
+  contact: {
+    id: string;
+    name: string;
+    phone_number: string;
+  } | null;
+  policy: {
+    id: string;
+    policy_number: string;
+    insurer: string;
+  } | null;
+}
+
+export const InstallmentsList: React.FC = () => {
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [rangeFilter, setRangeFilter] = useState<string>('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: installments, isLoading, refetch } = useQuery({
+    queryKey: ['installments', search, statusFilter, rangeFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('installments')
+        .select(`
+          *,
+          contact:contacts(id, name, phone_number),
+          policy:policies(id, policy_number, insurer)
+        `)
+        .order('days_overdue', { ascending: false });
+
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      } else {
+        query = query.in('status', ['pending', 'overdue', 'negotiating']);
+      }
+
+      if (rangeFilter !== 'all') {
+        switch (rangeFilter) {
+          case '1-30':
+            query = query.gte('days_overdue', 1).lte('days_overdue', 30);
+            break;
+          case '31-60':
+            query = query.gte('days_overdue', 31).lte('days_overdue', 60);
+            break;
+          case '61-90':
+            query = query.gte('days_overdue', 61).lte('days_overdue', 90);
+            break;
+          case '90+':
+            query = query.gt('days_overdue', 90);
+            break;
+        }
+      }
+
+      const { data, error } = await query.limit(100);
+      
+      if (error) throw error;
+      
+      // Filter by search locally
+      if (search) {
+        const searchLower = search.toLowerCase();
+        return (data as Installment[]).filter(inst => 
+          inst.contact?.name?.toLowerCase().includes(searchLower) ||
+          inst.contact?.phone_number?.includes(search) ||
+          inst.policy?.policy_number?.toLowerCase().includes(searchLower) ||
+          inst.policy?.insurer?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      return data as Installment[];
+    }
+  });
+
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('installments')
+        .update({ 
+          status: 'paid', 
+          paid_at: new Date().toISOString(),
+          days_overdue: 0 
+        })
+        .in('id', ids);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
+      setSelectedIds([]);
+      toast.success('Parcelas marcadas como pagas');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar parcelas');
+    }
+  });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
+  };
+
+  const getStatusBadge = (status: string, daysOverdue: number) => {
+    if (status === 'paid') {
+      return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Pago</Badge>;
+    }
+    if (status === 'negotiating') {
+      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Negociando</Badge>;
+    }
+    if (daysOverdue > 90) {
+      return <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30">Crítico</Badge>;
+    }
+    if (daysOverdue > 60) {
+      return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Urgente</Badge>;
+    }
+    if (daysOverdue > 30) {
+      return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Atrasado</Badge>;
+    }
+    if (daysOverdue > 0) {
+      return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Vencido</Badge>;
+    }
+    return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">Pendente</Badge>;
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (installments && selectedIds.length === installments.length) {
+      setSelectedIds([]);
+    } else if (installments) {
+      setSelectedIds(installments.map(i => i.id));
+    }
+  };
+
+  const handleExport = () => {
+    if (!installments || installments.length === 0) {
+      toast.error('Nenhuma parcela para exportar');
+      return;
+    }
+
+    const csvContent = [
+      ['Nome', 'Telefone', 'Apólice', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
+      ...installments.map(inst => [
+        inst.contact?.name || '',
+        inst.contact?.phone_number || '',
+        inst.policy?.policy_number || '',
+        inst.policy?.insurer || '',
+        inst.installment_number,
+        inst.value,
+        inst.due_date,
+        inst.days_overdue,
+        inst.status
+      ].join(';'))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `parcelas_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    toast.success('Arquivo exportado com sucesso');
+  };
+
+  return (
+    <div className="space-y-4 pb-6">
+      {/* Filters Bar */}
+      <Card className="bg-slate-900/50 border-white/5">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Input
+                placeholder="Buscar por nome, telefone, apólice..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-slate-800/50 border-white/10"
+              />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="overdue">Vencido</SelectItem>
+                <SelectItem value="negotiating">Negociando</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={rangeFilter} onValueChange={setRangeFilter}>
+              <SelectTrigger className="w-[150px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Dias atraso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="1-30">1-30 dias</SelectItem>
+                <SelectItem value="31-60">31-60 dias</SelectItem>
+                <SelectItem value="61-90">61-90 dias</SelectItem>
+                <SelectItem value="90+">90+ dias</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => refetch()}
+              className="border-white/10"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+
+            <Button 
+              variant="outline"
+              onClick={handleExport}
+              className="border-white/10 gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Exportar
+            </Button>
+          </div>
+
+          {/* Selected Actions */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/5">
+              <span className="text-sm text-slate-400">
+                {selectedIds.length} selecionado(s)
+              </span>
+              <Button 
+                size="sm" 
+                className="bg-green-600 hover:bg-green-700 gap-2"
+                onClick={() => markAsPaidMutation.mutate(selectedIds)}
+                disabled={markAsPaidMutation.isPending}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Marcar como Pago
+              </Button>
+              <Button 
+                size="sm" 
+                className="bg-amber-600 hover:bg-amber-700 gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Enviar Cobrança
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card className="bg-slate-900/50 border-white/5">
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : installments && installments.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-white/5 hover:bg-transparent">
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={selectedIds.length === installments.length && installments.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Apólice</TableHead>
+                  <TableHead>Seguradora</TableHead>
+                  <TableHead className="text-center">Parcela</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-center">Vencimento</TableHead>
+                  <TableHead className="text-center">Atraso</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {installments.map((inst) => (
+                  <TableRow 
+                    key={inst.id} 
+                    className="border-white/5 hover:bg-white/[0.02]"
+                  >
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedIds.includes(inst.id)}
+                        onCheckedChange={() => toggleSelect(inst.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-200">
+                          {inst.contact?.name || 'N/A'}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {inst.contact?.phone_number || ''}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-300">
+                      {inst.policy?.policy_number || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-slate-300">
+                      {inst.policy?.insurer || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-center text-slate-300">
+                      {inst.installment_number}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-amber-400">
+                      {formatCurrency(inst.value)}
+                    </TableCell>
+                    <TableCell className="text-center text-slate-300">
+                      {format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`font-bold ${
+                        inst.days_overdue > 90 ? 'text-rose-400' :
+                        inst.days_overdue > 60 ? 'text-orange-400' :
+                        inst.days_overdue > 30 ? 'text-amber-400' :
+                        inst.days_overdue > 0 ? 'text-yellow-400' :
+                        'text-slate-400'
+                      }`}>
+                        {inst.days_overdue}d
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {getStatusBadge(inst.status, inst.days_overdue)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-green-500/20 hover:text-green-400"
+                          title="Marcar como pago"
+                          onClick={() => markAsPaidMutation.mutate([inst.id])}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-amber-500/20 hover:text-amber-400"
+                          title="Enviar cobrança"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12 text-slate-500">
+              Nenhuma parcela encontrada com os filtros aplicados
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

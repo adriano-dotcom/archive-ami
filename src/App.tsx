@@ -12,6 +12,7 @@ import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
 import MeetingRoom from './components/MeetingRoom';
 import Functions from './components/Functions';
+import { CollectionsDashboard } from './components/collections';
 import Auth from './pages/Auth';
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
@@ -77,6 +78,7 @@ const App: React.FC = () => {
               <Route path="/functions" element={<AdminRoute><Functions /></AdminRoute>} />
               <Route path="/prospecting" element={<AdminRoute><ProspectingDashboard /></AdminRoute>} />
               <Route path="/campaigns" element={<AdminRoute><CampaignsDashboard /></AdminRoute>} />
+              <Route path="/collections" element={<AdminRoute><CollectionsDashboard /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
             </Route>
           </Routes>

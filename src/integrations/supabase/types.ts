@@ -349,6 +349,174 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_attempts: {
+        Row: {
+          attempt_number: number
+          batch_id: string | null
+          channel: string
+          contact_id: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          installment_id: string | null
+          message_content: string | null
+          message_id: string | null
+          metadata: Json | null
+          read_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          status: string
+          template_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_number?: number
+          batch_id?: string | null
+          channel: string
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          installment_id?: string | null
+          message_content?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string
+          template_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          batch_id?: string | null
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          installment_id?: string | null
+          message_content?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string
+          template_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_attempts_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "collection_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_attempts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_attempts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_attempts_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_attempts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collection_batches: {
+        Row: {
+          channel: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          delivered_count: number
+          description: string | null
+          failed_count: number
+          filters: Json | null
+          id: string
+          metadata: Json | null
+          name: string
+          replied_count: number
+          scheduled_at: string | null
+          sent_count: number
+          started_at: string | null
+          status: string
+          template_name: string | null
+          template_variables: Json | null
+          total_count: number
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_count?: number
+          description?: string | null
+          failed_count?: number
+          filters?: Json | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          replied_count?: number
+          scheduled_at?: string | null
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          template_name?: string | null
+          template_variables?: Json | null
+          total_count?: number
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_count?: number
+          description?: string | null
+          failed_count?: number
+          filters?: Json | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          replied_count?: number
+          scheduled_at?: string | null
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          template_name?: string | null
+          template_variables?: Json | null
+          total_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           blocked_at: string | null
@@ -919,6 +1087,180 @@ export type Database = {
             columns: ["automation_id"]
             isOneToOne: false
             referencedRelation: "followup_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_count: number
+          errors: Json | null
+          file_name: string
+          file_type: string | null
+          id: string
+          insurer: string | null
+          mapping_id: string | null
+          metadata: Json | null
+          processed_rows: number
+          started_at: string
+          status: string
+          success_count: number
+          total_rows: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_count?: number
+          errors?: Json | null
+          file_name: string
+          file_type?: string | null
+          id?: string
+          insurer?: string | null
+          mapping_id?: string | null
+          metadata?: Json | null
+          processed_rows?: number
+          started_at?: string
+          status?: string
+          success_count?: number
+          total_rows?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_count?: number
+          errors?: Json | null
+          file_name?: string
+          file_type?: string | null
+          id?: string
+          insurer?: string | null
+          mapping_id?: string | null
+          metadata?: Json | null
+          processed_rows?: number
+          started_at?: string
+          status?: string
+          success_count?: number
+          total_rows?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_logs_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "import_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_mappings: {
+        Row: {
+          column_mappings: Json
+          created_at: string
+          file_type: string
+          id: string
+          insurer: string | null
+          is_default: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          column_mappings?: Json
+          created_at?: string
+          file_type: string
+          id?: string
+          insurer?: string | null
+          is_default?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          column_mappings?: Json
+          created_at?: string
+          file_type?: string
+          id?: string
+          insurer?: string | null
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      installments: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          days_overdue: number | null
+          due_date: string
+          id: string
+          installment_number: number
+          metadata: Json | null
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          policy_id: string | null
+          status: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          days_overdue?: number | null
+          due_date: string
+          id?: string
+          installment_number: number
+          metadata?: Json | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          policy_id?: string | null
+          status?: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          days_overdue?: number | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          metadata?: Json | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          policy_id?: string | null
+          status?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installments_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
             referencedColumns: ["id"]
           },
         ]
@@ -1547,6 +1889,69 @@ export type Database = {
           },
         ]
       }
+      policies: {
+        Row: {
+          branch: string | null
+          contact_id: string | null
+          created_at: string
+          end_date: string | null
+          id: string
+          insurer: string
+          metadata: Json | null
+          policy_number: string
+          product: string | null
+          start_date: string | null
+          status: string
+          total_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          contact_id?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          insurer: string
+          metadata?: Json | null
+          policy_number: string
+          product?: string | null
+          start_date?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          contact_id?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          insurer?: string
+          metadata?: Json | null
+          policy_number?: string
+          product?: string | null
+          start_date?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policies_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policies_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_coaching_reports: {
         Row: {
           agent_id: string | null
@@ -2037,6 +2442,22 @@ export type Database = {
       }
     }
     Views: {
+      collection_summary: {
+        Row: {
+          range_1_30: number | null
+          range_31_60: number | null
+          range_61_90: number | null
+          range_90_plus: number | null
+          total_debtors: number | null
+          total_overdue_installments: number | null
+          total_overdue_value: number | null
+          value_1_30: number | null
+          value_31_60: number | null
+          value_61_90: number | null
+          value_90_plus: number | null
+        }
+        Relationships: []
+      }
       contacts_with_stats: {
         Row: {
           blocked_at: string | null
