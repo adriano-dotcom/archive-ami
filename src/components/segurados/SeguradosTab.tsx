@@ -15,6 +15,7 @@ import { EditCompanyModal } from './EditCompanyModal';
 import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { ImportCompaniesModal } from './ImportCompaniesModal';
 import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
+import { ImportCompaniesWithContactsModal } from './ImportCompaniesWithContactsModal';
 import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
@@ -59,6 +60,7 @@ export const SeguradosTab: React.FC = () => {
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
   const [showImportCompanies, setShowImportCompanies] = useState(false);
   const [showImportContacts, setShowImportContacts] = useState(false);
+  const [showImportCompaniesWithContacts, setShowImportCompaniesWithContacts] = useState(false);
   
   // Edit/Delete states
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -91,6 +93,20 @@ export const SeguradosTab: React.FC = () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'template_contatos_segurados.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadCompaniesWithContactsTemplate = () => {
+    const headers = 'cnpj;razao_social;nome_fantasia;cidade;estado;nome_contato;telefone;email;cargo;contato_cobranca\n';
+    const example1 = '12345678000190;Empresa ABC Ltda;ABC Transportes;Londrina;PR;João Silva;43999998888;joao@email.com;Gerente;sim\n';
+    const example2 = '12345678000190;Empresa ABC Ltda;ABC Transportes;Londrina;PR;Maria Santos;43988887777;maria@email.com;Financeiro;sim\n';
+    const example3 = '98765432000100;Outra Empresa SA;;Curitiba;PR;Carlos Souza;41999991111;carlos@email.com;Diretor;nao\n';
+    const blob = new Blob([headers + example1 + example2 + example3], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_empresas_com_contatos.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -391,13 +407,21 @@ export const SeguradosTab: React.FC = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-slate-900 border-slate-700">
+            <DropdownMenuItem onClick={() => setShowImportCompaniesWithContacts(true)} className="gap-2 cursor-pointer">
+              <Building2 className="w-4 h-4 text-purple-400" />
+              Empresas + Contatos (CSV)
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowImportCompanies(true)} className="gap-2 cursor-pointer">
               <Building2 className="w-4 h-4 text-blue-400" />
-              Importar Empresas (CSV)
+              Apenas Empresas (CSV)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowImportContacts(true)} className="gap-2 cursor-pointer">
               <User className="w-4 h-4 text-emerald-400" />
-              Importar Contatos (CSV)
+              Apenas Contatos (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={downloadCompaniesWithContactsTemplate} className="gap-2 cursor-pointer">
+              <Download className="w-4 h-4 text-purple-400" />
+              Template Empresas + Contatos
             </DropdownMenuItem>
             <DropdownMenuItem onClick={downloadCompaniesTemplate} className="gap-2 cursor-pointer">
               <Download className="w-4 h-4 text-slate-400" />
@@ -513,6 +537,11 @@ export const SeguradosTab: React.FC = () => {
       <ImportContactsSeguradosModal
         open={showImportContacts}
         onOpenChange={setShowImportContacts}
+        onSuccess={loadData}
+      />
+      <ImportCompaniesWithContactsModal
+        open={showImportCompaniesWithContacts}
+        onOpenChange={setShowImportCompaniesWithContacts}
         onSuccess={loadData}
       />
 
