@@ -80,9 +80,9 @@ const App: React.FC = () => {
                 <Route path="/scheduling" element={<Scheduling />} />
                 <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
                 <Route path="/functions" element={<AdminRoute><Functions /></AdminRoute>} />
-                <Route path="/prospecting" element={<AdminRoute><ProspectingDashboard /></AdminRoute>} />
-                <Route path="/campaigns" element={<AdminRoute><CampaignsDashboard /></AdminRoute>} />
-                <Route path="/collections" element={<AdminRoute><CollectionsDashboard /></AdminRoute>} />
+                <Route path="/prospecting" element={<ProspectingDashboard />} />
+                <Route path="/campaigns" element={<CampaignsDashboard />} />
+                <Route path="/collections" element={<CollectionsDashboard />} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
               </Route>
             </Routes>
