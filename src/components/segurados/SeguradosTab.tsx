@@ -379,61 +379,62 @@ export const SeguradosTab: React.FC = () => {
     }
   };
 
-  // Bulk delete companies
+  // Bulk delete companies (cascade: deletes policies, installments, unlinks contacts)
   const handleBulkDeleteCompanies = async () => {
     setBulkDeleteLoading(true);
     let deletedCount = 0;
-    let skippedCount = 0;
-    const skippedReasons: string[] = [];
+    let errorCount = 0;
 
     try {
       for (const companyId of selectedCompanyIds) {
-        const company = companies.find(c => c.id === companyId);
-        if (!company) continue;
+        try {
+          // 1. Buscar apólices da empresa
+          const { data: policies } = await supabase
+            .from('policies')
+            .select('id')
+            .eq('company_id', companyId);
 
-        // Check for linked contacts
-        const { count: contactsCount } = await supabase
-          .from('contacts')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', companyId);
+          if (policies && policies.length > 0) {
+            const policyIds = policies.map(p => p.id);
+            
+            // 2. Excluir parcelas das apólices
+            await supabase
+              .from('installments')
+              .delete()
+              .in('policy_id', policyIds);
 
-        if (contactsCount && contactsCount > 0) {
-          skippedCount++;
-          skippedReasons.push(`${company.nome_fantasia || company.razao_social} (contatos vinculados)`);
-          continue;
-        }
+            // 3. Excluir apólices
+            await supabase
+              .from('policies')
+              .delete()
+              .eq('company_id', companyId);
+          }
 
-        // Check for linked policies
-        const { count: policiesCount } = await supabase
-          .from('policies')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', companyId);
+          // 4. Desvincular contatos (set company_id = null)
+          await supabase
+            .from('contacts')
+            .update({ company_id: null })
+            .eq('company_id', companyId);
 
-        if (policiesCount && policiesCount > 0) {
-          skippedCount++;
-          skippedReasons.push(`${company.nome_fantasia || company.razao_social} (apólices vinculadas)`);
-          continue;
-        }
+          // 5. Excluir empresa
+          const { error } = await supabase
+            .from('companies')
+            .delete()
+            .eq('id', companyId);
 
-        // Delete company
-        const { error } = await supabase
-          .from('companies')
-          .delete()
-          .eq('id', companyId);
-
-        if (error) {
-          console.error('Error deleting company:', error);
-          skippedCount++;
-        } else {
+          if (error) throw error;
           deletedCount++;
+        } catch (err) {
+          console.error('Error deleting company:', err);
+          errorCount++;
         }
       }
 
       if (deletedCount > 0) {
         toast.success(`${deletedCount} empresa(s) excluída(s) com sucesso!`);
       }
-      if (skippedCount > 0) {
-        toast.warning(`${skippedCount} empresa(s) não puderam ser excluídas (possuem vínculos)`);
+      if (errorCount > 0) {
+        toast.error(`${errorCount} empresa(s) não puderam ser excluídas`);
       }
 
       setSelectedCompanyIds([]);
@@ -737,9 +738,9 @@ export const SeguradosTab: React.FC = () => {
             <AlertDialogDescription className="text-slate-400">
               Tem certeza que deseja excluir <strong className="text-slate-200">{selectedCompanyIds.length} empresa(s)</strong>? 
               <br /><br />
-              <span className="text-amber-400">Nota:</span> Empresas com contatos ou apólices vinculadas não serão excluídas.
+              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e vínculos com contatos serão removidos junto com as empresas.
               <br /><br />
-              Esta ação não pode ser desfeita.
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
