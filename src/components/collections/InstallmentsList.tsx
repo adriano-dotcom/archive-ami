@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2 } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil } from 'lucide-react';
+import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -202,6 +203,24 @@ export const InstallmentsList: React.FC = () => {
     },
     onError: () => {
       toast.error('Erro ao excluir parcelas');
+    }
+  });
+
+  const updateInsurerMutation = useMutation({
+    mutationFn: async ({ policyId, insurer }: { policyId: string; insurer: string }) => {
+      const { error } = await supabase
+        .from('policies')
+        .update({ insurer })
+        .eq('id', policyId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      toast.success('Seguradora atualizada');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar seguradora');
     }
   });
 
@@ -490,7 +509,30 @@ export const InstallmentsList: React.FC = () => {
                       {inst.policy?.policy_number || 'N/A'}
                     </TableCell>
                     <TableCell className="text-slate-300">
-                      {inst.policy?.insurer || 'N/A'}
+                      {inst.policy?.id ? (
+                        <Select
+                          value={inst.policy.insurer || ''}
+                          onValueChange={(value) => updateInsurerMutation.mutate({ policyId: inst.policy!.id, insurer: value })}
+                        >
+                          <SelectTrigger className="h-8 w-[160px] bg-transparent border-transparent hover:border-white/20 hover:bg-white/5 text-left">
+                            <SelectValue placeholder="Selecionar">
+                              <span className="flex items-center gap-2">
+                                {inst.policy.insurer || 'N/A'}
+                                <Pencil className="w-3 h-3 text-slate-500" />
+                              </span>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {KNOWN_INSURERS.map((insurer) => (
+                              <SelectItem key={insurer} value={insurer}>
+                                {insurer}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        'N/A'
+                      )}
                     </TableCell>
                     <TableCell className="text-center text-slate-300">
                       {inst.installment_number}
