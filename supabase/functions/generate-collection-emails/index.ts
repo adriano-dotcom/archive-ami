@@ -55,6 +55,18 @@ const getToneInstructions = (tone: string): string => {
   }
 };
 
+// Helper function to get time-based greeting in Brasília timezone
+const getTimeGreeting = (): string => {
+  const now = new Date();
+  const brasiliaOffset = -3;
+  const utcHours = now.getUTCHours();
+  const brasiliaHours = (utcHours + brasiliaOffset + 24) % 24;
+  
+  if (brasiliaHours >= 6 && brasiliaHours < 12) return "Bom dia";
+  if (brasiliaHours >= 12 && brasiliaHours < 18) return "Boa tarde";
+  return "Boa noite";
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -173,9 +185,10 @@ serve(async (req) => {
 
       if (billingContact?.email) {
         console.log(`Found billing contact email for company ${companyId}`);
+        // Prioritize the found contact's name (call_name first, then name)
         return { 
           email: billingContact.email, 
-          contactName: contactName || billingContact.name || billingContact.call_name || 'Cliente' 
+          contactName: billingContact.call_name || billingContact.name || 'Cliente' 
         };
       }
 
@@ -190,9 +203,10 @@ serve(async (req) => {
 
       if (anyContact?.email) {
         console.log(`Found related contact email for company ${companyId}`);
+        // Prioritize the found contact's name (call_name first, then name)
         return { 
           email: anyContact.email, 
-          contactName: contactName || anyContact.name || anyContact.call_name || 'Cliente' 
+          contactName: anyContact.call_name || anyContact.name || 'Cliente' 
         };
       }
 
@@ -273,6 +287,8 @@ serve(async (req) => {
           return `| ${policy?.insurer || 'N/A'} | ${i.installment_number} | R$ ${i.value.toFixed(2)} | ${new Date(i.due_date).toLocaleDateString('pt-BR')} | ${i.days_overdue} dias |`;
         }).join('\n');
 
+        const timeGreeting = getTimeGreeting();
+        
         const prompt = `Você é um assistente de cobrança da Jacometo Seguros.
 Gere um email de cobrança com ${getToneInstructions(emailTone)}
 
@@ -288,13 +304,14 @@ ${installmentsTable}
 TOTAL: R$ ${contactData.totalValue.toFixed(2)}
 
 REGRAS:
-1. Liste TODAS as parcelas em uma tabela HTML bonita e responsiva
-2. Mostre o total consolidado em destaque
-3. Use estilo profissional com cores corporativas (azul marinho #1e3a5f)
-4. Inclua chamada para ação clara para regularização
-5. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
-6. SEM emojis
-7. Assinatura: Jacometo Seguros - Equipe de Cobrança
+1. COMECE o email com a saudação: "${timeGreeting}, ${contactData.contactName}!"
+2. Liste TODAS as parcelas em uma tabela HTML bonita e responsiva
+3. Mostre o total consolidado em destaque
+4. Use estilo profissional com cores corporativas (azul marinho #1e3a5f)
+5. Inclua chamada para ação clara para regularização
+6. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
+7. SEM emojis
+8. Assinatura: Jacometo Seguros - Equipe de Cobrança
 
 Retorne APENAS um JSON válido no formato:
 {"subject": "assunto do email", "body_html": "HTML completo do email"}`;
