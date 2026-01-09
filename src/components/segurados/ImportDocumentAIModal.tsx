@@ -108,7 +108,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  onGenerateEmails?: () => void;
+  onGoToInstallments?: () => void;
 }
 
 const ACCEPTED_TYPES = [
@@ -125,7 +125,7 @@ const ACCEPTED_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB - triggers sequential mode recommendation
 
-export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess, onGenerateEmails }) => {
+export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess, onGoToInstallments }) => {
   const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'importing' | 'done'>('upload');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [companies, setCompanies] = useState<ExtractedCompany[]>([]);
@@ -1688,28 +1688,28 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               </div>
 
               {/* Next Step CTA */}
-              {onGenerateEmails && (
-                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+              {onGoToInstallments && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-purple-500/20">
-                      <Mail className="w-5 h-5 text-purple-400" />
+                    <div className="p-2 rounded-lg bg-amber-500/20">
+                      <FileSpreadsheet className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-purple-200">Próximo Passo: Gerar Emails de Cobrança</p>
+                      <p className="font-medium text-amber-200">Próximo Passo: Revisar Parcelas</p>
                       <p className="text-sm text-slate-400">
-                        Use a IA para gerar emails personalizados para cada segurado
+                        Selecione as parcelas que deseja cobrar e gere emails com IA
                       </p>
                     </div>
                   </div>
                   <Button 
                     onClick={() => {
                       handleClose();
-                      onGenerateEmails();
+                      onGoToInstallments();
                     }}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                    className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 gap-2"
                   >
-                    <Sparkles className="w-4 h-4" />
-                    Gerar Emails com IA
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Ver Parcelas Importadas
                     <ArrowRight className="w-4 h-4 ml-auto" />
                   </Button>
                 </div>

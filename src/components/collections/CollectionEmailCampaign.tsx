@@ -46,6 +46,7 @@ interface CollectionEmailCampaignProps {
   onOpenChange: (open: boolean) => void;
   filters: {
     range?: string;
+    selectedInstallmentIds?: string[];
   };
   batchId?: string;
 }
@@ -74,7 +75,8 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
         body: {
           filters: {
             ...filters,
-            status: ['overdue', 'negotiating']
+            status: ['overdue', 'negotiating'],
+            installmentIds: filters.selectedInstallmentIds
           },
           emailTone,
           batchId
@@ -212,9 +214,15 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
           <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
           <div>
             <p className="text-sm text-amber-200 font-medium">Filtros aplicados</p>
-            <p className="text-sm text-amber-300/70">
-              Faixa de atraso: {filters.range === 'all' ? 'Todas' : filters.range || 'Não especificado'}
-            </p>
+            {filters.selectedInstallmentIds && filters.selectedInstallmentIds.length > 0 ? (
+              <p className="text-sm text-amber-300/70">
+                {filters.selectedInstallmentIds.length} parcela(s) selecionada(s)
+              </p>
+            ) : (
+              <p className="text-sm text-amber-300/70">
+                Faixa de atraso: {filters.range === 'all' ? 'Todas' : filters.range || 'Não especificado'}
+              </p>
+            )}
             <p className="text-xs text-slate-400 mt-2">
               A IA irá gerar um email personalizado para cada segurado, agrupando todas as parcelas em um único email.
             </p>

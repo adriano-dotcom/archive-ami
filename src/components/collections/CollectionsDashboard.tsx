@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutDashboard, FileSpreadsheet, Upload, Send } from 'lucide-react';
 import { CollectionOverview } from './CollectionOverview';
@@ -7,6 +7,8 @@ import { ImportPanel } from './ImportPanel';
 import { CollectionCampaigns } from './CollectionCampaigns';
 
 export const CollectionsDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-slate-950">
       {/* Header */}
@@ -23,7 +25,7 @@ export const CollectionsDashboard: React.FC = () => {
       </div>
 
       {/* Tabs Navigation */}
-      <Tabs defaultValue="dashboard" className="flex-1 flex flex-col overflow-hidden px-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden px-6">
         <TabsList className="flex-shrink-0 bg-slate-900/50 border border-white/5 p-1 rounded-xl">
           <TabsTrigger 
             value="dashboard" 
@@ -64,7 +66,7 @@ export const CollectionsDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="import" className="flex-1 overflow-auto mt-4">
-          <ImportPanel />
+          <ImportPanel onGoToInstallments={() => setActiveTab('installments')} />
         </TabsContent>
 
         <TabsContent value="campaigns" className="flex-1 overflow-auto mt-4">

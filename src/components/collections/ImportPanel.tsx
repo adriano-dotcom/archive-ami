@@ -11,7 +11,6 @@ import { Upload, FileSpreadsheet, Check, X, AlertTriangle, Loader2, Download, Sp
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { ImportDocumentAIModal } from '@/components/segurados/ImportDocumentAIModal';
-import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 
 interface ColumnMapping {
   [key: string]: string;
@@ -33,7 +32,11 @@ const REQUIRED_FIELDS = [
   { key: 'cpf', label: 'CPF/CNPJ', required: false },
 ];
 
-export const ImportPanel: React.FC = () => {
+interface ImportPanelProps {
+  onGoToInstallments?: () => void;
+}
+
+export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -41,7 +44,6 @@ export const ImportPanel: React.FC = () => {
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'importing' | 'done'>('upload');
   const [importProgress, setImportProgress] = useState({ success: 0, error: 0, total: 0 });
   const [showAIImportModal, setShowAIImportModal] = useState(false);
-  const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: savedMappings } = useQuery({
@@ -371,14 +373,7 @@ export const ImportPanel: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ['installments'] });
           queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
         }}
-        onGenerateEmails={() => setShowEmailCampaign(true)}
-      />
-
-      {/* Email Campaign Modal */}
-      <CollectionEmailCampaign
-        open={showEmailCampaign}
-        onOpenChange={setShowEmailCampaign}
-        filters={{ range: 'all' }}
+        onGoToInstallments={onGoToInstallments}
       />
 
       {/* Mapping Step */}
