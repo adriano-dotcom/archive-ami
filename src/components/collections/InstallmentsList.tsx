@@ -49,13 +49,14 @@ export const InstallmentsList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rangeFilter, setRangeFilter] = useState<string>('all');
+  const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -85,6 +86,21 @@ export const InstallmentsList: React.FC = () => {
             break;
           case '90+':
             query = query.gt('days_overdue', 90);
+            break;
+        }
+      }
+
+      // Data quality filter
+      if (dataQualityFilter !== 'all') {
+        switch (dataQualityFilter) {
+          case 'no-policy':
+            query = query.is('policy_id', null);
+            break;
+          case 'no-contact':
+            query = query.is('contact_id', null);
+            break;
+          case 'incomplete':
+            query = query.or('policy_id.is.null,contact_id.is.null');
             break;
         }
       }
@@ -119,6 +135,11 @@ export const InstallmentsList: React.FC = () => {
   // Count of installments with >30 days overdue
   const overdue30Count = useMemo(() => {
     return installments?.filter(inst => inst.days_overdue > 30).length || 0;
+  }, [installments]);
+
+  // Count of incomplete installments
+  const incompleteCount = useMemo(() => {
+    return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
   }, [installments]);
 
   // Select all installments with >30 days overdue
@@ -297,6 +318,24 @@ export const InstallmentsList: React.FC = () => {
               </SelectContent>
             </Select>
 
+            <Select value={dataQualityFilter} onValueChange={setDataQualityFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Qualidade dados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os registros</SelectItem>
+                <SelectItem value="incomplete">⚠️ Dados incompletos</SelectItem>
+                <SelectItem value="no-policy">Sem apólice</SelectItem>
+                <SelectItem value="no-contact">Sem contato</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {incompleteCount > 0 && dataQualityFilter === 'all' && (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                {incompleteCount} incompleto(s)
+              </Badge>
+            )}
+
             <Button 
               variant="outline" 
               size="icon"
@@ -427,7 +466,9 @@ export const InstallmentsList: React.FC = () => {
                 {installments.map((inst) => (
                   <TableRow 
                     key={inst.id} 
-                    className="border-white/5 hover:bg-white/[0.02]"
+                    className={`border-white/5 hover:bg-white/[0.02] ${
+                      (!inst.policy || !inst.contact) ? 'bg-amber-500/5 border-l-2 border-l-amber-500/50' : ''
+                    }`}
                   >
                     <TableCell>
                       <Checkbox 
