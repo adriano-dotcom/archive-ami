@@ -1003,32 +1003,54 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // Create installment
+          // Create installment - APRENDIZADO: Usar chave composta policy_id + installment_number + due_date
+          // para permitir múltiplas parcelas da mesma apólice com endossos diferentes (ex: Tokio Marine)
           if (policyId) {
-            const { error: installmentError } = await supabase
+            // Verificar se já existe parcela com mesma policy_id, installment_number E due_date
+            const { data: existingInst } = await supabase
               .from('installments')
-              .upsert({
-                policy_id: policyId,
-                contact_id: contactId,
-                installment_number: inst.installment_number,
-                value: inst.value,
-                due_date: inst.due_date,
-                days_overdue: inst.days_overdue || 0,
-                status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
-                metadata: {
-                  receipt_number: inst.receipt_number,
-                  endorsement: inst.endorsement,
-                  cancellation_date: inst.cancellation_date,
-                  commission: inst.commission,
-                  source: inst.source
-                }
-              }, { 
-                onConflict: 'policy_id,installment_number',
-                ignoreDuplicates: false 
-              });
+              .select('id')
+              .eq('policy_id', policyId)
+              .eq('installment_number', inst.installment_number)
+              .eq('due_date', inst.due_date)
+              .maybeSingle();
             
-            if (installmentError) {
-              console.error('Error creating installment:', installmentError);
+            const installmentData = {
+              policy_id: policyId,
+              contact_id: contactId,
+              installment_number: inst.installment_number,
+              value: inst.value,
+              due_date: inst.due_date,
+              days_overdue: inst.days_overdue || 0,
+              status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
+              metadata: {
+                receipt_number: inst.receipt_number,
+                endorsement: inst.endorsement,
+                cancellation_date: inst.cancellation_date,
+                commission: inst.commission,
+                source: inst.source
+              }
+            };
+            
+            if (existingInst) {
+              // Atualizar parcela existente
+              const { error: updateError } = await supabase
+                .from('installments')
+                .update(installmentData)
+                .eq('id', existingInst.id);
+              
+              if (updateError) {
+                console.error('Error updating installment:', updateError);
+              }
+            } else {
+              // Inserir nova parcela
+              const { error: insertError } = await supabase
+                .from('installments')
+                .insert(installmentData);
+              
+              if (insertError) {
+                console.error('Error creating installment:', insertError);
+              }
             }
           }
         } catch (err) {
