@@ -43,6 +43,11 @@ interface Installment {
     id: string;
     policy_number: string;
     insurer: string;
+    company: {
+      id: string;
+      razao_social: string;
+      nome_fantasia: string | null;
+    } | null;
   } | null;
 }
 
@@ -64,7 +69,7 @@ export const InstallmentsList: React.FC = () => {
         .select(`
           *,
           contact:contacts(id, name, phone_number),
-          policy:policies(id, policy_number, insurer)
+          policy:policies(id, policy_number, insurer, company:companies(id, razao_social, nome_fantasia))
         `)
         .order('days_overdue', { ascending: false });
 
@@ -117,7 +122,9 @@ export const InstallmentsList: React.FC = () => {
           inst.contact?.name?.toLowerCase().includes(searchLower) ||
           inst.contact?.phone_number?.includes(search) ||
           inst.policy?.policy_number?.toLowerCase().includes(searchLower) ||
-          inst.policy?.insurer?.toLowerCase().includes(searchLower)
+          inst.policy?.insurer?.toLowerCase().includes(searchLower) ||
+          inst.policy?.company?.razao_social?.toLowerCase().includes(searchLower) ||
+          inst.policy?.company?.nome_fantasia?.toLowerCase().includes(searchLower)
         );
       }
       
@@ -298,10 +305,11 @@ export const InstallmentsList: React.FC = () => {
     }
 
     const csvContent = [
-      ['Nome', 'Telefone', 'Apólice', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
+      ['Nome', 'Telefone', 'Empresa', 'Apólice', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
       ...installments.map(inst => [
         inst.contact?.name || '',
         inst.contact?.phone_number || '',
+        inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || '',
         inst.policy?.policy_number || '',
         inst.policy?.insurer || '',
         inst.installment_number,
@@ -517,6 +525,7 @@ export const InstallmentsList: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead>Contato</TableHead>
+                  <TableHead>Empresa</TableHead>
                   <TableHead>Apólice</TableHead>
                   <TableHead>Seguradora</TableHead>
                   <TableHead className="text-center">Parcela</TableHead>
@@ -550,6 +559,14 @@ export const InstallmentsList: React.FC = () => {
                           {inst.contact?.phone_number || ''}
                         </p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <p 
+                        className="font-medium text-slate-200 truncate max-w-[180px]" 
+                        title={inst.policy?.company?.razao_social || ''}
+                      >
+                        {inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || 'N/A'}
+                      </p>
                     </TableCell>
                     <TableCell className="text-slate-300">
                       {inst.policy?.policy_number || 'N/A'}
