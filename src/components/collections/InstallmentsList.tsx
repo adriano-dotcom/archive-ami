@@ -224,6 +224,30 @@ export const InstallmentsList: React.FC = () => {
     }
   });
 
+  const bulkUpdateInsurerMutation = useMutation({
+    mutationFn: async ({ installmentIds, insurer }: { installmentIds: string[]; insurer: string }) => {
+      const selectedInstallments = installments?.filter(inst => installmentIds.includes(inst.id)) || [];
+      const policyIds = [...new Set(selectedInstallments.map(inst => inst.policy?.id).filter(Boolean))] as string[];
+      
+      if (policyIds.length === 0) throw new Error('Nenhuma apólice encontrada');
+      
+      const { error } = await supabase
+        .from('policies')
+        .update({ insurer })
+        .in('id', policyIds);
+      
+      if (error) throw error;
+      return policyIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      toast.success(`Seguradora atualizada em ${count} apólice(s)`);
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar seguradoras');
+    }
+  });
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -407,6 +431,28 @@ export const InstallmentsList: React.FC = () => {
                 <Sparkles className="w-4 h-4" />
                 Gerar Emails com IA ({selectedIds.length})
               </Button>
+              
+              <Select
+                value=""
+                onValueChange={(value) => {
+                  bulkUpdateInsurerMutation.mutate({ 
+                    installmentIds: selectedIds, 
+                    insurer: value 
+                  });
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9 bg-slate-800/50 border-white/10">
+                  <Pencil className="w-4 h-4 mr-2 text-slate-400" />
+                  <SelectValue placeholder="Trocar Seguradora" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {KNOWN_INSURERS.map((insurer) => (
+                    <SelectItem key={insurer} value={insurer}>
+                      {insurer}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
               <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogTrigger asChild>
