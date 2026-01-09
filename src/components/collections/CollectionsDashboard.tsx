@@ -35,18 +35,18 @@ export const CollectionsDashboard: React.FC = () => {
             Dashboard
           </TabsTrigger>
           <TabsTrigger 
-            value="installments"
-            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:to-orange-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 rounded-lg gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Parcelas
-          </TabsTrigger>
-          <TabsTrigger 
             value="import"
             className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:to-orange-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 rounded-lg gap-2"
           >
             <Upload className="w-4 h-4" />
             Importar
+          </TabsTrigger>
+          <TabsTrigger 
+            value="installments"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:to-orange-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 rounded-lg gap-2"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Parcelas
           </TabsTrigger>
           <TabsTrigger 
             value="campaigns"
