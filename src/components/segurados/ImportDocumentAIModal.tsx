@@ -27,7 +27,9 @@ import {
   AlertTriangle,
   Receipt,
   Calendar,
-  DollarSign
+  DollarSign,
+  Mail,
+  ArrowRight
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -106,6 +108,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  onGenerateEmails?: () => void;
 }
 
 const ACCEPTED_TYPES = [
@@ -122,8 +125,8 @@ const ACCEPTED_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB - triggers sequential mode recommendation
 
-export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess }) => {
-  const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'importing'>('upload');
+export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess, onGenerateEmails }) => {
+  const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'importing' | 'done'>('upload');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [companies, setCompanies] = useState<ExtractedCompany[]>([]);
   const [contacts, setContacts] = useState<ExtractedContact[]>([]);
@@ -1031,7 +1034,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       
       toast.success(`Importação concluída! ${summary.join(', ')}`);
       onSuccess();
-      handleClose();
+      // Show done step instead of closing
+      setStep('done');
 
     } catch (error) {
       console.error('Error during import:', error);
@@ -1110,30 +1114,32 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         </DialogHeader>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          {['upload', 'processing', 'review', 'importing'].map((s, i) => (
-            <React.Fragment key={s}>
-              <div className={`flex items-center gap-2 ${
-                step === s ? 'text-amber-400' : 
-                ['upload', 'processing', 'review', 'importing'].indexOf(step) > i ? 'text-emerald-400' : 'text-slate-500'
-              }`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
-                  step === s ? 'border-amber-400 bg-amber-400/20' :
-                  ['upload', 'processing', 'review', 'importing'].indexOf(step) > i ? 'border-emerald-400 bg-emerald-400/20' : 'border-slate-600'
+        {step !== 'done' && (
+          <div className="flex items-center justify-center gap-2 mb-4">
+            {['upload', 'processing', 'review', 'importing'].map((s, i) => (
+              <React.Fragment key={s}>
+                <div className={`flex items-center gap-2 ${
+                  step === s ? 'text-amber-400' : 
+                  ['upload', 'processing', 'review', 'importing'].indexOf(step) > i ? 'text-emerald-400' : 'text-slate-500'
                 }`}>
-                  {i + 1}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
+                    step === s ? 'border-amber-400 bg-amber-400/20' :
+                    ['upload', 'processing', 'review', 'importing'].indexOf(step) > i ? 'border-emerald-400 bg-emerald-400/20' : 'border-slate-600'
+                  }`}>
+                    {i + 1}
+                  </div>
+                  <span className="text-sm hidden sm:inline">
+                    {s === 'upload' && 'Upload'}
+                    {s === 'processing' && 'Processando'}
+                    {s === 'review' && 'Revisão'}
+                    {s === 'importing' && 'Importando'}
+                  </span>
                 </div>
-                <span className="text-sm hidden sm:inline">
-                  {s === 'upload' && 'Upload'}
-                  {s === 'processing' && 'Processando'}
-                  {s === 'review' && 'Revisão'}
-                  {s === 'importing' && 'Importando'}
-                </span>
-              </div>
-              {i < 3 && <div className="w-8 h-px bg-slate-700" />}
-            </React.Fragment>
-          ))}
-        </div>
+                {i < 3 && <div className="w-8 h-px bg-slate-700" />}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         <ScrollArea className="max-h-[60vh]">
           {/* Upload Step */}
@@ -1664,6 +1670,55 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                   className="h-3 rounded-full bg-emerald-500 transition-all"
                   style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Done Step */}
+          {step === 'done' && (
+            <div className="space-y-6 py-8">
+              <div className="text-center">
+                <CheckCircle2 className="w-16 h-16 mx-auto text-emerald-400 mb-4" />
+                <h3 className="text-xl font-semibold text-slate-200">
+                  Importação Concluída!
+                </h3>
+                <p className="text-slate-400 mt-2">
+                  {importProgress.total} registros importados com sucesso
+                </p>
+              </div>
+
+              {/* Next Step CTA */}
+              {onGenerateEmails && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-purple-500/20">
+                      <Mail className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-purple-200">Próximo Passo: Gerar Emails de Cobrança</p>
+                      <p className="text-sm text-slate-400">
+                        Use a IA para gerar emails personalizados para cada segurado
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      handleClose();
+                      onGenerateEmails();
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Gerar Emails com IA
+                    <ArrowRight className="w-4 h-4 ml-auto" />
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex justify-center gap-3">
+                <Button variant="outline" onClick={handleClose} className="border-white/20">
+                  Fechar
+                </Button>
               </div>
             </div>
           )}
