@@ -169,9 +169,31 @@ REGRAS DE EXTRAÇÃO:
 7. days_overdue: Calcule se houver "dias em atraso" ou se a data de vencimento for anterior a hoje
 8. policy_number: Número da apólice (pode incluir barra e endosso, ex: "540/592978")
 9. endorsement: Se separado, extraia o número do endosso
-10. branch: Ramo do seguro se disponível (ex: 309, 312, 531)
+10. branch: Ramo do seguro se disponível (ex: 309, 312, 531, 540, 550)
 
-IMPORTANTE:
+FORMATOS ESPECIAIS DE SCREENSHOTS/PORTAIS DE CORRETORA:
+
+10. Sistema de Gestão de Corretora / Portal Scroll / Screenshot de Portal:
+    - Colunas típicas: Segurado, CPF/CNPJ, Negócio, Ramo, Apólice, Endosso, 
+                       Vigência Proporcional, Telefone, Vencimento, Parcela, Valor Parcela
+    - Formato: Tabela HTML, screenshot de sistema ou imagem de portal
+    - CADA LINHA representa uma parcela individual - extraia TODAS
+    - "Ramo" = código do produto de seguro (540, 550, 531, 309, 312, etc.)
+    - "Negócio" pode ser ignorado (geralmente 0)
+    - Se não houver coluna de status, usar "PENDENTE"
+    - policy_number deve ser APENAS o número da coluna "Apólice"
+    - branch deve receber o valor da coluna "Ramo"
+    - installment_number é o valor da coluna "Parcela"
+    - Telefones podem estar parcialmente visíveis - extraia o que for legível
+
+IMPORTANTE PARA SCREENSHOTS E IMAGENS:
+- Analise cuidadosamente TODAS as linhas visíveis na tabela
+- Cada linha com dados deve gerar um objeto installment separado
+- Números de telefone podem estar parcialmente ocultos - extraia o que for visível
+- Valores com "R$" devem ser convertidos para número decimal
+- Se a imagem mostrar uma tabela de parcelas, EXTRAIA CADA LINHA
+
+REGRAS GERAIS:
 - Extraia TODAS as linhas/parcelas do documento
 - Cada linha do relatório geralmente representa uma parcela diferente
 - Se o mesmo segurado tiver múltiplas parcelas, extraia cada uma separadamente
@@ -210,9 +232,24 @@ Se não encontrar parcelas, retorne {"insurer_detected": null, "companies": [], 
 NÃO inclua explicações, apenas o JSON.`;
 
 // Detect if document is an insurance delinquency report
-function detectInsuranceReport(fileName: string, textContent?: string): { isInsurance: boolean; insurer?: string } {
+function detectInsuranceReport(fileName: string, textContent?: string, mimeType?: string): { isInsurance: boolean; insurer?: string } {
   const lowerName = fileName.toLowerCase();
   const lowerContent = (textContent || '').toLowerCase();
+  
+  // ===== DETECÇÃO PARA IMAGENS/SCREENSHOTS =====
+  // Screenshots de portais de corretoras devem ser analisados como relatórios de seguros
+  if (mimeType?.startsWith('image/')) {
+    // Screenshots com nomes genéricos de captura de tela
+    if (lowerName.includes('captura') || lowerName.includes('screenshot') || 
+        lowerName.includes('print') || lowerName.includes('tela') ||
+        lowerName.includes('whatsapp') || lowerName.includes('screen') ||
+        lowerName.includes('foto') || lowerName.includes('imagem') ||
+        lowerName.includes('img_') || lowerName.includes('image')) {
+      return { isInsurance: true, insurer: 'SCREENSHOT_ANALYSIS' };
+    }
+    // Qualquer imagem pode ser um relatório de seguros - usar análise visual
+    return { isInsurance: true, insurer: 'VISUAL_ANALYSIS' };
+  }
   
   // ===== DETECÇÃO POR NOME DO ARQUIVO =====
   
@@ -344,8 +381,8 @@ serve(async (req) => {
         }
       }
       
-      // Detect if this is an insurance report
-      const detection = detectInsuranceReport(name, extractedText);
+      // Detect if this is an insurance report (pass mimeType for images)
+      const detection = detectInsuranceReport(name, extractedText, type);
       const prompt = detection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
       
       if (detection.isInsurance) {
@@ -359,6 +396,28 @@ serve(async (req) => {
       if (type.startsWith('image/') || type === 'application/pdf') {
         const mimeType = type === 'application/pdf' ? 'application/pdf' : type;
         
+        // Mensagem especializada para screenshots/imagens de portais
+        const imageInstructions = detection.isInsurance 
+          ? `Analise esta imagem e extraia TODAS as parcelas de seguro visíveis.
+          
+INSTRUÇÕES CRÍTICAS:
+1. Se for uma TABELA com múltiplas linhas, extraia CADA linha como uma parcela separada
+2. Identifique as colunas: Segurado, CPF/CNPJ, Ramo, Apólice, Endosso, Vencimento, Parcela, Valor
+3. Para CADA linha da tabela, crie um objeto installment separado
+4. Mapeie os campos:
+   - Coluna "Segurado" → insured_name
+   - Coluna "CPF/CNPJ" → insured_document (apenas números)
+   - Coluna "Ramo" → branch (código como 540, 550, 531)
+   - Coluna "Apólice" → policy_number
+   - Coluna "Endosso" → endorsement
+   - Coluna "Telefone" → insured_phone (se disponível)
+   - Coluna "Vencimento" → due_date (formato YYYY-MM-DD)
+   - Coluna "Parcela" → installment_number
+   - Coluna "Valor Parcela" → value (número decimal)
+
+Arquivo: ${name}${detection.insurer ? ` (Modo: ${detection.insurer})` : ''}`
+          : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`;
+        
         messages = [
           { role: 'system', content: prompt },
           { 
@@ -366,9 +425,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: detection.isInsurance 
-                  ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora. Arquivo: ${name}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}`
-                  : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
+                text: imageInstructions
               },
               {
                 type: 'image_url',
