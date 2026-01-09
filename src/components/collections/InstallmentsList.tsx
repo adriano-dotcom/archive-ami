@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -95,6 +95,36 @@ export const InstallmentsList: React.FC = () => {
       return data as Installment[];
     }
   });
+
+  // Calculate selected total value
+  const selectedTotal = useMemo(() => {
+    if (!installments || selectedIds.length === 0) return 0;
+    return installments
+      .filter(inst => selectedIds.includes(inst.id))
+      .reduce((sum, inst) => sum + (inst.value || 0), 0);
+  }, [installments, selectedIds]);
+
+  // Count of installments with >30 days overdue
+  const overdue30Count = useMemo(() => {
+    return installments?.filter(inst => inst.days_overdue > 30).length || 0;
+  }, [installments]);
+
+  // Select all installments with >30 days overdue
+  const selectOverdue30Plus = () => {
+    if (!installments) return;
+    
+    const overdue30 = installments.filter(inst => inst.days_overdue > 30);
+    const overdue30Ids = overdue30.map(i => i.id);
+    
+    // Toggle: if all are already selected, deselect
+    const allSelected = overdue30Ids.length > 0 && overdue30Ids.every(id => selectedIds.includes(id));
+    
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !overdue30Ids.includes(id)));
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...overdue30Ids])]);
+    }
+  };
 
   const markAsPaidMutation = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -250,6 +280,16 @@ export const InstallmentsList: React.FC = () => {
               <Download className="w-4 h-4" />
               Exportar
             </Button>
+
+            <Button 
+              variant="outline"
+              onClick={selectOverdue30Plus}
+              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20 gap-2"
+              disabled={overdue30Count === 0}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Selecionar +30d ({overdue30Count})
+            </Button>
           </div>
 
           {/* Selected Actions */}
@@ -403,6 +443,35 @@ export const InstallmentsList: React.FC = () => {
           selectedInstallmentIds: selectedIds 
         }}
       />
+
+      {/* Floating Selection Counter */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <Card className="bg-slate-900/95 border-white/10 shadow-2xl backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-slate-200">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="font-medium">{selectedIds.length} parcelas</span>
+                  </div>
+                  <div className="text-lg font-bold text-amber-400">
+                    {formatCurrency(selectedTotal)}
+                  </div>
+                </div>
+                
+                <Button 
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                  onClick={() => setShowEmailCampaign(true)}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Gerar Emails
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
