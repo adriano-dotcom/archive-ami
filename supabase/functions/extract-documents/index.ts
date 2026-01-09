@@ -627,6 +627,11 @@ ${extractedText}`
                 installment.installment_number = parseInt(installment.installment_number) || 1;
               }
               
+              // Garantir que insurer nunca seja null (usa detecção ou fallback)
+              if (!installment.insurer) {
+                installment.insurer = allResults.insurer_detected || detection.insurer || 'NÃO IDENTIFICADA';
+              }
+              
               // Validate required fields
               if (installment.policy_number && installment.insured_name && installment.value > 0) {
                 allResults.installments.push(installment);
