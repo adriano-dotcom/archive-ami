@@ -73,6 +73,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
       const { data, error } = await supabase
         .from('nina_settings')
         .select('*')
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
