@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Building2, FileText, MapPin, Search, Loader2 } from 'lucide-react';
+import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Pencil, Star, User, Phone } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-
+import { AddContactToCompanyModal } from './AddContactToCompanyModal';
+import { EditSeguradoPFModal } from './EditSeguradoPFModal';
+import { displayPhoneInternational } from '@/utils/phoneFormatter';
 interface Company {
   id: string;
   cnpj: string;
@@ -31,6 +34,16 @@ interface EditCompanyModalProps {
   company: Company | null;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+}
+
+interface CompanyContact {
+  id: string;
+  name: string | null;
+  phone_number: string;
+  email: string | null;
+  cpf: string | null;
+  role: string | null;
+  is_billing_contact: boolean | null;
 }
 
 const ESTADOS_BR = [
@@ -74,6 +87,10 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
+  const [contacts, setContacts] = useState<CompanyContact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [editingContact, setEditingContact] = useState<CompanyContact | null>(null);
   const numberInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -97,8 +114,28 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
   useEffect(() => {
     if (open && company) {
       loadCompanyData(company.id);
+      loadContacts(company.id);
     }
   }, [open, company]);
+
+  const loadContacts = async (companyId: string) => {
+    setLoadingContacts(true);
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, name, phone_number, email, cpf, role, is_billing_contact')
+        .eq('company_id', companyId)
+        .order('is_billing_contact', { ascending: false })
+        .order('name');
+
+      if (error) throw error;
+      setContacts(data || []);
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
 
   const loadCompanyData = async (companyId: string) => {
     setLoadingData(true);
@@ -407,10 +444,77 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                   className="bg-slate-950 border-slate-700 text-slate-100 min-h-[80px]"
                 />
               </div>
+
+              {/* Contatos Vinculados */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Users className="w-4 h-4" /> Contatos Vinculados ({contacts.length})
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowAddContact(true)}
+                    className="gap-1 h-7 text-xs border-slate-600 text-slate-200 hover:bg-slate-800"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Adicionar
+                  </Button>
+                </div>
+
+                {loadingContacts ? (
+                  <Skeleton className="h-20 bg-slate-800" />
+                ) : contacts.length === 0 ? (
+                  <div className="bg-slate-950/50 rounded-lg p-4 text-center text-slate-500">
+                    <User className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Nenhum contato vinculado</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {contacts.map((contact) => (
+                      <div 
+                        key={contact.id} 
+                        className="flex items-center justify-between p-3 bg-slate-950/50 rounded-lg border border-slate-800"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-white">
+                              {contact.name || 'Sem nome'}
+                            </span>
+                            {contact.is_billing_contact && (
+                              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                            )}
+                            {contact.role && (
+                              <span className="text-xs text-slate-500">• {contact.role}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3" />
+                              {displayPhoneInternational(contact.phone_number)}
+                            </span>
+                            {contact.email && (
+                              <span>{contact.email}</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingContact(contact)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="border-slate-700">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="border-slate-700 text-slate-300">
                 Cancelar
               </Button>
               <Button onClick={handleSubmit} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
@@ -419,6 +523,37 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
               </Button>
             </DialogFooter>
           </>
+        )}
+        {/* Modal para adicionar contato */}
+        {company && (
+          <AddContactToCompanyModal
+            open={showAddContact}
+            onOpenChange={setShowAddContact}
+            companyId={company.id}
+            companyName={company.nome_fantasia || company.razao_social}
+            onSuccess={() => loadContacts(company.id)}
+          />
+        )}
+
+        {/* Modal para editar contato */}
+        {editingContact && (
+          <EditSeguradoPFModal
+            open={!!editingContact}
+            segurado={{
+              id: editingContact.id,
+              name: editingContact.name,
+              phone_number: editingContact.phone_number,
+              email: editingContact.email,
+              cpf: editingContact.cpf,
+              city: null,
+              state: null
+            }}
+            onOpenChange={(open) => !open && setEditingContact(null)}
+            onSuccess={() => {
+              setEditingContact(null);
+              if (company) loadContacts(company.id);
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>
