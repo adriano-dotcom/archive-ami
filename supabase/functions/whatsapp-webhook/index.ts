@@ -202,6 +202,13 @@ async function transcribeAudio(
 }
 
 serve(async (req) => {
+  // Log ALL incoming requests for debugging
+  console.log('[Webhook] ========== REQUEST RECEIVED ==========');
+  console.log('[Webhook] Method:', req.method);
+  console.log('[Webhook] URL:', req.url);
+  console.log('[Webhook] Timestamp:', new Date().toISOString());
+  console.log('[Webhook] Headers:', JSON.stringify(Object.fromEntries(req.headers.entries())));
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -228,11 +235,24 @@ serve(async (req) => {
 
       const verifyToken = settings?.whatsapp_verify_token || 'webhook-verify-token';
 
+      // Enhanced logging for verification attempts
+      console.log('[Webhook] Verification attempt details:', {
+        mode,
+        receivedToken: token,
+        expectedToken: verifyToken,
+        tokensMatch: token === verifyToken,
+        challenge: challenge ? challenge.substring(0, 20) + '...' : null,
+        hasChallenge: !!challenge
+      });
+
       if (mode === 'subscribe' && token === verifyToken) {
-        console.log('[Webhook] Verification successful');
+        console.log('[Webhook] ✅ Verification SUCCESSFUL - returning challenge');
         return new Response(challenge, { status: 200, headers: corsHeaders });
       } else {
-        console.error('[Webhook] Verification failed');
+        console.error('[Webhook] ❌ Verification FAILED - token mismatch or wrong mode');
+        console.error('[Webhook] Expected token:', verifyToken);
+        console.error('[Webhook] Received token:', token);
+        console.error('[Webhook] Mode:', mode);
         return new Response('Forbidden', { status: 403, headers: corsHeaders });
       }
     }
@@ -690,6 +710,24 @@ async function processIncomingMessage(
 
   let conversation = existingConversations?.[0] || null;
 
+  // Se encontrou conversa ativa, atualizar whatsapp_window_start para a mensagem mais recente
+  if (conversation) {
+    const newWindowStart = new Date().toISOString();
+    const { error: updateWindowError } = await supabase
+      .from('conversations')
+      .update({
+        whatsapp_window_start: newWindowStart,
+        last_message_at: newWindowStart
+      })
+      .eq('id', conversation.id);
+    
+    if (updateWindowError) {
+      console.error('[Webhook] Error updating window start:', updateWindowError);
+    } else {
+      console.log('[Webhook] ✅ Updated whatsapp_window_start for active conversation:', conversation.id);
+    }
+  }
+
   // Se não encontrou conversa ativa, buscar conversa INATIVA mais recente para reativar
   if (!conversation) {
     const { data: inactiveConversations } = await supabase
@@ -727,7 +765,8 @@ async function processIncomingMessage(
       .insert({
         contact_id: contact.id,
         status: 'nina', // Nina handles new conversations by default
-        is_active: true
+        is_active: true,
+        whatsapp_window_start: new Date().toISOString()
       })
       .select()
       .single();
