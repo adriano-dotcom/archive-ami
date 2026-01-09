@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CompanySettings {
@@ -10,7 +10,7 @@ interface CompanySettings {
 
 const CompanySettingsContext = createContext<CompanySettings | undefined>(undefined);
 
-export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CompanySettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [companyName, setCompanyName] = useState('Viver de IA');
   const [sdrName, setSdrName] = useState('Nina');
   const [loading, setLoading] = useState(true);
