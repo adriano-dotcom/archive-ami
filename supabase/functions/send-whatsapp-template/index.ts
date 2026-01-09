@@ -178,6 +178,17 @@ serve(async (req) => {
 
     console.log('WhatsApp API response:', waData);
 
+    // Extract wa_id from response and update contact for future matching
+    const recipientWaId = waData.contacts?.[0]?.wa_id;
+    if (recipientWaId) {
+      console.log('Updating contact whatsapp_id:', recipientWaId);
+      await supabase
+        .from('contacts')
+        .update({ whatsapp_id: recipientWaId })
+        .eq('id', contact_id)
+        .is('whatsapp_id', null); // Only update if not already set
+    }
+
     // Get template body text for message content
     const templateBodyComponent = template.components?.find((c: any) => c.type === 'BODY');
     let messageContent = templateBodyComponent?.text || `[Template: ${template_name}]`;

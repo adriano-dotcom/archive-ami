@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Shield, Bot, Plug, Loader2, Save, RotateCcw, Users, Mail, Link, Settings2, MessageSquare, Zap, Brain } from 'lucide-react';
+import { Shield, Bot, Plug, Loader2, Save, RotateCcw, Users, Mail, Link, Settings2, MessageSquare, Zap, Brain, Stethoscope } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import AgentSettings, { AgentSettingsRef } from './settings/AgentSettings';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
@@ -10,6 +10,7 @@ import FollowupAutomationsSettings from './settings/FollowupAutomationsSettings'
 import PipedriveSettings, { PipedriveSettingsRef } from './settings/PipedriveSettings';
 import GeneralSettings from './settings/GeneralSettings';
 import SalesCoachingSettings from './settings/SalesCoachingSettings';
+import WhatsAppDiagnosticPanel from './settings/WhatsAppDiagnosticPanel';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 
@@ -55,7 +56,7 @@ const Settings: React.FC = () => {
     ? pipedriveRef.current?.isSaving
     : false;
 
-  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching';
+  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic';
   
   return (
     <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-slate-950 text-slate-50 custom-scrollbar">
@@ -109,6 +110,10 @@ const Settings: React.FC = () => {
             <TabsTrigger value="coaching" className="gap-2">
               <Brain className="w-4 h-4" />
               Coaching
+            </TabsTrigger>
+            <TabsTrigger value="diagnostic" className="gap-2">
+              <Stethoscope className="w-4 h-4" />
+              Diagnóstico
             </TabsTrigger>
           </TabsList>
 
@@ -177,6 +182,10 @@ const Settings: React.FC = () => {
 
         <TabsContent value="coaching">
           <SalesCoachingSettings />
+        </TabsContent>
+
+        <TabsContent value="diagnostic">
+          <WhatsAppDiagnosticPanel />
         </TabsContent>
       </Tabs>
     </div>

@@ -419,8 +419,30 @@ serve(async (req) => {
 
       // Process incoming messages
       if (messages && messages.length > 0) {
+        // Known Meta test/example phone numbers - detect and log clearly
+        const metaTestNumbers = ['16315551181', '16505551234', '15551234567', '123456789'];
+        
         for (const message of messages) {
           const contactInfo = contacts?.find((c: any) => c.wa_id === message.from);
+          const fromNumber = message.from || '';
+          const isTestMessage = metaTestNumbers.some(n => fromNumber.includes(n)) || 
+                                phoneNumberId === '123456123' || 
+                                phoneNumberId === '123456789012345';
+          
+          // Enhanced logging to distinguish real vs test messages
+          console.log('[Webhook] ==================== MESSAGE RECEIVED ====================');
+          console.log('[Webhook] Type:', isTestMessage ? '⚠️ META TEST MESSAGE' : '✅ REAL CUSTOMER MESSAGE');
+          console.log('[Webhook] From wa_id:', message.from);
+          console.log('[Webhook] Phone Number ID:', phoneNumberId);
+          console.log('[Webhook] Message ID:', message.id);
+          console.log('[Webhook] Message Type:', message.type);
+          console.log('[Webhook] Contact Name:', contactInfo?.profile?.name || 'Unknown');
+          console.log('[Webhook] Timestamp:', new Date().toISOString());
+          
+          if (isTestMessage) {
+            console.log('[Webhook] ⚠️ This appears to be a Meta test/example message, not a real customer.');
+            console.log('[Webhook] ⚠️ Test numbers detected:', { fromNumber, phoneNumberId });
+          }
           
           // Insert into message_grouping_queue for deduplication and grouping
           const { error: queueError } = await supabase
@@ -440,7 +462,7 @@ serve(async (req) => {
               console.error('[Webhook] Queue insert error:', queueError);
             }
           } else {
-            console.log('[Webhook] Message queued:', message.id);
+            console.log('[Webhook] Message queued successfully:', message.id);
             
             // Process the message immediately
             await processIncomingMessage(supabase, message, contactInfo, phoneNumberId, settings, lovableApiKey);
