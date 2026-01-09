@@ -72,10 +72,15 @@ export const SeguradosTab: React.FC = () => {
   const [deletingSegurado, setDeletingSegurado] = useState<SeguradoPF | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   
-  // Bulk selection states
+  // Bulk selection states - Companies
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  
+  // Bulk selection states - Segurados PF
+  const [selectedSeguradoIds, setSelectedSeguradoIds] = useState<string[]>([]);
+  const [showBulkDeleteSeguradosConfirm, setShowBulkDeleteSeguradosConfirm] = useState(false);
+  const [bulkDeleteSeguradosLoading, setBulkDeleteSeguradosLoading] = useState(false);
   
   // Company details drawer
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
@@ -448,6 +453,91 @@ export const SeguradosTab: React.FC = () => {
     }
   };
 
+  // Bulk delete segurados PF (cascade: deletes policies, installments, conversations)
+  const handleBulkDeleteSegurados = async () => {
+    setBulkDeleteSeguradosLoading(true);
+    let deletedCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const seguradoId of selectedSeguradoIds) {
+        try {
+          // 1. Buscar apólices do segurado
+          const { data: policies } = await supabase
+            .from('policies')
+            .select('id')
+            .eq('contact_id', seguradoId);
+
+          if (policies && policies.length > 0) {
+            const policyIds = policies.map(p => p.id);
+            
+            // 2. Excluir parcelas das apólices
+            await supabase
+              .from('installments')
+              .delete()
+              .in('policy_id', policyIds);
+
+            // 3. Excluir apólices
+            await supabase
+              .from('policies')
+              .delete()
+              .eq('contact_id', seguradoId);
+          }
+
+          // 4. Buscar conversas do contato
+          const { data: conversations } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('contact_id', seguradoId);
+
+          if (conversations && conversations.length > 0) {
+            const conversationIds = conversations.map(c => c.id);
+            
+            // 5. Excluir mensagens das conversas
+            await supabase
+              .from('messages')
+              .delete()
+              .in('conversation_id', conversationIds);
+
+            // 6. Excluir conversas
+            await supabase
+              .from('conversations')
+              .delete()
+              .eq('contact_id', seguradoId);
+          }
+
+          // 7. Excluir segurado (contact)
+          const { error } = await supabase
+            .from('contacts')
+            .delete()
+            .eq('id', seguradoId);
+
+          if (error) throw error;
+          deletedCount++;
+        } catch (err) {
+          console.error('Error deleting segurado:', err);
+          errorCount++;
+        }
+      }
+
+      if (deletedCount > 0) {
+        toast.success(`${deletedCount} segurado(s) excluído(s) com sucesso!`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} segurado(s) não puderam ser excluídos`);
+      }
+
+      setSelectedSeguradoIds([]);
+      setShowBulkDeleteSeguradosConfirm(false);
+      loadData();
+    } catch (error) {
+      console.error('Error in bulk delete segurados:', error);
+      toast.error('Erro ao excluir segurados');
+    } finally {
+      setBulkDeleteSeguradosLoading(false);
+    }
+  };
+
   // Filter data based on search term
   const filteredCompanies = companies.filter(c => 
     c.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -615,11 +705,40 @@ export const SeguradosTab: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="pf" className="mt-4">
+        <TabsContent value="pf" className="mt-4 space-y-3">
+          {/* Bulk Actions Bar - Segurados PF */}
+          {selectedSeguradoIds.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+              <span className="text-sm text-emerald-400 font-medium">
+                {selectedSeguradoIds.length} selecionado(s)
+              </span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowBulkDeleteSeguradosConfirm(true)}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir ({selectedSeguradoIds.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedSeguradoIds([])}
+                className="text-slate-400 hover:text-slate-200 gap-2"
+              >
+                <X className="w-4 h-4" />
+                Limpar seleção
+              </Button>
+            </div>
+          )}
+          
           <Card className="bg-slate-900/30 border-white/5">
             <SeguradosPFTable
               segurados={filteredSeguradosPF}
               loading={loading}
+              selectedIds={selectedSeguradoIds}
+              onSelectionChange={setSelectedSeguradoIds}
               onSelectSegurado={handleSelectSegurado}
               onOpenConversation={handleOpenConversation}
               onEditSegurado={(segurado) => setEditingSegurado(segurado)}
@@ -753,6 +872,34 @@ export const SeguradosTab: React.FC = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               {bulkDeleteLoading ? 'Excluindo...' : `Excluir ${selectedCompanyIds.length} empresa(s)`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Segurados PF Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteSeguradosConfirm} onOpenChange={setShowBulkDeleteSeguradosConfirm}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Segurados em Lote</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedSeguradoIds.length} segurado(s)</strong>? 
+              <br /><br />
+              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e conversas serão removidas junto com os segurados.
+              <br /><br />
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDeleteSegurados}
+              disabled={bulkDeleteSeguradosLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {bulkDeleteSeguradosLoading ? 'Excluindo...' : `Excluir ${selectedSeguradoIds.length} segurado(s)`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

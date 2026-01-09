@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCPF, displayPhoneInternational } from '@/utils/phoneFormatter';
 
@@ -22,6 +23,8 @@ interface SeguradoPF {
 interface SeguradosPFTableProps {
   segurados: SeguradoPF[];
   loading: boolean;
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
   onSelectSegurado: (segurado: SeguradoPF) => void;
   onOpenConversation: (contactId: string) => void;
   onEditSegurado: (segurado: SeguradoPF) => void;
@@ -31,6 +34,8 @@ interface SeguradosPFTableProps {
 export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({ 
   segurados, 
   loading, 
+  selectedIds,
+  onSelectionChange,
   onSelectSegurado,
   onOpenConversation,
   onEditSegurado,
@@ -70,11 +75,38 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
     );
   }
 
+  const allSelected = segurados.length > 0 && segurados.every(s => selectedIds.includes(s.id));
+  const someSelected = segurados.some(s => selectedIds.includes(s.id)) && !allSelected;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      onSelectionChange([]);
+    } else {
+      onSelectionChange(segurados.map(s => s.id));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      onSelectionChange(selectedIds.filter(i => i !== id));
+    } else {
+      onSelectionChange([...selectedIds, id]);
+    }
+  };
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="border-white/5 hover:bg-transparent">
+            <TableHead className="w-12">
+              <Checkbox 
+                checked={allSelected}
+                onCheckedChange={toggleAll}
+                className="border-slate-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                {...(someSelected ? { "data-state": "indeterminate" } : {})}
+              />
+            </TableHead>
             <TableHead className="text-slate-400">Segurado</TableHead>
             <TableHead className="text-slate-400">CPF</TableHead>
             <TableHead className="text-slate-400">Contato</TableHead>
@@ -89,8 +121,16 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
           {segurados.map((segurado) => (
             <TableRow 
               key={segurado.id} 
-              className="border-white/5 hover:bg-white/5"
+              className={`border-white/5 hover:bg-white/5 ${selectedIds.includes(segurado.id) ? 'bg-emerald-500/10' : ''}`}
             >
+              <TableCell>
+                <Checkbox 
+                  checked={selectedIds.includes(segurado.id)}
+                  onCheckedChange={() => toggleOne(segurado.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="border-slate-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+              </TableCell>
               <TableCell>
                 <div 
                   className="flex items-center gap-3 cursor-pointer"
