@@ -149,58 +149,86 @@ serve(async (req) => {
     // Get unique contact IDs
     const contactIds = [...new Set(installments.map(i => i.contact_id).filter(Boolean))];
 
-    // Fetch contacts with email and company_id
+    // Fetch contacts with email, company_id and cnpj for fallback
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
-      .select('id, name, call_name, email, company, company_id')
+      .select('id, name, call_name, email, company, company_id, cnpj')
       .in('id', contactIds);
 
     if (contactsError) {
       throw contactsError;
     }
 
-    // Helper function to resolve email through company relationships
-    async function resolveContactEmail(contact: any): Promise<{ email: string; contactName: string } | null> {
-      // 1. Direct email on contact
-      if (contact.email) {
-        return { email: contact.email, contactName: contact.name || contact.call_name || 'Cliente' };
+    // Helper function to find email by company_id
+    async function findEmailByCompanyId(companyId: string, contactName: string): Promise<{ email: string; contactName: string } | null> {
+      // Try billing contact first
+      const { data: billingContact } = await supabase
+        .from('contacts')
+        .select('name, call_name, email')
+        .eq('company_id', companyId)
+        .eq('is_billing_contact', true)
+        .not('email', 'is', null)
+        .limit(1)
+        .single();
+
+      if (billingContact?.email) {
+        console.log(`Found billing contact email for company ${companyId}`);
+        return { 
+          email: billingContact.email, 
+          contactName: contactName || billingContact.name || billingContact.call_name || 'Cliente' 
+        };
       }
 
-      // 2. Search by company_id
+      // Try any contact with email from same company
+      const { data: anyContact } = await supabase
+        .from('contacts')
+        .select('name, call_name, email')
+        .eq('company_id', companyId)
+        .not('email', 'is', null)
+        .limit(1)
+        .single();
+
+      if (anyContact?.email) {
+        console.log(`Found related contact email for company ${companyId}`);
+        return { 
+          email: anyContact.email, 
+          contactName: contactName || anyContact.name || anyContact.call_name || 'Cliente' 
+        };
+      }
+
+      return null;
+    }
+
+    // Helper function to resolve email through company relationships
+    async function resolveContactEmail(contact: any): Promise<{ email: string; contactName: string } | null> {
+      const contactName = contact.name || contact.call_name || 'Cliente';
+
+      // 1. Direct email on contact
+      if (contact.email) {
+        return { email: contact.email, contactName };
+      }
+
+      // 2. Search by company_id if available
       if (contact.company_id) {
-        // 2a. Try billing contact first
-        const { data: billingContact } = await supabase
-          .from('contacts')
-          .select('name, call_name, email')
-          .eq('company_id', contact.company_id)
-          .eq('is_billing_contact', true)
-          .not('email', 'is', null)
+        const result = await findEmailByCompanyId(contact.company_id, contactName);
+        if (result) return result;
+      }
+
+      // 3. Fallback: If no company_id but has CNPJ, find company by CNPJ
+      if (!contact.company_id && contact.cnpj) {
+        console.log(`Trying CNPJ fallback for contact ${contact.id} with CNPJ ${contact.cnpj}`);
+        
+        const { data: company } = await supabase
+          .from('companies')
+          .select('id, razao_social')
+          .eq('cnpj', contact.cnpj)
           .limit(1)
           .single();
 
-        if (billingContact?.email) {
-          console.log(`Found billing contact email for company ${contact.company_id}`);
-          return { 
-            email: billingContact.email, 
-            contactName: contact.name || contact.call_name || billingContact.name || billingContact.call_name || 'Cliente' 
-          };
-        }
-
-        // 2b. Try any contact with email from same company
-        const { data: anyContact } = await supabase
-          .from('contacts')
-          .select('name, call_name, email')
-          .eq('company_id', contact.company_id)
-          .not('email', 'is', null)
-          .limit(1)
-          .single();
-
-        if (anyContact?.email) {
-          console.log(`Found related contact email for company ${contact.company_id}`);
-          return { 
-            email: anyContact.email, 
-            contactName: contact.name || contact.call_name || anyContact.name || anyContact.call_name || 'Cliente' 
-          };
+        if (company?.id) {
+          console.log(`Found company ${company.razao_social} by CNPJ ${contact.cnpj}`);
+          const result = await findEmailByCompanyId(company.id, contactName);
+          if (result) return result;
         }
       }
 
