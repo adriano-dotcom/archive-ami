@@ -36,9 +36,19 @@ interface ContactWithInstallments {
   contactId: string;
   contactName: string;
   email: string;
+  companyName: string;
+  companyCnpj: string;
   installments: InstallmentData[];
   totalValue: number;
 }
+
+// Format CNPJ: 12345678000199 -> 12.345.678/0001-99
+const formatCnpj = (cnpj: string | null): string => {
+  if (!cnpj) return 'N/A';
+  const cleaned = cnpj.replace(/\D/g, '');
+  if (cleaned.length !== 14) return cnpj;
+  return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+};
 
 const getToneInstructions = (tone: string): string => {
   switch (tone) {
@@ -158,8 +168,9 @@ serve(async (req) => {
 
     console.log(`Found ${installments.length} installments`);
 
-    // Get unique contact IDs
+    // Get unique contact IDs and policy IDs for company lookup
     const contactIds = [...new Set(installments.map(i => i.contact_id).filter(Boolean))];
+    const policyIds = [...new Set(installments.map(i => i.policy_id).filter(Boolean))];
 
     // Fetch contacts with email, company_id and cnpj for fallback
     const { data: contacts, error: contactsError } = await supabase
@@ -170,6 +181,25 @@ serve(async (req) => {
     if (contactsError) {
       throw contactsError;
     }
+
+    // Fetch policies with company_id to get company info
+    const { data: policies } = await supabase
+      .from('policies')
+      .select('id, company_id')
+      .in('id', policyIds);
+
+    // Get unique company IDs from contacts and policies
+    const companyIdsFromContacts = (contacts || []).map(c => c.company_id).filter(Boolean);
+    const companyIdsFromPolicies = (policies || []).map(p => p.company_id).filter(Boolean);
+    const allCompanyIds = [...new Set([...companyIdsFromContacts, ...companyIdsFromPolicies])];
+
+    // Fetch companies
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id, razao_social, nome_fantasia, cnpj')
+      .in('id', allCompanyIds);
+
+    const companiesMap = new Map((companies || []).map(c => [c.id, c]));
 
     // Helper function to find email by company_id
     async function findEmailByCompanyId(companyId: string, contactName: string): Promise<{ email: string; contactName: string } | null> {
@@ -265,10 +295,27 @@ serve(async (req) => {
       const contactInstallments = installments.filter(i => i.contact_id === contact.id);
       const totalValue = contactInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
 
+      // Get company info - try from contact's company_id first, then from policies
+      let company = contact.company_id ? companiesMap.get(contact.company_id) : null;
+      
+      if (!company) {
+        // Try to get company from one of the installment's policies
+        const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
+        const policy = policies?.find(p => p.id === policyId);
+        if (policy?.company_id) {
+          company = companiesMap.get(policy.company_id);
+        }
+      }
+
+      const companyName = company?.nome_fantasia || company?.razao_social || contact.company || 'N/A';
+      const companyCnpj = company?.cnpj || contact.cnpj || '';
+
       contactsWithInstallments.push({
         contactId: contact.id,
         contactName: resolved.contactName,
         email: resolved.email,
+        companyName,
+        companyCnpj,
         installments: contactInstallments as InstallmentData[],
         totalValue
       });
@@ -293,7 +340,9 @@ serve(async (req) => {
 Gere um email de cobrança com ${getToneInstructions(emailTone)}
 
 DADOS DO SEGURADO:
-- Nome: ${contactData.contactName}
+- Nome do Contato: ${contactData.contactName}
+- Empresa: ${contactData.companyName}
+- CNPJ: ${formatCnpj(contactData.companyCnpj)}
 - Email: ${contactData.email}
 
 PARCELAS EM ABERTO:
@@ -305,13 +354,14 @@ TOTAL: R$ ${contactData.totalValue.toFixed(2)}
 
 REGRAS:
 1. COMECE o email com a saudação: "${timeGreeting}, ${contactData.contactName}!"
-2. Liste TODAS as parcelas em uma tabela HTML bonita e responsiva
-3. Mostre o total consolidado em destaque
-4. Use estilo profissional com cores corporativas (azul marinho #1e3a5f)
-5. Inclua chamada para ação clara para regularização
-6. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
-7. SEM emojis
-8. Assinatura: Jacometo Seguros - Equipe de Cobrança
+2. Logo após a saudação, MENCIONE a empresa e o CNPJ formatado, ex: "Referente à empresa ${contactData.companyName} (CNPJ: ${formatCnpj(contactData.companyCnpj)})"
+3. Liste TODAS as parcelas em uma tabela HTML bonita e responsiva COM A SEGURADORA de cada parcela
+4. Mostre o total consolidado em destaque
+5. Use estilo profissional com cores corporativas (azul marinho #1e3a5f)
+6. Inclua chamada para ação clara para regularização
+7. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
+8. SEM emojis
+9. Assinatura: Jacometo Seguros - Equipe de Cobrança
 
 Retorne APENAS um JSON válido no formato:
 {"subject": "assunto do email", "body_html": "HTML completo do email"}`;
