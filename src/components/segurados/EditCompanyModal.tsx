@@ -96,6 +96,7 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
+  const [loadingCNPJ, setLoadingCNPJ] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [contacts, setContacts] = useState<CompanyContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
@@ -104,6 +105,48 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
   const [deletingContact, setDeletingContact] = useState<CompanyContact | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
   const numberInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch CNPJ data from BrasilAPI
+  const fetchCNPJ = async () => {
+    if (!company) return;
+    
+    const digits = company.cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      toast.error('CNPJ inválido');
+      return;
+    }
+
+    setLoadingCNPJ(true);
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      
+      if (!response.ok) {
+        throw new Error('CNPJ não encontrado');
+      }
+
+      const data = await response.json();
+
+      setFormData(prev => ({
+        ...prev,
+        razao_social: data.razao_social || prev.razao_social,
+        nome_fantasia: data.nome_fantasia || prev.nome_fantasia,
+        cep: data.cep ? formatCEP(data.cep.replace(/\D/g, '')) : prev.cep,
+        street: data.logradouro || prev.street,
+        number: data.numero || prev.number,
+        complement: data.complemento || prev.complement,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.municipio || prev.city,
+        state: data.uf || prev.state
+      }));
+
+      toast.success('Dados do CNPJ carregados!');
+    } catch (error: any) {
+      console.error('Erro ao buscar CNPJ:', error);
+      toast.error('Erro ao buscar dados do CNPJ');
+    } finally {
+      setLoadingCNPJ(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     razao_social: '',
@@ -321,13 +364,29 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                 
                 <div>
                   <Label className="text-slate-300">CNPJ</Label>
-                  <div className="relative">
-                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <Input
-                      value={formatCNPJ(company.cnpj)}
-                      disabled
-                      className="pl-10 bg-slate-950/50 border-slate-700 text-slate-400"
-                    />
+                  <div className="relative flex gap-2">
+                    <div className="relative flex-1">
+                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <Input
+                        value={formatCNPJ(company.cnpj)}
+                        disabled
+                        className="pl-10 bg-slate-950/50 border-slate-700 text-slate-400"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={fetchCNPJ}
+                      disabled={loadingCNPJ}
+                      className="border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
+                    >
+                      {loadingCNPJ ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Search className="w-4 h-4" />
+                      )}
+                      Buscar Dados
+                    </Button>
                   </div>
                 </div>
 
