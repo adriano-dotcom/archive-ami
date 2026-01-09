@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Loader2, Check, Clock, X, AlertCircle, MessageSquare, FileText, Trash2 } from 'lucide-react';
+import { RefreshCw, Loader2, Check, Clock, X, AlertCircle, MessageSquare, FileText, Trash2, Activity, CheckCircle2, AlertTriangle, XCircle, Wifi, Database, Shield } from 'lucide-react';
 import { Button } from '../Button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,6 +14,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 interface WhatsAppTemplate {
   id: string;
@@ -27,12 +33,52 @@ interface WhatsAppTemplate {
   last_synced_at: string | null;
 }
 
+interface HealthCheckResult {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  checks: {
+    configuration?: {
+      status: 'ok' | 'warning' | 'error';
+      details?: {
+        has_access_token: boolean;
+        has_phone_number_id: boolean;
+        has_waba_id: boolean;
+        has_verify_token: boolean;
+        token_length: number;
+      };
+      error?: string;
+    };
+    whatsapp_api?: {
+      status: 'ok' | 'error' | 'skipped';
+      phone_number_id?: string;
+      waba_id?: string;
+      display_phone_number?: string;
+      verified_name?: string;
+      quality_rating?: string;
+      error?: string;
+    };
+    webhook?: {
+      status: 'ok' | 'warning';
+      callback_url?: string;
+      verify_token_configured?: boolean;
+    };
+  };
+  summary: {
+    total_checks: number;
+    passed: number;
+    failed: number;
+  };
+}
+
 const WhatsAppTemplatesSettings: React.FC = () => {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [healthResult, setHealthResult] = useState<HealthCheckResult | null>(null);
+  const [showHealthSheet, setShowHealthSheet] = useState(false);
 
   const disabledCount = templates.filter(t => t.status === 'DISABLED').length;
 
@@ -97,6 +143,62 @@ const WhatsAppTemplatesSettings: React.FC = () => {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleCheckHealth = async () => {
+    setCheckingHealth(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-webhook-health');
+      
+      if (error) throw error;
+      
+      setHealthResult(data);
+      setShowHealthSheet(true);
+      
+      if (data.status === 'healthy') {
+        toast.success('Webhook saudável! Todas as verificações passaram.');
+      } else if (data.status === 'degraded') {
+        toast.warning('Webhook com problemas parciais.');
+      } else {
+        toast.error('Webhook com falhas críticas!');
+      }
+    } catch (error) {
+      console.error('Error checking health:', error);
+      toast.error('Erro ao verificar saúde do webhook');
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
+
+  const getHealthStatusConfig = (status: string) => {
+    const configs = {
+      healthy: {
+        icon: <CheckCircle2 className="w-8 h-8" />,
+        color: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+        label: 'Saudável',
+        description: 'Todas as verificações passaram'
+      },
+      degraded: {
+        icon: <AlertTriangle className="w-8 h-8" />,
+        color: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+        label: 'Degradado',
+        description: 'Alguns problemas detectados'
+      },
+      unhealthy: {
+        icon: <XCircle className="w-8 h-8" />,
+        color: 'bg-red-500/10 border-red-500/30 text-red-400',
+        label: 'Com Falhas',
+        description: 'Problemas críticos encontrados'
+      }
+    };
+    return configs[status as keyof typeof configs] || configs.unhealthy;
+  };
+
+  const getCheckStatusIcon = (status: string) => {
+    if (status === 'ok') return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
+    if (status === 'warning') return <AlertTriangle className="w-4 h-4 text-amber-400" />;
+    if (status === 'skipped') return <Clock className="w-4 h-4 text-slate-400" />;
+    return <XCircle className="w-4 h-4 text-red-400" />;
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -231,6 +333,19 @@ const WhatsAppTemplatesSettings: React.FC = () => {
           )}
           <Button
             variant="secondary"
+            onClick={handleCheckHealth}
+            disabled={checkingHealth}
+            className="gap-2 border-green-500/30 text-green-400 hover:bg-green-500/10"
+          >
+            {checkingHealth ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Activity className="w-4 h-4" />
+            )}
+            Verificar Webhook
+          </Button>
+          <Button
+            variant="secondary"
             onClick={handleSync}
             disabled={syncing}
             className="gap-2"
@@ -336,6 +451,158 @@ const WhatsAppTemplatesSettings: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Health Check Sheet */}
+      <Sheet open={showHealthSheet} onOpenChange={setShowHealthSheet}>
+        <SheetContent className="bg-slate-900 border-slate-700 w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-green-400" />
+              Saúde do Webhook WhatsApp
+            </SheetTitle>
+          </SheetHeader>
+          
+          {healthResult && (
+            <div className="mt-6 space-y-6">
+              {/* Status Geral */}
+              <div className={`p-4 rounded-lg border ${getHealthStatusConfig(healthResult.status).color}`}>
+                <div className="flex items-center gap-4">
+                  {getHealthStatusConfig(healthResult.status).icon}
+                  <div>
+                    <h3 className="font-semibold text-lg">{getHealthStatusConfig(healthResult.status).label}</h3>
+                    <p className="text-sm opacity-70">
+                      {healthResult.summary.passed}/{healthResult.summary.total_checks} verificações OK
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Verificações Detalhadas */}
+              <div className="space-y-4">
+                {/* Configuração */}
+                {healthResult.checks.configuration && (
+                  <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Database className="w-4 h-4 text-slate-400" />
+                      <h4 className="font-medium text-white">Configuração</h4>
+                      {getCheckStatusIcon(healthResult.checks.configuration.status)}
+                    </div>
+                    {healthResult.checks.configuration.details && (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-slate-400">
+                          <span>Access Token</span>
+                          <span className={healthResult.checks.configuration.details.has_access_token ? 'text-emerald-400' : 'text-red-400'}>
+                            {healthResult.checks.configuration.details.has_access_token 
+                              ? `✓ Configurado (${healthResult.checks.configuration.details.token_length} chars)` 
+                              : '✗ Não configurado'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-400">
+                          <span>Phone Number ID</span>
+                          <span className={healthResult.checks.configuration.details.has_phone_number_id ? 'text-emerald-400' : 'text-red-400'}>
+                            {healthResult.checks.configuration.details.has_phone_number_id ? '✓ Configurado' : '✗ Não configurado'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-400">
+                          <span>WABA ID</span>
+                          <span className={healthResult.checks.configuration.details.has_waba_id ? 'text-emerald-400' : 'text-red-400'}>
+                            {healthResult.checks.configuration.details.has_waba_id ? '✓ Configurado' : '✗ Não configurado'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-400">
+                          <span>Verify Token</span>
+                          <span className={healthResult.checks.configuration.details.has_verify_token ? 'text-emerald-400' : 'text-amber-400'}>
+                            {healthResult.checks.configuration.details.has_verify_token ? '✓ Configurado' : '⚠ Não configurado'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {healthResult.checks.configuration.error && (
+                      <p className="text-sm text-red-400 mt-2">{healthResult.checks.configuration.error}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* API WhatsApp */}
+                {healthResult.checks.whatsapp_api && (
+                  <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Wifi className="w-4 h-4 text-slate-400" />
+                      <h4 className="font-medium text-white">API WhatsApp</h4>
+                      {getCheckStatusIcon(healthResult.checks.whatsapp_api.status)}
+                    </div>
+                    {healthResult.checks.whatsapp_api.status === 'ok' && (
+                      <div className="space-y-2 text-sm">
+                        {healthResult.checks.whatsapp_api.display_phone_number && (
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>Número</span>
+                            <span className="text-white font-mono">{healthResult.checks.whatsapp_api.display_phone_number}</span>
+                          </div>
+                        )}
+                        {healthResult.checks.whatsapp_api.verified_name && (
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>Nome Verificado</span>
+                            <span className="text-emerald-400">{healthResult.checks.whatsapp_api.verified_name}</span>
+                          </div>
+                        )}
+                        {healthResult.checks.whatsapp_api.quality_rating && (
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>Qualidade</span>
+                            <span className={
+                              healthResult.checks.whatsapp_api.quality_rating === 'GREEN' ? 'text-emerald-400' :
+                              healthResult.checks.whatsapp_api.quality_rating === 'YELLOW' ? 'text-amber-400' : 'text-red-400'
+                            }>
+                              {healthResult.checks.whatsapp_api.quality_rating}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {healthResult.checks.whatsapp_api.status === 'skipped' && (
+                      <p className="text-sm text-slate-500">Verificação ignorada (configuração ausente)</p>
+                    )}
+                    {healthResult.checks.whatsapp_api.error && (
+                      <p className="text-sm text-red-400 mt-2">{healthResult.checks.whatsapp_api.error}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Webhook */}
+                {healthResult.checks.webhook && (
+                  <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Shield className="w-4 h-4 text-slate-400" />
+                      <h4 className="font-medium text-white">Webhook</h4>
+                      {getCheckStatusIcon(healthResult.checks.webhook.status)}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {healthResult.checks.webhook.callback_url && (
+                        <div className="text-slate-400">
+                          <span className="block text-xs text-slate-500 mb-1">URL do Callback</span>
+                          <span className="text-xs font-mono text-slate-300 break-all">
+                            {healthResult.checks.webhook.callback_url}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>Verify Token</span>
+                        <span className={healthResult.checks.webhook.verify_token_configured ? 'text-emerald-400' : 'text-amber-400'}>
+                          {healthResult.checks.webhook.verify_token_configured ? '✓ Configurado' : '⚠ Não configurado'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Timestamp */}
+              <div className="text-xs text-slate-500 text-center pt-4 border-t border-slate-700/50">
+                Verificado em: {new Date(healthResult.timestamp).toLocaleString('pt-BR')}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
