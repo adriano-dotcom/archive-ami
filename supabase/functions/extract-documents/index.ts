@@ -547,6 +547,7 @@ ${extractedText}`
 
       if (aiResponse) {
         console.log(`AI response for ${name}:`, aiResponse.substring(0, 500));
+        console.log(`AI response length for ${name}:`, aiResponse.length);
         
         // Parse the JSON response
         try {
@@ -562,7 +563,108 @@ ${extractedText}`
           }
           jsonStr = jsonStr.trim();
           
-          const parsed = JSON.parse(jsonStr);
+          let parsed;
+          try {
+            parsed = JSON.parse(jsonStr);
+          } catch (initialParseError) {
+            // Try to fix truncated JSON response
+            console.warn(`Initial JSON parse failed for ${name}, attempting to fix truncated response...`);
+            
+            // Count open brackets to determine what's missing
+            let openBraces = 0;
+            let openBrackets = 0;
+            let inString = false;
+            let escapeNext = false;
+            
+            for (const char of jsonStr) {
+              if (escapeNext) {
+                escapeNext = false;
+                continue;
+              }
+              if (char === '\\') {
+                escapeNext = true;
+                continue;
+              }
+              if (char === '"') {
+                inString = !inString;
+                continue;
+              }
+              if (!inString) {
+                if (char === '{') openBraces++;
+                else if (char === '}') openBraces--;
+                else if (char === '[') openBrackets++;
+                else if (char === ']') openBrackets--;
+              }
+            }
+            
+            console.log(`Unmatched brackets: { = ${openBraces}, [ = ${openBrackets}`);
+            
+            // Try to close the JSON properly
+            let fixedJson = jsonStr;
+            
+            // If in the middle of a string, close it
+            if (inString) {
+              fixedJson += '"';
+            }
+            
+            // Close any open objects/arrays in the correct order
+            // First close any open value (might be in the middle of a number or string)
+            const lastChar = fixedJson.trim().slice(-1);
+            if (lastChar === ':' || lastChar === ',') {
+              fixedJson += 'null';
+            }
+            
+            // Close brackets and braces
+            for (let i = 0; i < openBrackets; i++) {
+              fixedJson += ']';
+            }
+            for (let i = 0; i < openBraces; i++) {
+              fixedJson += '}';
+            }
+            
+            console.log(`Attempting to parse fixed JSON (last 100 chars): ${fixedJson.slice(-100)}`);
+            
+            try {
+              parsed = JSON.parse(fixedJson);
+              console.log(`Successfully parsed fixed JSON for ${name}`);
+            } catch (fixParseError) {
+              // Last resort: try to extract what we can
+              console.error(`Failed to parse fixed JSON for ${name}:`, fixParseError);
+              
+              // Try to extract at least some data using regex
+              const installmentsMatch = jsonStr.match(/"installments"\s*:\s*\[([\s\S]*?)(?:\]|$)/);
+              if (installmentsMatch) {
+                try {
+                  // Try to parse individual installment objects
+                  const installmentObjects = installmentsMatch[1].match(/\{[^{}]*\}/g);
+                  if (installmentObjects && installmentObjects.length > 0) {
+                    const partialInstallments = [];
+                    for (const obj of installmentObjects) {
+                      try {
+                        partialInstallments.push(JSON.parse(obj));
+                      } catch {
+                        // Skip malformed objects
+                      }
+                    }
+                    if (partialInstallments.length > 0) {
+                      console.log(`Recovered ${partialInstallments.length} installments from truncated response`);
+                      parsed = {
+                        companies: [],
+                        contacts: [],
+                        installments: partialInstallments
+                      };
+                    }
+                  }
+                } catch (regexError) {
+                  console.error(`Failed to extract partial data for ${name}:`, regexError);
+                }
+              }
+              
+              if (!parsed) {
+                throw initialParseError;
+              }
+            }
+          }
           
           // Update detected insurer if provided
           if (parsed.insurer_detected && !allResults.insurer_detected) {
@@ -601,6 +703,7 @@ ${extractedText}`
           
           // Process installments
           if (parsed.installments && Array.isArray(parsed.installments)) {
+            console.log(`Processing ${parsed.installments.length} installments from ${name}`);
             for (const installment of parsed.installments) {
               installment.source = name;
               
@@ -640,6 +743,7 @@ ${extractedText}`
           }
         } catch (parseError) {
           console.error(`Error parsing AI response for ${name}:`, parseError);
+          console.error(`Response that failed to parse (first 1000 chars):`, aiResponse.substring(0, 1000));
         }
       }
     }

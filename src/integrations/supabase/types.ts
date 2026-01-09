@@ -1238,6 +1238,60 @@ export type Database = {
           },
         ]
       }
+      import_audit_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extracted_companies: number | null
+          extracted_contacts: number | null
+          extracted_installments: number | null
+          extraction_errors: Json | null
+          file_names: string[]
+          id: string
+          imported_companies: number | null
+          imported_contacts: number | null
+          imported_installments: number | null
+          session_id: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extracted_companies?: number | null
+          extracted_contacts?: number | null
+          extracted_installments?: number | null
+          extraction_errors?: Json | null
+          file_names?: string[]
+          id?: string
+          imported_companies?: number | null
+          imported_contacts?: number | null
+          imported_installments?: number | null
+          session_id: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extracted_companies?: number | null
+          extracted_contacts?: number | null
+          extracted_installments?: number | null
+          extraction_errors?: Json | null
+          file_names?: string[]
+          id?: string
+          imported_companies?: number | null
+          imported_contacts?: number | null
+          imported_installments?: number | null
+          session_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       import_logs: {
         Row: {
           completed_at: string | null

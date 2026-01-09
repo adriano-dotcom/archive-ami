@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { 
   Upload, 
   Sparkles, 
@@ -29,12 +30,15 @@ import {
   Calendar,
   DollarSign,
   Mail,
-  ArrowRight
+  ArrowRight,
+  Save,
+  History
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ExtractedCompany {
   id: string;
@@ -125,7 +129,10 @@ const ACCEPTED_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB - triggers sequential mode recommendation
 
+const PENDING_IMPORT_KEY = 'pending_import_data';
+
 export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onSuccess, onGoToInstallments }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'importing' | 'done'>('upload');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [companies, setCompanies] = useState<ExtractedCompany[]>([]);
@@ -136,6 +143,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
   const [sequentialMode, setSequentialMode] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [hasPendingData, setHasPendingData] = useState(false);
+  const [auditLogId, setAuditLogId] = useState<string | null>(null);
+  const sessionIdRef = useRef<string>(`session_${Date.now()}`);
 
   // Check if any file is large and auto-enable sequential mode
   const hasLargeFiles = files.some(f => f.file.size > LARGE_FILE_THRESHOLD);
@@ -147,6 +158,104 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     }
   }, [hasLargeFiles]);
 
+  // Check for pending data on mount
+  useEffect(() => {
+    if (open) {
+      const pendingData = localStorage.getItem(PENDING_IMPORT_KEY);
+      if (pendingData) {
+        try {
+          const data = JSON.parse(pendingData);
+          // Check if data is recent (less than 24 hours)
+          if (data.timestamp && Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+            setHasPendingData(true);
+          } else {
+            localStorage.removeItem(PENDING_IMPORT_KEY);
+          }
+        } catch {
+          localStorage.removeItem(PENDING_IMPORT_KEY);
+        }
+      }
+    }
+  }, [open]);
+
+  // Auto-save extracted data to localStorage
+  useEffect(() => {
+    if (step === 'review' && (companies.length > 0 || contacts.length > 0 || installments.length > 0)) {
+      const dataToSave = {
+        companies,
+        contacts,
+        installments,
+        insurerDetected,
+        fileNames: files.map(f => f.file.name),
+        timestamp: Date.now()
+      };
+      localStorage.setItem(PENDING_IMPORT_KEY, JSON.stringify(dataToSave));
+    }
+  }, [step, companies, contacts, installments, insurerDetected, files]);
+
+  // Create audit log on extraction start
+  const createAuditLog = async (fileNames: string[]) => {
+    if (!user) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('import_audit_logs')
+        .insert({
+          user_id: user.id,
+          session_id: sessionIdRef.current,
+          file_names: fileNames,
+          status: 'extracting'
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
+    } catch (err) {
+      console.error('Error creating audit log:', err);
+      return null;
+    }
+  };
+
+  // Update audit log
+  const updateAuditLog = async (updates: Record<string, any>) => {
+    if (!auditLogId) return;
+    
+    try {
+      await supabase
+        .from('import_audit_logs')
+        .update(updates)
+        .eq('id', auditLogId);
+    } catch (err) {
+      console.error('Error updating audit log:', err);
+    }
+  };
+
+  // Load pending data from localStorage
+  const loadPendingData = () => {
+    const pendingData = localStorage.getItem(PENDING_IMPORT_KEY);
+    if (pendingData) {
+      try {
+        const data = JSON.parse(pendingData);
+        setCompanies(data.companies || []);
+        setContacts(data.contacts || []);
+        setInstallments(data.installments || []);
+        setInsurerDetected(data.insurerDetected || null);
+        setStep('review');
+        setHasPendingData(false);
+        toast.success(`Dados recuperados: ${data.installments?.length || 0} parcelas, ${data.companies?.length || 0} empresas, ${data.contacts?.length || 0} contatos`);
+      } catch (err) {
+        toast.error('Erro ao recuperar dados pendentes');
+        localStorage.removeItem(PENDING_IMPORT_KEY);
+      }
+    }
+  };
+
+  const clearPendingData = () => {
+    localStorage.removeItem(PENDING_IMPORT_KEY);
+    setHasPendingData(false);
+  };
+
   const resetState = () => {
     setStep('upload');
     setFiles([]);
@@ -157,11 +266,29 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setImporting(false);
     setImportProgress({ current: 0, total: 0 });
     setSequentialMode(false);
+    setAuditLogId(null);
+    sessionIdRef.current = `session_${Date.now()}`;
   };
 
   const handleClose = () => {
+    // Check if there's data that would be lost
+    if (step === 'review' && (companies.length > 0 || contacts.length > 0 || installments.length > 0)) {
+      setShowCloseConfirm(true);
+      return;
+    }
     resetState();
     onOpenChange(false);
+  };
+
+  const confirmClose = (savePending: boolean) => {
+    if (savePending) {
+      toast.info('Dados salvos temporariamente. Você pode recuperá-los ao abrir o modal novamente.');
+    } else {
+      clearPendingData();
+    }
+    resetState();
+    onOpenChange(false);
+    setShowCloseConfirm(false);
   };
 
   const getFileIcon = (type: string) => {
@@ -626,6 +753,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     }
 
     setStep('processing');
+    
+    // Create audit log
+    const fileNames = files.map(f => f.file.name);
+    const logId = await createAuditLog(fileNames);
+    if (logId) {
+      setAuditLogId(logId);
+    }
 
     try {
       let data;
@@ -639,6 +773,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       // Check if all files failed
       const allFailed = files.every(f => f.status === 'error');
       if (allFailed) {
+        await updateAuditLog({ 
+          status: 'error', 
+          error_message: 'Todos os arquivos falharam no processamento' 
+        });
         toast.error('Erro ao processar todos os documentos');
         setStep('upload');
         return;
@@ -687,6 +825,18 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       }
       
       setStep('review');
+      
+      // Update audit log with extraction results
+      await updateAuditLog({
+        status: 'extracted',
+        extracted_companies: extractedCompanies.length,
+        extracted_contacts: extractedContacts.length,
+        extracted_installments: extractedInstallments.length,
+        extraction_errors: files.filter(f => f.status === 'error').map(f => ({ 
+          file: f.file.name, 
+          error: f.error 
+        }))
+      });
 
       const errorCount = files.filter(f => f.status === 'error').length;
       const summary = [];
@@ -702,6 +852,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
 
     } catch (error: any) {
       console.error('Error processing files:', error);
+      await updateAuditLog({ 
+        status: 'error', 
+        error_message: error.message || 'Erro ao processar documentos' 
+      });
       toast.error('Erro ao processar documentos');
       // Don't go back to upload in sequential mode - let user retry individual files
       if (!sequentialMode) {
@@ -1065,14 +1219,30 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       if (selectedContacts.length > 0) summary.push(`${selectedContacts.length} contatos`);
       if (selectedInstallments.length > 0) summary.push(`${selectedInstallments.length} parcelas`);
       
+      // Update audit log with import success
+      await updateAuditLog({
+        status: 'completed',
+        imported_companies: selectedCompanies.length,
+        imported_contacts: selectedContacts.length,
+        imported_installments: selectedInstallments.length
+      });
+      
+      // Clear pending data since import is complete
+      clearPendingData();
+      
       toast.success(`Importação concluída! ${summary.join(', ')}`);
       onSuccess();
       // Close modal and navigate to installments automatically
-      handleClose();
+      resetState();
+      onOpenChange(false);
       onGoToInstallments?.();
 
     } catch (error) {
       console.error('Error during import:', error);
+      await updateAuditLog({ 
+        status: 'error', 
+        error_message: error instanceof Error ? error.message : 'Erro durante a importação' 
+      });
       toast.error('Erro durante a importação');
     } finally {
       setImporting(false);
@@ -1179,6 +1349,41 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           {/* Upload Step */}
           {step === 'upload' && (
             <div className="space-y-4">
+              {/* Pending Data Recovery Banner */}
+              {hasPendingData && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/20">
+                      <History className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-blue-200">Dados pendentes encontrados</p>
+                      <p className="text-sm text-slate-400">
+                        Você tem uma importação não finalizada. Deseja recuperar os dados?
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={clearPendingData}
+                        className="border-slate-600"
+                      >
+                        Descartar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={loadPendingData}
+                        className="bg-blue-600 hover:bg-blue-700 gap-2"
+                      >
+                        <History className="w-4 h-4" />
+                        Recuperar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Drop Zone */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -1788,6 +1993,44 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           </div>
         )}
       </DialogContent>
+      
+      {/* Close Confirmation Dialog */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              Descartar dados extraídos?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Você tem {installments.length} parcelas, {companies.length} empresas e {contacts.length} contatos 
+              prontos para importar. O que deseja fazer?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel 
+              onClick={() => setShowCloseConfirm(false)}
+              className="border-slate-600"
+            >
+              Voltar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => confirmClose(false)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Descartar
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={() => confirmClose(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Salvar para depois
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
