@@ -397,7 +397,7 @@ export const SeguradosTab: React.FC = () => {
             placeholder="Buscar por nome, documento ou telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 bg-slate-900/50 border-white/10"
+            className="pl-9 bg-slate-900/50 border-slate-600 text-slate-200 placeholder:text-slate-500"
           />
         </div>
         <Button
@@ -405,7 +405,7 @@ export const SeguradosTab: React.FC = () => {
           size="sm"
           onClick={loadData}
           disabled={loading}
-          className="border-white/10 gap-2"
+          className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white gap-2"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
@@ -414,7 +414,7 @@ export const SeguradosTab: React.FC = () => {
         {/* Import Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="border-white/10 gap-2">
+            <Button variant="outline" size="sm" className="border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white gap-2">
               <Upload className="w-4 h-4" />
               Importar
               <ChevronDown className="w-3 h-3" />
@@ -477,24 +477,24 @@ export const SeguradosTab: React.FC = () => {
 
       {/* Sub-tabs for PJ and PF */}
       <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'pj' | 'pf')}>
-        <TabsList className="bg-slate-900/50 border border-white/10">
+        <TabsList className="bg-slate-900/50 border border-slate-700">
           <TabsTrigger 
             value="pj" 
-            className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
+            className="gap-2 text-slate-300 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
           >
             <Building2 className="w-4 h-4" />
             Empresas (PJ)
-            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-800 rounded-full">
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredCompanies.length}
             </span>
           </TabsTrigger>
           <TabsTrigger 
             value="pf" 
-            className="gap-2 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400"
+            className="gap-2 text-slate-300 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400"
           >
             <User className="w-4 h-4" />
             Pessoas (PF)
-            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-800 rounded-full">
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredSeguradosPF.length}
             </span>
           </TabsTrigger>
