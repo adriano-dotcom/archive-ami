@@ -1034,8 +1034,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       
       toast.success(`Importação concluída! ${summary.join(', ')}`);
       onSuccess();
-      // Show done step instead of closing
-      setStep('done');
+      // Close modal and navigate to installments automatically
+      handleClose();
+      onGoToInstallments?.();
 
     } catch (error) {
       console.error('Error during import:', error);
