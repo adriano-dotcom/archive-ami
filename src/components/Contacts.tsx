@@ -221,8 +221,8 @@ const Contacts: React.FC = () => {
     }
   };
 
-  // Filtrar por origem (inbound/segurados)
-  const inboundContacts = contacts;
+  // Filtrar por origem (inbound/segurados) - excluir contatos de cobrança que vão para aba Segurados
+  const inboundContacts = contacts.filter(c => (c.lead_source as string) !== 'import_cobranca');
 
   // Filtrar pela aba ativa + termo de busca + status + outros filtros
   const getFilteredContacts = () => {
