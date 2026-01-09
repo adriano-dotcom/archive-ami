@@ -3,6 +3,7 @@ import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2 } from 'l
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatCNPJ } from '@/utils/phoneFormatter';
 
 interface Company {
@@ -22,6 +23,8 @@ interface Company {
 interface CompaniesTableProps {
   companies: Company[];
   loading: boolean;
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
   onSelectCompany: (company: Company) => void;
   onEditCompany: (company: Company) => void;
   onDeleteCompany: (company: Company) => void;
@@ -30,10 +33,30 @@ interface CompaniesTableProps {
 export const CompaniesTable: React.FC<CompaniesTableProps> = ({ 
   companies, 
   loading, 
+  selectedIds,
+  onSelectionChange,
   onSelectCompany,
   onEditCompany,
   onDeleteCompany
 }) => {
+  const allSelected = companies.length > 0 && selectedIds.length === companies.length;
+  const someSelected = selectedIds.length > 0 && selectedIds.length < companies.length;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      onSelectionChange([]);
+    } else {
+      onSelectionChange(companies.map(c => c.id));
+    }
+  };
+
+  const toggleSelect = (companyId: string) => {
+    if (selectedIds.includes(companyId)) {
+      onSelectionChange(selectedIds.filter(id => id !== companyId));
+    } else {
+      onSelectionChange([...selectedIds, companyId]);
+    }
+  };
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -73,6 +96,18 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow className="border-white/5 hover:bg-transparent">
+            <TableHead className="w-12">
+              <Checkbox
+                checked={allSelected}
+                ref={(el) => {
+                  if (el) {
+                    (el as any).indeterminate = someSelected;
+                  }
+                }}
+                onCheckedChange={toggleSelectAll}
+                className="border-slate-600"
+              />
+            </TableHead>
             <TableHead className="text-slate-400">Empresa</TableHead>
             <TableHead className="text-slate-400">CNPJ</TableHead>
             <TableHead className="text-slate-400">Localização</TableHead>
@@ -87,9 +122,16 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
           {companies.map((company) => (
             <TableRow 
               key={company.id} 
-              className="border-white/5 hover:bg-white/5 cursor-pointer"
+              className={`border-white/5 hover:bg-white/5 cursor-pointer ${selectedIds.includes(company.id) ? 'bg-blue-500/10' : ''}`}
               onClick={() => onSelectCompany(company)}
             >
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.includes(company.id)}
+                  onCheckedChange={() => toggleSelect(company.id)}
+                  className="border-slate-600"
+                />
+              </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
