@@ -149,14 +149,62 @@ serve(async (req) => {
     // Get unique contact IDs
     const contactIds = [...new Set(installments.map(i => i.contact_id).filter(Boolean))];
 
-    // Fetch contacts with email
+    // Fetch contacts with email and company_id
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
-      .select('id, name, call_name, email, company')
+      .select('id, name, call_name, email, company, company_id')
       .in('id', contactIds);
 
     if (contactsError) {
       throw contactsError;
+    }
+
+    // Helper function to resolve email through company relationships
+    async function resolveContactEmail(contact: any): Promise<{ email: string; contactName: string } | null> {
+      // 1. Direct email on contact
+      if (contact.email) {
+        return { email: contact.email, contactName: contact.name || contact.call_name || 'Cliente' };
+      }
+
+      // 2. Search by company_id
+      if (contact.company_id) {
+        // 2a. Try billing contact first
+        const { data: billingContact } = await supabase
+          .from('contacts')
+          .select('name, call_name, email')
+          .eq('company_id', contact.company_id)
+          .eq('is_billing_contact', true)
+          .not('email', 'is', null)
+          .limit(1)
+          .single();
+
+        if (billingContact?.email) {
+          console.log(`Found billing contact email for company ${contact.company_id}`);
+          return { 
+            email: billingContact.email, 
+            contactName: contact.name || contact.call_name || billingContact.name || billingContact.call_name || 'Cliente' 
+          };
+        }
+
+        // 2b. Try any contact with email from same company
+        const { data: anyContact } = await supabase
+          .from('contacts')
+          .select('name, call_name, email')
+          .eq('company_id', contact.company_id)
+          .not('email', 'is', null)
+          .limit(1)
+          .single();
+
+        if (anyContact?.email) {
+          console.log(`Found related contact email for company ${contact.company_id}`);
+          return { 
+            email: anyContact.email, 
+            contactName: contact.name || contact.call_name || anyContact.name || anyContact.call_name || 'Cliente' 
+          };
+        }
+      }
+
+      return null;
     }
 
     // Group installments by contact
@@ -164,7 +212,10 @@ serve(async (req) => {
     const skippedContacts: string[] = [];
 
     for (const contact of contacts || []) {
-      if (!contact.email) {
+      const resolved = await resolveContactEmail(contact);
+      
+      if (!resolved) {
+        console.log(`No email found for contact ${contact.id} (${contact.name || contact.company || 'unknown'})`);
         skippedContacts.push(contact.id);
         continue;
       }
@@ -174,8 +225,8 @@ serve(async (req) => {
 
       contactsWithInstallments.push({
         contactId: contact.id,
-        contactName: contact.name || contact.call_name || 'Cliente',
-        email: contact.email,
+        contactName: resolved.contactName,
+        email: resolved.email,
         installments: contactInstallments as InstallmentData[],
         totalValue
       });
