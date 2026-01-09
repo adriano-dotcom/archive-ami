@@ -968,6 +968,14 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             
             if (existingPolicy) {
               policyId = existingPolicy.id;
+              // Atualizar company_id se estava NULL e agora temos
+              if (companyId) {
+                await supabase
+                  .from('policies')
+                  .update({ company_id: companyId })
+                  .eq('id', policyId)
+                  .is('company_id', null);
+              }
             } else {
               const { data: newPolicy, error: policyError } = await supabase
                 .from('policies')
