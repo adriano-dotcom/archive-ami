@@ -2,3 +2,9 @@ project_id = "bbllbsbcogngjfrhhggq"
 
 [functions.extract-documents]
 verify_jwt = false
+
+[functions.generate-collection-emails]
+verify_jwt = false
+
+[functions.send-collection-emails]
+verify_jwt = false

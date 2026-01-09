@@ -517,6 +517,73 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_email_logs: {
+        Row: {
+          batch_id: string | null
+          body_html: string
+          contact_id: string | null
+          created_at: string | null
+          email_to: string
+          error_message: string | null
+          id: string
+          installments_included: Json | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          body_html: string
+          contact_id?: string | null
+          created_at?: string | null
+          email_to: string
+          error_message?: string | null
+          id?: string
+          installments_included?: Json | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          body_html?: string
+          contact_id?: string | null
+          created_at?: string | null
+          email_to?: string
+          error_message?: string | null
+          id?: string
+          installments_included?: Json | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_email_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "collection_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_email_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_email_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           cep: string | null
