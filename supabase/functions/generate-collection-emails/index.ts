@@ -330,8 +330,8 @@ serve(async (req) => {
     for (const contactData of contactsWithInstallments) {
       try {
         const installmentsTable = contactData.installments.map(i => {
-          const policy = i.policies?.[0];
-          return `| ${policy?.insurer || 'N/A'} | ${i.installment_number} | R$ ${i.value.toFixed(2)} | ${new Date(i.due_date).toLocaleDateString('pt-BR')} | ${i.days_overdue} dias |`;
+          const insurer = Array.isArray(i.policies) ? i.policies[0]?.insurer : (i.policies as any)?.insurer;
+          return `| ${insurer || 'N/A'} | ${i.installment_number} | R$ ${i.value.toFixed(2)} | ${new Date(i.due_date).toLocaleDateString('pt-BR')} | ${i.days_overdue} dias |`;
         }).join('\n');
 
         const timeGreeting = getTimeGreeting();
