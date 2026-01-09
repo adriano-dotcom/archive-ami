@@ -156,6 +156,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
       const { data, error } = await supabase
         .from('nina_settings')
         .select('*')
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
@@ -229,6 +230,11 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
     try {
       if (settings.whatsapp_phone_number_id && !/^\d+$/.test(settings.whatsapp_phone_number_id)) {
         toast.error('Phone Number ID deve conter apenas números');
+        return;
+      }
+
+      if (!settings.id) {
+        toast.error('Erro: ID das configurações não encontrado');
         return;
       }
 

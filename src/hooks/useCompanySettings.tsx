@@ -21,6 +21,7 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
       const { data, error } = await supabase
         .from('nina_settings')
         .select('company_name, sdr_name')
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
