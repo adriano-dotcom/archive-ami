@@ -20,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { TemplateNotificationBell } from './TemplateNotificationBell';
 
 interface WhatsAppTemplate {
   id: string;
@@ -292,7 +293,8 @@ const WhatsAppTemplatesSettings: React.FC = () => {
             Gerencie templates de mensagem aprovados pela Meta para campanhas ativas
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <TemplateNotificationBell />
           {disabledCount > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
