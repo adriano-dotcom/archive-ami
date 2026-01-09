@@ -8,7 +8,18 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -40,6 +51,7 @@ export const InstallmentsList: React.FC = () => {
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: installments, isLoading, refetch } = useQuery({
@@ -147,6 +159,28 @@ export const InstallmentsList: React.FC = () => {
     },
     onError: () => {
       toast.error('Erro ao atualizar parcelas');
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('installments')
+        .delete()
+        .in('id', ids);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
+      const count = selectedIds.length;
+      setSelectedIds([]);
+      setShowDeleteConfirm(false);
+      toast.success(`${count} parcela(s) excluída(s)`);
+    },
+    onError: () => {
+      toast.error('Erro ao excluir parcelas');
     }
   });
 
@@ -315,6 +349,45 @@ export const InstallmentsList: React.FC = () => {
                 <Sparkles className="w-4 h-4" />
                 Gerar Emails com IA ({selectedIds.length})
               </Button>
+              
+              <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/20 gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Excluir ({selectedIds.length})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <span>Tem certeza que deseja excluir {selectedIds.length} parcela(s)?</span>
+                      <br />
+                      <span className="text-amber-400 font-medium">
+                        Valor total: {formatCurrency(selectedTotal)}
+                      </span>
+                      <br />
+                      <span className="text-red-400 font-medium">
+                        Esta ação não pode ser desfeita.
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteMutation.mutate(selectedIds)}
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={deleteMutation.isPending}
+                    >
+                      {deleteMutation.isPending ? 'Excluindo...' : 'Excluir'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </CardContent>
@@ -419,6 +492,18 @@ export const InstallmentsList: React.FC = () => {
                           title="Enviar cobrança"
                         >
                           <MessageSquare className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-red-500/20 hover:text-red-400"
+                          title="Excluir parcela"
+                          onClick={() => {
+                            setSelectedIds([inst.id]);
+                            setShowDeleteConfirm(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
