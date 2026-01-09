@@ -179,7 +179,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  const formatDocument = (doc: string) => {
+  const formatDocument = (doc: string | null | undefined) => {
+    if (!doc) return '-';
     const clean = doc.replace(/\D/g, '');
     if (clean.length === 14) return formatCNPJ(clean);
     if (clean.length === 11) return formatCPF(clean);
