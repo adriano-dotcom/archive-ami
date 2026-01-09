@@ -1645,23 +1645,6 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-700">
-                <Button variant="outline" onClick={handleClose}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleImport}
-                  disabled={
-                    companies.filter(c => c.selected).length === 0 && 
-                    contacts.filter(c => c.selected).length === 0 &&
-                    installments.filter(i => i.selected).length === 0
-                  }
-                  className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Importar Selecionados
-                </Button>
-              </div>
             </div>
           )}
 
@@ -1684,6 +1667,36 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             </div>
           )}
         </ScrollArea>
+
+        {/* Footer Actions - Outside ScrollArea for visibility */}
+        {step === 'review' && (
+          <div className="border-t border-slate-700 pt-4 mt-2">
+            <p className="text-sm text-slate-400 mb-3 text-center">
+              ✓ Revise os dados acima e clique em <span className="text-emerald-400 font-medium">Importar Selecionados</span> para finalizar
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleClose}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleImport}
+                disabled={
+                  companies.filter(c => c.selected).length === 0 && 
+                  contacts.filter(c => c.selected).length === 0 &&
+                  installments.filter(i => i.selected).length === 0
+                }
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Importar Selecionados ({
+                  companies.filter(c => c.selected).length + 
+                  contacts.filter(c => c.selected).length + 
+                  installments.filter(i => i.selected).length
+                } itens)
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
