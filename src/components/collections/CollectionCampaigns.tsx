@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
+import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 
 interface CollectionBatch {
   id: string;
@@ -62,6 +63,8 @@ const COLLECTION_TEMPLATES = [
 
 export const CollectionCampaigns: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showEmailCampaign, setShowEmailCampaign] = useState(false);
+  const [currentBatchId, setCurrentBatchId] = useState<string | undefined>();
   const [newCampaign, setNewCampaign] = useState({
     name: '',
     description: '',
@@ -321,6 +324,33 @@ export const CollectionCampaigns: React.FC = () => {
                 </div>
               )}
 
+              {/* Show AI Email button for email channel */}
+              {newCampaign.channel === 'email' && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-purple-500/20">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-purple-200">Email com Inteligência Artificial</p>
+                      <p className="text-xs text-slate-400">
+                        A IA irá gerar emails personalizados para cada segurado, agrupando todas as parcelas
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setIsCreateOpen(false);
+                      setShowEmailCampaign(true);
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Gerar Emails com IA
+                  </Button>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4">
                 <Button 
                   variant="outline" 
@@ -329,13 +359,15 @@ export const CollectionCampaigns: React.FC = () => {
                 >
                   Cancelar
                 </Button>
-                <Button 
-                  onClick={() => createCampaignMutation.mutate()}
-                  disabled={!newCampaign.name || !newCampaign.template || createCampaignMutation.isPending}
-                  className="bg-amber-600 hover:bg-amber-700"
-                >
-                  Criar Campanha
-                </Button>
+                {newCampaign.channel !== 'email' && (
+                  <Button 
+                    onClick={() => createCampaignMutation.mutate()}
+                    disabled={!newCampaign.name || !newCampaign.template || createCampaignMutation.isPending}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Criar Campanha
+                  </Button>
+                )}
               </div>
             </div>
           </DialogContent>
@@ -456,6 +488,14 @@ export const CollectionCampaigns: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Campaign Sheet */}
+      <CollectionEmailCampaign
+        open={showEmailCampaign}
+        onOpenChange={setShowEmailCampaign}
+        filters={{ range: newCampaign.rangeFilter }}
+        batchId={currentBatchId}
+      />
     </div>
   );
 };
