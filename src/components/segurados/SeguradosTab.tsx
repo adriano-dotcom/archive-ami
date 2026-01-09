@@ -44,6 +44,7 @@ interface SeguradoPF {
   cpf: string | null;
   city: string | null;
   state: string | null;
+  lead_source?: string | null;
   policies_count: number;
   insurers: string[];
   overdue_value: number;
@@ -192,6 +193,7 @@ export const SeguradosTab: React.FC = () => {
   const loadSeguradosPF = async () => {
     try {
       // Fetch contacts that are NOT linked to companies but have policies
+      // Get contacts without company: those with policies OR imported from cobrança
       const { data: contacts, error } = await supabase
         .from('contacts')
         .select(`
@@ -201,14 +203,15 @@ export const SeguradosTab: React.FC = () => {
           email,
           cpf,
           city,
-          state
+          state,
+          lead_source
         `)
         .is('company_id', null)
         .order('name');
 
       if (error) throw error;
 
-      // For each contact, check if they have policies and get overdue data
+      // For each contact, check if they have policies or are from cobrança import
       const enrichedSegurados = await Promise.all(
         (contacts || []).map(async (contact) => {
           // Get policies for this contact
@@ -217,27 +220,36 @@ export const SeguradosTab: React.FC = () => {
             .select('id, insurer')
             .eq('contact_id', contact.id);
 
-          if (policiesError || !policies || policies.length === 0) {
-            return null; // Skip contacts without policies
+          const hasPolicies = !policiesError && policies && policies.length > 0;
+          const isCobrancaImport = contact.lead_source === 'import_cobranca';
+
+          // Skip contacts without policies AND not from cobrança import
+          if (!hasPolicies && !isCobrancaImport) {
+            return null;
           }
 
-          const policyIds = policies.map(p => p.id);
-          const insurers = [...new Set(policies.map(p => p.insurer))];
+          const policyIds = hasPolicies ? policies.map(p => p.id) : [];
+          const insurers = hasPolicies ? [...new Set(policies.map(p => p.insurer))] : [];
 
-          // Get overdue installments
-          const { data: installments } = await supabase
-            .from('installments')
-            .select('value, days_overdue')
-            .in('policy_id', policyIds)
-            .in('status', ['overdue', 'pending'])
-            .gt('days_overdue', 0);
+          // Get overdue installments if has policies
+          let overdueValue = 0;
+          let maxDaysOverdue = 0;
 
-          const overdueValue = (installments || []).reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-          const maxDaysOverdue = Math.max(0, ...(installments || []).map(i => i.days_overdue || 0));
+          if (policyIds.length > 0) {
+            const { data: installments } = await supabase
+              .from('installments')
+              .select('value, days_overdue')
+              .in('policy_id', policyIds)
+              .in('status', ['overdue', 'pending'])
+              .gt('days_overdue', 0);
+
+            overdueValue = (installments || []).reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+            maxDaysOverdue = Math.max(0, ...(installments || []).map(i => i.days_overdue || 0));
+          }
 
           return {
             ...contact,
-            policies_count: policies.length,
+            policies_count: hasPolicies ? policies.length : 0,
             insurers,
             overdue_value: overdueValue,
             max_days_overdue: maxDaysOverdue
@@ -245,8 +257,8 @@ export const SeguradosTab: React.FC = () => {
         })
       );
 
-      // Filter out null values (contacts without policies)
-      setSeguradosPF(enrichedSegurados.filter((s): s is SeguradoPF => s !== null));
+      // Filter out null values
+      setSeguradosPF(enrichedSegurados.filter((s) => s !== null) as SeguradoPF[]);
     } catch (error) {
       console.error('Error loading segurados PF:', error);
       toast.error('Erro ao carregar segurados PF');
