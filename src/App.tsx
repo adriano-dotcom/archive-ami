@@ -13,6 +13,7 @@ import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
 import MeetingRoom from './components/MeetingRoom';
 import Functions from './components/Functions';
+import WhatsAppDashboard from './components/WhatsAppDashboard';
 import { CollectionsDashboard } from './components/collections';
 import Auth from './pages/Auth';
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
@@ -83,6 +84,7 @@ const App: React.FC = () => {
                 <Route path="/prospecting" element={<ProspectingDashboard />} />
                 <Route path="/campaigns" element={<CampaignsDashboard />} />
                 <Route path="/collections" element={<CollectionsDashboard />} />
+                <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
               </Route>
             </Routes>
