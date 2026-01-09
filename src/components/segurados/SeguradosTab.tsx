@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,11 @@ export const SeguradosTab: React.FC = () => {
   const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
   const [deletingSegurado, setDeletingSegurado] = useState<SeguradoPF | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Bulk selection states
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
   
   // Company details drawer
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
@@ -374,6 +379,74 @@ export const SeguradosTab: React.FC = () => {
     }
   };
 
+  // Bulk delete companies
+  const handleBulkDeleteCompanies = async () => {
+    setBulkDeleteLoading(true);
+    let deletedCount = 0;
+    let skippedCount = 0;
+    const skippedReasons: string[] = [];
+
+    try {
+      for (const companyId of selectedCompanyIds) {
+        const company = companies.find(c => c.id === companyId);
+        if (!company) continue;
+
+        // Check for linked contacts
+        const { count: contactsCount } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId);
+
+        if (contactsCount && contactsCount > 0) {
+          skippedCount++;
+          skippedReasons.push(`${company.nome_fantasia || company.razao_social} (contatos vinculados)`);
+          continue;
+        }
+
+        // Check for linked policies
+        const { count: policiesCount } = await supabase
+          .from('policies')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId);
+
+        if (policiesCount && policiesCount > 0) {
+          skippedCount++;
+          skippedReasons.push(`${company.nome_fantasia || company.razao_social} (apólices vinculadas)`);
+          continue;
+        }
+
+        // Delete company
+        const { error } = await supabase
+          .from('companies')
+          .delete()
+          .eq('id', companyId);
+
+        if (error) {
+          console.error('Error deleting company:', error);
+          skippedCount++;
+        } else {
+          deletedCount++;
+        }
+      }
+
+      if (deletedCount > 0) {
+        toast.success(`${deletedCount} empresa(s) excluída(s) com sucesso!`);
+      }
+      if (skippedCount > 0) {
+        toast.warning(`${skippedCount} empresa(s) não puderam ser excluídas (possuem vínculos)`);
+      }
+
+      setSelectedCompanyIds([]);
+      setShowBulkDeleteConfirm(false);
+      loadData();
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      toast.error('Erro ao excluir empresas');
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
   // Filter data based on search term
   const filteredCompanies = companies.filter(c => 
     c.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -500,11 +573,40 @@ export const SeguradosTab: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pj" className="mt-4">
+        <TabsContent value="pj" className="mt-4 space-y-3">
+          {/* Bulk Actions Bar */}
+          {selectedCompanyIds.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <span className="text-sm text-blue-400 font-medium">
+                {selectedCompanyIds.length} selecionada(s)
+              </span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir ({selectedCompanyIds.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedCompanyIds([])}
+                className="text-slate-400 hover:text-slate-200 gap-2"
+              >
+                <X className="w-4 h-4" />
+                Limpar seleção
+              </Button>
+            </div>
+          )}
+          
           <Card className="bg-slate-900/30 border-white/5">
             <CompaniesTable
               companies={filteredCompanies}
               loading={loading}
+              selectedIds={selectedCompanyIds}
+              onSelectionChange={setSelectedCompanyIds}
               onSelectCompany={handleSelectCompany}
               onEditCompany={(company) => setEditingCompany(company)}
               onDeleteCompany={(company) => setDeletingCompany(company)}
@@ -627,7 +729,34 @@ export const SeguradosTab: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Import Document AI Modal */}
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Empresas em Lote</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedCompanyIds.length} empresa(s)</strong>? 
+              <br /><br />
+              <span className="text-amber-400">Nota:</span> Empresas com contatos ou apólices vinculadas não serão excluídas.
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDeleteCompanies}
+              disabled={bulkDeleteLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {bulkDeleteLoading ? 'Excluindo...' : `Excluir ${selectedCompanyIds.length} empresa(s)`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ImportDocumentAIModal
         open={showImportDocumentAI}
         onOpenChange={setShowImportDocumentAI}
