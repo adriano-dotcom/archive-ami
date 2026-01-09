@@ -662,15 +662,22 @@ ${extractedText}`
       }
     }
     
-    // Deduplicate installments by policy_number + installment_number (keep highest confidence)
+    // Deduplicate installments by policy_number + endorsement + installment_number + due_date
+    // APRENDIZADO: Tokio Marine e outras seguradoras usam endosso para diferenciar parcelas da mesma apólice
+    // Exemplo: Apólice 5400000592587 pode ter endosso 20000620080 (venc 21/10) e 20000620081 (venc 20/11)
     const uniqueInstallments = new Map<string, ExtractedInstallment>();
     for (const installment of allResults.installments) {
-      const key = `${installment.policy_number}-${installment.installment_number}`;
+      // Chave composta inclui endosso e data de vencimento para evitar perda de parcelas
+      const endorsement = (installment as any).endorsement || '';
+      const dueDate = installment.due_date || '';
+      const key = `${installment.policy_number}-${endorsement}-${installment.installment_number}-${dueDate}`;
       const existing = uniqueInstallments.get(key);
       if (!existing || (installment.confidence > existing.confidence)) {
         uniqueInstallments.set(key, installment);
       }
     }
+    
+    console.log(`Deduplication: ${allResults.installments.length} raw -> ${uniqueInstallments.size} unique installments`);
 
     const result: ExtractionResult = {
       insurer_detected: allResults.insurer_detected,
