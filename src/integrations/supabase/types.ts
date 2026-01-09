@@ -2582,6 +2582,65 @@ export type Database = {
           },
         ]
       }
+      template_status_notifications: {
+        Row: {
+          created_at: string | null
+          disable_date: string | null
+          event_type: string
+          id: string
+          meta_template_id: string
+          new_status: string
+          previous_status: string | null
+          read_at: string | null
+          reason: string | null
+          rejection_reason: string | null
+          rejection_recommendation: string | null
+          template_id: string | null
+          template_language: string | null
+          template_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          disable_date?: string | null
+          event_type: string
+          id?: string
+          meta_template_id: string
+          new_status: string
+          previous_status?: string | null
+          read_at?: string | null
+          reason?: string | null
+          rejection_reason?: string | null
+          rejection_recommendation?: string | null
+          template_id?: string | null
+          template_language?: string | null
+          template_name: string
+        }
+        Update: {
+          created_at?: string | null
+          disable_date?: string | null
+          event_type?: string
+          id?: string
+          meta_template_id?: string
+          new_status?: string
+          previous_status?: string | null
+          read_at?: string | null
+          reason?: string | null
+          rejection_reason?: string | null
+          rejection_recommendation?: string | null
+          template_id?: string | null
+          template_language?: string | null
+          template_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_status_notifications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

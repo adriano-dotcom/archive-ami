@@ -259,6 +259,80 @@ serve(async (req) => {
       const contacts = value.contacts;
       const phoneNumberId = value.metadata?.phone_number_id;
 
+      // Handle template status updates (message_template_status_update webhook field)
+      if (changes?.field === 'message_template_status_update') {
+        console.log('[Webhook] Template status update received:', JSON.stringify(value));
+        
+        const event = value.event; // APPROVED, REJECTED, DISABLED, FLAGGED, PENDING_DELETION, etc.
+        const templateId = value.message_template_id;
+        const templateName = value.message_template_name;
+        const templateLanguage = value.message_template_language;
+        const reason = value.reason;
+        
+        // Get previous status from template
+        const { data: existingTemplate } = await supabase
+          .from('whatsapp_templates')
+          .select('id, status')
+          .eq('meta_template_id', String(templateId))
+          .maybeSingle();
+        
+        // Map event to status
+        const statusMap: Record<string, string> = {
+          'APPROVED': 'APPROVED',
+          'REJECTED': 'REJECTED',
+          'DISABLED': 'DISABLED',
+          'FLAGGED': 'PENDING',
+          'PENDING_DELETION': 'DISABLED'
+        };
+        
+        const newStatus = statusMap[event] || event;
+        
+        // Update template status in whatsapp_templates table
+        if (existingTemplate) {
+          await supabase
+            .from('whatsapp_templates')
+            .update({ 
+              status: newStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingTemplate.id);
+          
+          console.log(`[Webhook] Updated template ${templateName} status to ${newStatus}`);
+        } else {
+          console.log(`[Webhook] Template ${templateName} (${templateId}) not found in database`);
+        }
+        
+        // Create notification record
+        const notificationData = {
+          template_id: existingTemplate?.id || null,
+          meta_template_id: String(templateId),
+          template_name: templateName || 'Template Desconhecido',
+          template_language: templateLanguage || null,
+          previous_status: existingTemplate?.status || null,
+          new_status: newStatus,
+          event_type: event,
+          reason: reason || null,
+          rejection_reason: value.other_info?.rejection_reason || null,
+          rejection_recommendation: value.other_info?.recommendation || null,
+          disable_date: value.other_info?.disable_date ? new Date(value.other_info.disable_date).toISOString() : null
+        };
+        
+        const { error: notifError } = await supabase
+          .from('template_status_notifications')
+          .insert(notificationData);
+        
+        if (notifError) {
+          console.error('[Webhook] Error creating notification:', notifError);
+        } else {
+          console.log(`[Webhook] Created notification for template ${templateName} - ${event}`);
+        }
+        
+        return new Response(JSON.stringify({ status: 'template_status_processed' }), { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
       // Handle status updates (delivered, read, etc)
       if (value.statuses) {
         for (const status of value.statuses) {
