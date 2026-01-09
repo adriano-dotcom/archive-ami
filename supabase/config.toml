@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.send-collection-emails]
 verify_jwt = false
+
+[functions.whatsapp-webhook-health]
+verify_jwt = false
