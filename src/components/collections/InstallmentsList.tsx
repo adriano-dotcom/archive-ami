@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 
 interface Installment {
   id: string;
@@ -38,6 +39,7 @@ export const InstallmentsList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: installments, isLoading, refetch } = useQuery({
@@ -267,10 +269,11 @@ export const InstallmentsList: React.FC = () => {
               </Button>
               <Button 
                 size="sm" 
-                className="bg-amber-600 hover:bg-amber-700 gap-2"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                onClick={() => setShowEmailCampaign(true)}
               >
-                <Send className="w-4 h-4" />
-                Enviar Cobrança
+                <Sparkles className="w-4 h-4" />
+                Gerar Emails com IA ({selectedIds.length})
               </Button>
             </div>
           )}
@@ -390,6 +393,16 @@ export const InstallmentsList: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Campaign Modal */}
+      <CollectionEmailCampaign
+        open={showEmailCampaign}
+        onOpenChange={setShowEmailCampaign}
+        filters={{ 
+          range: rangeFilter,
+          selectedInstallmentIds: selectedIds 
+        }}
+      />
     </div>
   );
 };

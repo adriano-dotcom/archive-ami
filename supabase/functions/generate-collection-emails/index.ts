@@ -13,6 +13,7 @@ interface GenerateEmailsRequest {
     minDays?: number;
     maxDays?: number;
     range?: string;
+    installmentIds?: string[];
   };
   emailTone: 'friendly' | 'reminder' | 'urgent' | 'final';
 }
@@ -89,31 +90,39 @@ serve(async (req) => {
           insurer,
           product
         )
-      `)
-      .in('status', filters.status || ['overdue', 'negotiating']);
+      `);
 
-    // Apply range filter
-    if (filters.range && filters.range !== 'all') {
-      switch (filters.range) {
-        case '1-30':
-          query = query.gte('days_overdue', 1).lte('days_overdue', 30);
-          break;
-        case '31-60':
-          query = query.gte('days_overdue', 31).lte('days_overdue', 60);
-          break;
-        case '61-90':
-          query = query.gte('days_overdue', 61).lte('days_overdue', 90);
-          break;
-        case '90+':
-          query = query.gt('days_overdue', 90);
-          break;
-      }
-    } else if (filters.minDays !== undefined || filters.maxDays !== undefined) {
-      if (filters.minDays !== undefined) {
-        query = query.gte('days_overdue', filters.minDays);
-      }
-      if (filters.maxDays !== undefined) {
-        query = query.lte('days_overdue', filters.maxDays);
+    // If specific installment IDs are provided, use those directly
+    if (filters.installmentIds && filters.installmentIds.length > 0) {
+      console.log(`Filtering by ${filters.installmentIds.length} specific installment IDs`);
+      query = query.in('id', filters.installmentIds);
+    } else {
+      // Apply status filter
+      query = query.in('status', filters.status || ['overdue', 'negotiating']);
+
+      // Apply range filter
+      if (filters.range && filters.range !== 'all') {
+        switch (filters.range) {
+          case '1-30':
+            query = query.gte('days_overdue', 1).lte('days_overdue', 30);
+            break;
+          case '31-60':
+            query = query.gte('days_overdue', 31).lte('days_overdue', 60);
+            break;
+          case '61-90':
+            query = query.gte('days_overdue', 61).lte('days_overdue', 90);
+            break;
+          case '90+':
+            query = query.gt('days_overdue', 90);
+            break;
+        }
+      } else if (filters.minDays !== undefined || filters.maxDays !== undefined) {
+        if (filters.minDays !== undefined) {
+          query = query.gte('days_overdue', filters.minDays);
+        }
+        if (filters.maxDays !== undefined) {
+          query = query.lte('days_overdue', filters.maxDays);
+        }
       }
     }
 
