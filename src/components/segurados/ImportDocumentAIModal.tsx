@@ -959,11 +959,14 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           let policyId = policyIdMap.get(inst.policy_number);
           
           if (!policyId) {
+            // Fallback para insurer quando vier null da IA
+            const insurerValue = inst.insurer || 'NÃO IDENTIFICADA';
+            
             const { data: existingPolicy } = await supabase
               .from('policies')
               .select('id')
               .eq('policy_number', inst.policy_number)
-              .eq('insurer', inst.insurer)
+              .eq('insurer', insurerValue)
               .maybeSingle();
             
             if (existingPolicy) {
@@ -981,7 +984,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 .from('policies')
                 .insert({
                   policy_number: inst.policy_number,
-                  insurer: inst.insurer,
+                  insurer: insurerValue,
                   branch: inst.branch || null,
                   product: inst.product || null,
                   contact_id: contactId,
