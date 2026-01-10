@@ -238,10 +238,9 @@ const menuColors: Record<string, { gradient: string; glow: string; border: strin
   chat: { gradient: 'from-cyan-500/20 via-teal-500/15 to-transparent', glow: 'shadow-cyan-500/20', border: 'ring-cyan-400/30', text: 'text-cyan-300' },
   contacts: { gradient: 'from-emerald-500/20 via-green-500/15 to-transparent', glow: 'shadow-emerald-500/20', border: 'ring-emerald-400/30', text: 'text-emerald-300' },
   scheduling: { gradient: 'from-amber-500/20 via-yellow-500/15 to-transparent', glow: 'shadow-amber-500/20', border: 'ring-amber-400/30', text: 'text-amber-300' },
-  campaigns: { gradient: 'from-orange-500/20 via-red-500/15 to-transparent', glow: 'shadow-orange-500/20', border: 'ring-orange-400/30', text: 'text-orange-300' },
-  prospecting: { gradient: 'from-pink-500/20 via-rose-500/15 to-transparent', glow: 'shadow-pink-500/20', border: 'ring-pink-400/30', text: 'text-pink-300' },
+  collections: { gradient: 'from-orange-500/20 via-red-500/15 to-transparent', glow: 'shadow-orange-500/20', border: 'ring-orange-400/30', text: 'text-orange-300' },
+  whatsapp: { gradient: 'from-green-500/20 via-emerald-500/15 to-transparent', glow: 'shadow-green-500/20', border: 'ring-green-400/30', text: 'text-green-300' },
   team: { gradient: 'from-sky-500/20 via-blue-500/15 to-transparent', glow: 'shadow-sky-500/20', border: 'ring-sky-400/30', text: 'text-sky-300' },
-  functions: { gradient: 'from-fuchsia-500/20 via-purple-500/15 to-transparent', glow: 'shadow-fuchsia-500/20', border: 'ring-fuchsia-400/30', text: 'text-fuchsia-300' },
   settings: { gradient: 'from-slate-400/20 via-gray-500/15 to-transparent', glow: 'shadow-slate-500/20', border: 'ring-slate-400/30', text: 'text-slate-300' },
 };
 

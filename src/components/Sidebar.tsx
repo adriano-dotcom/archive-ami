@@ -211,7 +211,10 @@ const SidebarContent = () => {
 };
 
 const AppSidebar: React.FC = () => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    const savedPinned = localStorage.getItem('sidebar-pinned');
+    return savedPinned === 'true';
+  });
 
   return (
     <Sidebar open={open} setOpen={setOpen}>
