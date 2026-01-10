@@ -127,7 +127,8 @@ const ACCEPTED_TYPES = [
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB - triggers sequential mode recommendation
+const LARGE_FILE_THRESHOLD = 200 * 1024; // 200KB - triggers sequential mode (Base64 adds ~33% overhead)
+const MAX_PARALLEL_SIZE = 500 * 1024; // 500KB total for parallel processing
 
 const PENDING_IMPORT_KEY = 'pending_import_data';
 
@@ -151,18 +152,24 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   // Check if any file is large and auto-enable sequential mode
   const hasLargeFiles = files.some(f => f.file.size > LARGE_FILE_THRESHOLD);
   const hasMultipleFiles = files.length > 1;
+  const totalFileSize = files.reduce((sum, f) => sum + f.file.size, 0);
+  const shouldForceSequential = hasLargeFiles || hasMultipleFiles || totalFileSize > MAX_PARALLEL_SIZE;
 
   useEffect(() => {
-    // Auto-enable sequential mode for large files or multiple files
-    if ((hasLargeFiles || hasMultipleFiles) && !sequentialMode) {
+    // Auto-enable sequential mode for large files, multiple files, or large total size
+    if (shouldForceSequential && !sequentialMode && files.length > 0) {
       setSequentialMode(true);
       if (hasLargeFiles) {
-        toast.info('Modo sequencial ativado para arquivos grandes');
+        toast.info('Modo sequencial ativado: arquivo(s) grande(s) detectado(s)', {
+          description: 'Isso evita erros de conexão e timeout'
+        });
       } else if (hasMultipleFiles) {
-        toast.info('Modo sequencial ativado para múltiplos arquivos (mais estável)');
+        toast.info('Modo sequencial ativado para múltiplos arquivos', {
+          description: 'Processamento um a um é mais estável'
+        });
       }
     }
-  }, [hasLargeFiles, hasMultipleFiles]);
+  }, [shouldForceSequential, files.length]);
 
   // Check for pending data on mount
   useEffect(() => {
@@ -578,10 +585,11 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, progress: 10 })));
 
     try {
-      // Check total size before processing
+      // Check total size before processing - use conservative limit accounting for Base64 overhead
       const totalSize = files.reduce((sum, f) => sum + f.file.size, 0);
-      if (totalSize > 3 * 1024 * 1024) { // 3MB total limit for parallel
-        throw new Error('Arquivos muito grandes para processamento paralelo. Use o modo sequencial.');
+      const estimatedBase64Size = totalSize * 1.4; // Base64 adds ~33% overhead
+      if (estimatedBase64Size > MAX_PARALLEL_SIZE) {
+        throw new Error('Arquivos muito grandes para processamento paralelo. Ativando modo sequencial automaticamente.');
       }
 
       // Convert files to base64
