@@ -18,6 +18,7 @@ interface SeguradoPF {
   insurers: string[];
   overdue_value: number;
   max_days_overdue: number;
+  tags?: string[] | null;
 }
 
 interface SeguradosPFTableProps {
@@ -162,9 +163,16 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 text-sm text-slate-400">
-                    <Phone className="w-3 h-3" />
-                    {displayPhoneInternational(segurado.phone_number)}
+                  <div className="flex items-center gap-1 text-sm">
+                    <Phone className="w-3 h-3 text-slate-400" />
+                    {segurado.phone_number.startsWith('PENDENTE') ? (
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <AlertTriangle className="w-3 h-3" />
+                        Telefone pendente
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">{displayPhoneInternational(segurado.phone_number)}</span>
+                    )}
                   </div>
                   {segurado.email && (
                     <div className="flex items-center gap-1 text-xs text-slate-500">
