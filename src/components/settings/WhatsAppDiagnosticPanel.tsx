@@ -34,6 +34,22 @@ interface QueueStats {
   send_failed: number;
 }
 
+interface WebhookStats {
+  total_posts_24h: number;
+  total_gets_24h: number;
+  last_post_at: string | null;
+  last_message_from_user: string | null;
+  errors_24h: number;
+}
+
+interface SubscriptionStatus {
+  status: 'ok' | 'warning' | 'error' | 'unknown';
+  waba_subscribed: boolean;
+  subscribed_fields: string[];
+  missing_fields: string[];
+  message: string;
+}
+
 interface WebhookConfig {
   phone_number_id: string | null;
   verify_token: string | null;
@@ -78,12 +94,18 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [testResult, setTestResult] = useState<WebhookTestResult | null>(null);
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [webhookStats, setWebhookStats] = useState<WebhookStats | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Calculate 24h ago timestamp
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
       // Fetch queue stats
-      const [ninaQueue, sendQueue, settings, recentMessages, webhookLogsResult] = await Promise.all([
+      const [ninaQueue, sendQueue, settings, recentMessages, webhookLogsResult, postsLast24h, getsLast24h, errorsLast24h, lastPost, lastUserMessage] = await Promise.all([
         supabase
           .from('nina_processing_queue')
           .select('status')
@@ -106,8 +128,49 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           .from('webhook_request_logs')
           .select('id, created_at, method, event_type, response_status, is_meta_test, error_message, processing_time_ms')
           .order('created_at', { ascending: false })
-          .limit(20)
+          .limit(20),
+        // Count POSTs in last 24h
+        supabase
+          .from('webhook_request_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('method', 'POST')
+          .gte('created_at', twentyFourHoursAgo),
+        // Count GETs in last 24h
+        supabase
+          .from('webhook_request_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('method', 'GET')
+          .gte('created_at', twentyFourHoursAgo),
+        // Count errors in last 24h
+        supabase
+          .from('webhook_request_logs')
+          .select('id', { count: 'exact', head: true })
+          .not('error_message', 'is', null)
+          .gte('created_at', twentyFourHoursAgo),
+        // Last POST received
+        supabase
+          .from('webhook_request_logs')
+          .select('created_at')
+          .eq('method', 'POST')
+          .order('created_at', { ascending: false })
+          .limit(1),
+        // Last user message received
+        supabase
+          .from('messages')
+          .select('created_at')
+          .eq('from_type', 'user')
+          .order('created_at', { ascending: false })
+          .limit(1)
       ]);
+
+      // Set webhook stats
+      setWebhookStats({
+        total_posts_24h: postsLast24h.count || 0,
+        total_gets_24h: getsLast24h.count || 0,
+        errors_24h: errorsLast24h.count || 0,
+        last_post_at: lastPost.data?.[0]?.created_at || null,
+        last_message_from_user: lastUserMessage.data?.[0]?.created_at || null
+      });
 
       // Calculate queue counts
       const ninaStats = {
@@ -160,6 +223,43 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
       toast.error('Erro ao carregar diagnóstico');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkSubscriptionStatus = async () => {
+    setCheckingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-webhook-health', {
+        body: { check_subscription: true }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.checks?.subscription) {
+        const sub = data.checks.subscription;
+        setSubscriptionStatus({
+          status: sub.status,
+          waba_subscribed: sub.waba_subscribed || false,
+          subscribed_fields: sub.subscribed_fields || [],
+          missing_fields: sub.missing_fields || [],
+          message: sub.message || 'Status desconhecido'
+        });
+      }
+      
+      setHealthStatus(data?.status === 'healthy' ? 'ok' : 'error');
+      toast.success('Verificação de assinatura concluída');
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      toast.error('Erro ao verificar assinatura');
+      setSubscriptionStatus({
+        status: 'error',
+        waba_subscribed: false,
+        subscribed_fields: [],
+        missing_fields: ['messages'],
+        message: 'Erro ao verificar assinatura'
+      });
+    } finally {
+      setCheckingSubscription(false);
     }
   };
 
@@ -288,6 +388,168 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           Atualizar
         </Button>
       </div>
+
+      {/* CRITICAL: Webhook Receiving Monitor */}
+      <Card className={cn(
+        "border-2",
+        webhookStats?.total_posts_24h === 0 
+          ? "bg-red-500/10 border-red-500/50" 
+          : "bg-emerald-500/10 border-emerald-500/30"
+      )}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            {webhookStats?.total_posts_24h === 0 ? (
+              <XCircle className="w-5 h-5 text-red-400" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            )}
+            Monitor de Recebimento (Últimas 24h)
+          </CardTitle>
+          <CardDescription>
+            {webhookStats?.total_posts_24h === 0 
+              ? '⚠️ Nenhum POST do WhatsApp nas últimas 24h - verifique a configuração no Meta' 
+              : 'Webhook está recebendo mensagens do WhatsApp'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+              <div className={cn(
+                "text-3xl font-bold",
+                webhookStats?.total_posts_24h === 0 ? "text-red-400" : "text-emerald-400"
+              )}>
+                {webhookStats?.total_posts_24h || 0}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">POSTs (mensagens)</div>
+            </div>
+            <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+              <div className="text-3xl font-bold text-blue-400">
+                {webhookStats?.total_gets_24h || 0}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">GETs (verificação)</div>
+            </div>
+            <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+              <div className={cn(
+                "text-3xl font-bold",
+                (webhookStats?.errors_24h || 0) > 0 ? "text-red-400" : "text-slate-400"
+              )}>
+                {webhookStats?.errors_24h || 0}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Erros</div>
+            </div>
+            <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+              <div className="text-xs text-slate-300">
+                {webhookStats?.last_post_at 
+                  ? formatDistanceToNow(new Date(webhookStats.last_post_at), { addSuffix: true, locale: ptBR })
+                  : 'Nunca'}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Último POST</div>
+            </div>
+          </div>
+          
+          {webhookStats?.total_posts_24h === 0 && (
+            <div className="mt-4 p-3 bg-red-500/20 rounded-lg border border-red-500/30">
+              <h4 className="font-medium text-red-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Problema Detectado: Webhook não está recebendo mensagens
+              </h4>
+              <p className="text-sm text-red-200/80 mt-2">
+                O WhatsApp <strong>não está enviando</strong> webhooks para este endpoint. Isso indica um problema na configuração do Meta Business Suite, não no sistema.
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-red-200/70">
+                <p>✅ Verifique se o webhook está configurado no número/WABA correto</p>
+                <p>✅ Confirme que o campo <code className="bg-red-900/50 px-1 rounded">messages</code> está inscrito</p>
+                <p>✅ Verifique se o app está em modo <strong>Live</strong></p>
+                <p>✅ Teste enviando mensagem de um número externo (não do próprio WhatsApp Business)</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Subscription Status Check */}
+      <Card className="bg-slate-900/50 border-slate-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-violet-400" />
+              Verificação de Assinatura do Webhook
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkSubscriptionStatus}
+              disabled={checkingSubscription}
+              className="gap-2"
+            >
+              {checkingSubscription ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Activity className="w-4 h-4" />
+              )}
+              Verificar Assinatura
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Verifica se o WABA está inscrito no webhook e quais campos estão ativos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {subscriptionStatus ? (
+            <div className={cn(
+              "p-3 rounded-lg border",
+              subscriptionStatus.status === 'ok' && "bg-emerald-500/10 border-emerald-500/30",
+              subscriptionStatus.status === 'warning' && "bg-amber-500/10 border-amber-500/30",
+              subscriptionStatus.status === 'error' && "bg-red-500/10 border-red-500/30",
+              subscriptionStatus.status === 'unknown' && "bg-slate-800 border-slate-700"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                {subscriptionStatus.status === 'ok' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                {subscriptionStatus.status === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                {subscriptionStatus.status === 'error' && <XCircle className="w-4 h-4 text-red-400" />}
+                <span className={cn(
+                  "font-medium",
+                  subscriptionStatus.status === 'ok' && "text-emerald-400",
+                  subscriptionStatus.status === 'warning' && "text-amber-400",
+                  subscriptionStatus.status === 'error' && "text-red-400"
+                )}>
+                  {subscriptionStatus.message}
+                </span>
+              </div>
+              
+              {subscriptionStatus.subscribed_fields.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-xs text-slate-400">Campos inscritos: </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {subscriptionStatus.subscribed_fields.map(field => (
+                      <Badge key={field} variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {subscriptionStatus.missing_fields.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-xs text-red-400">Campos faltando: </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {subscriptionStatus.missing_fields.map(field => (
+                      <Badge key={field} variant="outline" className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Clique em "Verificar Assinatura" para checar a configuração do webhook no Meta.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Webhook Configuration */}
       <Card className="bg-slate-900/50 border-slate-700">
