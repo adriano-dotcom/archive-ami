@@ -42,6 +42,9 @@ interface ExtractedInstallment {
   insured_name: string;
   insured_document: string;
   insured_phone?: string;
+  insured_email?: string;
+  insured_company_name?: string;
+  insured_is_company?: boolean;
   branch?: string;
   product?: string;
   status: string;
@@ -114,6 +117,23 @@ EXTRAÇÃO DE DADOS DE CONTATO (MUITO IMPORTANTE):
 - Procure por padrões como: (XX) XXXXX-XXXX, XX XXXXX-XXXX, 11999998888, etc.
 - Extraia EMAIL se disponível: procure por padrões user@domain.com
 - Se o telefone ou email estiver em qualquer lugar do documento associado ao segurado, extraia-o
+
+EXTRAÇÃO DE EMPRESA E CNPJ (CRÍTICO):
+- Extraia o nome do segurado COMPLETO como insured_name (geralmente a razão social da empresa)
+- Quando o segurado for uma empresa (termina em LTDA, S/A, S.A., ME, EPP, EIRELI, etc.), preencha:
+  - insured_company_name: Nome completo da empresa/razão social
+  - insured_is_company: true
+  
+DETECÇÃO DE CNPJ EM CAMPOS CONCATENADOS:
+- Se um campo tiver formato "TEXTO_NUMEROS" (ex: "PENDENTE_56703304000170"):
+  - Verifique se os números têm EXATAMENTE 14 dígitos → é CNPJ (preencha insured_document)
+  - Se menos de 14 dígitos → é apenas ID interno, NÃO coloque em insured_document
+  
+EXEMPLOS DE DETECÇÃO:
+- "PENDENTE_56703304000170" → insured_document: "56703304000170" (14 dígitos = CNPJ)
+- "PENDENTE_1768017006389" → NÃO é CNPJ (13 dígitos, deixe insured_document vazio)
+- "SANTOS & AGUIAR TRANSPORTADORA LTDA" → insured_is_company: true (contém "LTDA")
+- "EXPANSAO TRANSPORTES DE PESADOS E AGRICOLAS LTDA" → insured_is_company: true, insured_company_name: mesmo valor
 
 SEGURADORAS CONHECIDAS E SEUS FORMATOS:
 
@@ -218,6 +238,8 @@ Retorne APENAS um JSON válido no formato:
       "insured_document": "12467840000148",
       "insured_phone": "43999998888",
       "insured_email": "contato@mbl.com.br",
+      "insured_company_name": "MBL TRANSPORTES E NEGOCIOS LTDA",
+      "insured_is_company": true,
       "branch": "309",
       "product": "Transporte",
       "status": "PENDENTE",

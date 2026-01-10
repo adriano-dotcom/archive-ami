@@ -88,6 +88,8 @@ interface ExtractedInstallment {
   insured_document: string;
   insured_phone?: string;
   insured_email?: string;
+  insured_company_name?: string;
+  insured_is_company?: boolean;
   branch?: string;
   product?: string;
   status: string;
@@ -96,10 +98,14 @@ interface ExtractedInstallment {
   source?: string;
   confidence: number;
   selected: boolean;
-  // Matching status
+  // Contact matching status
   matchStatus?: 'matched_document' | 'matched_phone' | 'matched_name' | 'new';
   matchedContactId?: string;
   matchedContactName?: string;
+  // Company matching status
+  companyMatchStatus?: 'matched_cnpj' | 'matched_name' | 'new_company' | 'not_company';
+  matchedCompanyId?: string;
+  matchedCompanyName?: string;
   // Duplicate detection status
   duplicateStatus?: 'new' | 'duplicate' | 'update_available';
   existingInstallmentId?: string;
@@ -484,6 +490,125 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     const matchedCount = matchedInstallments.filter(i => i.matchStatus !== 'new').length;
     if (matchedCount > 0) {
       toast.success(`${matchedCount} parcela(s) vinculada(s) a clientes existentes`);
+    }
+    
+    return matchedInstallments;
+  };
+
+  // Helper function to extract CNPJ from concatenated fields like "PENDENTE_56703304000170"
+  const extractCNPJFromField = (value: string): string | null => {
+    if (!value) return null;
+    const numbers = value.replace(/\D/g, '');
+    // CNPJ has exactly 14 digits
+    if (numbers.length === 14 && numbers !== '00000000000000' && /^\d{14}$/.test(numbers)) {
+      return numbers;
+    }
+    return null;
+  };
+
+  // Helper function to detect if a name represents a company
+  const detectCompanyName = (name: string): boolean => {
+    if (!name) return false;
+    const companyIndicators = [
+      'LTDA', 'S/A', 'S.A.', 'ME', 'EPP', 'EIRELI', 
+      'TRANSPORTES', 'TRANSPORTADORA', 'LOGISTICA', 'LOGÍSTICA',
+      'INDUSTRIA', 'INDÚSTRIA', 'COMERCIO', 'COMÉRCIO', 'SERVICOS', 'SERVIÇOS',
+      'DISTRIBUIDORA', 'ATACADISTA', 'VAREJISTA', 'IMPORTADORA', 'EXPORTADORA',
+      'AGROPECUARIA', 'AGROPECUÁRIA', 'AGRICOLA', 'AGRÍCOLA', 'CONSTRUTORA',
+      'ENGENHARIA', 'CONSULTORIA', 'ASSESSORIA', 'HOLDING', 'PARTICIPACOES',
+      'PARTICIPAÇÕES', 'EMPREENDIMENTOS', 'INCORPORADORA'
+    ];
+    const upperName = name.toUpperCase();
+    return companyIndicators.some(ind => upperName.includes(ind));
+  };
+
+  // Match installments to existing companies in the database
+  const matchInstallmentsToCompanies = async (installments: ExtractedInstallment[]): Promise<ExtractedInstallment[]> => {
+    const matchedInstallments: ExtractedInstallment[] = [];
+    
+    // Fetch all companies for matching
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id, cnpj, razao_social, nome_fantasia');
+    
+    for (const inst of installments) {
+      let companyMatchStatus: ExtractedInstallment['companyMatchStatus'] = 'not_company';
+      let matchedCompanyId: string | undefined;
+      let matchedCompanyName: string | undefined;
+      
+      // Check if this is a company (either marked by AI or detected by name)
+      const isCompany = inst.insured_is_company || detectCompanyName(inst.insured_name);
+      
+      if (!isCompany) {
+        matchedInstallments.push({
+          ...inst,
+          companyMatchStatus: 'not_company'
+        });
+        continue;
+      }
+      
+      // Extract CNPJ from document field (may be concatenated like PENDENTE_56703304000170)
+      const docClean = inst.insured_document?.replace(/\D/g, '') || '';
+      const extractedCNPJ = docClean.length === 14 ? docClean : extractCNPJFromField(inst.insured_document || '');
+      
+      // Priority 1: Match by CNPJ (most reliable)
+      if (extractedCNPJ) {
+        const matchByCNPJ = companies?.find(c => c.cnpj === extractedCNPJ);
+        if (matchByCNPJ) {
+          companyMatchStatus = 'matched_cnpj';
+          matchedCompanyId = matchByCNPJ.id;
+          matchedCompanyName = matchByCNPJ.razao_social;
+        }
+      }
+      
+      // Priority 2: Match by name/razão social
+      if (!matchedCompanyId && inst.insured_name) {
+        const normalizedInsuredName = normalizeText(inst.insured_name);
+        const normalizedCompanyName = inst.insured_company_name ? normalizeText(inst.insured_company_name) : null;
+        
+        const matchByName = companies?.find(c => {
+          const normalizedRazao = normalizeText(c.razao_social);
+          const normalizedFantasia = c.nome_fantasia ? normalizeText(c.nome_fantasia) : '';
+          
+          return normalizedRazao === normalizedInsuredName ||
+                 normalizedRazao === normalizedCompanyName ||
+                 (normalizedFantasia && normalizedFantasia === normalizedInsuredName) ||
+                 (normalizedFantasia && normalizedFantasia === normalizedCompanyName);
+        });
+        
+        if (matchByName) {
+          companyMatchStatus = 'matched_name';
+          matchedCompanyId = matchByName.id;
+          matchedCompanyName = matchByName.razao_social;
+        }
+      }
+      
+      // No match found - it's a new company
+      if (!matchedCompanyId) {
+        companyMatchStatus = 'new_company';
+      }
+      
+      matchedInstallments.push({
+        ...inst,
+        insured_is_company: true,
+        insured_document: extractedCNPJ || inst.insured_document,
+        companyMatchStatus,
+        matchedCompanyId,
+        matchedCompanyName
+      });
+    }
+    
+    // Show summary toast
+    const matchedByCNPJ = matchedInstallments.filter(i => i.companyMatchStatus === 'matched_cnpj').length;
+    const matchedByName = matchedInstallments.filter(i => i.companyMatchStatus === 'matched_name').length;
+    const newCompanies = matchedInstallments.filter(i => i.companyMatchStatus === 'new_company').length;
+    
+    if (matchedByCNPJ > 0 || matchedByName > 0 || newCompanies > 0) {
+      const parts = [];
+      if (matchedByCNPJ > 0) parts.push(`${matchedByCNPJ} por CNPJ`);
+      if (matchedByName > 0) parts.push(`${matchedByName} por nome`);
+      if (newCompanies > 0) parts.push(`${newCompanies} nova(s)`);
+      toast.info(`Empresas: ${parts.join(', ')}`);
     }
     
     return matchedInstallments;
@@ -984,6 +1109,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       if (extractedInstallments.length > 0) {
         toast.info('Vinculando parcelas a clientes existentes...');
         extractedInstallments = await matchInstallmentsToContacts(extractedInstallments);
+        
+        // Match installments to companies
+        toast.info('Identificando empresas...');
+        extractedInstallments = await matchInstallmentsToCompanies(extractedInstallments);
         
         // Check for duplicates in database
         toast.info('Verificando duplicatas no banco de dados...');
@@ -1579,6 +1708,35 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     }
   };
 
+  // Get company match status badge
+  const getCompanyMatchBadge = (status?: ExtractedInstallment['companyMatchStatus'], matchedName?: string) => {
+    switch (status) {
+      case 'matched_cnpj':
+        return (
+          <Badge className="bg-emerald-500/20 text-emerald-400 text-xs whitespace-nowrap" title={`Empresa: ${matchedName}`}>
+            <Building2 className="w-3 h-3 mr-1" />
+            CNPJ
+          </Badge>
+        );
+      case 'matched_name':
+        return (
+          <Badge className="bg-amber-500/20 text-amber-400 text-xs whitespace-nowrap" title={`Empresa: ${matchedName}`}>
+            <Building2 className="w-3 h-3 mr-1" />
+            Nome
+          </Badge>
+        );
+      case 'new_company':
+        return (
+          <Badge className="bg-purple-500/20 text-purple-400 text-xs whitespace-nowrap">
+            <Building2 className="w-3 h-3 mr-1" />
+            Nova
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Calculate installments summary
   const selectedInstallmentsTotal = installments
     .filter(inst => inst.selected)
@@ -1589,6 +1747,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     new: installments.filter(i => i.duplicateStatus === 'new').length,
     duplicate: installments.filter(i => i.duplicateStatus === 'duplicate').length,
     update_available: installments.filter(i => i.duplicateStatus === 'update_available').length
+  };
+  
+  // Calculate company statistics
+  const companyStats = {
+    matched_cnpj: installments.filter(i => i.companyMatchStatus === 'matched_cnpj').length,
+    matched_name: installments.filter(i => i.companyMatchStatus === 'matched_name').length,
+    new_company: installments.filter(i => i.companyMatchStatus === 'new_company').length
   };
 
   return (
@@ -1898,6 +2063,25 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 )}
               </div>
               
+              {/* Company Statistics */}
+              {installments.length > 0 && (companyStats.matched_cnpj > 0 || companyStats.matched_name > 0 || companyStats.new_company > 0) && (
+                <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <Building2 className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm text-slate-300">
+                    <span className="font-medium">Empresas:</span>
+                    {companyStats.matched_cnpj > 0 && (
+                      <span className="text-emerald-400 ml-2">{companyStats.matched_cnpj} por CNPJ</span>
+                    )}
+                    {companyStats.matched_name > 0 && (
+                      <span className="text-amber-400 ml-2">{companyStats.matched_name} por nome</span>
+                    )}
+                    {companyStats.new_company > 0 && (
+                      <span className="text-purple-400 ml-2">{companyStats.new_company} nova(s)</span>
+                    )}
+                  </span>
+                </div>
+              )}
+
               {/* Duplicate Statistics */}
               {installments.length > 0 && (duplicateStats.duplicate > 0 || duplicateStats.update_available > 0) && (
                 <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -1961,6 +2145,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                           <TableHead className="w-10"></TableHead>
                           <TableHead>Segurado</TableHead>
                           <TableHead>Vinculação</TableHead>
+                          <TableHead>Empresa</TableHead>
                           <TableHead>Banco</TableHead>
                           <TableHead>Apólice</TableHead>
                           <TableHead className="text-center">Parcela</TableHead>
@@ -1991,6 +2176,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             </TableCell>
                             <TableCell>
                               {getMatchStatusBadge(inst.matchStatus, inst.matchedContactName)}
+                            </TableCell>
+                            <TableCell>
+                              {getCompanyMatchBadge(inst.companyMatchStatus, inst.matchedCompanyName)}
                             </TableCell>
                             <TableCell>
                               {getDuplicateStatusBadge(inst.duplicateStatus, inst.existingValue, inst.existingStatus)}
