@@ -4,7 +4,6 @@ import {
   StatMetric, 
   TeamMember, 
   Appointment, 
-  Deal,
   DBConversation,
   DBMessage,
   UIConversation,
@@ -77,8 +76,6 @@ export const api = {
         messagesPrevResult,
         contactsPeriodResult,
         contactsPrevResult,
-        wonDealsPeriodResult,
-        wonDealsPrevResult,
         appointmentsPeriodResult,
         appointmentsPrevResult,
         avgResponseResult
@@ -105,19 +102,6 @@ export const api = {
           .select('id', { count: 'exact', head: true })
           .gte('created_at', prevPeriodStartStr)
           .lt('created_at', periodStartStr),
-        // Won deals in period
-        supabase
-          .from('deals')
-          .select('id', { count: 'exact', head: true })
-          .not('won_at', 'is', null)
-          .gte('won_at', periodStartStr),
-        // Won deals in previous period
-        supabase
-          .from('deals')
-          .select('id', { count: 'exact', head: true })
-          .not('won_at', 'is', null)
-          .gte('won_at', prevPeriodStartStr)
-          .lt('won_at', periodStartStr),
         // Appointments in period
         supabase
           .from('appointments')
@@ -143,9 +127,9 @@ export const api = {
       const contactsPeriod = contactsPeriodResult.count || 0;
       const contactsPrev = contactsPrevResult.count || 0;
       
-      // Conversões = deals ganhos + appointments agendados
-      const conversionsPeriod = (wonDealsPeriodResult.count || 0) + (appointmentsPeriodResult.count || 0);
-      const conversionsPrev = (wonDealsPrevResult.count || 0) + (appointmentsPrevResult.count || 0);
+      // Conversões = appointments agendados
+      const conversionsPeriod = appointmentsPeriodResult.count || 0;
+      const conversionsPrev = appointmentsPrevResult.count || 0;
       
       const responseTimes = avgResponseResult.data?.map(m => m.nina_response_time).filter(Boolean) || [];
       const avgResponseMs = responseTimes.length > 0 
@@ -200,16 +184,11 @@ export const api = {
     periodStart.setHours(0, 0, 0, 0);
 
     try {
-      const [messagesResult, dealsResult, appointmentsResult] = await Promise.all([
+      const [messagesResult, appointmentsResult] = await Promise.all([
         supabase
           .from('messages')
           .select('sent_at')
           .gte('sent_at', periodStart.toISOString()),
-        supabase
-          .from('deals')
-          .select('won_at')
-          .not('won_at', 'is', null)
-          .gte('won_at', periodStart.toISOString()),
         supabase
           .from('appointments')
           .select('created_at')
@@ -223,14 +202,8 @@ export const api = {
         messagesMap.set(dateStr, (messagesMap.get(dateStr) || 0) + 1);
       });
 
-      // Group conversions by day (deals + appointments)
+      // Group conversions by day (appointments)
       const conversionsMap = new Map<string, number>();
-      (dealsResult.data || []).forEach(d => {
-        if (d.won_at) {
-          const dateStr = getDateString(new Date(d.won_at));
-          conversionsMap.set(dateStr, (conversionsMap.get(dateStr) || 0) + 1);
-        }
-      });
       (appointmentsResult.data || []).forEach(a => {
         if (a.created_at) {
           const dateStr = getDateString(new Date(a.created_at));
@@ -281,7 +254,7 @@ export const api = {
   },
 
   /**
-   * Fetch contacts from database with deal/owner/pipeline/conversation/policies data
+   * Fetch contacts from database with conversation/policies data
    */
   fetchContacts: async (): Promise<Contact[]> => {
     // Fetch contacts
@@ -300,22 +273,8 @@ export const api = {
       return MOCK_CONTACTS;
     }
 
-    // Fetch deals with owner and pipeline info
     const contactIds = contactsData.map(c => c.id);
-    const [dealsResult, conversationsResult, policiesResult, installmentsResult] = await Promise.all([
-      supabase
-        .from('deals')
-        .select(`
-          id,
-          contact_id,
-          owner_id,
-          pipeline_id,
-          created_at,
-          team_members!deals_owner_id_fkey(id, name),
-          pipelines(id, name, slug, icon, color)
-        `)
-        .in('contact_id', contactIds)
-        .order('created_at', { ascending: false }),
+    const [conversationsResult, policiesResult, installmentsResult] = await Promise.all([
       supabase
         .from('conversations')
         .select('contact_id, is_active, status, updated_at')
@@ -332,18 +291,9 @@ export const api = {
         .eq('status', 'overdue')
     ]);
 
-    const dealsData = dealsResult.data;
     const conversationsData = conversationsResult.data;
     const policiesData = policiesResult.data;
     const installmentsData = installmentsResult.data;
-
-    // Create a map of contact_id to deal info (most recent deal per contact)
-    const dealsByContact = new Map<string, any>();
-    (dealsData || []).forEach(deal => {
-      if (!dealsByContact.has(deal.contact_id)) {
-        dealsByContact.set(deal.contact_id, deal);
-      }
-    });
 
     // Create a map of contact_id to conversation info (most recent conversation per contact)
     const conversationsByContact = new Map<string, any>();
@@ -388,9 +338,6 @@ export const api = {
     };
 
     return contactsData.map(c => {
-      const deal = dealsByContact.get(c.id);
-      const owner = deal?.team_members;
-      const pipeline = deal?.pipelines;
       const conversation = conversationsByContact.get(c.id);
       const policyData = policiesByContact.get(c.id);
       const overdueData = overdueByContact.get(c.id);
@@ -422,14 +369,6 @@ export const api = {
         utm_term: (c as any).utm_term || undefined,
         campaign: (c as any).campaign || undefined,
         vertical: (c as any).vertical || undefined,
-        // Deal/Owner/Pipeline data
-        ownerId: owner?.id || undefined,
-        ownerName: owner?.name || undefined,
-        pipelineId: pipeline?.id || undefined,
-        pipelineName: pipeline?.name || undefined,
-        pipelineSlug: pipeline?.slug || undefined,
-        pipelineIcon: pipeline?.icon || undefined,
-        pipelineColor: pipeline?.color || undefined,
         // Conversation data
         conversationActive: conversation?.is_active ?? null,
         conversationStatus: conversation?.status || undefined,
@@ -508,19 +447,9 @@ export const api = {
   },
 
   /**
-   * Delete contact and all related data (conversations, messages, deals)
+   * Delete contact and all related data (conversations, messages)
    */
   deleteContact: async (id: string): Promise<void> => {
-    // First delete related deals
-    const { error: dealsError } = await supabase
-      .from('deals')
-      .delete()
-      .eq('contact_id', id);
-
-    if (dealsError) {
-      console.error('[API] Error deleting deals:', dealsError);
-    }
-
     // Delete messages for conversations of this contact
     const { data: conversations } = await supabase
       .from('conversations')
@@ -967,547 +896,6 @@ export const api = {
       throw error;
     }
   },
-  
-  /**
-   * Fetch pipeline/deals with real data
-   * @param pipelineId - Optional pipeline ID to filter by
-   */
-  fetchPipeline: async (pipelineId?: string): Promise<Deal[]> => {
-    let query = supabase
-      .from('deals')
-      .select(`
-        *,
-        contact:contacts(name, call_name, phone_number, email, client_memory),
-        owner:team_members!deals_owner_id_fkey(name, avatar)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (pipelineId) {
-      query = query.eq('pipeline_id', pipelineId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('[API] Error fetching pipeline:', error);
-      return [];
-    }
-
-    // Buscar conversation IDs para cada deal com contact_id
-    const contactIds = data?.filter(d => d.contact_id).map(d => d.contact_id) || [];
-    
-    const { data: conversations } = await supabase
-      .from('conversations')
-      .select('id, contact_id')
-      .in('contact_id', contactIds);
-
-    const convMap = new Map(conversations?.map(c => [c.contact_id, c.id]) || []);
-
-    return (data || []).map((d: any) => ({
-      id: d.id,
-      title: d.title,
-      company: d.company || d.contact?.name || d.contact?.call_name || 'Sem empresa',
-      value: Number(d.value) || 0,
-      stage: d.stage,
-      stageId: d.stage_id,
-      pipelineId: d.pipeline_id,
-      ownerAvatar: d.owner?.avatar || 'https://ui-avatars.com/api/?name=NA&background=334155&color=fff',
-      ownerId: d.owner_id,
-      ownerName: d.owner?.name,
-      tags: d.tags || [],
-      dueDate: d.due_date,
-      priority: (d.priority || 'medium') as 'low' | 'medium' | 'high',
-      contactId: d.contact_id,
-      contactName: d.contact?.name || d.contact?.call_name,
-      contactPhone: d.contact?.phone_number,
-      contactEmail: d.contact?.email,
-      wonAt: d.won_at,
-      lostAt: d.lost_at,
-      lostReason: d.lost_reason,
-      clientMemory: d.contact?.client_memory || null,
-      conversationId: convMap.get(d.contact_id) || null,
-    }));
-  },
-
-  // Pipeline Stages CRUD
-  fetchPipelineStages: async (pipelineId?: string): Promise<any[]> => {
-    let query = supabase
-      .from('pipeline_stages')
-      .select('*')
-      .eq('is_active', true)
-      .order('position', { ascending: true });
-
-    if (pipelineId) {
-      query = query.eq('pipeline_id', pipelineId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching pipeline stages:', error);
-      throw error;
-    }
-
-    return data.map(stage => ({
-      id: stage.id,
-      title: stage.title,
-      color: stage.color,
-      position: stage.position,
-      isSystem: stage.is_system,
-      isActive: stage.is_active,
-      isAiManaged: stage.is_ai_managed || false,
-      aiTriggerCriteria: stage.ai_trigger_criteria,
-      pipelineId: stage.pipeline_id,
-      syncToPipedrive: stage.sync_to_pipedrive || false
-    }));
-  },
-
-  createPipelineStage: async (stage: { title: string; color: string; pipelineId: string; isAiManaged?: boolean; aiTriggerCriteria?: string }): Promise<any> => {
-    // Get the highest position within this pipeline
-    const { data: stages } = await supabase
-      .from('pipeline_stages')
-      .select('position')
-      .eq('pipeline_id', stage.pipelineId)
-      .order('position', { ascending: false })
-      .limit(1);
-
-    const nextPosition = stages && stages.length > 0 ? stages[0].position + 1 : 0;
-
-    const { data, error } = await supabase
-      .from('pipeline_stages')
-      .insert({
-        title: stage.title,
-        color: stage.color,
-        position: nextPosition,
-        pipeline_id: stage.pipelineId,
-        is_system: false,
-        is_active: true,
-        is_ai_managed: stage.isAiManaged || false,
-        ai_trigger_criteria: stage.aiTriggerCriteria || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating pipeline stage:', error);
-      throw error;
-    }
-
-    return {
-      id: data.id,
-      title: data.title,
-      color: data.color,
-      position: data.position,
-      isSystem: data.is_system,
-      isActive: data.is_active,
-      isAiManaged: data.is_ai_managed || false,
-      aiTriggerCriteria: data.ai_trigger_criteria
-    };
-  },
-
-  updatePipelineStage: async (id: string, updates: any): Promise<void> => {
-    const dbUpdates: any = {};
-    
-    if (updates.title !== undefined) dbUpdates.title = updates.title;
-    if (updates.color !== undefined) dbUpdates.color = updates.color;
-    if (updates.position !== undefined) dbUpdates.position = updates.position;
-    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-    if (updates.isAiManaged !== undefined) dbUpdates.is_ai_managed = updates.isAiManaged;
-    if (updates.aiTriggerCriteria !== undefined) dbUpdates.ai_trigger_criteria = updates.aiTriggerCriteria;
-    if (updates.syncToPipedrive !== undefined) dbUpdates.sync_to_pipedrive = updates.syncToPipedrive;
-
-    const { error } = await supabase
-      .from('pipeline_stages')
-      .update(dbUpdates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating pipeline stage:', error);
-      throw error;
-    }
-  },
-
-  deletePipelineStage: async (id: string, moveToStageId?: string): Promise<void> => {
-    // If moveToStageId is provided, move all deals to that stage first
-    if (moveToStageId) {
-      const { error: moveError } = await supabase
-        .from('deals')
-        .update({ stage_id: moveToStageId })
-        .eq('stage_id', id);
-
-      if (moveError) {
-        console.error('Error moving deals:', moveError);
-        throw moveError;
-      }
-    }
-
-    // Delete the stage
-    const { error } = await supabase
-      .from('pipeline_stages')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting pipeline stage:', error);
-      throw error;
-    }
-  },
-
-  reorderPipelineStages: async (stageIds: string[]): Promise<void> => {
-    // Update position for each stage
-    const updates = stageIds.map((id, index) => 
-      supabase
-        .from('pipeline_stages')
-        .update({ position: index })
-        .eq('id', id)
-    );
-
-    const results = await Promise.all(updates);
-    
-    const errors = results.filter(r => r.error);
-    if (errors.length > 0) {
-      console.error('Error reordering stages:', errors);
-      throw errors[0].error;
-    }
-  },
-
-  /**
-   * Get deal by contact ID
-   */
-  getDealByContactId: async (contactId: string): Promise<Deal | null> => {
-    const { data, error } = await supabase
-      .from('deals')
-      .select('*, owner:team_members!deals_owner_id_fkey(id, name, avatar), pipeline:pipelines!deals_pipeline_id_fkey(id, slug, name, color, icon)')
-      .eq('contact_id', contactId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[API] Error fetching deal by contact:', error);
-      return null;
-    }
-
-    if (!data) return null;
-
-    return {
-      id: data.id,
-      title: data.title,
-      company: data.company || 'Sem empresa',
-      value: Number(data.value) || 0,
-      stage: data.stage,
-      stageId: data.stage_id,
-      pipelineId: data.pipeline_id,
-      owner: data.owner,
-      ownerAvatar: data.owner?.avatar || 'https://ui-avatars.com/api/?name=NA&background=334155&color=fff',
-      pipeline: data.pipeline,
-      tags: data.tags || [],
-      dueDate: data.due_date,
-      priority: data.priority as 'low' | 'medium' | 'high',
-      contactId: data.contact_id,
-    };
-  },
-
-  /**
-   * Create a new deal
-   */
-  createDeal: async (deal: {
-    contact_id: string;
-    title: string;
-    company?: string;
-    value?: number;
-    stage?: string;
-    stage_id?: string;
-    priority?: string;
-    tags?: string[];
-    due_date?: string;
-    owner_id?: string;
-    notes?: string;
-  }): Promise<Deal> => {
-    // Remove undefined stage_id to let DB use default
-    const dealData: any = { ...deal };
-    if (!dealData.stage_id) {
-      delete dealData.stage_id;
-    }
-    
-    const { data, error } = await supabase
-      .from('deals')
-      .insert([dealData])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[API] Error creating deal:', error);
-      throw error;
-    }
-
-    return {
-      id: data.id,
-      title: data.title,
-      company: data.company || 'Sem empresa',
-      value: Number(data.value) || 0,
-      stage: data.stage,
-      stageId: data.stage_id,
-      ownerAvatar: 'https://ui-avatars.com/api/?name=NA&background=334155&color=fff',
-      tags: data.tags || [],
-      dueDate: data.due_date,
-      priority: data.priority as 'low' | 'medium' | 'high',
-    };
-  },
-
-  /**
-   * Update a deal
-   */
-  updateDeal: async (id: string, updates: Partial<{
-    title: string;
-    company: string;
-    value: number;
-    stage: string;
-    priority: string;
-    tags: string[];
-    due_date: string;
-    owner_id: string;
-    notes: string;
-    lost_reason: string;
-  }>): Promise<void> => {
-    const { error } = await supabase
-      .from('deals')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error updating deal:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a deal
-   */
-  deleteDeal: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('deals')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error deleting deal:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Move deal to a new stage
-   * If moving to a Pipedrive stage, automatically sync to Pipedrive
-   */
-  moveDealStage: async (id: string, newStageId: string): Promise<{ synced?: boolean; error?: string }> => {
-    // First, get the stage info to check if it's a Pipedrive sync stage
-    const { data: stage } = await supabase
-      .from('pipeline_stages')
-      .select('title, sync_to_pipedrive')
-      .eq('id', newStageId)
-      .single();
-
-    // Move the deal
-    const { error } = await supabase
-      .from('deals')
-      .update({ stage_id: newStageId })
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error moving deal stage:', error);
-      throw error;
-    }
-
-    // Check if this stage has Pipedrive sync enabled (explicit configuration)
-    const isPipedriveStage = stage?.sync_to_pipedrive === true;
-
-    if (isPipedriveStage) {
-      console.log('[API] Pipedrive sync stage detected, triggering sync...');
-      try {
-        // Get contactId from the deal
-        const { data: deal } = await supabase
-          .from('deals')
-          .select('contact_id')
-          .eq('id', id)
-          .single();
-
-        if (!deal?.contact_id) {
-          console.log('[API] No contact_id found for deal, skipping Pipedrive sync');
-          return { synced: false, error: 'Deal sem contato associado' };
-        }
-
-        const { data, error: syncError } = await supabase.functions.invoke('sync-pipedrive', {
-          body: { contactId: deal.contact_id, dealId: id }
-        });
-
-        if (syncError) {
-          console.error('[API] Error syncing to Pipedrive:', syncError);
-          return { synced: false, error: syncError.message };
-        }
-
-        if (data?.success) {
-          console.log('[API] Successfully synced to Pipedrive:', data);
-          return { synced: true };
-        } else {
-          console.log('[API] Pipedrive sync skipped:', data?.message);
-          return { synced: false, error: data?.message || data?.error };
-        }
-      } catch (syncErr: any) {
-        console.error('[API] Exception syncing to Pipedrive:', syncErr);
-        return { synced: false, error: syncErr.message };
-      }
-    }
-
-    return {};
-  },
-
-  /**
-   * Mark deal as won
-   */
-  markDealWon: async (dealId: string): Promise<void> => {
-    const { error } = await supabase
-      .from('deals')
-      .update({ 
-        stage: 'won',
-        won_at: new Date().toISOString()
-      })
-      .eq('id', dealId);
-      
-    if (error) {
-      console.error('[API] Error marking deal as won:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Mark deal as lost with reason
-   */
-  markDealLost: async (dealId: string, reason: string): Promise<void> => {
-    const { error } = await supabase
-      .from('deals')
-      .update({ 
-        stage: 'lost',
-        lost_at: new Date().toISOString(),
-        lost_reason: reason
-      })
-      .eq('id', dealId);
-      
-    if (error) {
-      console.error('[API] Error marking deal as lost:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Update deal owner
-   */
-  updateDealOwner: async (dealId: string, ownerId: string): Promise<void> => {
-    const { error } = await supabase
-      .from('deals')
-      .update({ owner_id: ownerId })
-      .eq('id', dealId);
-      
-    if (error) {
-      console.error('[API] Error updating deal owner:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Fetch activities for a deal
-   */
-  fetchDealActivities: async (dealId: string): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('deal_activities')
-      .select(`
-        *,
-        created_by_member:team_members!deal_activities_created_by_fkey(name)
-      `)
-      .eq('deal_id', dealId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('[API] Error fetching deal activities:', error);
-      throw error;
-    }
-    
-    return data || [];
-  },
-
-  /**
-   * Create a new deal activity
-   */
-  createDealActivity: async (activity: {
-    dealId: string;
-    type: 'note' | 'call' | 'email' | 'meeting' | 'task';
-    title: string;
-    description?: string;
-    scheduledAt?: string;
-    createdBy?: string;
-  }): Promise<any> => {
-    const { data, error } = await supabase
-      .from('deal_activities')
-      .insert({
-        deal_id: activity.dealId,
-        type: activity.type,
-        title: activity.title,
-        description: activity.description,
-        scheduled_at: activity.scheduledAt,
-        created_by: activity.createdBy,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[API] Error creating deal activity:', error);
-      throw error;
-    }
-    
-    return data;
-  },
-
-  /**
-   * Update a deal activity
-   */
-  updateDealActivity: async (id: string, updates: {
-    title?: string;
-    description?: string;
-    scheduledAt?: string;
-    isCompleted?: boolean;
-  }): Promise<void> => {
-    const dbUpdates: any = {};
-    if (updates.title !== undefined) dbUpdates.title = updates.title;
-    if (updates.description !== undefined) dbUpdates.description = updates.description;
-    if (updates.scheduledAt !== undefined) dbUpdates.scheduled_at = updates.scheduledAt;
-    if (updates.isCompleted !== undefined) {
-      dbUpdates.is_completed = updates.isCompleted;
-      dbUpdates.completed_at = updates.isCompleted ? new Date().toISOString() : null;
-    }
-
-    const { error } = await supabase
-      .from('deal_activities')
-      .update(dbUpdates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error updating deal activity:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a deal activity
-   */
-  deleteDealActivity: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('deal_activities')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error deleting deal activity:', error);
-      throw error;
-    }
-  },
 
   /**
    * Fetch conversations with messages from database
@@ -1561,34 +949,6 @@ export const api = {
 
     console.log(`[API] Found ${allConversations.length} conversations`);
 
-    // Fetch deals with pipeline and owner data for all contacts
-    const contactIds = allConversations.map(c => c.contact_id).filter(Boolean);
-    const { data: deals } = await supabase
-      .from('deals')
-      .select(`
-        contact_id,
-        pipeline:pipelines!deals_pipeline_id_fkey(id, name, icon, color),
-        owner:team_members!deals_owner_id_fkey(id, name)
-      `)
-      .in('contact_id', contactIds);
-
-    // Create maps of contact_id to pipeline and owner data
-    const pipelineByContact = new Map<string, { id: string; name: string; icon: string; color: string } | null>();
-    const ownerByContact = new Map<string, { id: string; name: string } | null>();
-    if (deals) {
-      for (const deal of deals) {
-        if (deal.contact_id && deal.pipeline) {
-          pipelineByContact.set(deal.contact_id, deal.pipeline as any);
-        }
-        if (deal.contact_id && deal.owner) {
-          ownerByContact.set(deal.contact_id, deal.owner as any);
-        }
-      }
-    }
-
-    // Note: assigned_user_name is populated when the operator takes over
-    // and passed from the client side (derived from their email)
-
     // Fetch messages for each conversation
     const conversationsWithMessages: UIConversation[] = await Promise.all(
       allConversations.map(async (conv) => {
@@ -1603,21 +963,10 @@ export const api = {
           console.error(`[API] Error fetching messages for ${conv.id}:`, msgError);
         }
 
-        // Enrich conversation with pipeline and owner data
-        const pipeline = pipelineByContact.get(conv.contact_id);
-        const owner = ownerByContact.get(conv.contact_id);
-
         const enrichedConv = {
           ...conv,
-          pipelineId: pipeline?.id || null,
-          pipelineName: pipeline?.name || null,
-          pipelineIcon: pipeline?.icon || null,
-          pipelineColor: pipeline?.color || null,
           // Read assigned_user_name from database
           assignedUserName: (conv as any).assigned_user_name || null,
-          // Deal owner
-          dealOwnerId: owner?.id || null,
-          dealOwnerName: owner?.name || null
         };
 
         return transformDBToUIConversation(
@@ -1778,9 +1127,9 @@ export const api = {
   },
 
   /**
-   * Assign conversation to a team member and sync with deal
+   * Assign conversation to a team member
    */
-  assignConversation: async (conversationId: string, userId: string | null, contactId: string): Promise<void> => {
+  assignConversation: async (conversationId: string, userId: string | null, _contactId: string): Promise<void> => {
     // Update conversation
     const { error: convError } = await supabase
       .from('conversations')
@@ -1792,18 +1141,7 @@ export const api = {
       throw convError;
     }
 
-    // Update deal(s) with same contact_id
-    const { error: dealError } = await supabase
-      .from('deals')
-      .update({ owner_id: userId })
-      .eq('contact_id', contactId);
-
-    if (dealError) {
-      console.error('[API] Error updating deal owner:', dealError);
-      throw dealError;
-    }
-
-    console.log(`[API] Conversation ${conversationId} and deals assigned to user ${userId}`);
+    console.log(`[API] Conversation ${conversationId} assigned to user ${userId}`);
   },
 
   /**
@@ -1914,148 +1252,6 @@ export const api = {
     return (data || []).reverse(); // Reverter para ordem cronológica
   },
 
-  // ============= PIPELINES =============
-  
-  /**
-   * Fetch all pipelines
-   */
-  fetchPipelines: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('pipelines')
-      .select(`
-        *,
-        agent:agents(name)
-      `)
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error('[API] Error fetching pipelines:', error);
-      throw error;
-    }
-
-    return (data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      agentId: p.agent_id,
-      agentName: p.agent?.name || null,
-      color: p.color,
-      icon: p.icon,
-      isActive: p.is_active,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at
-    }));
-  },
-
-  /**
-   * Create a new pipeline
-   */
-  createPipeline: async (pipeline: { name: string; slug: string; agentId?: string; color?: string; icon?: string }): Promise<any> => {
-    const { data, error } = await supabase
-      .from('pipelines')
-      .insert({
-        name: pipeline.name,
-        slug: pipeline.slug,
-        agent_id: pipeline.agentId || null,
-        color: pipeline.color || '#3b82f6',
-        icon: pipeline.icon || '📋',
-        is_active: true
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[API] Error creating pipeline:', error);
-      throw error;
-    }
-
-    return {
-      id: data.id,
-      name: data.name,
-      slug: data.slug,
-      agentId: data.agent_id,
-      color: data.color,
-      icon: data.icon,
-      isActive: data.is_active,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    };
-  },
-
-  /**
-   * Update a pipeline
-   */
-  updatePipeline: async (id: string, updates: Partial<{ name: string; agentId: string | null; color: string; icon: string }>): Promise<void> => {
-    const dbUpdates: any = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.agentId !== undefined) dbUpdates.agent_id = updates.agentId;
-    if (updates.color !== undefined) dbUpdates.color = updates.color;
-    if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
-
-    const { error } = await supabase
-      .from('pipelines')
-      .update(dbUpdates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error updating pipeline:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a pipeline (soft delete)
-   */
-  deletePipeline: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('pipelines')
-      .update({ is_active: false })
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error deleting pipeline:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Link agents to pipelines after migration
-   */
-  linkAgentsToPipelines: async (): Promise<void> => {
-    // Get all agents
-    const { data: agents } = await supabase
-      .from('agents')
-      .select('id, slug')
-      .eq('is_active', true);
-
-    // Get all pipelines
-    const { data: pipelines } = await supabase
-      .from('pipelines')
-      .select('id, slug')
-      .eq('is_active', true);
-
-    if (!agents || !pipelines) return;
-
-    // Map agents to pipelines by slug (iris -> transporte, barbara -> saude)
-    const agentPipelineMap: Record<string, string> = {
-      'iris': 'transporte',
-      'barbara': 'saude'
-    };
-
-    for (const agent of agents) {
-      const pipelineSlug = agentPipelineMap[agent.slug];
-      if (pipelineSlug) {
-        const pipeline = pipelines.find(p => p.slug === pipelineSlug);
-        if (pipeline) {
-          await supabase
-            .from('pipelines')
-            .update({ agent_id: agent.id })
-            .eq('id', pipeline.id);
-        }
-      }
-    }
-  },
 
   /**
    * Get existing conversation for a contact or create a new one
