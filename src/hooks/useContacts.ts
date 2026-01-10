@@ -130,16 +130,7 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
 
   const contactIds = contacts.map(c => c.id);
   
-  const [dealsResult, conversationsResult, policiesResult, installmentsResult] = await Promise.all([
-    supabase
-      .from('deals')
-      .select(`
-        id, contact_id, owner_id, pipeline_id, created_at,
-        team_members!deals_owner_id_fkey(id, name),
-        pipelines(id, name, slug, icon, color)
-      `)
-      .in('contact_id', contactIds)
-      .order('created_at', { ascending: false }),
+  const [conversationsResult, policiesResult, installmentsResult] = await Promise.all([
     supabase
       .from('conversations')
       .select('contact_id, is_active, status, updated_at')
@@ -155,14 +146,6 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
       .in('contact_id', contactIds)
       .eq('status', 'overdue')
   ]);
-
-  // Criar mapas para acesso rápido
-  const dealsByContact = new Map<string, any>();
-  (dealsResult.data || []).forEach(deal => {
-    if (!dealsByContact.has(deal.contact_id)) {
-      dealsByContact.set(deal.contact_id, deal);
-    }
-  });
 
   const conversationsByContact = new Map<string, any>();
   (conversationsResult.data || []).forEach(conv => {
@@ -189,22 +172,12 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
 
   // Enriquecer contatos
   return contacts.map(contact => {
-    const deal = dealsByContact.get(contact.id);
-    const owner = deal?.team_members;
-    const pipeline = deal?.pipelines;
     const conversation = conversationsByContact.get(contact.id);
     const policyData = policiesByContact.get(contact.id);
     const overdueData = overdueByContact.get(contact.id);
 
     return {
       ...contact,
-      ownerId: owner?.id || undefined,
-      ownerName: owner?.name || undefined,
-      pipelineId: pipeline?.id || undefined,
-      pipelineName: pipeline?.name || undefined,
-      pipelineSlug: pipeline?.slug || undefined,
-      pipelineIcon: pipeline?.icon || undefined,
-      pipelineColor: pipeline?.color || undefined,
       conversationActive: conversation?.is_active ?? null,
       conversationStatus: conversation?.status || undefined,
       policiesCount: policyData?.count || 0,
@@ -477,23 +450,9 @@ export const useContactFilters = () => {
     gcTime: 60 * 60 * 1000,
   });
 
-  const pipelinesQuery = useQuery({
-    queryKey: ['pipelines-active'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('pipelines')
-        .select('id, name, slug, icon, color')
-        .eq('is_active', true)
-        .order('name');
-      return data || [];
-    },
-    staleTime: 30 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
-
   return {
     owners: ownersQuery.data || [],
-    pipelines: pipelinesQuery.data || [],
-    isLoading: ownersQuery.isLoading || pipelinesQuery.isLoading,
+    pipelines: [],
+    isLoading: ownersQuery.isLoading,
   };
 };

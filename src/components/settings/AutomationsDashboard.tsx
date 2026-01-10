@@ -104,16 +104,15 @@ export default function AutomationsDashboard() {
 
           const hasResponse = (responseMsg?.length || 0) > 0;
 
-          // Check for conversion (deal won after follow-up)
-          const { data: wonDeal } = await supabase
-            .from('deals')
+          // Conversão baseada em agendamentos ao invés de deals
+          const { data: appointment } = await supabase
+            .from('appointments')
             .select('id')
             .eq('contact_id', log.contact_id)
-            .not('won_at', 'is', null)
-            .gt('won_at', log.created_at)
+            .gt('created_at', log.created_at)
             .limit(1);
 
-          const hasConversion = (wonDeal?.length || 0) > 0;
+          const hasConversion = (appointment?.length || 0) > 0;
 
           // Get response time if responded
           let responseTime = null;

@@ -116,9 +116,7 @@ interface Pipeline {
 export default function SalesCoachingSettings() {
   const [reports, setReports] = useState<CoachingReport[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
-  const [selectedPipeline, setSelectedPipeline] = useState<string>('all');
   const [reportType, setReportType] = useState<string>('daily');
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -127,7 +125,6 @@ export default function SalesCoachingSettings() {
   useEffect(() => {
     fetchReports();
     fetchAgents();
-    fetchPipelines();
   }, []);
 
   const fetchAgents = async () => {
@@ -136,14 +133,6 @@ export default function SalesCoachingSettings() {
       .select('id, name, specialty')
       .eq('is_active', true);
     setAgents(data || []);
-  };
-
-  const fetchPipelines = async () => {
-    const { data } = await supabase
-      .from('pipelines')
-      .select('id, name, icon, agent_id')
-      .eq('is_active', true);
-    setPipelines(data || []);
   };
 
   const fetchReports = async () => {
@@ -156,9 +145,6 @@ export default function SalesCoachingSettings() {
 
     if (selectedAgent !== 'all') {
       query = query.eq('agent_id', selectedAgent);
-    }
-    if (selectedPipeline !== 'all') {
-      query = query.eq('pipeline_id', selectedPipeline);
     }
 
     const { data, error } = await query;
@@ -183,7 +169,7 @@ export default function SalesCoachingSettings() {
 
   useEffect(() => {
     fetchReports();
-  }, [selectedAgent, selectedPipeline]);
+  }, [selectedAgent]);
 
   const generateReport = async () => {
     setIsGenerating(true);
@@ -264,10 +250,8 @@ export default function SalesCoachingSettings() {
   const latestReportsByAgent = agents.map(agent => {
     const agentReports = reports.filter(r => r.agent_id === agent.id);
     const latestReport = agentReports[0];
-    const pipeline = pipelines.find(p => p.agent_id === agent.id);
     return {
       agent,
-      pipeline,
       latestReport
     };
   }).filter(item => item.latestReport);
@@ -298,7 +282,7 @@ export default function SalesCoachingSettings() {
       {/* Agent/Department Summary Cards - iOS 18 Style */}
       {latestReportsByAgent.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {latestReportsByAgent.map(({ agent, pipeline, latestReport }) => {
+          {latestReportsByAgent.map(({ agent, latestReport }) => {
             const isAlert = latestReport.overall_score && latestReport.overall_score < 70;
             return (
               <Card 
@@ -316,19 +300,15 @@ export default function SalesCoachingSettings() {
                 <CardHeader className="pb-2 relative">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {pipeline && (
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30">
-                          <span className="text-xl">{pipeline.icon}</span>
-                        </div>
-                      )}
+                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30">
+                        <Brain className="h-5 w-5 text-cyan-400" />
+                      </div>
                       <div>
                         <CardTitle className="text-base text-white">{agent.name}</CardTitle>
-                        {pipeline && (
-                          <CardDescription className="flex items-center gap-1 text-slate-400">
-                            <Building2 className="h-3 w-3" />
-                            {pipeline.name}
-                          </CardDescription>
-                        )}
+                        <CardDescription className="flex items-center gap-1 text-slate-400">
+                          <Building2 className="h-3 w-3" />
+                          {agent.specialty || 'Agente'}
+                        </CardDescription>
                       </div>
                     </div>
                     <div className={cn(
@@ -453,17 +433,13 @@ export default function SalesCoachingSettings() {
                       Todos os agentes
                     </span>
                   </SelectItem>
-                  {agents.map(agent => {
-                    const pipeline = pipelines.find(p => p.agent_id === agent.id);
-                    return (
-                      <SelectItem key={agent.id} value={agent.id} className="text-white hover:bg-slate-700">
-                        <span className="flex items-center gap-2">
-                          {pipeline?.icon && <span>{pipeline.icon}</span>}
-                          {agent.name}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
+                  {agents.map(agent => (
+                    <SelectItem key={agent.id} value={agent.id} className="text-white hover:bg-slate-700">
+                      <span className="flex items-center gap-2">
+                        {agent.name}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -510,19 +486,6 @@ export default function SalesCoachingSettings() {
             Relatórios Recentes
           </h4>
           <div className="flex items-center gap-2">
-            <Select value={selectedPipeline} onValueChange={setSelectedPipeline}>
-              <SelectTrigger className="w-[150px] h-8 text-xs bg-slate-800/80 border-slate-600 text-white">
-                <SelectValue placeholder="Departamento" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="all" className="text-white hover:bg-slate-700">Todos</SelectItem>
-                {pipelines.map(pipeline => (
-                  <SelectItem key={pipeline.id} value={pipeline.id} className="text-white hover:bg-slate-700">
-                    {pipeline.icon} {pipeline.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -574,11 +537,6 @@ export default function SalesCoachingSettings() {
                     <div>
                       <CardTitle className="text-base flex items-center gap-2 flex-wrap text-white">
                         <span className="flex items-center gap-1">
-                          {report.pipeline_name && (
-                            <span className="text-slate-400">
-                              {pipelines.find(p => p.id === report.pipeline_id)?.icon}
-                            </span>
-                          )}
                           {getAgentName(report.agent_id)}
                         </span>
                         <span className="text-xs font-normal px-2 py-0.5 bg-slate-700/60 rounded-full text-slate-300">

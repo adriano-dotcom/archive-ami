@@ -25,12 +25,9 @@ interface SystemMetrics {
   clientMessages: number;
   avgResponseTime: number;
   totalContacts: number;
-  totalDeals: number;
   totalConversations: number;
   totalCalls: number;
   totalAgents: number;
-  totalPipelines: number;
-  totalStages: number;
   activeAutomations: number;
   approvedTemplates: number;
   integrations: {
@@ -97,12 +94,9 @@ const Dashboard: React.FC = () => {
         { count: clientMessages },
         { data: avgTimeData },
         { count: totalContacts },
-        { count: totalDeals },
         { count: totalConversations },
         { count: totalCalls },
         { count: totalAgents },
-        { count: totalPipelines },
-        { count: totalStages },
         { count: activeAutomations },
         { count: approvedTemplates },
         { data: settingsData },
@@ -113,12 +107,9 @@ const Dashboard: React.FC = () => {
         supabase.from('messages').select('*', { count: 'exact', head: true }).eq('from_type', 'user'),
         supabase.from('messages').select('nina_response_time').not('nina_response_time', 'is', null),
         supabase.from('contacts').select('*', { count: 'exact', head: true }),
-        supabase.from('deals').select('*', { count: 'exact', head: true }),
         supabase.from('conversations').select('*', { count: 'exact', head: true }),
         supabase.from('call_logs').select('*', { count: 'exact', head: true }),
         supabase.from('agents').select('*', { count: 'exact', head: true }).eq('is_active', true),
-        supabase.from('pipelines').select('*', { count: 'exact', head: true }).eq('is_active', true),
-        supabase.from('pipeline_stages').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('followup_automations').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('whatsapp_templates').select('*', { count: 'exact', head: true }).eq('status', 'APPROVED'),
         supabase.from('nina_settings').select('whatsapp_phone_number_id, elevenlabs_api_key, api4com_enabled, pipedrive_enabled, elevenlabs_key_in_vault, api4com_token_in_vault, pipedrive_token_in_vault').limit(1).maybeSingle(),
@@ -135,18 +126,15 @@ const Dashboard: React.FC = () => {
         clientMessages: clientMessages || 0,
         avgResponseTime,
         totalContacts: totalContacts || 0,
-        totalDeals: totalDeals || 0,
         totalConversations: totalConversations || 0,
         totalCalls: totalCalls || 0,
         totalAgents: totalAgents || 0,
-        totalPipelines: totalPipelines || 0,
-        totalStages: totalStages || 0,
         activeAutomations: activeAutomations || 0,
         approvedTemplates: approvedTemplates || 0,
         integrations: {
           whatsapp: !!settingsData?.whatsapp_phone_number_id,
           elevenlabs: !!settingsData?.elevenlabs_api_key || !!settingsData?.elevenlabs_key_in_vault,
-          resend: true, // Resend is configured via edge function secrets
+          resend: true,
           api4com: !!settingsData?.api4com_enabled || !!settingsData?.api4com_token_in_vault,
           pipedrive: !!settingsData?.pipedrive_enabled || !!settingsData?.pipedrive_token_in_vault
         },
@@ -162,28 +150,29 @@ const Dashboard: React.FC = () => {
       const days = periodDays[period];
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       
-      const { data: deals } = await supabase
-        .from('deals')
-        .select('created_at, pipeline_id, pipelines(name)')
+      // Usar contacts ao invés de deals para evolução de leads
+      const { data: contacts } = await supabase
+        .from('contacts')
+        .select('created_at, vertical')
         .gte('created_at', startDate)
         .order('created_at', { ascending: true });
 
-      if (!deals) {
+      if (!contacts) {
         setLeadsEvolutionData([]);
         return;
       }
 
       const grouped: Record<string, { total: number; transporte: number; saude: number; prospeccao: number }> = {};
       
-      deals.forEach(deal => {
-        const date = new Date(deal.created_at!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      contacts.forEach(contact => {
+        const date = new Date(contact.created_at!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         if (!grouped[date]) grouped[date] = { total: 0, transporte: 0, saude: 0, prospeccao: 0 };
         
         grouped[date].total++;
-        const pipelineName = (deal.pipelines as any)?.name?.toLowerCase() || '';
-        if (pipelineName.includes('transporte')) grouped[date].transporte++;
-        else if (pipelineName.includes('saúde') || pipelineName.includes('saude')) grouped[date].saude++;
-        else if (pipelineName.includes('prospec')) grouped[date].prospeccao++;
+        const vertical = contact.vertical?.toLowerCase() || '';
+        if (vertical.includes('transporte')) grouped[date].transporte++;
+        else if (vertical.includes('saúde') || vertical.includes('saude')) grouped[date].saude++;
+        else grouped[date].prospeccao++;
       });
 
       const chartData = Object.entries(grouped)
@@ -790,20 +779,13 @@ const Dashboard: React.FC = () => {
           {/* Operations Metrics */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-violet-400 uppercase tracking-wider">Operações</h4>
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
               <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-violet-500/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-4 h-4 text-violet-400" />
                   <span className="text-xs text-slate-400">Contatos</span>
                 </div>
                 <p className="text-2xl font-bold text-white">{systemMetrics.totalContacts}</p>
-              </div>
-              <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-violet-500/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Briefcase className="w-4 h-4 text-violet-400" />
-                  <span className="text-xs text-slate-400">Negócios</span>
-                </div>
-                <p className="text-2xl font-bold text-white">{systemMetrics.totalDeals}</p>
               </div>
               <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-violet-500/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -825,27 +807,13 @@ const Dashboard: React.FC = () => {
           {/* Infrastructure Metrics */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-emerald-400 uppercase tracking-wider">Infraestrutura</h4>
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
               <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Bot className="w-4 h-4 text-emerald-400" />
                   <span className="text-xs text-slate-400">Agentes IA</span>
                 </div>
                 <p className="text-2xl font-bold text-white">{systemMetrics.totalAgents}</p>
-              </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Layers className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs text-slate-400">Pipelines</span>
-                </div>
-                <p className="text-2xl font-bold text-white">{systemMetrics.totalPipelines}</p>
-              </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs text-slate-400">Estágios</span>
-                </div>
-                <p className="text-2xl font-bold text-white">{systemMetrics.totalStages}</p>
               </div>
               <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
