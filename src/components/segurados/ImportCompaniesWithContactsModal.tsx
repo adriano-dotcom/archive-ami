@@ -26,7 +26,9 @@ interface ParsedContact {
   role?: string;
   is_billing_contact: boolean;
   errors: string[];
+  warnings: string[];
   valid: boolean;
+  phone_pending: boolean;
 }
 
 interface ParsedCompany {
@@ -53,9 +55,9 @@ const COMPANY_REQUIRED_FIELDS = ['cnpj', 'razao_social'];
 const COMPANY_OPTIONAL_FIELDS = ['nome_fantasia', 'inscricao_estadual', 'inscricao_municipal', 'cep', 'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'notes'];
 const COMPANY_FIELDS = [...COMPANY_REQUIRED_FIELDS, ...COMPANY_OPTIONAL_FIELDS];
 
-// Contact fields
-const CONTACT_REQUIRED_FIELDS = ['contact_name', 'contact_phone'];
-const CONTACT_OPTIONAL_FIELDS = ['contact_email', 'contact_cpf', 'contact_role', 'contact_is_billing'];
+// Contact fields - phone is now optional (can be pending)
+const CONTACT_REQUIRED_FIELDS = ['contact_name'];
+const CONTACT_OPTIONAL_FIELDS = ['contact_phone', 'contact_email', 'contact_cpf', 'contact_role', 'contact_is_billing'];
 const CONTACT_FIELDS = [...CONTACT_REQUIRED_FIELDS, ...CONTACT_OPTIONAL_FIELDS];
 
 const FIELD_LABELS: Record<string, string> = {
@@ -75,7 +77,7 @@ const FIELD_LABELS: Record<string, string> = {
   notes: 'Notas',
   // Contact
   contact_name: 'Nome do Contato *',
-  contact_phone: 'WhatsApp *',
+  contact_phone: 'WhatsApp',
   contact_email: 'Email',
   contact_cpf: 'CPF',
   contact_role: 'Cargo',
@@ -225,8 +227,8 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
         });
       }
 
-      // Add contact if name and phone exist
-      if (rowData.contact_name && rowData.contact_phone) {
+      // Add contact if name exists (phone can be pending)
+      if (rowData.contact_name) {
         companiesMap.get(cnpj)!.contacts.push(rowData);
       }
     });
@@ -247,16 +249,26 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
         companyErrors.push('Razão Social obrigatória');
       }
 
-      // Parse contacts
+      // Parse contacts - allow missing phone (generate placeholder)
       const contacts: ParsedContact[] = data.contacts.map(contactData => {
         const contactErrors: string[] = [];
-        const phone = formatPhone(contactData.contact_phone || '');
+        const warnings: string[] = [];
+        let phone = formatPhone(contactData.contact_phone || '');
+        let phonePending = false;
         
         if (!contactData.contact_name) {
           contactErrors.push('Nome obrigatório');
         }
+        
+        // Phone missing or invalid: generate placeholder instead of blocking
         if (!phone || phone.length < 10) {
-          contactErrors.push('Telefone inválido');
+          phonePending = true;
+          warnings.push('Telefone pendente - atualizar manualmente');
+          // Generate placeholder using CPF or timestamp
+          const cpfClean = contactData.contact_cpf?.replace(/\D/g, '') || '';
+          phone = cpfClean.length >= 11 
+            ? `PENDENTE_CPF_${cpfClean}` 
+            : `PENDENTE_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         }
 
         const isBilling = contactData.contact_is_billing?.toLowerCase();
@@ -270,7 +282,9 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
           role: contactData.contact_role || undefined,
           is_billing_contact: isBillingContact,
           errors: contactErrors,
-          valid: contactErrors.length === 0
+          warnings,
+          valid: contactErrors.length === 0,
+          phone_pending: phonePending
         };
       });
 
@@ -359,6 +373,9 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
           const validContacts = company.contacts.filter(c => c.valid);
           
           for (const contact of validContacts) {
+            // Add telefone_pendente tag if phone is pending
+            const tags = contact.phone_pending ? ['telefone_pendente'] : null;
+            
             const { error: contactError } = await supabase
               .from('contacts')
               .upsert({
@@ -369,6 +386,8 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
                 role: contact.role || null,
                 is_billing_contact: contact.is_billing_contact,
                 company_id: companyId,
+                tags,
+                lead_source: 'import_cobranca',
                 // Inherit address from company
                 cep: company.cep || null,
                 street: company.street || null,
@@ -423,6 +442,7 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
   const validContactsCount = parsedCompanies.reduce((sum, c) => sum + c.contacts.filter(ct => ct.valid).length, 0);
   const invalidCompaniesCount = parsedCompanies.filter(c => !c.valid).length;
   const invalidContactsCount = parsedCompanies.reduce((sum, c) => sum + c.contacts.filter(ct => !ct.valid).length, 0);
+  const pendingPhoneCount = parsedCompanies.reduce((sum, c) => sum + c.contacts.filter(ct => ct.phone_pending).length, 0);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -590,9 +610,15 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
                   </span>
                 )}
                 {invalidContactsCount > 0 && (
+                  <span className="flex items-center gap-1 text-red-400">
+                    <X className="w-4 h-4" />
+                    {invalidContactsCount} contatos com erros
+                  </span>
+                )}
+                {pendingPhoneCount > 0 && (
                   <span className="flex items-center gap-1 text-amber-400">
                     <AlertCircle className="w-4 h-4" />
-                    {invalidContactsCount} contatos com erros
+                    {pendingPhoneCount} contatos com telefone pendente
                   </span>
                 )}
               </div>
@@ -624,21 +650,32 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
                       {company.contacts.length > 0 && (
                         <div className="ml-6 space-y-1">
                           {company.contacts.map((contact, j) => (
-                            <div key={j} className="flex items-center gap-2 text-sm">
+                            <div key={j} className="flex items-center gap-2 text-sm flex-wrap">
                               <span className="text-slate-600">├─</span>
                               {contact.valid ? (
-                                <Check className="w-3 h-3 text-green-400" />
+                                contact.phone_pending ? (
+                                  <AlertCircle className="w-3 h-3 text-amber-400" />
+                                ) : (
+                                  <Check className="w-3 h-3 text-green-400" />
+                                )
                               ) : (
                                 <X className="w-3 h-3 text-red-400" />
                               )}
                               <span className="text-slate-300">{contact.name}</span>
                               <span className="text-slate-500">-</span>
-                              <span className="text-slate-400">{contact.phone}</span>
+                              {contact.phone_pending ? (
+                                <span className="text-amber-400 italic">Telefone pendente</span>
+                              ) : (
+                                <span className="text-slate-400">{contact.phone}</span>
+                              )}
                               {contact.is_billing_contact && (
                                 <span className="text-xs px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">Cobrança</span>
                               )}
                               {contact.errors.length > 0 && (
                                 <span className="text-red-400 text-xs">{contact.errors.join(', ')}</span>
+                              )}
+                              {contact.warnings.length > 0 && contact.errors.length === 0 && (
+                                <span className="text-amber-400 text-xs">{contact.warnings.join(', ')}</span>
                               )}
                             </div>
                           ))}
