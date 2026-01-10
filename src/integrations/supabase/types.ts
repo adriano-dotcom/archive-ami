@@ -2665,6 +2665,57 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_request_logs: {
+        Row: {
+          body: Json | null
+          created_at: string | null
+          error_message: string | null
+          event_type: string | null
+          headers: Json | null
+          id: string
+          is_meta_test: boolean | null
+          method: string
+          path: string | null
+          processing_time_ms: number | null
+          query_params: Json | null
+          response_status: number | null
+          source_ip: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          body?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          event_type?: string | null
+          headers?: Json | null
+          id?: string
+          is_meta_test?: boolean | null
+          method: string
+          path?: string | null
+          processing_time_ms?: number | null
+          query_params?: Json | null
+          response_status?: number | null
+          source_ip?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          body?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          event_type?: string | null
+          headers?: Json | null
+          id?: string
+          is_meta_test?: boolean | null
+          method?: string
+          path?: string | null
+          processing_time_ms?: number | null
+          query_params?: Json | null
+          response_status?: number | null
+          source_ip?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_templates: {
         Row: {
           category: string | null
