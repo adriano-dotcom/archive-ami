@@ -73,9 +73,20 @@ interface Installment {
       id: string;
       razao_social: string;
       nome_fantasia: string | null;
+      cnpj: string | null;
     } | null;
   } | null;
 }
+
+const formatCNPJ = (cnpj: string | null | undefined) => {
+  if (!cnpj) return 'N/A';
+  const cleaned = cnpj.replace(/\D/g, '');
+  if (cleaned.length !== 14) return cnpj;
+  return cleaned.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    '$1.$2.$3/$4-$5'
+  );
+};
 
 export const InstallmentsList: React.FC = () => {
   const [search, setSearch] = useState('');
@@ -187,7 +198,7 @@ export const InstallmentsList: React.FC = () => {
         .select(`
           *,
           contact:contacts(id, name, phone_number),
-          policy:policies(id, policy_number, insurer, company:companies(id, razao_social, nome_fantasia))
+          policy:policies(id, policy_number, insurer, company:companies(id, razao_social, nome_fantasia, cnpj))
         `)
         .order('days_overdue', { ascending: false });
 
@@ -423,12 +434,12 @@ export const InstallmentsList: React.FC = () => {
     }
 
     const csvContent = [
-      ['Nome', 'Telefone', 'Empresa', 'Apólice', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
+      ['Empresa', 'CNPJ', 'Contato', 'Telefone', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
       ...installments.map(inst => [
+        inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || '',
+        inst.policy?.company?.cnpj || '',
         inst.contact?.name || '',
         inst.contact?.phone_number || '',
-        inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || '',
-        inst.policy?.policy_number || '',
         inst.policy?.insurer || '',
         inst.installment_number,
         inst.value,
@@ -650,9 +661,9 @@ export const InstallmentsList: React.FC = () => {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Contato</TableHead>
                   <TableHead>Empresa</TableHead>
-                  <TableHead>Apólice</TableHead>
+                  <TableHead>CNPJ</TableHead>
+                  <TableHead>Contato</TableHead>
                   <TableHead>Seguradora</TableHead>
                   <TableHead className="text-center">Parcela</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
@@ -677,16 +688,6 @@ export const InstallmentsList: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium text-slate-200">
-                          {inst.contact?.name || 'N/A'}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {inst.contact?.phone_number || ''}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
                       {inst.policy?.company?.id ? (
                         <button
                           onClick={() => handleOpenCompanyDrawer(inst.policy!.company!.id)}
@@ -707,8 +708,18 @@ export const InstallmentsList: React.FC = () => {
                         <span className="text-slate-500">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-slate-300">
-                      {inst.policy?.policy_number || 'N/A'}
+                    <TableCell className="text-slate-400 text-sm font-mono">
+                      {formatCNPJ(inst.policy?.company?.cnpj)}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-200">
+                          {inst.contact?.name || 'N/A'}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {inst.contact?.phone_number || ''}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell className="text-slate-300">
                       {inst.policy?.id ? (
