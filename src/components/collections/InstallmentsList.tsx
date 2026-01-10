@@ -40,10 +40,12 @@ interface CompanyForDrawer {
   state: string | null;
   street?: string | null;
   number?: string | null;
+  complement?: string | null;
   neighborhood?: string | null;
   cep?: string | null;
   inscricao_estadual?: string | null;
   inscricao_municipal?: string | null;
+  notes?: string | null;
   contacts_count: number;
   billing_contacts_count: number;
   policies_count: number;
@@ -132,10 +134,12 @@ export const InstallmentsList: React.FC = () => {
         state: company.state,
         street: company.street,
         number: company.number,
+        complement: company.complement,
         neighborhood: company.neighborhood,
         cep: company.cep,
         inscricao_estadual: company.inscricao_estadual,
         inscricao_municipal: company.inscricao_municipal,
+        notes: company.notes,
         contacts_count: contactsResult.count || 0,
         billing_contacts_count: billingContactsResult.count || 0,
         policies_count: policiesResult.count || 0,
