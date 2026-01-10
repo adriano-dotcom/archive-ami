@@ -37,6 +37,7 @@ interface InstallmentsData {
   totalValue: number;
   oldestDueDate: string | null;
   installments: any[];
+  insurers: string[];
 }
 
 // Keywords que indicam consulta de parcelas/débitos pendentes (para cobrança)
@@ -54,19 +55,28 @@ const COLLECTION_QUERY_KEYWORDS = [
   'parcelas vencidas', 'saldo devedor'
 ];
 
+// Keywords que indicam pergunta sobre seguradora
+const INSURER_QUERY_KEYWORDS = [
+  'qual seguradora', 'seguradora é essa', 'de qual seguradora',
+  'qual a seguradora', 'nome da seguradora', 'seguradora das parcelas',
+  'seguro é de qual', 'é de qual seguro', 'de qual companhia',
+  'qual companhia de seguro', 'qual empresa de seguro'
+];
+
+// Function to detect if message asks about insurer
+function isInsurerQuery(messageContent: string): boolean {
+  const content = messageContent.toLowerCase();
+  return INSURER_QUERY_KEYWORDS.some(keyword => content.includes(keyword));
+}
+
 // Function to detect if message is a collection/debt query
 function isCollectionQuery(messageContent: string): boolean {
   const content = messageContent.toLowerCase();
-  return COLLECTION_QUERY_KEYWORDS.some(keyword => content.includes(keyword));
+  return COLLECTION_QUERY_KEYWORDS.some(keyword => content.includes(keyword)) || isInsurerQuery(content);
 }
 
 // Function to fetch and sum pending installments for a contact
-async function fetchContactInstallments(supabase: any, contactId: string): Promise<{
-  count: number;
-  totalValue: number;
-  oldestDueDate: string | null;
-  installments: any[];
-} | null> {
+async function fetchContactInstallments(supabase: any, contactId: string): Promise<InstallmentsData | null> {
   try {
     const { data, error } = await supabase
       .from('installments')
@@ -77,7 +87,8 @@ async function fetchContactInstallments(supabase: any, contactId: string): Promi
         days_overdue, 
         status,
         installment_number,
-        policy_id
+        policy_id,
+        policies!inner(insurer, policy_number)
       `)
       .eq('contact_id', contactId)
       .in('status', ['pending', 'overdue', 'negotiating'])
@@ -96,13 +107,23 @@ async function fetchContactInstallments(supabase: any, contactId: string): Promi
     const totalValue = data.reduce((sum: number, inst: any) => sum + parseFloat(inst.value || 0), 0);
     const oldestDueDate = data[0]?.due_date || null;
     
-    console.log(`[Nina] 💰 Found ${data.length} pending installments, total: R$ ${totalValue.toFixed(2)}`);
+    // Extrair seguradoras únicas
+    const insurersSet = new Set<string>();
+    data.forEach((inst: any) => {
+      if (inst.policies?.insurer) {
+        insurersSet.add(inst.policies.insurer);
+      }
+    });
+    const insurers = Array.from(insurersSet);
+    
+    console.log(`[Nina] 💰 Found ${data.length} pending installments, total: R$ ${totalValue.toFixed(2)}, insurers: ${insurers.join(', ')}`);
     
     return {
       count: data.length,
       totalValue,
       oldestDueDate,
-      installments: data
+      installments: data,
+      insurers
     };
   } catch (error) {
     console.error('[Nina] Error in fetchContactInstallments:', error);
@@ -3911,21 +3932,28 @@ ${contact.notes}
       ? new Date(installmentsData.oldestDueDate).toLocaleDateString('pt-BR')
       : 'N/A';
     
+    // Formatar lista de seguradoras
+    const insurersList = installmentsData.insurers && installmentsData.insurers.length > 0 
+      ? installmentsData.insurers.join(', ') 
+      : 'Não identificada';
+    
     contextInfo += `\n\n## 🚨 DADOS FINANCEIROS ATUALIZADOS (FONTE: BANCO DE DADOS EM TEMPO REAL)
 
 ### VALORES OFICIAIS - PRIORIDADE MÁXIMA:
 - **QUANTIDADE DE PARCELAS EM ABERTO:** ${installmentsData.count}
 - **VALOR TOTAL PENDENTE (sem juros):** ${formattedValue}
 - **VENCIMENTO MAIS ANTIGO:** ${formattedDate}
+- **SEGURADORA(S):** ${insurersList}
 
 ### ⛔ REGRA OBRIGATÓRIA:
 1. ESTES DADOS SÃO DO BANCO DE DADOS E SÃO MAIS RECENTES QUE O HISTÓRICO DE CONVERSA
-2. SE O HISTÓRICO MENCIONAR VALORES DIFERENTES (ex: "R$ 536,90" ou "uma parcela"), IGNORE - ESTAVAM DESATUALIZADOS
+2. SE O CLIENTE PERGUNTAR QUAL SEGURADORA, RESPONDA: "${insurersList}"
 3. USE OBRIGATORIAMENTE: "${installmentsData.count} parcelas" e "${formattedValue}"
-4. NÃO repita informações antigas do histórico que conflitem com estes dados
-5. Se o cliente perguntar sobre parcelas, responda com TODOS os ${installmentsData.count} itens, não apenas um`;
+4. SEMPRE inclua o nome da seguradora ao falar de valores pendentes
+5. NÃO repita informações antigas do histórico que conflitem com estes dados
+6. Se o cliente perguntar sobre parcelas, responda com TODOS os ${installmentsData.count} itens, não apenas um`;
 
-    console.log(`[Nina] 💰 Installments data injected into prompt: ${installmentsData.count} parcelas, ${formattedValue}`);
+    console.log(`[Nina] 💰 Installments data injected into prompt: ${installmentsData.count} parcelas, ${formattedValue}, seguradoras: ${insurersList}`);
 
     // Detalhamento das parcelas (máximo 10)
     if (installmentsData.installments.length <= 10) {
@@ -3935,7 +3963,9 @@ ${contact.notes}
         const date = new Date(inst.due_date).toLocaleDateString('pt-BR');
         const statusLabel = inst.status === 'overdue' ? '⚠️ VENCIDA' : inst.status === 'negotiating' ? '🤝 EM NEGOCIAÇÃO' : '📅 PENDENTE';
         const daysOverdue = inst.days_overdue && inst.days_overdue > 0 ? ` (${inst.days_overdue} dias de atraso)` : '';
-        contextInfo += `\n- Parcela ${inst.installment_number}: ${value} venc. ${date} ${statusLabel}${daysOverdue}`;
+        const insurer = inst.policies?.insurer || 'N/A';
+        const policyNum = inst.policies?.policy_number || '';
+        contextInfo += `\n- Parcela ${inst.installment_number}: ${value} venc. ${date} - ${insurer}${policyNum ? ` (${policyNum})` : ''} ${statusLabel}${daysOverdue}`;
       }
     } else {
       contextInfo += `\n\n(${installmentsData.count} parcelas no total - mostrando resumo)`;
