@@ -20,7 +20,7 @@ const allMenuItems = [
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, adminOnly: true },
   { id: 'team', label: 'Equipe', icon: ShieldCheck, adminOnly: true },
   { id: 'functions', label: 'Funções', icon: Code2, adminOnly: true },
-  { id: 'settings', label: 'Configurações', icon: SettingsIcon, adminOnly: true },
+  { id: 'settings', label: 'Configurações', icon: SettingsIcon, adminOnly: false },
 ];
 
 const Logo = () => {
