@@ -12,3 +12,15 @@ verify_jwt = false
 
 [functions.whatsapp-webhook-health]
 verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.nina-orchestrator]
+verify_jwt = false
+
+[functions.whatsapp-sender]
+verify_jwt = false
+
+[functions.send-whatsapp-template]
+verify_jwt = false
