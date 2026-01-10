@@ -1,0 +1,1 @@
+export { VirtualizedContactsTable } from './VirtualizedContactsTable';
