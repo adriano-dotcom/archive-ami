@@ -31,9 +31,13 @@ const Logo = () => {
         <img src={jacometoLogo} alt="Jacometo" className="relative w-10 h-10 object-contain rounded-xl" />
       </div>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 25,
+        }}
         className="flex flex-col overflow-hidden"
       >
         <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">
@@ -74,6 +78,11 @@ const UnreadPreviewPanel = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 300,
+        damping: 25,
+      }}
       className="mt-4 pt-4"
     >
       {/* Divider with gradient */}
@@ -186,7 +195,11 @@ const SidebarContent = () => {
               display: open ? "block" : "none",
               opacity: open ? 1 : 0,
             }}
-            transition={{ duration: 0.2 }}
+            transition={{
+              type: "spring",
+              stiffness: 350,
+              damping: 28,
+            }}
             className="flex-1 overflow-hidden"
           >
             <p className="text-sm font-semibold text-slate-200 group-hover:text-white whitespace-nowrap transition-colors">{displayName}</p>
@@ -197,7 +210,12 @@ const SidebarContent = () => {
               display: open ? "flex" : "none",
               opacity: open ? 1 : 0,
             }}
-            transition={{ duration: 0.2 }}
+            transition={{
+              type: "spring",
+              stiffness: 350,
+              damping: 28,
+              delay: 0.05,
+            }}
             onClick={handleLogout}
             className="p-2 rounded-lg bg-white/[0.03] hover:bg-rose-500/20 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 flex items-center justify-center"
             title="Sair"
