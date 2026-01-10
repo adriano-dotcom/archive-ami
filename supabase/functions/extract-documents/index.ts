@@ -334,17 +334,31 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
 }
 
 // Limit content size for large text files (CSVs, etc.)
-const MAX_TEXT_CONTENT_LENGTH = 100000; // ~100KB of text content
+const MAX_TEXT_CONTENT_LENGTH = 40000; // ~40KB of text content - reduced to prevent timeouts
+const MAX_CSV_LINES = 300; // Max lines for CSV files (header + 299 data rows)
 
-function limitTextContent(content: string, fileName: string): { content: string; truncated: boolean } {
+function limitTextContent(content: string, fileName: string): { content: string; truncated: boolean; originalLines?: number } {
+  const isCSV = fileName.toLowerCase().endsWith('.csv');
+  const lines = content.split('\n');
+  const originalLines = lines.length;
+  
+  // For CSVs, limit by number of lines first (more predictable)
+  if (isCSV && lines.length > MAX_CSV_LINES) {
+    console.log(`CSV ${fileName} has ${lines.length} lines, limiting to ${MAX_CSV_LINES}`);
+    const header = lines[0];
+    const dataLines = lines.slice(1, MAX_CSV_LINES);
+    const truncatedContent = [header, ...dataLines].join('\n');
+    return { content: truncatedContent, truncated: true, originalLines };
+  }
+  
+  // Then check character length
   if (content.length <= MAX_TEXT_CONTENT_LENGTH) {
     return { content, truncated: false };
   }
   
   console.log(`Content for ${fileName} is ${content.length} chars, limiting to ${MAX_TEXT_CONTENT_LENGTH}`);
   
-  // For CSVs, try to keep complete lines
-  const lines = content.split('\n');
+  // Keep complete lines up to the limit
   let truncatedContent = '';
   let lineCount = 0;
   
@@ -356,8 +370,8 @@ function limitTextContent(content: string, fileName: string): { content: string;
     lineCount++;
   }
   
-  console.log(`Kept ${lineCount} lines from ${fileName}`);
-  return { content: truncatedContent, truncated: true };
+  console.log(`Kept ${lineCount} of ${lines.length} lines from ${fileName}`);
+  return { content: truncatedContent, truncated: true, originalLines };
 }
 
 serve(async (req) => {
