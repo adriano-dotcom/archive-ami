@@ -47,6 +47,7 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
   onSent,
 }) => {
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
+  const [delaySeconds, setDelaySeconds] = useState(2);
   const queryClient = useQueryClient();
 
   // Fetch approved templates
@@ -182,7 +183,7 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
           language: selectedTemplate.language,
           installment_ids: installmentIds,
           filters: { range: rangeFilter, status: ['overdue', 'negotiating'] },
-          delay_between_ms: 2000,
+          delay_between_ms: delaySeconds * 1000,
         },
       });
 
@@ -317,6 +318,31 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
 
           {/* Template Preview */}
           {selectedTemplate && getTemplatePreview()}
+
+          {/* Send Cadence Selector */}
+          <div className="space-y-2">
+            <Label>Intervalo entre Envios (Cadência)</Label>
+            <Select
+              value={delaySeconds.toString()}
+              onValueChange={(value) => setDelaySeconds(Number(value))}
+            >
+              <SelectTrigger className="bg-slate-800/50 border-white/10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">Rápido (2 segundos)</SelectItem>
+                <SelectItem value="5">Normal (5 segundos)</SelectItem>
+                <SelectItem value="10">Moderado (10 segundos)</SelectItem>
+                <SelectItem value="30">Lento (30 segundos)</SelectItem>
+                <SelectItem value="60">Muito Lento (1 minuto)</SelectItem>
+              </SelectContent>
+            </Select>
+            {previewData && (
+              <p className="text-xs text-slate-500">
+                Tempo estimado: ~{Math.ceil((previewData.uniqueContacts * delaySeconds) / 60)} minuto(s)
+              </p>
+            )}
+          </div>
 
           {/* Variable Mapping Info */}
           {selectedTemplate && (
