@@ -32,6 +32,84 @@ interface Agent {
   elevenlabs_speaker_boost?: boolean | null;
 }
 
+interface InstallmentsData {
+  count: number;
+  totalValue: number;
+  oldestDueDate: string | null;
+  installments: any[];
+}
+
+// Keywords que indicam consulta de parcelas/débitos pendentes (para cobrança)
+const COLLECTION_QUERY_KEYWORDS = [
+  'parcelas em aberto', 'parcela em aberto',
+  'quantas parcelas', 'quanto devo', 'quanto eu devo',
+  'valores pendentes', 'valor pendente',
+  'divida', 'dívida', 'pendencias', 'pendências',
+  'quanto está devendo', 'quanto estou devendo',
+  'débito', 'debito', 'em atraso', 'atrasado',
+  'boleto pendente', 'boletos pendentes',
+  'situação financeira', 'situacao financeira',
+  'tenho em aberto', 'a pagar', 'minha dívida',
+  'quanto falta pagar', 'parcelas atrasadas',
+  'parcelas vencidas', 'saldo devedor'
+];
+
+// Function to detect if message is a collection/debt query
+function isCollectionQuery(messageContent: string): boolean {
+  const content = messageContent.toLowerCase();
+  return COLLECTION_QUERY_KEYWORDS.some(keyword => content.includes(keyword));
+}
+
+// Function to fetch and sum pending installments for a contact
+async function fetchContactInstallments(supabase: any, contactId: string): Promise<{
+  count: number;
+  totalValue: number;
+  oldestDueDate: string | null;
+  installments: any[];
+} | null> {
+  try {
+    const { data, error } = await supabase
+      .from('installments')
+      .select(`
+        id, 
+        value, 
+        due_date, 
+        days_overdue, 
+        status,
+        installment_number,
+        policy_id
+      `)
+      .eq('contact_id', contactId)
+      .in('status', ['pending', 'overdue', 'negotiating'])
+      .order('due_date', { ascending: true });
+    
+    if (error) {
+      console.error('[Nina] Error fetching installments:', error);
+      return null;
+    }
+    
+    if (!data || data.length === 0) {
+      console.log('[Nina] No pending installments found for contact');
+      return null;
+    }
+    
+    const totalValue = data.reduce((sum: number, inst: any) => sum + parseFloat(inst.value || 0), 0);
+    const oldestDueDate = data[0]?.due_date || null;
+    
+    console.log(`[Nina] 💰 Found ${data.length} pending installments, total: R$ ${totalValue.toFixed(2)}`);
+    
+    return {
+      count: data.length,
+      totalValue,
+      oldestDueDate,
+      installments: data
+    };
+  } catch (error) {
+    console.error('[Nina] Error in fetchContactInstallments:', error);
+    return null;
+  }
+}
+
 // Keywords que indicam interesse explícito em seguro de cargas (para campanhas)
 const CARGO_INSURANCE_KEYWORDS = [
   'seguro de carga', 'seguro de cargas', 'seguro da carga', 'seguro cargas',
@@ -3245,6 +3323,18 @@ async function processQueueItem(
     console.error('[Nina] Error fetching call logs:', err);
   }
   
+  // ===== FETCH INSTALLMENTS DATA FOR COLLECTION QUERIES =====
+  let installmentsData: InstallmentsData | null = null;
+  
+  // Detect if current message is asking about pending payments OR if using omega (collection) agent
+  const currentMessageContent = message.content || '';
+  const isFinancialQuery = isCollectionQuery(currentMessageContent) || agent?.slug === 'omega';
+  
+  if (isFinancialQuery && conversation.contact_id) {
+    console.log('[Nina] 💰 Financial query detected, fetching installments data...');
+    installmentsData = await fetchContactInstallments(supabase, conversation.contact_id);
+  }
+  
   const enhancedSystemPrompt = buildEnhancedPrompt(
     systemPrompt, 
     conversation.contact, 
@@ -3252,7 +3342,8 @@ async function processQueueItem(
     agent,
     conversation.nina_context,
     recentUserMsgs,
-    recentCallLogs
+    recentCallLogs,
+    installmentsData
   );
 
   // Process template variables
@@ -3760,7 +3851,8 @@ function buildEnhancedPrompt(
   agent?: Agent | null,
   ninaContext?: any,
   recentUserMessages?: string[],
-  recentCallLogs?: any[]
+  recentCallLogs?: any[],
+  installmentsData?: InstallmentsData | null
 ): string {
   let contextInfo = '';
 
@@ -3806,6 +3898,39 @@ ${contact.notes}
       contextInfo += `\n[${date} - ${status}]: ${transcription}`;
     }
     contextInfo += `\n\n⚠️ Use o histórico de ligações para contextualizar a conversa e não repetir perguntas.`;
+  }
+
+  // ===== DADOS FINANCEIROS - PARCELAS PENDENTES =====
+  if (installmentsData && installmentsData.count > 0) {
+    const formattedValue = installmentsData.totalValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+    
+    const formattedDate = installmentsData.oldestDueDate 
+      ? new Date(installmentsData.oldestDueDate).toLocaleDateString('pt-BR')
+      : 'N/A';
+    
+    contextInfo += `\n\n## DADOS FINANCEIROS DO CLIENTE (CONSULTA AO BANCO DE DADOS):
+- Quantidade de parcelas em aberto: ${installmentsData.count}
+- Valor total pendente (sem juros): ${formattedValue}
+- Vencimento mais antigo: ${formattedDate}
+
+⚠️ IMPORTANTE: Use EXATAMENTE estes valores ao informar o cliente. Não invente números. Estes são os dados reais do sistema.`;
+
+    // Detalhamento das parcelas (máximo 10)
+    if (installmentsData.installments.length <= 10) {
+      contextInfo += `\n\nDetalhamento das parcelas:`;
+      for (const inst of installmentsData.installments) {
+        const value = parseFloat(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const date = new Date(inst.due_date).toLocaleDateString('pt-BR');
+        const statusLabel = inst.status === 'overdue' ? '⚠️ VENCIDA' : inst.status === 'negotiating' ? '🤝 EM NEGOCIAÇÃO' : '📅 PENDENTE';
+        const daysOverdue = inst.days_overdue && inst.days_overdue > 0 ? ` (${inst.days_overdue} dias de atraso)` : '';
+        contextInfo += `\n- Parcela ${inst.installment_number}: ${value} venc. ${date} ${statusLabel}${daysOverdue}`;
+      }
+    } else {
+      contextInfo += `\n\n(${installmentsData.count} parcelas no total - mostrando resumo)`;
+    }
   }
 
   // ===== QUALIFICATION ANSWERS - CRITICAL ANTI-REPETITION =====
