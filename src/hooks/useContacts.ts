@@ -1,0 +1,433 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+// Interface para contatos leves (carregamento rápido)
+export interface ContactLight {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  company?: string;
+  cnpj?: string;
+  cpf?: string;
+  cep?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  notes?: string;
+  status: string;
+  lastContact: string;
+  created_at?: string;
+  lead_source?: string;
+  whatsapp_id?: string;
+  utm_source?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  campaign?: string;
+  vertical?: 'transporte' | 'frotas';
+  // Dados relacionais (carregados sob demanda ou em batch separado)
+  ownerId?: string;
+  ownerName?: string;
+  pipelineId?: string;
+  pipelineName?: string;
+  pipelineSlug?: string;
+  pipelineIcon?: string;
+  pipelineColor?: string;
+  conversationActive?: boolean | null;
+  conversationStatus?: string;
+  policiesCount?: number;
+  insurers?: string[];
+  overdueValue?: number;
+  maxDaysOverdue?: number;
+}
+
+// Formatadores
+const formatCNPJDisplay = (cnpj: string | null) => {
+  if (!cnpj) return undefined;
+  const digits = cnpj.replace(/\D/g, '');
+  if (digits.length !== 14) return cnpj;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`;
+};
+
+const formatCPFDisplay = (cpf: string | null) => {
+  if (!cpf) return undefined;
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return cpf;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+};
+
+// Função para buscar contatos (apenas dados essenciais)
+const fetchContactsLight = async (): Promise<ContactLight[]> => {
+  const { data: contactsData, error } = await supabase
+    .from('contacts')
+    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical')
+    .order('last_activity', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error('[useContacts] Error fetching contacts:', error);
+    throw error;
+  }
+
+  return (contactsData || []).map(c => ({
+    id: c.id,
+    name: c.name || c.call_name || c.phone_number,
+    phone: c.phone_number,
+    email: c.email || '',
+    company: c.company || undefined,
+    cnpj: formatCNPJDisplay(c.cnpj),
+    cpf: formatCPFDisplay(c.cpf),
+    cep: c.cep || undefined,
+    street: c.street || undefined,
+    number: c.number || undefined,
+    complement: c.complement || undefined,
+    neighborhood: c.neighborhood || undefined,
+    city: c.city || undefined,
+    state: c.state || undefined,
+    notes: c.notes || undefined,
+    status: c.lead_status || 'new',
+    lastContact: new Date(c.last_activity).toLocaleDateString('pt-BR'),
+    created_at: c.created_at,
+    lead_source: c.lead_source || 'inbound',
+    whatsapp_id: c.whatsapp_id || undefined,
+    utm_source: c.utm_source || undefined,
+    utm_campaign: c.utm_campaign || undefined,
+    utm_content: c.utm_content || undefined,
+    utm_term: c.utm_term || undefined,
+    campaign: c.campaign || undefined,
+    vertical: c.vertical as 'transporte' | 'frotas' | undefined,
+  }));
+};
+
+// Função para enriquecer contatos com dados relacionais
+const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<ContactLight[]> => {
+  if (contacts.length === 0) return contacts;
+
+  const contactIds = contacts.map(c => c.id);
+  
+  const [dealsResult, conversationsResult, policiesResult, installmentsResult] = await Promise.all([
+    supabase
+      .from('deals')
+      .select(`
+        id, contact_id, owner_id, pipeline_id, created_at,
+        team_members!deals_owner_id_fkey(id, name),
+        pipelines(id, name, slug, icon, color)
+      `)
+      .in('contact_id', contactIds)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('conversations')
+      .select('contact_id, is_active, status, updated_at')
+      .in('contact_id', contactIds)
+      .order('updated_at', { ascending: false }),
+    supabase
+      .from('policies')
+      .select('id, contact_id, insurer')
+      .in('contact_id', contactIds),
+    supabase
+      .from('installments')
+      .select('contact_id, value, status, days_overdue')
+      .in('contact_id', contactIds)
+      .eq('status', 'overdue')
+  ]);
+
+  // Criar mapas para acesso rápido
+  const dealsByContact = new Map<string, any>();
+  (dealsResult.data || []).forEach(deal => {
+    if (!dealsByContact.has(deal.contact_id)) {
+      dealsByContact.set(deal.contact_id, deal);
+    }
+  });
+
+  const conversationsByContact = new Map<string, any>();
+  (conversationsResult.data || []).forEach(conv => {
+    if (!conversationsByContact.has(conv.contact_id)) {
+      conversationsByContact.set(conv.contact_id, conv);
+    }
+  });
+
+  const policiesByContact = new Map<string, { count: number; insurers: Set<string> }>();
+  (policiesResult.data || []).forEach(policy => {
+    const existing = policiesByContact.get(policy.contact_id) || { count: 0, insurers: new Set() };
+    existing.count += 1;
+    if (policy.insurer) existing.insurers.add(policy.insurer);
+    policiesByContact.set(policy.contact_id, existing);
+  });
+
+  const overdueByContact = new Map<string, { totalValue: number; maxDays: number }>();
+  (installmentsResult.data || []).forEach(inst => {
+    const existing = overdueByContact.get(inst.contact_id) || { totalValue: 0, maxDays: 0 };
+    existing.totalValue += Number(inst.value) || 0;
+    existing.maxDays = Math.max(existing.maxDays, inst.days_overdue || 0);
+    overdueByContact.set(inst.contact_id, existing);
+  });
+
+  // Enriquecer contatos
+  return contacts.map(contact => {
+    const deal = dealsByContact.get(contact.id);
+    const owner = deal?.team_members;
+    const pipeline = deal?.pipelines;
+    const conversation = conversationsByContact.get(contact.id);
+    const policyData = policiesByContact.get(contact.id);
+    const overdueData = overdueByContact.get(contact.id);
+
+    return {
+      ...contact,
+      ownerId: owner?.id || undefined,
+      ownerName: owner?.name || undefined,
+      pipelineId: pipeline?.id || undefined,
+      pipelineName: pipeline?.name || undefined,
+      pipelineSlug: pipeline?.slug || undefined,
+      pipelineIcon: pipeline?.icon || undefined,
+      pipelineColor: pipeline?.color || undefined,
+      conversationActive: conversation?.is_active ?? null,
+      conversationStatus: conversation?.status || undefined,
+      policiesCount: policyData?.count || 0,
+      insurers: policyData ? Array.from(policyData.insurers) : [],
+      overdueValue: overdueData?.totalValue || 0,
+      maxDaysOverdue: overdueData?.maxDays || 0,
+    };
+  });
+};
+
+// Função principal que busca contatos + relações
+const fetchContactsFull = async (): Promise<ContactLight[]> => {
+  const contacts = await fetchContactsLight();
+  return enrichContactsWithRelations(contacts);
+};
+
+export const useContacts = () => {
+  const queryClient = useQueryClient();
+
+  // Query principal com cache agressivo (10 minutos stale, 30 minutos em cache)
+  const { 
+    data: contacts = [], 
+    isLoading, 
+    isFetching,
+    refetch 
+  } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: fetchContactsFull,
+    staleTime: 10 * 60 * 1000,  // 10 minutos - considera dados frescos
+    gcTime: 30 * 60 * 1000,     // 30 minutos - mantém em cache
+  });
+
+  // Mutation para atualizar status com optimistic update
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ lead_status: status })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] });
+      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      
+      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
+        old?.map(c => c.id === id ? { ...c, status } : c) || []
+      );
+      
+      return { previousContacts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      toast.error('Erro ao atualizar status');
+    },
+    onSuccess: () => {
+      toast.success('Status atualizado');
+    },
+  });
+
+  // Mutation para deletar contato
+  const deleteContactMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] });
+      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      
+      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
+        old?.filter(c => c.id !== id) || []
+      );
+      
+      return { previousContacts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      toast.error('Erro ao excluir contato');
+    },
+    onSuccess: () => {
+      toast.success('Contato excluído com sucesso');
+    },
+  });
+
+  // Mutation para atualizar status em massa
+  const bulkUpdateStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ lead_status: status })
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onMutate: async ({ ids, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] });
+      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      
+      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
+        old?.map(c => ids.includes(c.id) ? { ...c, status } : c) || []
+      );
+      
+      return { previousContacts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      toast.error('Erro ao atualizar status em massa');
+    },
+    onSuccess: (_, { ids }) => {
+      toast.success(`Status atualizado para ${ids.length} contato(s)`);
+    },
+  });
+
+  // Mutation para deletar em massa
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] });
+      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      
+      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
+        old?.filter(c => !ids.includes(c.id)) || []
+      );
+      
+      return { previousContacts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      toast.error('Erro ao excluir contatos em massa');
+    },
+    onSuccess: (_, ids) => {
+      toast.success(`${ids.length} contato(s) excluído(s) com sucesso`);
+    },
+  });
+
+  // Mutation para atualizar campanha em massa
+  const bulkUpdateCampaignMutation = useMutation({
+    mutationFn: async ({ ids, campaign }: { ids: string[]; campaign: string | null }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ campaign })
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onMutate: async ({ ids, campaign }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] });
+      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      
+      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
+        old?.map(c => ids.includes(c.id) ? { ...c, campaign: campaign || undefined } : c) || []
+      );
+      
+      return { previousContacts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      toast.error('Erro ao atualizar campanha em massa');
+    },
+    onSuccess: (_, { ids, campaign }) => {
+      toast.success(`Campanha ${campaign ? 'atribuída' : 'removida'} de ${ids.length} contato(s)`);
+    },
+  });
+
+  return {
+    contacts,
+    isLoading,
+    isFetching,
+    refetch,
+    updateStatus: updateStatusMutation.mutate,
+    updateStatusAsync: updateStatusMutation.mutateAsync,
+    isUpdatingStatus: updateStatusMutation.isPending,
+    deleteContact: deleteContactMutation.mutate,
+    deleteContactAsync: deleteContactMutation.mutateAsync,
+    isDeleting: deleteContactMutation.isPending,
+    bulkUpdateStatus: bulkUpdateStatusMutation.mutate,
+    isBulkUpdatingStatus: bulkUpdateStatusMutation.isPending,
+    bulkDelete: bulkDeleteMutation.mutate,
+    isBulkDeleting: bulkDeleteMutation.isPending,
+    bulkUpdateCampaign: bulkUpdateCampaignMutation.mutate,
+    isBulkUpdatingCampaign: bulkUpdateCampaignMutation.isPending,
+    invalidateContacts: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+  };
+};
+
+// Hook separado para campanhas (cache longo)
+export const useCampaigns = () => {
+  return useQuery({
+    queryKey: ['campaigns-active'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('campaigns')
+        .select('id, name, color')
+        .eq('is_active', true)
+        .order('name');
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000,  // 30 minutos
+    gcTime: 60 * 60 * 1000,     // 1 hora
+  });
+};
+
+// Hook separado para filtros (owners e pipelines)
+export const useContactFilters = () => {
+  const ownersQuery = useQuery({
+    queryKey: ['team-members-active'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name');
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  const pipelinesQuery = useQuery({
+    queryKey: ['pipelines-active'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pipelines')
+        .select('id, name, slug, icon, color')
+        .eq('is_active', true)
+        .order('name');
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  return {
+    owners: ownersQuery.data || [],
+    pipelines: pipelinesQuery.data || [],
+    isLoading: ownersQuery.isLoading || pipelinesQuery.isLoading,
+  };
+};

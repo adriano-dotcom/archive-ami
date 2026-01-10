@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useContacts, useCampaigns, useContactFilters, ContactLight } from '@/hooks/useContacts';
 import { Button } from './ui/button';
 import { api } from '../services/api';
 import { Contact } from '../types';
@@ -11,14 +12,12 @@ import EditContactModal from './EditContactModal';
 import ContactDetailsDrawer from './ContactDetailsDrawer';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { BulkSendTemplateModal } from './BulkSendTemplateModal';
-import { supabase } from '@/integrations/supabase/client';
 import { SeguradosTab } from './segurados';
 
 const statusOptions = [
@@ -27,49 +26,33 @@ const statusOptions = [
   { value: 'third_party_claim', label: 'Terceiro Sinistro', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
 ];
 
-interface ExtendedContact extends Contact {
-  company?: string;
-  cnpj?: string;
-  cpf?: string;
-  cep?: string;
-  street?: string;
-  number?: string;
-  complement?: string;
-  neighborhood?: string;
-  city?: string;
-  state?: string;
-  notes?: string;
-  lead_source?: 'inbound' | 'outbound' | 'facebook' | 'google';
-  whatsapp_id?: string;
-  utm_source?: string;
-  utm_campaign?: string;
-  utm_content?: string;
-  utm_term?: string;
-  campaign?: string;
-  vertical?: 'transporte' | 'frotas';
-  created_at?: string;
-  // Deal/Owner/Pipeline data
-  ownerId?: string;
-  ownerName?: string;
-  pipelineId?: string;
-  pipelineName?: string;
-  pipelineSlug?: string;
-  pipelineIcon?: string;
-  pipelineColor?: string;
-  // Conversation data
-  conversationActive?: boolean | null;
-  conversationStatus?: string;
-  // Policies data (segurados)
-  policiesCount?: number;
-  insurers?: string[];
-  overdueValue?: number;
-  maxDaysOverdue?: number;
-}
+// Alias para compatibilidade
+type ExtendedContact = ContactLight;
 
 const Contacts: React.FC = () => {
   const navigate = useNavigate();
-  const [contacts, setContacts] = useState<ExtendedContact[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // React Query hooks para dados com cache
+  const { 
+    contacts, 
+    isLoading: loading, 
+    isFetching,
+    updateStatus, 
+    deleteContact: deleteContactMutation,
+    isDeleting,
+    bulkUpdateStatus,
+    isBulkUpdatingStatus: isBulkUpdating,
+    bulkDelete,
+    isBulkDeleting,
+    bulkUpdateCampaign,
+    isBulkUpdatingCampaign: isBulkCampaignUpdating,
+    invalidateContacts
+  } = useContacts();
+  
+  const { data: availableCampaigns = [] } = useCampaigns();
+  const { owners: availableOwners, pipelines: availablePipelines } = useContactFilters();
+  
+  // Local UI state
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -78,19 +61,14 @@ const Contacts: React.FC = () => {
   const [selectedContact, setSelectedContact] = useState<ExtendedContact | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<ExtendedContact | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbound' | 'segurados'>('inbound');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   
   // Bulk selection state
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkSendTemplateOpen, setIsBulkSendTemplateOpen] = useState(false);
-  const [isBulkCampaignUpdating, setIsBulkCampaignUpdating] = useState(false);
-  
   
   const { isAdmin } = useUserRole();
   
@@ -101,15 +79,12 @@ const Contacts: React.FC = () => {
   const [letterFilter, setLetterFilter] = useState<string>('all');
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [verticalFilter, setVerticalFilter] = useState<'all' | 'transporte' | 'frotas' | 'none'>('all');
-  const [availableCampaigns, setAvailableCampaigns] = useState<{id: string; name: string; color: string | null}[]>([]);
   
   // New filters: Owner, Pipeline, and Chat status
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [pipelineFilter, setPipelineFilter] = useState<string>('all');
   const [createdDateFilter, setCreatedDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month'>('all');
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'archived' | 'none'>('all');
-  const [availableOwners, setAvailableOwners] = useState<{id: string; name: string}[]>([]);
-  const [availablePipelines, setAvailablePipelines] = useState<{id: string; name: string; slug: string; icon: string | null; color: string | null}[]>([]);
 
   const handleConverse = async (contactId: string) => {
     try {
@@ -143,58 +118,15 @@ const Contacts: React.FC = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!contactToDelete) return;
-    
-    try {
-      setIsDeleting(true);
-      await api.deleteContact(contactToDelete.id);
-      toast.success('Contato excluído com sucesso');
-      setIsDeleteDialogOpen(false);
-      setContactToDelete(null);
-      loadContacts();
-    } catch (error) {
-      console.error('Erro ao excluir contato:', error);
-      toast.error('Erro ao excluir contato');
-    } finally {
-      setIsDeleting(false);
-    }
+    deleteContactMutation(contactToDelete.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false);
+        setContactToDelete(null);
+      }
+    });
   };
-  const loadContacts = async () => {
-    try {
-      setLoading(true);
-      const data = await api.fetchContacts();
-      setContacts(data);
-    } catch (error) {
-      console.error("Erro ao carregar contatos", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCampaigns = async () => {
-    const { data } = await supabase
-      .from('campaigns')
-      .select('id, name, color')
-      .eq('is_active', true)
-      .order('name');
-    if (data) setAvailableCampaigns(data);
-  };
-
-  const loadFiltersData = async () => {
-    const [ownersRes, pipelinesRes] = await Promise.all([
-      supabase.from('team_members').select('id, name').eq('status', 'active').order('name'),
-      supabase.from('pipelines').select('id, name, slug, icon, color').eq('is_active', true).order('name')
-    ]);
-    if (ownersRes.data) setAvailableOwners(ownersRes.data);
-    if (pipelinesRes.data) setAvailablePipelines(pipelinesRes.data);
-  };
-
-  useEffect(() => {
-    loadContacts();
-    loadCampaigns();
-    loadFiltersData();
-  }, []);
 
   const getStatusColor = (status: string) => {
     const option = statusOptions.find(o => o.value === status);
@@ -206,15 +138,8 @@ const Contacts: React.FC = () => {
     return option?.label || 'Novo Lead';
   };
 
-  const handleStatusChange = async (contactId: string, newStatus: string) => {
-    try {
-      await api.updateContactStatus(contactId, newStatus);
-      toast.success('Status atualizado');
-      loadContacts();
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
-      toast.error('Erro ao atualizar status');
-    }
+  const handleStatusChange = (contactId: string, newStatus: string) => {
+    updateStatus({ id: contactId, status: newStatus });
   };
 
   // Filtrar por origem (inbound/segurados) - excluir contatos de cobrança que vão para aba Segurados
@@ -380,63 +305,34 @@ const Contacts: React.FC = () => {
     }
   };
   
-  const handleBulkStatusChange = async (newStatus: string) => {
+  const handleBulkStatusChange = (newStatus: string) => {
     if (selectedContactIds.size === 0) return;
-    
-    try {
-      setIsBulkUpdating(true);
-      const promises = Array.from(selectedContactIds).map(id => 
-        api.updateContactStatus(id, newStatus)
-      );
-      await Promise.all(promises);
-      toast.success(`Status atualizado para ${selectedContactIds.size} contato(s)`);
-      setSelectedContactIds(new Set());
-      loadContacts();
-    } catch (error) {
-      console.error('Erro ao atualizar status em massa:', error);
-      toast.error('Erro ao atualizar status em massa');
-    } finally {
-      setIsBulkUpdating(false);
-    }
+    bulkUpdateStatus(
+      { ids: Array.from(selectedContactIds), status: newStatus },
+      { onSuccess: () => setSelectedContactIds(new Set()) }
+    );
   };
   
-  const handleBulkCampaignChange = async (campaign: string) => {
+  const handleBulkCampaignChange = (campaign: string) => {
     if (selectedContactIds.size === 0) return;
-    
-    try {
-      setIsBulkCampaignUpdating(true);
-      const campaignValue = campaign === '__none__' ? null : campaign;
-      await api.updateContactsCampaign(Array.from(selectedContactIds), campaignValue);
-      toast.success(`Campanha ${campaignValue ? 'atribuída' : 'removida'} de ${selectedContactIds.size} contato(s)`);
-      setSelectedContactIds(new Set());
-      loadContacts();
-    } catch (error) {
-      console.error('Erro ao atualizar campanha em massa:', error);
-      toast.error('Erro ao atualizar campanha em massa');
-    } finally {
-      setIsBulkCampaignUpdating(false);
-    }
+    const campaignValue = campaign === '__none__' ? null : campaign;
+    bulkUpdateCampaign(
+      { ids: Array.from(selectedContactIds), campaign: campaignValue },
+      { onSuccess: () => setSelectedContactIds(new Set()) }
+    );
   };
   
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedContactIds.size === 0) return;
-    
-    try {
-      setIsBulkDeleting(true);
-      const promises = Array.from(selectedContactIds).map(id => 
-        api.deleteContact(id)
-      );
-      await Promise.all(promises);
-      toast.success(`${selectedContactIds.size} contato(s) excluído(s) com sucesso`);
-      setSelectedContactIds(new Set());
-      setIsBulkDeleteDialogOpen(false);
-      loadContacts();
-    } catch (error) {
-      console.error('Erro ao excluir contatos em massa:', error);
-      toast.error('Erro ao excluir contatos em massa');
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    bulkDelete(
+      Array.from(selectedContactIds),
+      { 
+        onSuccess: () => {
+          setSelectedContactIds(new Set());
+          setIsBulkDeleteDialogOpen(false);
+        }
+      }
+    );
   };
   
   const clearAllFilters = () => {
@@ -1257,18 +1153,18 @@ const Contacts: React.FC = () => {
       <CreateContactModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        onSuccess={loadContacts}
+        onSuccess={invalidateContacts}
       />
       <ImportContactsModal
         open={isImportModalOpen}
         onOpenChange={setIsImportModalOpen}
-        onSuccess={loadContacts}
+        onSuccess={invalidateContacts}
       />
       <EditContactModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         contact={selectedContact}
-        onSuccess={loadContacts}
+        onSuccess={invalidateContacts}
       />
       <ContactDetailsDrawer
         open={isDetailsDrawerOpen}
@@ -1351,10 +1247,10 @@ const Contacts: React.FC = () => {
       <BulkSendTemplateModal
         isOpen={isBulkSendTemplateOpen}
         onClose={() => setIsBulkSendTemplateOpen(false)}
-        contacts={contacts.filter(c => selectedContactIds.has(c.id))}
+        contacts={contacts.filter(c => selectedContactIds.has(c.id)) as any}
         onComplete={() => {
           setSelectedContactIds(new Set());
-          loadContacts();
+          invalidateContacts();
         }}
       />
 
