@@ -2540,13 +2540,7 @@ const ChatInterface: React.FC = () => {
 
                 <div className="h-px bg-slate-800/50 w-full"></div>
 
-                {/* Lead Score Display */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lead Score</h4>
-                  <LeadScoreBadge clientMemory={activeChat.clientMemory} />
-                </div>
-
-                {/* Handoff Summary Card - Qualification Answers */}
+                {/* Handoff Summary Card - Resumo do Contato */}
                 <HandoffSummaryCard 
                   ninaContext={activeChat.ninaContext} 
                   agentSlug={activeChat.agentSlug}
