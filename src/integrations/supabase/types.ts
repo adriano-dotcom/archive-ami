@@ -905,7 +905,6 @@ export type Database = {
           minutes_before_expiry: number | null
           name: string
           only_if_no_client_response: boolean | null
-          pipeline_ids: string[] | null
           tags: string[] | null
           template_id: string | null
           template_variables: Json | null
@@ -932,7 +931,6 @@ export type Database = {
           minutes_before_expiry?: number | null
           name: string
           only_if_no_client_response?: boolean | null
-          pipeline_ids?: string[] | null
           tags?: string[] | null
           template_id?: string | null
           template_variables?: Json | null
@@ -959,7 +957,6 @@ export type Database = {
           minutes_before_expiry?: number | null
           name?: string
           only_if_no_client_response?: boolean | null
-          pipeline_ids?: string[] | null
           tags?: string[] | null
           template_id?: string | null
           template_variables?: Json | null
@@ -2578,6 +2575,7 @@ export type Database = {
         Returns: boolean
       }
       has_vault_secret: { Args: { secret_name: string }; Returns: boolean }
+      is_authenticated_team_member: { Args: never; Returns: boolean }
       is_authenticated_user: { Args: never; Returns: boolean }
       is_whatsapp_window_open: {
         Args: { p_conversation_id: string }
