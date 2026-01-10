@@ -1,6 +1,8 @@
 import React from 'react';
-import { ClipboardList, CheckCircle2, HelpCircle, Building2, MapPin, Truck, Package, FileCheck } from 'lucide-react';
+import { ClipboardList, CheckCircle2, HelpCircle, Building2, MapPin, Truck, Package, FileCheck, Receipt, DollarSign } from 'lucide-react';
 import { Json } from '@/integrations/supabase/types';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface QualificationAnswers {
   contratacao?: string;
@@ -26,9 +28,32 @@ interface QualificationAnswers {
 interface HandoffSummaryCardProps {
   ninaContext: Json | null;
   agentSlug?: string | null;
+  contactId?: string | null;
 }
 
-export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaContext, agentSlug }) => {
+export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaContext, agentSlug, contactId }) => {
+  // Fetch pending installments summary
+  const { data: installmentsSummary } = useQuery({
+    queryKey: ['contact-installments-summary', contactId],
+    queryFn: async () => {
+      if (!contactId) return null;
+      
+      const { data, error } = await supabase
+        .from('installments')
+        .select('value')
+        .eq('contact_id', contactId)
+        .in('status', ['pending', 'overdue', 'negotiating']);
+      
+      if (error || !data) return null;
+      
+      return {
+        count: data.length,
+        totalValue: data.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
+      };
+    },
+    enabled: !!contactId,
+  });
+
   // Safely extract qualification answers from nina_context
   const getQualificationAnswers = (): QualificationAnswers => {
     if (!ninaContext || typeof ninaContext !== 'object') return {};
@@ -40,9 +65,11 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
   };
 
   const answers = getQualificationAnswers();
-  const answeredCount = Object.values(answers).filter(v => v && v.trim() !== '').length;
+  const qualificationCount = Object.values(answers).filter(v => v && v.trim() !== '').length;
+  const installmentsDisplayed = installmentsSummary?.count ? 2 : 0;
+  const totalItemsCount = qualificationCount + installmentsDisplayed;
 
-  if (answeredCount === 0) {
+  if (totalItemsCount === 0) {
     return null;
   }
 
@@ -77,11 +104,12 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
         <ClipboardList className="w-4 h-4" />
         Resumo do Contato
         <span className="ml-auto px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded font-medium">
-          {answeredCount} itens
+          {totalItemsCount} itens
         </span>
       </h4>
       
       <div className="p-3 rounded-lg bg-gradient-to-br from-slate-800/70 to-slate-900/70 border border-slate-700/50 space-y-2">
+        {/* Qualification fields */}
         {fields.map(({ key, label, icon: Icon }) => {
           const value = answers[key];
           if (!value) return null;
@@ -115,6 +143,38 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
             </div>
           );
         })}
+
+        {/* Pending Installments Section */}
+        {installmentsSummary && installmentsSummary.count > 0 && (
+          <>
+            <div className="h-px bg-slate-700/50 my-2" />
+            
+            <div className="flex items-start gap-2 text-sm">
+              <div className="w-5 h-5 rounded bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Receipt className="w-3 h-3 text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-slate-500 text-xs">Parcelas Pendentes:</span>
+                <p className="text-amber-400 font-medium">{installmentsSummary.count}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-2 text-sm">
+              <div className="w-5 h-5 rounded bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <DollarSign className="w-3 h-3 text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-slate-500 text-xs">Valor Pendente:</span>
+                <p className="text-amber-400 font-medium">
+                  {new Intl.NumberFormat('pt-BR', { 
+                    style: 'currency', 
+                    currency: 'BRL' 
+                  }).format(installmentsSummary.totalValue)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
