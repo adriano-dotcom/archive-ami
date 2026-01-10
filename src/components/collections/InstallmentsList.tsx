@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CollectionEmailCampaign } from './CollectionEmailCampaign';
+import { SendInstallmentWhatsAppModal } from './SendInstallmentWhatsAppModal';
+import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
 
 interface Installment {
   id: string;
@@ -59,6 +61,8 @@ export const InstallmentsList: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedInstallmentForWhatsApp, setSelectedInstallmentForWhatsApp] = useState<Installment | null>(null);
+  const [showBulkWhatsAppModal, setShowBulkWhatsAppModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: installments, isLoading, refetch } = useQuery({
@@ -439,6 +443,14 @@ export const InstallmentsList: React.FC = () => {
                 <Sparkles className="w-4 h-4" />
                 Gerar Emails com IA ({selectedIds.length})
               </Button>
+              <Button 
+                size="sm" 
+                className="bg-green-600 hover:bg-green-700 gap-2"
+                onClick={() => setShowBulkWhatsAppModal(true)}
+              >
+                <MessageSquare className="w-4 h-4" />
+                WhatsApp ({selectedIds.length})
+              </Button>
               
               <Select
                 value=""
@@ -634,8 +646,9 @@ export const InstallmentsList: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 hover:bg-amber-500/20 hover:text-amber-400"
-                          title="Enviar cobrança"
+                          className="h-8 w-8 hover:bg-green-500/20 hover:text-green-400"
+                          title="Enviar cobrança via WhatsApp"
+                          onClick={() => setSelectedInstallmentForWhatsApp(inst)}
                         >
                           <MessageSquare className="w-4 h-4" />
                         </Button>
@@ -672,6 +685,26 @@ export const InstallmentsList: React.FC = () => {
         filters={{ 
           range: rangeFilter,
           selectedInstallmentIds: selectedIds 
+        }}
+      />
+
+      {/* Individual WhatsApp Modal */}
+      <SendInstallmentWhatsAppModal
+        isOpen={!!selectedInstallmentForWhatsApp}
+        onClose={() => setSelectedInstallmentForWhatsApp(null)}
+        installment={selectedInstallmentForWhatsApp}
+        onSent={() => refetch()}
+      />
+
+      {/* Bulk WhatsApp Modal */}
+      <SendCollectionTemplateModal
+        isOpen={showBulkWhatsAppModal}
+        onClose={() => setShowBulkWhatsAppModal(false)}
+        rangeFilter={rangeFilter}
+        installmentIds={selectedIds}
+        onSent={() => {
+          refetch();
+          setSelectedIds([]);
         }}
       />
 
