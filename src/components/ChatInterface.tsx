@@ -2544,6 +2544,7 @@ const ChatInterface: React.FC = () => {
                 <HandoffSummaryCard 
                   ninaContext={activeChat.ninaContext} 
                   agentSlug={activeChat.agentSlug}
+                  contactId={activeChat.contactId}
                 />
 
                 <div className="h-px bg-slate-800/50 w-full"></div>
