@@ -94,9 +94,14 @@ export const InstallmentsList: React.FC = () => {
 
   // Fetch company details for drawer
   const handleOpenCompanyDrawer = async (companyId: string) => {
-    if (!companyId) return;
+    if (!companyId) {
+      console.log('handleOpenCompanyDrawer: No companyId provided');
+      return;
+    }
     
+    console.log('handleOpenCompanyDrawer: Opening drawer for company:', companyId);
     setLoadingCompany(companyId);
+    
     try {
       // Fetch company data
       const { data: company, error: companyError } = await supabase
@@ -106,26 +111,43 @@ export const InstallmentsList: React.FC = () => {
         .single();
       
       if (companyError) throw companyError;
+      console.log('handleOpenCompanyDrawer: Company data loaded:', company);
+      
+      // First fetch policies for this company
+      const { data: policies } = await supabase
+        .from('policies')
+        .select('id')
+        .eq('company_id', companyId);
+      
+      const policyIds = policies?.map(p => p.id) || [];
+      console.log('handleOpenCompanyDrawer: Found policies:', policyIds.length);
       
       // Fetch counts and aggregations
-      const [contactsResult, billingContactsResult, policiesResult, installmentsResult] = await Promise.all([
+      const [contactsResult, billingContactsResult, policiesResult] = await Promise.all([
         supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
         supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_billing_contact', true),
-        supabase.from('policies').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
-        supabase
-          .from('installments')
-          .select('value, days_overdue, policy:policies!inner(company_id)')
-          .eq('policy.company_id', companyId)
-          .in('status', ['pending', 'overdue', 'negotiating'])
+        supabase.from('policies').select('id', { count: 'exact', head: true }).eq('company_id', companyId)
       ]);
       
-      const overdueInstallments = installmentsResult.data || [];
-      const overdueValue = overdueInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
-      const maxDaysOverdue = overdueInstallments.length > 0 
-        ? Math.max(...overdueInstallments.map(i => i.days_overdue || 0))
-        : 0;
+      // Fetch installments using policy IDs
+      let overdueValue = 0;
+      let maxDaysOverdue = 0;
       
-      setSelectedCompanyForDrawer({
+      if (policyIds.length > 0) {
+        const { data: installmentsData } = await supabase
+          .from('installments')
+          .select('value, days_overdue')
+          .in('policy_id', policyIds)
+          .in('status', ['pending', 'overdue', 'negotiating']);
+        
+        const overdueInstallments = installmentsData || [];
+        overdueValue = overdueInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
+        maxDaysOverdue = overdueInstallments.length > 0 
+          ? Math.max(...overdueInstallments.map(i => i.days_overdue || 0))
+          : 0;
+      }
+      
+      const companyData = {
         id: company.id,
         cnpj: company.cnpj,
         razao_social: company.razao_social,
@@ -145,7 +167,10 @@ export const InstallmentsList: React.FC = () => {
         policies_count: policiesResult.count || 0,
         overdue_value: overdueValue,
         max_days_overdue: maxDaysOverdue
-      });
+      };
+      
+      console.log('handleOpenCompanyDrawer: Setting company for drawer:', companyData);
+      setSelectedCompanyForDrawer(companyData);
     } catch (error) {
       console.error('Error fetching company details:', error);
       toast.error('Erro ao carregar dados da empresa');
