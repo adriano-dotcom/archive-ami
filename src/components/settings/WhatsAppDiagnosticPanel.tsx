@@ -97,6 +97,7 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [webhookStats, setWebhookStats] = useState<WebhookStats | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [fixingSubscription, setFixingSubscription] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -260,6 +261,33 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
       });
     } finally {
       setCheckingSubscription(false);
+    }
+  };
+
+  const fixWebhookSubscription = async () => {
+    setFixingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-subscribe-webhook', {
+        body: {}
+      });
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(data.message || 'Inscrição do webhook corrigida!');
+        // Refresh subscription status after fix
+        setTimeout(checkSubscriptionStatus, 2000);
+      } else {
+        toast.error(data?.error || 'Falha ao corrigir inscrição');
+        if (data?.instructions) {
+          console.log('Instructions:', data.instructions);
+        }
+      }
+    } catch (error) {
+      console.error('Error fixing subscription:', error);
+      toast.error('Erro ao corrigir inscrição do webhook');
+    } finally {
+      setFixingSubscription(false);
     }
   };
 
@@ -539,6 +567,32 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
                         {field}
                       </Badge>
                     ))}
+                  </div>
+                  
+                  {/* Fix Subscription Button */}
+                  <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-amber-300">⚠️ Ação Necessária</h4>
+                        <p className="text-xs text-amber-200/70 mt-1">
+                          O campo "messages" não está inscrito. Clique para corrigir automaticamente ou configure manualmente no Meta Business Suite.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fixWebhookSubscription}
+                        disabled={fixingSubscription}
+                        className="gap-2 bg-amber-500/20 border-amber-500/50 hover:bg-amber-500/30 text-amber-200 shrink-0"
+                      >
+                        {fixingSubscription ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Zap className="w-4 h-4" />
+                        )}
+                        Corrigir Agora
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
