@@ -40,6 +40,9 @@ interface WebhookStats {
   last_post_at: string | null;
   last_message_from_user: string | null;
   errors_24h: number;
+  real_messages_24h: number;
+  test_messages_24h: number;
+  last_real_message_at: string | null;
 }
 
 interface SubscriptionStatus {
@@ -106,7 +109,7 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       
       // Fetch queue stats
-      const [ninaQueue, sendQueue, settings, recentMessages, webhookLogsResult, postsLast24h, getsLast24h, errorsLast24h, lastPost, lastUserMessage] = await Promise.all([
+      const [ninaQueue, sendQueue, settings, recentMessages, webhookLogsResult, postsLast24h, getsLast24h, errorsLast24h, lastPost, lastUserMessage, realMessagesCount, testMessagesCount, lastRealMessage] = await Promise.all([
         supabase
           .from('nina_processing_queue')
           .select('status')
@@ -161,6 +164,31 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           .select('created_at')
           .eq('from_type', 'user')
           .order('created_at', { ascending: false })
+          .limit(1),
+        // Count REAL messages (not test) in last 24h
+        supabase
+          .from('webhook_request_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('method', 'POST')
+          .eq('event_type', 'message')
+          .eq('is_meta_test', false)
+          .gte('created_at', twentyFourHoursAgo),
+        // Count TEST messages in last 24h
+        supabase
+          .from('webhook_request_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('method', 'POST')
+          .eq('event_type', 'message')
+          .eq('is_meta_test', true)
+          .gte('created_at', twentyFourHoursAgo),
+        // Last REAL message received
+        supabase
+          .from('webhook_request_logs')
+          .select('created_at')
+          .eq('method', 'POST')
+          .eq('event_type', 'message')
+          .eq('is_meta_test', false)
+          .order('created_at', { ascending: false })
           .limit(1)
       ]);
 
@@ -170,7 +198,10 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
         total_gets_24h: getsLast24h.count || 0,
         errors_24h: errorsLast24h.count || 0,
         last_post_at: lastPost.data?.[0]?.created_at || null,
-        last_message_from_user: lastUserMessage.data?.[0]?.created_at || null
+        last_message_from_user: lastUserMessage.data?.[0]?.created_at || null,
+        real_messages_24h: realMessagesCount.count || 0,
+        test_messages_24h: testMessagesCount.count || 0,
+        last_real_message_at: lastRealMessage.data?.[0]?.created_at || null
       });
 
       // Calculate queue counts
@@ -420,41 +451,58 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
       {/* CRITICAL: Webhook Receiving Monitor */}
       <Card className={cn(
         "border-2",
-        webhookStats?.total_posts_24h === 0 
-          ? "bg-red-500/10 border-red-500/50" 
-          : "bg-emerald-500/10 border-emerald-500/30"
+        (webhookStats?.real_messages_24h || 0) > 0 
+          ? "bg-emerald-500/10 border-emerald-500/30" 
+          : webhookStats?.test_messages_24h 
+            ? "bg-amber-500/10 border-amber-500/50" 
+            : "bg-red-500/10 border-red-500/50"
       )}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            {webhookStats?.total_posts_24h === 0 ? (
-              <XCircle className="w-5 h-5 text-red-400" />
-            ) : (
+            {(webhookStats?.real_messages_24h || 0) > 0 ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            ) : webhookStats?.test_messages_24h ? (
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-400" />
             )}
             Monitor de Recebimento (Últimas 24h)
           </CardTitle>
           <CardDescription>
-            {webhookStats?.total_posts_24h === 0 
-              ? '⚠️ Nenhum POST do WhatsApp nas últimas 24h - verifique a configuração no Meta' 
-              : 'Webhook está recebendo mensagens do WhatsApp'}
+            {(webhookStats?.real_messages_24h || 0) > 0 
+              ? '✅ Sistema funcionando! Mensagens de clientes reais estão chegando.' 
+              : webhookStats?.test_messages_24h 
+                ? '⚠️ Apenas mensagens de TESTE do Meta recebidas - nenhum cliente real' 
+                : '❌ Nenhum POST do WhatsApp nas últimas 24h'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
               <div className={cn(
                 "text-3xl font-bold",
-                webhookStats?.total_posts_24h === 0 ? "text-red-400" : "text-emerald-400"
+                (webhookStats?.real_messages_24h || 0) > 0 ? "text-emerald-400" : "text-slate-500"
               )}>
-                {webhookStats?.total_posts_24h || 0}
+                {webhookStats?.real_messages_24h || 0}
               </div>
-              <div className="text-xs text-slate-400 mt-1">POSTs (mensagens)</div>
+              <div className="text-xs text-slate-400 mt-1">Reais</div>
+            </div>
+            <div className="text-center p-3 bg-slate-800/50 rounded-lg">
+              <div className={cn(
+                "text-3xl font-bold",
+                (webhookStats?.test_messages_24h || 0) > 0 && (webhookStats?.real_messages_24h || 0) === 0 
+                  ? "text-amber-400" 
+                  : "text-slate-400"
+              )}>
+                {webhookStats?.test_messages_24h || 0}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Testes Meta</div>
             </div>
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
               <div className="text-3xl font-bold text-blue-400">
                 {webhookStats?.total_gets_24h || 0}
               </div>
-              <div className="text-xs text-slate-400 mt-1">GETs (verificação)</div>
+              <div className="text-xs text-slate-400 mt-1">Verificações</div>
             </div>
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
               <div className={cn(
@@ -467,13 +515,44 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
             </div>
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
               <div className="text-xs text-slate-300">
-                {webhookStats?.last_post_at 
-                  ? formatDistanceToNow(new Date(webhookStats.last_post_at), { addSuffix: true, locale: ptBR })
+                {webhookStats?.last_real_message_at 
+                  ? formatDistanceToNow(new Date(webhookStats.last_real_message_at), { addSuffix: true, locale: ptBR })
                   : 'Nunca'}
               </div>
-              <div className="text-xs text-slate-400 mt-1">Último POST</div>
+              <div className="text-xs text-slate-400 mt-1">Última Real</div>
             </div>
           </div>
+          
+          {/* Success Message when real messages are coming */}
+          {(webhookStats?.real_messages_24h || 0) > 0 && (
+            <div className="mt-4 p-3 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+              <h4 className="font-medium text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Webhook Funcionando Corretamente!
+              </h4>
+              <p className="text-sm text-emerald-200/80 mt-2">
+                O sistema está recebendo mensagens de clientes reais. Total nas últimas 24h: <strong>{webhookStats?.real_messages_24h} mensagens reais</strong>.
+              </p>
+            </div>
+          )}
+          
+          {/* Warning when only test messages */}
+          {(webhookStats?.test_messages_24h || 0) > 0 && (webhookStats?.real_messages_24h || 0) === 0 && (
+            <div className="mt-4 p-3 bg-amber-500/20 rounded-lg border border-amber-500/30">
+              <h4 className="font-medium text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Apenas Mensagens de Teste Recebidas
+              </h4>
+              <p className="text-sm text-amber-200/80 mt-2">
+                O webhook está recebendo apenas mensagens de <strong>teste do Meta</strong> (phone_number_id: 123456123). Nenhuma mensagem de cliente real está chegando.
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-amber-200/70">
+                <p>✅ Verifique se o webhook está configurado no WABA/App <strong>correto</strong></p>
+                <p>✅ Confirme que o Phone Number ID no Meta corresponde ao configurado aqui</p>
+                <p>✅ Envie uma mensagem real de um celular para testar</p>
+              </div>
+            </div>
+          )}
           
           {webhookStats?.total_posts_24h === 0 && (
             <div className="mt-4 p-3 bg-red-500/20 rounded-lg border border-red-500/30">
