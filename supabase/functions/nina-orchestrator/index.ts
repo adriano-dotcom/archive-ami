@@ -3911,12 +3911,21 @@ ${contact.notes}
       ? new Date(installmentsData.oldestDueDate).toLocaleDateString('pt-BR')
       : 'N/A';
     
-    contextInfo += `\n\n## DADOS FINANCEIROS DO CLIENTE (CONSULTA AO BANCO DE DADOS):
-- Quantidade de parcelas em aberto: ${installmentsData.count}
-- Valor total pendente (sem juros): ${formattedValue}
-- Vencimento mais antigo: ${formattedDate}
+    contextInfo += `\n\n## 🚨 DADOS FINANCEIROS ATUALIZADOS (FONTE: BANCO DE DADOS EM TEMPO REAL)
 
-⚠️ IMPORTANTE: Use EXATAMENTE estes valores ao informar o cliente. Não invente números. Estes são os dados reais do sistema.`;
+### VALORES OFICIAIS - PRIORIDADE MÁXIMA:
+- **QUANTIDADE DE PARCELAS EM ABERTO:** ${installmentsData.count}
+- **VALOR TOTAL PENDENTE (sem juros):** ${formattedValue}
+- **VENCIMENTO MAIS ANTIGO:** ${formattedDate}
+
+### ⛔ REGRA OBRIGATÓRIA:
+1. ESTES DADOS SÃO DO BANCO DE DADOS E SÃO MAIS RECENTES QUE O HISTÓRICO DE CONVERSA
+2. SE O HISTÓRICO MENCIONAR VALORES DIFERENTES (ex: "R$ 536,90" ou "uma parcela"), IGNORE - ESTAVAM DESATUALIZADOS
+3. USE OBRIGATORIAMENTE: "${installmentsData.count} parcelas" e "${formattedValue}"
+4. NÃO repita informações antigas do histórico que conflitem com estes dados
+5. Se o cliente perguntar sobre parcelas, responda com TODOS os ${installmentsData.count} itens, não apenas um`;
+
+    console.log(`[Nina] 💰 Installments data injected into prompt: ${installmentsData.count} parcelas, ${formattedValue}`);
 
     // Detalhamento das parcelas (máximo 10)
     if (installmentsData.installments.length <= 10) {
