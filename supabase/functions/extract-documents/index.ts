@@ -494,6 +494,9 @@ serve(async (req) => {
 
       if (parsed?.installments && Array.isArray(parsed.installments)) {
         console.log('Processing ' + parsed.installments.length + ' installments from ' + sourceName);
+        let validCount = 0;
+        let skippedCount = 0;
+        
         for (const installment of parsed.installments) {
           installment.source = sourceName;
 
@@ -508,22 +511,56 @@ serve(async (req) => {
             }
           }
 
-          if (typeof installment.value === 'string') {
-            installment.value = parseFloat(String(installment.value).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          // CRITICAL FIX: Validate and ensure installment_number is a valid positive integer
+          // This prevents NOT-NULL constraint violation in the database
+          if (installment.installment_number === null || 
+              installment.installment_number === undefined || 
+              installment.installment_number === '' ||
+              isNaN(Number(installment.installment_number))) {
+            console.log('WARN: installment_number is null/undefined for ' + installment.policy_number + ', defaulting to 1');
+            installment.installment_number = 1;
+          } else if (typeof installment.installment_number === 'string') {
+            const parsed = parseInt(installment.installment_number);
+            installment.installment_number = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+          } else if (typeof installment.installment_number === 'number') {
+            installment.installment_number = Math.max(1, Math.floor(installment.installment_number));
+          } else {
+            installment.installment_number = 1;
           }
 
-          if (typeof installment.installment_number === 'string') {
-            installment.installment_number = parseInt(installment.installment_number) || 1;
+          // Validate and parse value
+          if (typeof installment.value === 'string') {
+            installment.value = parseFloat(String(installment.value).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          } else if (typeof installment.value !== 'number') {
+            installment.value = 0;
           }
 
           if (!installment.insurer) {
             installment.insurer = allResults.insurer_detected || detection.insurer || 'NÃO IDENTIFICADA';
           }
 
-          if (installment.policy_number && installment.insured_name && installment.value > 0) {
-            allResults.installments.push(installment);
+          // Validate required fields - skip entries with invalid data
+          if (!installment.policy_number) {
+            console.log('WARN: Skipping installment without policy_number');
+            skippedCount++;
+            continue;
           }
+          if (!installment.insured_name) {
+            console.log('WARN: Skipping installment without insured_name: ' + installment.policy_number);
+            skippedCount++;
+            continue;
+          }
+          if (installment.value <= 0) {
+            console.log('WARN: Skipping installment with invalid value: ' + installment.policy_number + ' value=' + installment.value);
+            skippedCount++;
+            continue;
+          }
+
+          validCount++;
+          allResults.installments.push(installment);
         }
+        
+        console.log('Installments from ' + sourceName + ': ' + validCount + ' valid, ' + skippedCount + ' skipped');
       }
     };
 
