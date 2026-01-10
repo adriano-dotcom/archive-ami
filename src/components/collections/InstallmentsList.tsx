@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2 } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
   AlertDialog,
@@ -88,6 +88,9 @@ const formatCNPJ = (cnpj: string | null | undefined) => {
   );
 };
 
+type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
+type SortDirection = 'asc' | 'desc';
+
 export const InstallmentsList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -101,7 +104,38 @@ export const InstallmentsList: React.FC = () => {
   const [selectedCompanyForDrawer, setSelectedCompanyForDrawer] = useState<CompanyForDrawer | null>(null);
   const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<CompanyForDrawer | null>(null);
   const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('days_overdue');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const queryClient = useQueryClient();
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const SortableHeader: React.FC<{ column: SortColumn; label: string; className?: string }> = ({ column, label, className = '' }) => (
+    <TableHead 
+      className={`cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {sortColumn === column ? (
+          sortDirection === 'asc' ? (
+            <ChevronUp className="w-4 h-4 text-blue-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-blue-400" />
+          )
+        ) : (
+          <ArrowUpDown className="w-3 h-3 text-slate-500" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   // Fetch company details for drawer
   const handleOpenCompanyDrawer = async (companyId: string) => {
@@ -260,6 +294,57 @@ export const InstallmentsList: React.FC = () => {
       return data as Installment[];
     }
   });
+
+  // Sort installments
+  const sortedInstallments = useMemo(() => {
+    if (!installments) return [];
+    
+    return [...installments].sort((a, b) => {
+      let valA: string | number;
+      let valB: string | number;
+      
+      switch (sortColumn) {
+        case 'empresa':
+          valA = (a.policy?.company?.nome_fantasia || a.policy?.company?.razao_social || '').toLowerCase();
+          valB = (b.policy?.company?.nome_fantasia || b.policy?.company?.razao_social || '').toLowerCase();
+          break;
+        case 'cnpj':
+          valA = a.policy?.company?.cnpj || '';
+          valB = b.policy?.company?.cnpj || '';
+          break;
+        case 'contato':
+          valA = (a.contact?.name || '').toLowerCase();
+          valB = (b.contact?.name || '').toLowerCase();
+          break;
+        case 'seguradora':
+          valA = (a.policy?.insurer || '').toLowerCase();
+          valB = (b.policy?.insurer || '').toLowerCase();
+          break;
+        case 'parcela':
+          valA = a.installment_number || 0;
+          valB = b.installment_number || 0;
+          break;
+        case 'valor':
+          valA = a.value || 0;
+          valB = b.value || 0;
+          break;
+        case 'vencimento':
+          valA = new Date(a.due_date).getTime();
+          valB = new Date(b.due_date).getTime();
+          break;
+        case 'days_overdue':
+          valA = a.days_overdue || 0;
+          valB = b.days_overdue || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [installments, sortColumn, sortDirection]);
 
   // Calculate selected total value
   const selectedTotal = useMemo(() => {
@@ -657,24 +742,24 @@ export const InstallmentsList: React.FC = () => {
                 <TableRow className="border-white/5 hover:bg-transparent">
                   <TableHead className="w-12">
                     <Checkbox 
-                      checked={selectedIds.length === installments.length && installments.length > 0}
+                      checked={selectedIds.length === sortedInstallments.length && sortedInstallments.length > 0}
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>CNPJ</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead>Seguradora</TableHead>
-                  <TableHead className="text-center">Parcela</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="text-center">Vencimento</TableHead>
-                  <TableHead className="text-center">Atraso</TableHead>
+                  <SortableHeader column="empresa" label="Empresa" />
+                  <SortableHeader column="cnpj" label="CNPJ" />
+                  <SortableHeader column="contato" label="Contato" />
+                  <SortableHeader column="seguradora" label="Seguradora" />
+                  <SortableHeader column="parcela" label="Parcela" className="text-center" />
+                  <SortableHeader column="valor" label="Valor" className="text-right" />
+                  <SortableHeader column="vencimento" label="Vencimento" className="text-center" />
+                  <SortableHeader column="days_overdue" label="Atraso" className="text-center" />
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {installments.map((inst) => (
+                {sortedInstallments.map((inst) => (
                   <TableRow 
                     key={inst.id} 
                     className={`border-white/5 hover:bg-white/[0.02] ${
