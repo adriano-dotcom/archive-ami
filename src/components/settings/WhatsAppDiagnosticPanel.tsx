@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 interface QueueStats {
   nina_pending: number;
@@ -54,6 +55,17 @@ interface WebhookTestResult {
   error?: string;
 }
 
+interface WebhookLog {
+  id: string;
+  created_at: string;
+  method: string;
+  event_type: string | null;
+  response_status: number | null;
+  is_meta_test: boolean;
+  error_message: string | null;
+  processing_time_ms: number | null;
+}
+
 export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
@@ -65,12 +77,13 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'ok' | 'error'>('unknown');
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [testResult, setTestResult] = useState<WebhookTestResult | null>(null);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       // Fetch queue stats
-      const [ninaQueue, sendQueue, settings, recentMessages] = await Promise.all([
+      const [ninaQueue, sendQueue, settings, recentMessages, webhookLogsResult] = await Promise.all([
         supabase
           .from('nina_processing_queue')
           .select('status')
@@ -88,7 +101,12 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           .select('created_at, from_type, metadata, conversation_id')
           .eq('from_type', 'user')
           .order('created_at', { ascending: false })
-          .limit(1)
+          .limit(1),
+        supabase
+          .from('webhook_request_logs')
+          .select('id, created_at, method, event_type, response_status, is_meta_test, error_message, processing_time_ms')
+          .order('created_at', { ascending: false })
+          .limit(20)
       ]);
 
       // Calculate queue counts
@@ -130,6 +148,11 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           from_number: 'cliente',
           is_test: false
         });
+      }
+
+      // Set webhook logs
+      if (webhookLogsResult.data) {
+        setWebhookLogs(webhookLogsResult.data as WebhookLog[]);
       }
 
     } catch (error) {
@@ -575,6 +598,85 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Webhook Request Logs */}
+      <Card className="bg-slate-900/50 border-slate-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="w-4 h-4 text-cyan-400" />
+            Requisições Recebidas do Webhook
+          </CardTitle>
+          <CardDescription>
+            Últimas 20 requisições recebidas no endpoint do webhook
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {webhookLogs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700">
+                    <TableHead className="text-slate-400">Hora</TableHead>
+                    <TableHead className="text-slate-400">Método</TableHead>
+                    <TableHead className="text-slate-400">Tipo</TableHead>
+                    <TableHead className="text-slate-400">Status</TableHead>
+                    <TableHead className="text-slate-400">Tempo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {webhookLogs.map((log) => (
+                    <TableRow key={log.id} className="border-slate-700">
+                      <TableCell className="text-xs text-slate-300">
+                        {format(new Date(log.created_at), 'dd/MM HH:mm:ss', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {log.method}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs",
+                            log.event_type === 'message' && !log.is_meta_test && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                            log.event_type === 'message' && log.is_meta_test && "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                            log.event_type === 'status' && "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                            log.event_type === 'verification' && "bg-violet-500/20 text-violet-400 border-violet-500/30",
+                            log.error_message && "bg-red-500/20 text-red-400 border-red-500/30"
+                          )}
+                        >
+                          {log.is_meta_test && log.event_type === 'message' ? 'teste' : (log.event_type || 'unknown')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          "text-xs font-mono",
+                          log.response_status === 200 && "text-emerald-400",
+                          log.response_status !== 200 && "text-red-400"
+                        )}>
+                          {log.response_status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-400">
+                        {log.processing_time_ms ? `${log.processing_time_ms}ms` : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Activity className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Nenhuma requisição recebida ainda.</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Isso pode significar que o Meta não está enviando webhooks.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* External Link */}
       <div className="flex justify-end">

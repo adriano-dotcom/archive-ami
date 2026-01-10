@@ -202,6 +202,9 @@ async function transcribeAudio(
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  const url = new URL(req.url);
+  
   // Log ALL incoming requests for debugging
   console.log('[Webhook] ========== REQUEST RECEIVED ==========');
   console.log('[Webhook] Method:', req.method);
@@ -218,6 +221,33 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Prepare log entry for database - will be updated throughout processing
+  const logEntry: Record<string, any> = {
+    method: req.method,
+    path: url.pathname,
+    query_params: Object.fromEntries(url.searchParams),
+    headers: Object.fromEntries(req.headers.entries()),
+    body: null,
+    source_ip: req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+    user_agent: req.headers.get('user-agent'),
+    response_status: 200,
+    processing_time_ms: 0,
+    event_type: 'unknown',
+    is_meta_test: false,
+    error_message: null
+  };
+
+  // Helper function to save log entry
+  const saveLogEntry = async (responseStatus: number) => {
+    logEntry.response_status = responseStatus;
+    logEntry.processing_time_ms = Date.now() - startTime;
+    try {
+      await supabase.from('webhook_request_logs').insert(logEntry);
+    } catch (e) {
+      console.error('[Webhook] Failed to save log entry:', e);
+    }
+  };
 
   try {
     // GET request = Webhook verification from WhatsApp
@@ -247,12 +277,17 @@ serve(async (req) => {
 
       if (mode === 'subscribe' && token === verifyToken) {
         console.log('[Webhook] ✅ Verification SUCCESSFUL - returning challenge');
+        logEntry.event_type = 'verification';
+        await saveLogEntry(200);
         return new Response(challenge, { status: 200, headers: corsHeaders });
       } else {
         console.error('[Webhook] ❌ Verification FAILED - token mismatch or wrong mode');
         console.error('[Webhook] Expected token:', verifyToken);
         console.error('[Webhook] Received token:', token);
         console.error('[Webhook] Mode:', mode);
+        logEntry.event_type = 'verification';
+        logEntry.error_message = 'Token mismatch or wrong mode';
+        await saveLogEntry(403);
         return new Response('Forbidden', { status: 403, headers: corsHeaders });
       }
     }
@@ -261,6 +296,9 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const body = await req.json();
       console.log('[Webhook] Received payload:', JSON.stringify(body, null, 2));
+      
+      // Store body in log entry
+      logEntry.body = body;
 
       // Extract message data from WhatsApp Cloud API format
       const entry = body.entry?.[0];
@@ -269,6 +307,8 @@ serve(async (req) => {
       
       if (!value) {
         console.log('[Webhook] No value in payload, ignoring');
+        logEntry.event_type = 'empty_payload';
+        await saveLogEntry(200);
         return new Response(JSON.stringify({ status: 'ignored' }), { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -347,6 +387,8 @@ serve(async (req) => {
           console.log(`[Webhook] Created notification for template ${templateName} - ${event}`);
         }
         
+        logEntry.event_type = 'template_status';
+        await saveLogEntry(200);
         return new Response(JSON.stringify({ status: 'template_status_processed' }), { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -404,7 +446,8 @@ serve(async (req) => {
             }
           }
         }
-        
+        logEntry.event_type = 'status';
+        await saveLogEntry(200);
         return new Response(JSON.stringify({ status: 'processed_statuses' }), { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -428,6 +471,10 @@ serve(async (req) => {
           const isTestMessage = metaTestNumbers.some(n => fromNumber.includes(n)) || 
                                 phoneNumberId === '123456123' || 
                                 phoneNumberId === '123456789012345';
+          
+          // Update log entry for message type
+          logEntry.event_type = 'message';
+          logEntry.is_meta_test = isTestMessage;
           
           // Enhanced logging to distinguish real vs test messages
           console.log('[Webhook] ==================== MESSAGE RECEIVED ====================');
@@ -470,17 +517,27 @@ serve(async (req) => {
         }
       }
 
+      // Save log and return
+      if (logEntry.event_type === 'unknown') {
+        logEntry.event_type = messages?.length > 0 ? 'message' : 'other';
+      }
+      await saveLogEntry(200);
       return new Response(JSON.stringify({ status: 'processed' }), { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
+    logEntry.event_type = 'method_not_allowed';
+    logEntry.error_message = 'Method not allowed';
+    await saveLogEntry(405);
     return new Response('Method not allowed', { status: 405, headers: corsHeaders });
 
   } catch (error) {
     console.error('[Webhook] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEntry.error_message = errorMessage;
+    await saveLogEntry(500);
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
