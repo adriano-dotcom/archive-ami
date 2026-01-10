@@ -156,9 +156,21 @@ SEGURADORAS CONHECIDAS E SEUS FORMATOS:
    - Pode aparecer "Parcelas de Apólice" como título
    - Site sompo.com.br
 
-5. ACX / Diversos:
-   - Campos: Parceiro de Negócio, Segurado, CPF/CNPJ, Apólice, Parcela, Valor Parcela, Vencimento
-   - Sistema Origem: ACX
+5. ACX / Diversos / Portal Genérico (MUITO IMPORTANTE - formato comum):
+   - Colunas típicas: Parceiro de Negócio, Segurado, Cpf/Cnpj, Ramo, Apólice, Endosso, Telefone, Parcela, Vencimento, Valor Parcela
+   - Sistema Origem: ACX ou portais de corretoras
+   - MAPEAMENTO OBRIGATÓRIO DE COLUNAS:
+     * "Segurado" → insured_name (nome completo do segurado/empresa)
+     * "Cpf/Cnpj" ou "CPF/CNPJ" → insured_document (apenas números, 11 ou 14 dígitos)
+     * "Telefone" → insured_phone (apenas números com DDD)
+     * "Ramo" → branch (código numérico antes do "-", ex: "540 - VIDA EM GRUPO" → branch: "540")
+     * "Apólice" → policy_number (ex: "540/592978")
+     * "Endosso" → endorsement (se disponível)
+     * "Parcela" → installment_number (número inteiro)
+     * "Vencimento" → due_date (converter para YYYY-MM-DD)
+     * "Valor Parcela" ou "Valor" → value (número decimal sem R$ ou pontos)
+     * Status: se não existir coluna de situação, usar "PENDENTE"
+   - CADA LINHA DA TABELA representa uma parcela - extraia TODAS as linhas!
 
 6. Porto Seguro:
    - Campos: APÓLICE, SEGURADO, CPF/CNPJ, PARCELA, VALOR, VENCIMENTO, SITUAÇÃO
@@ -254,10 +266,19 @@ Retorne APENAS um JSON válido no formato:
 Se não encontrar parcelas, retorne {"insurer_detected": null, "companies": [], "contacts": [], "installments": []}.
 NÃO inclua explicações, apenas o JSON.`;
 
+// Helper to normalize text: removes diacritics/accents and lowercases
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // Remove combining diacritical marks
+}
+
 // Detect if document is an insurance delinquency report
 function detectInsuranceReport(fileName: string, textContent?: string, mimeType?: string): { isInsurance: boolean; insurer?: string } {
   const lowerName = fileName.toLowerCase();
   const lowerContent = (textContent || '').toLowerCase();
+  const normalizedContent = normalizeText(textContent || '');
   
   // ===== DETECÇÃO PARA IMAGENS/SCREENSHOTS =====
   // Screenshots de portais de corretoras devem ser analisados como relatórios de seguros
@@ -312,6 +333,14 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
   if (lowerName.includes('bradesco') || lowerName.includes('bradescoseguros')) {
     return { isInsurance: true, insurer: 'BRADESCO SEGUROS' };
   }
+  // Generic report file names
+  if (lowerName.includes('report_') || lowerName.includes('relatorio_') || lowerName.includes('inadimplencia')) {
+    // Check if it also has insurance-related content
+    if (normalizedContent.includes('apolice') || normalizedContent.includes('parcela') || normalizedContent.includes('vencimento')) {
+      console.log('[DETECTION] Detected insurance report by filename pattern + content keywords');
+      return { isInsurance: true, insurer: 'UNKNOWN' };
+    }
+  }
   
   // ===== DETECÇÃO POR CONTEÚDO DO DOCUMENTO =====
   
@@ -346,6 +375,41 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
   // Bradesco Seguros
   if (lowerContent.includes('bradesco seguros') || lowerContent.includes('bradescoseguros.com.br') || lowerContent.includes('portal bradesco')) {
     return { isInsurance: true, insurer: 'BRADESCO SEGUROS' };
+  }
+  
+  // ===== DETECÇÃO POR ASSINATURA DE COLUNAS (ACX/PORTAL) =====
+  // This catches insurance reports from portals even without explicit "ACX" mention
+  // Using normalized content to handle accents (apolice vs apólice, parceiro de negocio vs parceiro de negócio)
+  
+  const hasApolice = normalizedContent.includes('apolice');
+  const hasParcela = normalizedContent.includes('parcela');
+  const hasVencimento = normalizedContent.includes('vencimento');
+  const hasValor = normalizedContent.includes('valor');
+  const hasSegurado = normalizedContent.includes('segurado');
+  const hasCpfCnpj = normalizedContent.includes('cpf') || normalizedContent.includes('cnpj');
+  const hasParceiroNegocio = normalizedContent.includes('parceiro de negocio');
+  const hasRamo = normalizedContent.includes('ramo');
+  
+  // Count how many key column headers are present
+  const columnSignatureScore = [
+    hasApolice,
+    hasParcela, 
+    hasVencimento,
+    hasValor,
+    hasSegurado,
+    hasCpfCnpj
+  ].filter(Boolean).length;
+  
+  // If we have at least 4 of the 6 key columns, it's likely an insurance report
+  if (columnSignatureScore >= 4) {
+    console.log(`[DETECTION] Detected insurance report by column signature (score=${columnSignatureScore}/6): apolice=${hasApolice}, parcela=${hasParcela}, vencimento=${hasVencimento}, valor=${hasValor}, segurado=${hasSegurado}, cpf/cnpj=${hasCpfCnpj}`);
+    
+    // Try to determine the specific type
+    if (hasParceiroNegocio || hasRamo) {
+      console.log('[DETECTION] ACX/Portal format detected (has "parceiro de negocio" or "ramo")');
+      return { isInsurance: true, insurer: 'ACX' };
+    }
+    return { isInsurance: true, insurer: 'PORTAL_GENERICO' };
   }
   
   // Detecção genérica de relatório de seguros
