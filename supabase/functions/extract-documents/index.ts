@@ -333,6 +333,33 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
   return { isInsurance: false };
 }
 
+// Limit content size for large text files (CSVs, etc.)
+const MAX_TEXT_CONTENT_LENGTH = 100000; // ~100KB of text content
+
+function limitTextContent(content: string, fileName: string): { content: string; truncated: boolean } {
+  if (content.length <= MAX_TEXT_CONTENT_LENGTH) {
+    return { content, truncated: false };
+  }
+  
+  console.log(`Content for ${fileName} is ${content.length} chars, limiting to ${MAX_TEXT_CONTENT_LENGTH}`);
+  
+  // For CSVs, try to keep complete lines
+  const lines = content.split('\n');
+  let truncatedContent = '';
+  let lineCount = 0;
+  
+  for (const line of lines) {
+    if (truncatedContent.length + line.length > MAX_TEXT_CONTENT_LENGTH) {
+      break;
+    }
+    truncatedContent += line + '\n';
+    lineCount++;
+  }
+  
+  console.log(`Kept ${lineCount} lines from ${fileName}`);
+  return { content: truncatedContent, truncated: true };
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -347,6 +374,12 @@ serve(async (req) => {
         JSON.stringify({ error: 'No files provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Log incoming request size
+    console.log(`Processing ${files.length} file(s)`);
+    for (const file of files) {
+      console.log(`  - ${file.name}: ${file.type}, content length: ${file.content?.length || 0} chars`);
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -375,7 +408,12 @@ serve(async (req) => {
           type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
           type === 'text/plain') {
         try {
-          extractedText = atob(content);
+          let decoded = atob(content);
+          const { content: limited, truncated } = limitTextContent(decoded, name);
+          extractedText = limited;
+          if (truncated) {
+            console.log(`Warning: Content truncated for ${name} to prevent timeout`);
+          }
         } catch {
           extractedText = content;
         }

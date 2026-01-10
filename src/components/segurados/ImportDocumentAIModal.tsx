@@ -150,13 +150,19 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
 
   // Check if any file is large and auto-enable sequential mode
   const hasLargeFiles = files.some(f => f.file.size > LARGE_FILE_THRESHOLD);
+  const hasMultipleFiles = files.length > 1;
 
   useEffect(() => {
-    if (hasLargeFiles && !sequentialMode) {
+    // Auto-enable sequential mode for large files or multiple files
+    if ((hasLargeFiles || hasMultipleFiles) && !sequentialMode) {
       setSequentialMode(true);
-      toast.info('Modo sequencial ativado para arquivos grandes');
+      if (hasLargeFiles) {
+        toast.info('Modo sequencial ativado para arquivos grandes');
+      } else if (hasMultipleFiles) {
+        toast.info('Modo sequencial ativado para múltiplos arquivos (mais estável)');
+      }
     }
-  }, [hasLargeFiles]);
+  }, [hasLargeFiles, hasMultipleFiles]);
 
   // Check for pending data on mount
   useEffect(() => {
@@ -542,12 +548,42 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     });
   };
 
-  // Process files in parallel (all at once)
+  // Helper to get user-friendly error message
+  const getErrorMessage = (error: any): string => {
+    const errorStr = String(error?.message || error || '').toLowerCase();
+    
+    // Network/timeout errors
+    if (errorStr.includes('failed to fetch') || errorStr.includes('networkerror') || errorStr.includes('network error')) {
+      return 'Erro de conexão. O arquivo pode ser muito grande ou a rede está instável. Tente arquivos menores ou um de cada vez.';
+    }
+    if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+      return 'Tempo limite excedido. Arquivo muito grande para processar. Tente arquivos menores.';
+    }
+    if (errorStr.includes('payload too large') || errorStr.includes('request entity too large')) {
+      return 'Arquivo muito grande. O limite é 5MB para processamento com IA.';
+    }
+    if (errorStr.includes('rate limit') || errorStr.includes('429')) {
+      return 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.';
+    }
+    if (errorStr.includes('payment') || errorStr.includes('402')) {
+      return 'Créditos insuficientes. Adicione créditos para continuar.';
+    }
+    
+    return error?.message || 'Erro ao processar documento';
+  };
+
+  // Process files in parallel (all at once) - NOT recommended for large/multiple files
   const processFilesParallel = async () => {
     // Update all files to processing
     setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, progress: 10 })));
 
     try {
+      // Check total size before processing
+      const totalSize = files.reduce((sum, f) => sum + f.file.size, 0);
+      if (totalSize > 3 * 1024 * 1024) { // 3MB total limit for parallel
+        throw new Error('Arquivos muito grandes para processamento paralelo. Use o modo sequencial.');
+      }
+
       // Convert files to base64
       const fileData = await Promise.all(
         files.map(async (f, index) => {
@@ -572,7 +608,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       // Update progress
       setFiles(prev => prev.map(f => ({ ...f, progress: 60 })));
 
-      // Call edge function
+      // Call edge function with timeout handling
       const { data, error } = await supabase.functions.invoke('extract-documents', {
         body: { files: fileData }
       });
@@ -587,12 +623,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       return data;
     } catch (error: any) {
       console.error('Error processing files:', error);
+      const friendlyError = getErrorMessage(error);
       setFiles(prev => prev.map(f => ({ 
         ...f, 
         status: 'error' as const, 
-        error: error.message || 'Erro ao processar' 
+        error: friendlyError 
       })));
-      throw error;
+      throw new Error(friendlyError);
     }
   };
 
@@ -650,9 +687,15 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       } catch (error: any) {
         // Mark error but continue with next files
         console.error(`Error processing file ${f.file.name}:`, error);
+        const friendlyError = getErrorMessage(error);
         setFiles(prev => prev.map((pf, idx) => 
-          idx === i ? { ...pf, status: 'error' as const, error: error.message || 'Erro ao processar' } : pf
+          idx === i ? { ...pf, status: 'error' as const, error: friendlyError } : pf
         ));
+        
+        // For network errors, pause briefly before continuing to avoid hammering the server
+        if (friendlyError.includes('conexão') || friendlyError.includes('rede')) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
     }
 
