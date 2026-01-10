@@ -240,15 +240,15 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl bg-slate-900 border-white/10">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col bg-slate-900 border-white/10">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-green-400" />
             Enviar Template de Cobrança via WhatsApp
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
+        <div className="flex-1 overflow-y-auto space-y-4 mt-4 pr-2">
           {/* Stats Summary */}
           {previewLoading ? (
             <div className="grid grid-cols-3 gap-4">
@@ -403,29 +403,30 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={onClose} className="border-white/10">
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => sendCampaignMutation.mutate()}
-              disabled={!selectedTemplate || sendCampaignMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 gap-2"
-            >
-              {sendCampaignMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Iniciar Envio ({previewData?.uniqueContacts || 0} contatos)
-                </>
-              )}
-            </Button>
-          </div>
+        </div>
+
+        {/* Fixed Footer with Actions */}
+        <div className="flex-shrink-0 flex justify-end gap-3 pt-4 border-t border-white/10 mt-4">
+          <Button variant="outline" onClick={onClose} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => sendCampaignMutation.mutate()}
+            disabled={!selectedTemplate || sendCampaignMutation.isPending}
+            className="bg-green-600 hover:bg-green-700 gap-2"
+          >
+            {sendCampaignMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Iniciar Envio ({previewData?.uniqueContacts || 0} contatos)
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
