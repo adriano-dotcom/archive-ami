@@ -457,6 +457,9 @@ function mapDBMessageStatus(status: DBMessageStatus): 'sent' | 'delivered' | 're
   }
 }
 
+// Fuso horário padrão do sistema
+const SYSTEM_TIMEZONE = 'America/Sao_Paulo';
+
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -471,12 +474,20 @@ function formatRelativeTime(dateStr: string): string {
   if (diffDays === 1) return 'Ontem';
   if (diffDays < 7) return `${diffDays}d`;
   
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return date.toLocaleDateString('pt-BR', { 
+    day: '2-digit', 
+    month: '2-digit',
+    timeZone: SYSTEM_TIMEZONE 
+  });
 }
 
 function formatMessageTime(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('pt-BR', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: SYSTEM_TIMEZONE 
+  });
 }
 
 function getDefaultClientMemory(): ClientMemory {
