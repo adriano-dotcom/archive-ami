@@ -116,6 +116,7 @@ const Contacts: React.FC = () => {
     return () => observer.disconnect();
   }, [handleObserver]);
 
+  const handleConverse = async (contactId: string) => {
     try {
       setIsLoadingConversation(true);
       const conversationId = await api.getOrCreateConversation(contactId);
