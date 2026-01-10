@@ -12,7 +12,8 @@ import {
   Server,
   XCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -21,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface QueueStats {
   nina_pending: number;
@@ -44,6 +46,14 @@ interface LastWebhookEvent {
   is_test: boolean;
 }
 
+interface WebhookTestResult {
+  success: boolean;
+  message_id?: string;
+  conversation_id?: string;
+  queued_for_nina?: boolean;
+  error?: string;
+}
+
 export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
@@ -53,6 +63,8 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
   const [triggeringSender, setTriggeringSender] = useState(false);
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'ok' | 'error'>('unknown');
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testResult, setTestResult] = useState<WebhookTestResult | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -192,6 +204,40 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
     toast.success(`${label} copiado!`);
   };
 
+  const simulateWebhook = async () => {
+    setTestingWebhook(true);
+    setTestResult(null);
+    try {
+      const testPhone = '5511999999999';
+      const testMessage = `Teste de webhook - ${new Date().toLocaleString('pt-BR')}`;
+      
+      const { data, error } = await supabase.functions.invoke('simulate-webhook', {
+        body: { 
+          phone: testPhone, 
+          name: 'Teste Diagnóstico',
+          message: testMessage 
+        }
+      });
+      
+      if (error) throw error;
+      
+      setTestResult({
+        success: data?.success ?? true,
+        message_id: data?.message_id,
+        conversation_id: data?.conversation_id,
+        queued_for_nina: data?.queued_for_nina
+      });
+      toast.success('Webhook simulado com sucesso!');
+      setTimeout(fetchData, 2000);
+    } catch (error: any) {
+      console.error('Error simulating webhook:', error);
+      toast.error('Erro ao simular webhook');
+      setTestResult({ success: false, error: error.message });
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -302,10 +348,64 @@ export const WhatsAppDiagnosticPanel: React.FC = () => {
               {checkingHealth ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Activity className="w-4 h-4" />
+              <Activity className="w-4 h-4" />
               )}
               Testar Conexão
             </Button>
+          </div>
+
+          {/* Simulate Webhook Test */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-sm text-slate-300">Teste de Processamento</span>
+                <span className="text-xs text-slate-500">
+                  Simula uma mensagem de cliente para testar o pipeline completo
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={simulateWebhook}
+                disabled={testingWebhook}
+                className="gap-2"
+              >
+                {testingWebhook ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Simular Mensagem
+              </Button>
+            </div>
+            
+            {testResult && (
+              <div className={cn(
+                "p-3 rounded-lg text-sm",
+                testResult.success 
+                  ? "bg-emerald-500/10 border border-emerald-500/30" 
+                  : "bg-red-500/10 border border-red-500/30"
+              )}>
+                {testResult.success ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Pipeline funcionando!
+                    </div>
+                    <div className="text-xs text-slate-400 space-y-0.5">
+                      <p>Conversa: {testResult.conversation_id?.slice(0, 8)}...</p>
+                      <p>Mensagem: {testResult.message_id?.slice(0, 8)}...</p>
+                      <p>Na fila Nina: {testResult.queued_for_nina ? 'Sim' : 'Não'}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    Erro no processamento: {testResult.error || 'Desconhecido'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
