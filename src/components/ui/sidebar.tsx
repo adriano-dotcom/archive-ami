@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { Link, LinkProps } from "react-router-dom";
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, createContext, useContext, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Pin, PinOff } from "lucide-react";
 
 interface Links {
   label: string;
@@ -16,6 +16,8 @@ interface SidebarContextProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   animate: boolean;
+  pinned: boolean;
+  setPinned: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const SidebarContext = createContext<SidebarContextProps | undefined>(
@@ -42,12 +44,30 @@ export const SidebarProvider = ({
   animate?: boolean;
 }) => {
   const [openState, setOpenState] = useState(false);
+  const [pinned, setPinned] = useState(() => {
+    const saved = localStorage.getItem('sidebar-pinned');
+    return saved === 'true';
+  });
+
+  // Persist pinned state
+  useEffect(() => {
+    localStorage.setItem('sidebar-pinned', String(pinned));
+  }, [pinned]);
+
+  // When pinned, keep sidebar open
+  useEffect(() => {
+    if (pinned && setOpenProp) {
+      setOpenProp(true);
+    } else if (pinned) {
+      setOpenState(true);
+    }
+  }, [pinned, setOpenProp]);
 
   const open = openProp !== undefined ? openProp : openState;
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
 
   return (
-    <SidebarContext.Provider value={{ open, setOpen, animate }}>
+    <SidebarContext.Provider value={{ open, setOpen, animate, pinned, setPinned }}>
       {children}
     </SidebarContext.Provider>
   );
@@ -94,7 +114,20 @@ export const DesktopSidebar = ({
   className?: string;
   children: React.ReactNode;
 }) => {
-  const { open, setOpen, animate } = useSidebar();
+  const { open, setOpen, animate, pinned, setPinned } = useSidebar();
+  
+  const handleMouseEnter = () => {
+    if (!pinned) setOpen(true);
+  };
+  
+  const handleMouseLeave = () => {
+    if (!pinned) setOpen(false);
+  };
+
+  const togglePin = () => {
+    setPinned(!pinned);
+  };
+  
   return (
     <motion.div
       className={cn(
@@ -106,18 +139,38 @@ export const DesktopSidebar = ({
         className
       )}
       animate={{
-        width: animate ? (open ? "260px" : "76px") : "260px",
+        width: animate ? (open || pinned ? "260px" : "76px") : "260px",
       }}
       transition={{
         duration: 0.3,
         ease: "easeInOut",
       }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       {...props}
     >
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
+      
+      {/* Pin Button */}
+      {open && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          onClick={togglePin}
+          className={cn(
+            "absolute top-4 right-4 z-20 p-1.5 rounded-lg transition-all duration-200",
+            pinned 
+              ? "bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/30" 
+              : "bg-white/[0.03] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300"
+          )}
+          title={pinned ? "Desafixar sidebar" : "Fixar sidebar aberta"}
+        >
+          {pinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+        </motion.button>
+      )}
+      
       <div className="relative z-10 flex flex-col h-full">
         {children}
       </div>

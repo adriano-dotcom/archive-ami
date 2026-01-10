@@ -85,7 +85,7 @@ const App: React.FC = () => {
                 <Route path="/campaigns" element={<CampaignsDashboard />} />
                 <Route path="/collections" element={<CollectionsDashboard />} />
                 <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
-                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Routes>
           </BrowserRouter>
