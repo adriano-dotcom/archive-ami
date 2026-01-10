@@ -142,8 +142,10 @@ export const DesktopSidebar = ({
         width: animate ? (open || pinned ? "260px" : "76px") : "260px",
       }}
       transition={{
-        duration: 0.3,
-        ease: "easeInOut",
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+        mass: 0.8,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -154,10 +156,15 @@ export const DesktopSidebar = ({
       
       {/* Pin Button */}
       {open && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 25,
+                  }}
           onClick={togglePin}
           className={cn(
             "absolute top-4 right-4 z-20 p-1.5 rounded-lg transition-all duration-200",
@@ -207,8 +214,9 @@ export const MobileSidebar = ({
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "-100%", opacity: 0 }}
               transition={{
-                duration: 0.3,
-                ease: "easeInOut",
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
               }}
               className={cn(
                 "fixed h-full w-full inset-0 p-10 z-[100] flex flex-col justify-between",
@@ -313,8 +321,9 @@ export const SidebarLink = ({
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
         transition={{
-          duration: 0.2,
-          ease: "easeInOut",
+          type: "spring",
+          stiffness: 350,
+          damping: 25,
         }}
         className={cn(
           "text-sm font-medium group-hover/sidebar:translate-x-1 transition-all duration-200 whitespace-pre flex-1",
@@ -325,9 +334,14 @@ export const SidebarLink = ({
       </motion.span>
       {/* Badge when expanded - iOS 26 style */}
       {badge && badge > 0 && open && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
+                  <motion.span
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 20,
+                    }}
           className="min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-full px-1.5 shadow-lg shadow-rose-500/40 ring-2 ring-rose-400/30"
         >
           {badge > 99 ? '99+' : badge}
