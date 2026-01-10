@@ -2195,11 +2195,11 @@ const ChatInterface: React.FC = () => {
                     Responsável
                   </h4>
                   <select
-                    value={activeChat.assignedUserId || existingDeal?.owner?.id || ''}
+                    value={activeChat.assignedUserId || ''}
                     onChange={(e) => {
                       const userId = e.target.value || null;
                       assignConversation(activeChat.id, userId);
-                      toast.success('Conversa atribuída. Deal atualizado automaticamente.');
+                      toast.success('Conversa atribuída com sucesso!');
                     }}
                     className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none transition-all"
                   >

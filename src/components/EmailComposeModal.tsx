@@ -350,20 +350,6 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
 
       if (error) throw error;
 
-      // Registrar atividade no deal
-      const { error: activityError } = await supabase
-        .from('deal_activities')
-        .insert({
-          deal_id: dealId,
-          type: 'email',
-          title: `Email enviado: ${subject}`,
-          description: `Para: ${to}`
-        });
-
-      if (activityError) {
-        console.error('Erro ao registrar atividade:', activityError);
-      }
-
       toast.success('Email enviado com sucesso!');
       onEmailSent?.();
       onClose();
