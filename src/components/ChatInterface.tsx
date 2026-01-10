@@ -1313,21 +1313,6 @@ const ChatInterface: React.FC = () => {
                             {chat.agentName}
                           </span>
                         )}
-                        {/* Pipeline badge */}
-                        {chat.pipelineName && (
-                          <span 
-                            className="px-2 py-0.5 text-[9px] rounded-full font-semibold flex items-center gap-1 shrink-0 border backdrop-blur-md shadow-lg"
-                            style={{ 
-                              background: `linear-gradient(to right, ${chat.pipelineColor}25, ${chat.pipelineColor}15)`,
-                              color: chat.pipelineColor || '#3b82f6',
-                              borderColor: `${chat.pipelineColor}50`,
-                              boxShadow: `0 4px 14px -3px ${chat.pipelineColor}30`
-                            }}
-                          >
-                            <span className="text-[10px]">{chat.pipelineIcon}</span>
-                            {chat.pipelineName}
-                          </span>
-                        )}
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium shrink-0 ml-2">{chat.lastMessageTime}</span>
                     </div>
@@ -2447,7 +2432,7 @@ const ChatInterface: React.FC = () => {
         <EmailComposeModal
           isOpen={showEmailModal}
           onClose={() => setShowEmailModal(false)}
-          dealId=""
+          
           contactEmail={activeChat.contactEmail || ''}
           contactName={activeChat.contactName}
           company={activeChat.contactCompany || ''}

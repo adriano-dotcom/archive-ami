@@ -34,13 +34,6 @@ export interface ContactLight {
   campaign?: string;
   vertical?: 'transporte' | 'frotas';
   // Dados relacionais (carregados sob demanda ou em batch separado)
-  ownerId?: string;
-  ownerName?: string;
-  pipelineId?: string;
-  pipelineName?: string;
-  pipelineSlug?: string;
-  pipelineIcon?: string;
-  pipelineColor?: string;
   conversationActive?: boolean | null;
   conversationStatus?: string;
   policiesCount?: number;
