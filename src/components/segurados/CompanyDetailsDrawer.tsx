@@ -25,10 +25,12 @@ interface Company {
   state: string | null;
   street?: string | null;
   number?: string | null;
+  complement?: string | null;
   neighborhood?: string | null;
   cep?: string | null;
   inscricao_estadual?: string | null;
   inscricao_municipal?: string | null;
+  notes?: string | null;
   contacts_count: number;
   billing_contacts_count: number;
   policies_count: number;
