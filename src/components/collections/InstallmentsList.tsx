@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
@@ -374,6 +375,20 @@ export const InstallmentsList: React.FC = () => {
     return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
   }, [installments]);
 
+  // Count unique contacts among selected installments
+  const uniqueContactsCount = useMemo(() => {
+    if (!installments || selectedIds.length === 0) return 0;
+    
+    const selectedInstallments = installments.filter(inst => selectedIds.includes(inst.id));
+    const uniquePhones = new Set(
+      selectedInstallments
+        .map(inst => inst.contact?.phone_number)
+        .filter(Boolean)
+    );
+    
+    return uniquePhones.size;
+  }, [installments, selectedIds]);
+
   // Select all installments with >30 days overdue
   const selectOverdue30Plus = () => {
     if (!installments) return;
@@ -667,22 +682,40 @@ export const InstallmentsList: React.FC = () => {
                 <CheckCircle className="w-4 h-4" />
                 Marcar como Pago
               </Button>
-              <Button 
-                size="sm" 
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
-                onClick={() => setShowEmailCampaign(true)}
-              >
-                <Sparkles className="w-4 h-4" />
-                Gerar Emails com IA ({selectedIds.length})
-              </Button>
-              <Button 
-                size="sm" 
-                className="bg-green-600 hover:bg-green-700 gap-2"
-                onClick={() => setShowBulkWhatsAppModal(true)}
-              >
-                <MessageSquare className="w-4 h-4" />
-                WhatsApp ({selectedIds.length})
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                      onClick={() => setShowEmailCampaign(true)}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Gerar Emails ({uniqueContactsCount} contato{uniqueContactsCount !== 1 ? 's' : ''})
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {selectedIds.length} parcelas de {uniqueContactsCount} contato(s) - valores serão consolidados
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700 gap-2"
+                      onClick={() => setShowBulkWhatsAppModal(true)}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      WhatsApp ({uniqueContactsCount} contato{uniqueContactsCount !== 1 ? 's' : ''})
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {selectedIds.length} parcelas de {uniqueContactsCount} contato(s) - valores serão consolidados
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               
               <Select
                 value=""
@@ -992,13 +1025,22 @@ export const InstallmentsList: React.FC = () => {
                   </div>
                 </div>
                 
-                <Button 
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
-                  onClick={() => setShowEmailCampaign(true)}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Gerar Emails
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
+                        onClick={() => setShowEmailCampaign(true)}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Emails ({uniqueContactsCount})
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {selectedIds.length} parcelas → {uniqueContactsCount} email(s) consolidado(s)
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </CardContent>
           </Card>
