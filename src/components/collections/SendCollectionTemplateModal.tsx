@@ -31,6 +31,17 @@ interface InstallmentPreview {
   days_overdue: number;
 }
 
+interface ConsolidatedContact {
+  contact_name: string;
+  contact_phone: string;
+  company_name: string;
+  first_policy: string;
+  oldest_due_date: string;
+  total_value: number;
+  installment_count: number;
+  max_days_overdue: number;
+}
+
 interface SendCollectionTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -135,19 +146,47 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
         };
       });
 
-      // Group by contact (unique phones)
-      const uniqueContacts = new Map<string, InstallmentPreview>();
+      // ============ CONSOLIDATE BY CONTACT ============
+      // Group installments by contact and consolidate values
+      const contactGroups = new Map<string, ConsolidatedContact>();
+
       previews.forEach(p => {
-        if (!uniqueContacts.has(p.contact_phone)) {
-          uniqueContacts.set(p.contact_phone, p);
+        if (!contactGroups.has(p.contact_phone)) {
+          contactGroups.set(p.contact_phone, {
+            contact_name: p.contact_name,
+            contact_phone: p.contact_phone,
+            company_name: p.company_name,
+            first_policy: p.policy_number,
+            oldest_due_date: p.due_date,
+            total_value: p.value,
+            installment_count: 1,
+            max_days_overdue: p.days_overdue,
+          });
+        } else {
+          const group = contactGroups.get(p.contact_phone)!;
+          group.total_value += p.value;
+          group.installment_count++;
+          
+          // Use oldest due date and its policy
+          if (new Date(p.due_date) < new Date(group.oldest_due_date)) {
+            group.oldest_due_date = p.due_date;
+            group.first_policy = p.policy_number;
+          }
+          
+          // Track max days overdue
+          if (p.days_overdue > group.max_days_overdue) {
+            group.max_days_overdue = p.days_overdue;
+          }
         }
       });
 
+      const consolidatedContacts = Array.from(contactGroups.values());
+
       return {
         total: previews.length,
-        uniqueContacts: uniqueContacts.size,
+        uniqueContacts: consolidatedContacts.length,
         totalValue: previews.reduce((sum, p) => sum + p.value, 0),
-        samples: Array.from(uniqueContacts.values()).slice(0, 5),
+        samples: consolidatedContacts.slice(0, 5),
       };
     },
     enabled: isOpen,
@@ -353,9 +392,9 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
               <ul className="text-sm text-slate-400 space-y-1">
                 <li>• <span className="text-white">Header {`{{1}}`}</span> → Primeiro nome do contato</li>
                 <li>• <span className="text-white">Body {`{{1}}`}</span> → Nome da empresa/segurado</li>
-                <li>• <span className="text-white">Body {`{{2}}`}</span> → Número da apólice</li>
-                <li>• <span className="text-white">Body {`{{3}}`}</span> → Valor da parcela (R$)</li>
-                <li>• <span className="text-white">Body {`{{4}}`}</span> → Data de vencimento</li>
+                <li>• <span className="text-white">Body {`{{2}}`}</span> → <span className="text-amber-300">Primeira apólice</span> (parcela mais antiga)</li>
+                <li>• <span className="text-white">Body {`{{3}}`}</span> → <span className="text-amber-300">Valor TOTAL</span> (soma das parcelas)</li>
+                <li>• <span className="text-white">Body {`{{4}}`}</span> → <span className="text-amber-300">Data mais ANTIGA</span></li>
               </ul>
             </div>
           )}
@@ -370,14 +409,18 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
                     key={idx}
                     className="flex items-center justify-between p-2 bg-slate-800/30 rounded-lg text-sm"
                   >
-                    <div>
+                    <div className="flex items-center gap-2">
                       <span className="text-white">{sample.contact_name}</span>
-                      <span className="text-slate-500 ml-2">{sample.contact_phone}</span>
+                      {sample.installment_count > 1 && (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                          {sample.installment_count} parcelas
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-400">{formatCurrency(sample.value)}</span>
+                      <span className="text-amber-400 font-semibold">{formatCurrency(sample.total_value)}</span>
                       <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs">
-                        {sample.days_overdue}d atraso
+                        {sample.max_days_overdue}d
                       </Badge>
                     </div>
                   </div>

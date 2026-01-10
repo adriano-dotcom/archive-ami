@@ -176,12 +176,29 @@ serve(async (req) => {
     // Check for recent sends (within 24h) to avoid spam
     const { data: recentAttempts } = await supabase
       .from('collection_attempts')
-      .select('contact_id, installment_id')
+      .select('contact_id')
       .eq('channel', 'whatsapp')
       .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .in('status', ['sent', 'delivered']);
 
-    const recentSentMap = new Set(recentAttempts?.map(a => `${a.contact_id}-${a.installment_id}`) || []);
+    const recentSentContacts = new Set(recentAttempts?.map(a => a.contact_id) || []);
+
+    // ============ GROUP INSTALLMENTS BY CONTACT ============
+    // Consolidate multiple installments from same company into one message
+    const groupedByContact = new Map<string, InstallmentWithRelations[]>();
+    
+    for (const inst of installments as unknown as InstallmentWithRelations[]) {
+      const contact = getFirst(inst.contact);
+      if (!contact || !contact.phone_number) continue;
+      
+      const key = contact.id;
+      if (!groupedByContact.has(key)) {
+        groupedByContact.set(key, []);
+      }
+      groupedByContact.get(key)!.push(inst);
+    }
+
+    console.log(`Grouped ${installments.length} installments into ${groupedByContact.size} contacts`);
 
     let sentCount = 0;
     let failedCount = 0;
@@ -193,33 +210,40 @@ serve(async (req) => {
       .update({ 
         status: 'processing',
         started_at: new Date().toISOString(),
-        total_count: installments.length
+        total_count: groupedByContact.size
       })
       .eq('id', batch_id);
 
-    // Process each installment
-    for (const installment of installments as unknown as InstallmentWithRelations[]) {
-      const contact = getFirst(installment.contact);
-      const policy = getFirst(installment.policy);
-      
-      if (!contact || !contact.phone_number) {
-        console.log(`Skipping installment ${installment.id}: no contact or phone`);
-        failedCount++;
-        continue;
-      }
-
-      // Skip if already sent to this contact-installment in last 24h
-      const key = `${contact.id}-${installment.id}`;
-      if (recentSentMap.has(key)) {
-        console.log(`Skipping ${key}: already sent in last 24h`);
+    // Process each contact group (consolidated)
+    for (const [contactId, contactInstallments] of groupedByContact) {
+      // Skip if already sent to this contact in last 24h
+      if (recentSentContacts.has(contactId)) {
+        console.log(`Skipping contact ${contactId}: already sent in last 24h`);
         continue;
       }
 
       // Skip if already sent to this contact in this batch
-      if (sentContactIds.has(contact.id)) {
-        console.log(`Skipping contact ${contact.id}: already sent in this batch`);
+      if (sentContactIds.has(contactId)) {
+        console.log(`Skipping contact ${contactId}: already sent in this batch`);
         continue;
       }
+
+      // Sort by due_date (oldest first) to get first policy
+      contactInstallments.sort((a, b) => 
+        new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+      );
+
+      const firstInstallment = contactInstallments[0];
+      const contact = getFirst(firstInstallment.contact)!;
+      const firstPolicy = getFirst(firstInstallment.policy);
+
+      // Calculate consolidated values
+      const totalValue = contactInstallments.reduce((sum, inst) => sum + inst.value, 0);
+      const oldestDueDate = firstInstallment.due_date;
+      const firstPolicyNumber = firstPolicy?.policy_number;
+      const installmentCount = contactInstallments.length;
+
+      console.log(`Contact ${contact.name}: ${installmentCount} installments, total=${formatCurrency(totalValue)}, oldest=${oldestDueDate}`);
 
       try {
         // Get or create conversation
@@ -251,27 +275,27 @@ serve(async (req) => {
 
         // Get company name
         let companyName = contact.name || 'Cliente';
-        const companyId = policy?.company_id || contact.company_id;
+        const companyId = firstPolicy?.company_id || contact.company_id;
         if (companyId && companyMap.has(companyId)) {
           const company = companyMap.get(companyId)!;
           companyName = company.nome_fantasia || company.razao_social;
         }
 
-        // Map template variables:
+        // Map template variables with CONSOLIDATED data:
         // Header {{1}} = First name
         // Body {{1}} = Company/Contact name
-        // Body {{2}} = Policy number
-        // Body {{3}} = Value formatted
-        // Body {{4}} = Due date formatted
+        // Body {{2}} = FIRST policy number (oldest installment)
+        // Body {{3}} = TOTAL value (sum of all installments)
+        // Body {{4}} = OLDEST due date
         const headerVariables = [getFirstName(contact.name)];
         const bodyVariables = [
           companyName,
-          policy?.policy_number || 'N/A',
-          formatCurrency(installment.value),
-          formatDate(installment.due_date)
+          firstPolicyNumber || 'N/A',
+          formatCurrency(totalValue),      // SOMA dos valores
+          formatDate(oldestDueDate)         // Data MAIS ANTIGA
         ];
 
-        console.log(`Sending to ${contact.phone_number}: header=${headerVariables}, body=${bodyVariables}`);
+        console.log(`Sending consolidated message to ${contact.phone_number}: ${installmentCount} installments, value=${formatCurrency(totalValue)}`);
 
         // Call send-whatsapp-template function
         const sendResponse = await fetch(
@@ -297,18 +321,26 @@ serve(async (req) => {
         const sendResult = await sendResponse.json();
 
         if (sendResult.success) {
-          // Log attempt
-          await supabase.from('collection_attempts').insert({
-            batch_id,
-            contact_id: contact.id,
-            installment_id: installment.id,
-            channel: 'whatsapp',
-            template_name,
-            message_id: sendResult.message_id,
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            message_content: sendResult.content
-          });
+          // Log attempt for EACH installment in the group (for tracking)
+          for (const inst of contactInstallments) {
+            await supabase.from('collection_attempts').insert({
+              batch_id,
+              contact_id: contact.id,
+              installment_id: inst.id,
+              channel: 'whatsapp',
+              template_name,
+              message_id: sendResult.message_id,
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+              message_content: sendResult.content,
+              metadata: {
+                consolidated: true,
+                installments_count: installmentCount,
+                total_value: totalValue,
+                oldest_due_date: oldestDueDate
+              }
+            });
+          }
 
           sentCount++;
           sentContactIds.add(contact.id);
@@ -324,17 +356,22 @@ serve(async (req) => {
         }
 
       } catch (error) {
-        console.error(`Failed to send to contact ${contact.id}:`, error);
+        console.error(`Failed to send to contact ${contactId}:`, error);
         
-        // Log failed attempt
+        // Log failed attempt for first installment
         await supabase.from('collection_attempts').insert({
           batch_id,
-          contact_id: contact.id,
-          installment_id: installment.id,
+          contact_id: contactId,
+          installment_id: firstInstallment.id,
           channel: 'whatsapp',
           template_name,
           status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Unknown error'
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          metadata: {
+            consolidated: true,
+            installments_count: installmentCount,
+            total_value: totalValue
+          }
         });
 
         failedCount++;
