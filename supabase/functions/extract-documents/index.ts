@@ -113,11 +113,13 @@ NÃO inclua explicações, apenas o JSON.`;
 const INSURANCE_EXTRACTION_PROMPT = `Você é um especialista em processamento de relatórios de inadimplência de seguradoras brasileiras.
 Analise o documento e extraia TODAS as parcelas pendentes/inadimplentes.
 
-EXTRAÇÃO DE DADOS DE CONTATO (MUITO IMPORTANTE):
-- Sempre tente extrair o TELEFONE do segurado/cliente quando disponível no documento
-- Procure por padrões como: (XX) XXXXX-XXXX, XX XXXXX-XXXX, 11999998888, etc.
-- Extraia EMAIL se disponível: procure por padrões user@domain.com
-- Se o telefone ou email estiver em qualquer lugar do documento associado ao segurado, extraia-o
+IMPORTANTE SOBRE TELEFONES:
+- NÃO extraia telefones de relatórios de inadimplência
+- Telefones nesses arquivos geralmente são da corretora/parceiro, não do segurado real
+- Deixe o campo insured_phone VAZIO ou não preencha
+
+EXTRAÇÃO DE EMAIL:
+- Extraia EMAIL se disponível e claramente associado ao segurado
 
 EXTRAÇÃO DE EMPRESA E CNPJ (CRÍTICO):
 - Extraia o nome do segurado COMPLETO como insured_name (geralmente a razão social da empresa)
@@ -157,13 +159,13 @@ SEGURADORAS CONHECIDAS E SEUS FORMATOS:
    - Site sompo.com.br
 
 5. ACX / Diversos / Portal Genérico (MUITO IMPORTANTE - formato comum):
-   - Colunas típicas: Parceiro de Negócio, Segurado, Cpf/Cnpj, Ramo, Apólice, Endosso, Telefone, Parcela, Vencimento, Valor Parcela
+   - Colunas típicas: Parceiro de Negócio, Segurado, Cpf/Cnpj, Ramo, Apólice, Endosso, Parcela, Vencimento, Valor Parcela
    - Sistema Origem: ACX ou portais de corretoras
    - MAPEAMENTO OBRIGATÓRIO DE COLUNAS:
      * "Segurado" → insured_name (nome completo do segurado/empresa)
      * "Cpf/Cnpj" ou "CPF/CNPJ" → insured_document (apenas números, 11 ou 14 dígitos)
-     * "Telefone" → insured_phone (apenas números com DDD)
      * "Ramo" → branch (código numérico antes do "-", ex: "540 - VIDA EM GRUPO" → branch: "540")
+     * IGNORAR coluna "Telefone" - são telefones da corretora, não do segurado
      * "Apólice" → policy_number (ex: "540/592978")
      * "Endosso" → endorsement (se disponível)
      * "Parcela" → installment_number (número inteiro)
@@ -196,7 +198,7 @@ REGRAS DE EXTRAÇÃO:
 1. DATAS: Converta SEMPRE para formato YYYY-MM-DD (ex: 25/12/2025 → 2025-12-25)
 2. VALORES: Remova R$, pontos de milhar, converta vírgula decimal para ponto (ex: R$ 1.234,56 → 1234.56)
 3. CPF/CNPJ: Apenas números (11 dígitos = CPF, 14 dígitos = CNPJ)
-4. TELEFONE: SEMPRE tente extrair se disponível, apenas números com DDD (10-11 dígitos). Procure em qualquer parte do documento.
+4. TELEFONE: NÃO EXTRAIR - telefones de relatórios de inadimplência são da corretora
 5. EMAIL: Extraia se disponível no documento, associado ao segurado
 6. STATUS: Use "PENDENTE", "VENCIDO" ou "ATRASADO"
 7. days_overdue: Calcule se houver "dias em atraso" ou se a data de vencimento for anterior a hoje
@@ -222,7 +224,7 @@ FORMATOS ESPECIAIS DE SCREENSHOTS/PORTAIS DE CORRETORA:
 IMPORTANTE PARA SCREENSHOTS E IMAGENS:
 - Analise cuidadosamente TODAS as linhas visíveis na tabela
 - Cada linha com dados deve gerar um objeto installment separado
-- Números de telefone podem estar parcialmente ocultos - extraia o que for visível
+- NÃO extraia telefones - são da corretora, não do segurado
 - Valores com "R$" devem ser convertidos para número decimal
 - Se a imagem mostrar uma tabela de parcelas, EXTRAIA CADA LINHA
 
@@ -249,7 +251,6 @@ Retorne APENAS um JSON válido no formato:
       "cancellation_date": "2026-02-23",
       "insured_name": "MBL TRANSPORTES E NEGOCIOS LTDA",
       "insured_document": "12467840000148",
-      "insured_phone": "43999998888",
       "insured_email": "contato@mbl.com.br",
       "insured_company_name": "MBL TRANSPORTES E NEGOCIOS LTDA",
       "insured_is_company": true,
