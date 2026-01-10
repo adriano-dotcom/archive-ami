@@ -1048,6 +1048,11 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       // Import installments (create policies and installments)
       const policyIdMap = new Map<string, string>(); // policy_number -> id
       
+      // Counters for accurate tracking
+      let successfulInstallments = 0;
+      let failedInstallments = 0;
+      const importErrors: Array<{ type: string; data: any; error: string }> = [];
+      
       for (let i = 0; i < selectedInstallments.length; i++) {
         const inst = selectedInstallments[i];
         
@@ -1208,6 +1213,26 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
+          // CRITICAL FIX: Validate installment_number before inserting
+          // Fallback to 1 if null/undefined/invalid to prevent NOT-NULL constraint violation
+          const installmentNumber = (
+            inst.installment_number != null && 
+            !isNaN(Number(inst.installment_number)) && 
+            Number(inst.installment_number) > 0
+          ) ? Math.floor(Number(inst.installment_number)) : 1;
+          
+          // Validate value - skip if invalid
+          if (!inst.value || inst.value <= 0) {
+            console.error('Skipping installment with invalid value:', inst.policy_number, 'value:', inst.value);
+            importErrors.push({
+              type: 'installment',
+              data: inst,
+              error: 'Valor inválido ou ausente'
+            });
+            failedInstallments++;
+            continue;
+          }
+          
           // Create installment - APRENDIZADO: Usar chave composta policy_id + installment_number + due_date
           // para permitir múltiplas parcelas da mesma apólice com endossos diferentes (ex: Tokio Marine)
           if (policyId) {
@@ -1216,14 +1241,14 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               .from('installments')
               .select('id')
               .eq('policy_id', policyId)
-              .eq('installment_number', inst.installment_number)
+              .eq('installment_number', installmentNumber)
               .eq('due_date', inst.due_date)
               .maybeSingle();
             
             const installmentData = {
               policy_id: policyId,
               contact_id: contactId,
-              installment_number: inst.installment_number,
+              installment_number: installmentNumber,
               value: inst.value,
               due_date: inst.due_date,
               days_overdue: inst.days_overdue || 0,
@@ -1246,6 +1271,14 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               
               if (updateError) {
                 console.error('Error updating installment:', updateError);
+                importErrors.push({
+                  type: 'installment',
+                  data: inst,
+                  error: updateError.message
+                });
+                failedInstallments++;
+              } else {
+                successfulInstallments++;
               }
             } else {
               // Inserir nova parcela
@@ -1255,33 +1288,78 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               
               if (insertError) {
                 console.error('Error creating installment:', insertError);
+                importErrors.push({
+                  type: 'installment',
+                  data: inst,
+                  error: insertError.message
+                });
+                failedInstallments++;
+              } else {
+                successfulInstallments++;
               }
             }
+          } else {
+            console.error('Skipping installment without policyId:', inst.policy_number);
+            importErrors.push({
+              type: 'installment',
+              data: inst,
+              error: 'Falha ao criar apólice'
+            });
+            failedInstallments++;
           }
         } catch (err) {
           console.error('Error importing installment:', err);
+          importErrors.push({
+            type: 'installment',
+            data: inst,
+            error: err instanceof Error ? err.message : 'Erro desconhecido'
+          });
+          failedInstallments++;
         }
 
         setImportProgress({ current: selectedCompanies.length + selectedContacts.length + i + 1, total });
       }
 
+      // Build summary with ACTUAL counts (not just selection counts)
       const summary = [];
       if (selectedCompanies.length > 0) summary.push(`${selectedCompanies.length} empresas`);
       if (selectedContacts.length > 0) summary.push(`${selectedContacts.length} contatos`);
-      if (selectedInstallments.length > 0) summary.push(`${selectedInstallments.length} parcelas`);
       
-      // Update audit log with import success
+      // Use actual successful count for installments
+      if (successfulInstallments > 0) {
+        summary.push(`${successfulInstallments} parcelas`);
+      }
+      
+      // Log import errors for debugging
+      if (importErrors.length > 0) {
+        console.error('Import errors summary:', importErrors);
+      }
+      
+      // Update audit log with REAL import counts
       await updateAuditLog({
-        status: 'completed',
+        status: failedInstallments > 0 && successfulInstallments === 0 ? 'partial_error' : 'completed',
         imported_companies: selectedCompanies.length,
         imported_contacts: selectedContacts.length,
-        imported_installments: selectedInstallments.length
+        imported_installments: successfulInstallments,
+        extraction_errors: importErrors.length > 0 ? importErrors.slice(0, 20) : null // Store first 20 errors
       });
       
       // Clear pending data since import is complete
       clearPendingData();
       
-      toast.success(`Importação concluída! ${summary.join(', ')}`);
+      // Show appropriate toast based on results
+      if (failedInstallments > 0 && successfulInstallments > 0) {
+        toast.warning(`Importação parcial: ${successfulInstallments} parcelas OK, ${failedInstallments} com erro`, {
+          description: 'Verifique o console para detalhes dos erros'
+        });
+      } else if (failedInstallments > 0 && successfulInstallments === 0) {
+        toast.error(`Falha na importação: ${failedInstallments} parcelas com erro`, {
+          description: 'Nenhuma parcela foi importada. Verifique os dados.'
+        });
+      } else {
+        toast.success(`Importação concluída! ${summary.join(', ')}`);
+      }
+      
       onSuccess();
       // Close modal and navigate to installments automatically
       resetState();
