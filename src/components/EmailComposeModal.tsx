@@ -309,7 +309,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
       <strong style="color: #334155; display: block; margin-bottom: 16px;">Jacometo Corretora de Seguros</strong>
       <span style="display: block; margin-bottom: 6px; color: #475569;">📱 WhatsApp: <a href="https://wa.me/5543991434002" style="color: #25D366; text-decoration: none;">+55 43 9 9143 4002</a></span>
       <span style="display: block; margin-bottom: 6px; color: #475569;">📞 Telefone: (43) 3321‑5007</span>
-      <span style="display: block; margin-bottom: 6px; color: #475569;">📍 Rua Souza Naves, 612 – Sala 51 – Centro – Londrina/PR</span>
+      <span style="display: block; margin-bottom: 6px; color: #475569;">📍 R. Sen. Souza Naves, 612 - Sala 51 - Centro - Londrina/PR - CEP: 86010-160</span>
       <span style="display: block; margin-top: 10px;">🌐 <a href="https://jacometoseguros.com.br" style="color: #6366f1; text-decoration: none;">jacometoseguros.com.br</a></span>
     </td>
   </tr>
