@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import CampaignsDashboard from './components/CampaignsDashboard';
 import ChatInterface from './components/ChatInterface';
 import Contacts from './components/Contacts';
 import Settings from './components/Settings';
@@ -78,7 +77,6 @@ const App: React.FC = () => {
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/scheduling" element={<Scheduling />} />
                 <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
-                <Route path="/campaigns" element={<CampaignsDashboard />} />
                 <Route path="/collections" element={<CollectionsDashboard />} />
                 <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
                 <Route path="/settings" element={<Settings />} />
