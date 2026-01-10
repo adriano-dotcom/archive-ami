@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, FileSpreadsheet, Check, X, AlertTriangle, Loader2, Download, Sparkles } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, X, AlertTriangle, Loader2, Download, Sparkles, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ImportDocumentAIModal } from '@/components/segurados/ImportDocumentAIModal';
 
 interface ColumnMapping {
@@ -18,6 +19,15 @@ interface ColumnMapping {
 
 interface ParsedRow {
   [key: string]: string;
+}
+
+interface ProcessedRow {
+  data: ParsedRow;
+  duplicateStatus: 'new' | 'duplicate' | 'update_available' | 'checking';
+  existingInstallmentId?: string;
+  existingValue?: number;
+  existingStatus?: string;
+  selected: boolean;
 }
 
 const REQUIRED_FIELDS = [
@@ -39,10 +49,12 @@ interface ImportPanelProps {
 export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
+  const [processedData, setProcessedData] = useState<ProcessedRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'importing' | 'done'>('upload');
-  const [importProgress, setImportProgress] = useState({ success: 0, error: 0, total: 0 });
+  const [importProgress, setImportProgress] = useState({ success: 0, error: 0, updated: 0, total: 0 });
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
   const queryClient = useQueryClient();
 
@@ -57,6 +69,15 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
       return data;
     }
   });
+
+  // Calculate duplicate summary
+  const duplicateSummary = useMemo(() => {
+    const newCount = processedData.filter(r => r.duplicateStatus === 'new').length;
+    const duplicateCount = processedData.filter(r => r.duplicateStatus === 'duplicate').length;
+    const updateCount = processedData.filter(r => r.duplicateStatus === 'update_available').length;
+    const selectedCount = processedData.filter(r => r.selected).length;
+    return { newCount, duplicateCount, updateCount, selectedCount };
+  }, [processedData]);
 
   const parseCSV = (text: string): { headers: string[], rows: ParsedRow[] } => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -140,9 +161,131 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
     return true;
   };
 
-  const handleProceedToPreview = () => {
+  // Check for duplicates in the database
+  const checkDuplicates = async (data: ParsedRow[]) => {
+    setCheckingDuplicates(true);
+    const results: ProcessedRow[] = [];
+
+    for (const row of data) {
+      try {
+        const policyNumber = row[columnMapping.policy_number];
+        const insurer = row[columnMapping.insurer] || '';
+        const installmentNumber = parseInt(row[columnMapping.installment]) || 1;
+        
+        // Parse due date
+        const dueDateStr = row[columnMapping.due_date];
+        let dueDate: string = '';
+        
+        if (dueDateStr) {
+          if (dueDateStr.includes('/')) {
+            const parts = dueDateStr.split('/');
+            if (parts.length === 3) {
+              dueDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+          } else {
+            dueDate = dueDateStr;
+          }
+        }
+
+        // Parse value
+        const value = parseFloat(
+          row[columnMapping.value]?.replace(/[^\d,.-]/g, '')?.replace(',', '.') || '0'
+        );
+
+        // If no policy number, mark as new
+        if (!policyNumber) {
+          results.push({ data: row, duplicateStatus: 'new', selected: true });
+          continue;
+        }
+
+        // Find existing policy
+        const { data: existingPolicy } = await supabase
+          .from('policies')
+          .select('id')
+          .eq('policy_number', policyNumber)
+          .maybeSingle();
+
+        if (!existingPolicy) {
+          results.push({ data: row, duplicateStatus: 'new', selected: true });
+          continue;
+        }
+
+        // Find existing installment
+        const { data: existingInstallment } = await supabase
+          .from('installments')
+          .select('id, value, status, due_date')
+          .eq('policy_id', existingPolicy.id)
+          .eq('installment_number', installmentNumber)
+          .eq('due_date', dueDate)
+          .maybeSingle();
+
+        if (!existingInstallment) {
+          results.push({ data: row, duplicateStatus: 'new', selected: true });
+        } else {
+          // Check if values are the same
+          const isSameValue = Math.abs(existingInstallment.value - value) < 0.01;
+          const expectedStatus = new Date(dueDate) < new Date() ? 'overdue' : 'pending';
+          const isSameStatus = existingInstallment.status === expectedStatus;
+
+          if (isSameValue && isSameStatus) {
+            // Exact duplicate - deselect by default
+            results.push({
+              data: row,
+              duplicateStatus: 'duplicate',
+              existingInstallmentId: existingInstallment.id,
+              existingValue: existingInstallment.value,
+              existingStatus: existingInstallment.status,
+              selected: false
+            });
+          } else {
+            // Update available - select by default
+            results.push({
+              data: row,
+              duplicateStatus: 'update_available',
+              existingInstallmentId: existingInstallment.id,
+              existingValue: existingInstallment.value,
+              existingStatus: existingInstallment.status,
+              selected: true
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error checking duplicate:', err);
+        results.push({ data: row, duplicateStatus: 'new', selected: true });
+      }
+    }
+    setProcessedData(results);
+    setCheckingDuplicates(false);
+
+    // Show summary toast
+    const newCount = results.filter(r => r.duplicateStatus === 'new').length;
+    const dupCount = results.filter(r => r.duplicateStatus === 'duplicate').length;
+    const updateCount = results.filter(r => r.duplicateStatus === 'update_available').length;
+
+    if (dupCount > 0 || updateCount > 0) {
+      toast.info(
+        `Verificação: ${newCount} nova(s), ${dupCount} duplicada(s), ${updateCount} para atualizar`,
+        { duration: 5000 }
+      );
+    }
+  };
+
+  const handleProceedToPreview = async () => {
     if (!validateMapping()) return;
     setStep('preview');
+    await checkDuplicates(parsedData);
+  };
+
+  const toggleRowSelection = (index: number, checked: boolean) => {
+    setProcessedData(prev => 
+      prev.map((row, i) => i === index ? { ...row, selected: checked } : row)
+    );
+  };
+
+  const toggleAllSelection = (checked: boolean) => {
+    setProcessedData(prev => 
+      prev.map(row => ({ ...row, selected: checked }))
+    );
   };
 
   const saveMappingMutation = useMutation({
@@ -164,15 +307,18 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
 
   const importMutation = useMutation({
     mutationFn: async () => {
+      const dataToImport = processedData.filter(row => row.selected);
+      
       setStep('importing');
-      setImportProgress({ success: 0, error: 0, total: parsedData.length });
+      setImportProgress({ success: 0, error: 0, updated: 0, total: dataToImport.length });
 
       let successCount = 0;
       let errorCount = 0;
+      let updatedCount = 0;
 
-      for (const row of parsedData) {
+      for (const row of dataToImport) {
         try {
-          const phoneNumber = row[columnMapping.phone]?.replace(/\D/g, '');
+          const phoneNumber = row.data[columnMapping.phone]?.replace(/\D/g, '');
           if (!phoneNumber) {
             errorCount++;
             continue;
@@ -193,8 +339,8 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
               .from('contacts')
               .insert({
                 phone_number: phoneNumber,
-                name: row[columnMapping.name],
-                email: row[columnMapping.email] || null
+                name: row.data[columnMapping.name],
+                email: row.data[columnMapping.email] || null
               })
               .select('id')
               .single();
@@ -204,7 +350,7 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
           }
 
           // Create or find policy
-          const policyNumber = row[columnMapping.policy_number];
+          const policyNumber = row.data[columnMapping.policy_number];
           let policyId: string;
 
           const { data: existingPolicy } = await supabase
@@ -222,7 +368,7 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
               .insert({
                 contact_id: contactId,
                 policy_number: policyNumber,
-                insurer: row[columnMapping.insurer]
+                insurer: row.data[columnMapping.insurer]
               })
               .select('id')
               .single();
@@ -233,13 +379,13 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
 
           // Parse value
           let value = parseFloat(
-            row[columnMapping.value]
+            row.data[columnMapping.value]
               ?.replace(/[^\d,.-]/g, '')
               ?.replace(',', '.') || '0'
           );
 
           // Parse date
-          const dueDateStr = row[columnMapping.due_date];
+          const dueDateStr = row.data[columnMapping.due_date];
           let dueDate: string;
           
           // Try different date formats
@@ -254,21 +400,36 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
             dueDate = dueDateStr;
           }
 
-          // Create installment
-          const { error: instError } = await supabase
-            .from('installments')
-            .insert({
-              policy_id: policyId,
-              contact_id: contactId,
-              installment_number: parseInt(row[columnMapping.installment]) || 1,
-              value: value,
-              due_date: dueDate,
-              status: new Date(dueDate) < new Date() ? 'overdue' : 'pending'
-            });
+          const newStatus = new Date(dueDate) < new Date() ? 'overdue' : 'pending';
 
-          if (instError) throw instError;
-          
-          successCount++;
+          // If update_available, update existing installment
+          if (row.duplicateStatus === 'update_available' && row.existingInstallmentId) {
+            const { error: updateError } = await supabase
+              .from('installments')
+              .update({
+                value: value,
+                status: newStatus
+              })
+              .eq('id', row.existingInstallmentId);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          } else {
+            // Create new installment
+            const { error: instError } = await supabase
+              .from('installments')
+              .insert({
+                policy_id: policyId,
+                contact_id: contactId,
+                installment_number: parseInt(row.data[columnMapping.installment]) || 1,
+                value: value,
+                due_date: dueDate,
+                status: newStatus
+              });
+
+            if (instError) throw instError;
+            successCount++;
+          }
         } catch (err) {
           console.error('Error importing row:', err);
           errorCount++;
@@ -277,17 +438,22 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
         setImportProgress({
           success: successCount,
           error: errorCount,
-          total: parsedData.length
+          updated: updatedCount,
+          total: dataToImport.length
         });
       }
 
-      return { success: successCount, error: errorCount };
+      return { success: successCount, error: errorCount, updated: updatedCount };
     },
     onSuccess: (result) => {
       setStep('done');
       queryClient.invalidateQueries({ queryKey: ['installments'] });
       queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
-      toast.success(`Importação concluída: ${result.success} sucesso, ${result.error} erros`);
+      const messages = [];
+      if (result.success > 0) messages.push(`${result.success} importado(s)`);
+      if (result.updated > 0) messages.push(`${result.updated} atualizado(s)`);
+      if (result.error > 0) messages.push(`${result.error} erro(s)`);
+      toast.success(`Importação concluída: ${messages.join(', ')}`);
     },
     onError: () => {
       toast.error('Erro durante a importação');
@@ -298,10 +464,11 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
   const resetImport = () => {
     setFile(null);
     setParsedData([]);
+    setProcessedData([]);
     setHeaders([]);
     setColumnMapping({});
     setStep('upload');
-    setImportProgress({ success: 0, error: 0, total: 0 });
+    setImportProgress({ success: 0, error: 0, updated: 0, total: 0 });
   };
 
   const downloadTemplate = () => {
@@ -311,6 +478,21 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
     link.href = URL.createObjectURL(blob);
     link.download = 'template_importacao.csv';
     link.click();
+  };
+
+  const getDuplicateStatusBadge = (status: ProcessedRow['duplicateStatus']) => {
+    switch (status) {
+      case 'new':
+        return <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30">Nova</Badge>;
+      case 'duplicate':
+        return <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30">Já importada</Badge>;
+      case 'update_available':
+        return <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>;
+      case 'checking':
+        return <Badge className="bg-slate-500/20 text-slate-300 border-slate-400/30">Verificando...</Badge>;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -460,14 +642,52 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
           <CardHeader>
             <CardTitle className="text-lg text-slate-200">Preview da Importação</CardTitle>
             <CardDescription>
-              {parsedData.length} registros serão importados
+              {checkingDuplicates ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Verificando duplicatas no banco de dados...
+                </span>
+              ) : (
+                `${duplicateSummary.selectedCount} de ${processedData.length} registros selecionados para importar`
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Duplicate Summary */}
+            {!checkingDuplicates && processedData.length > 0 && (
+              <div className="flex flex-wrap gap-4 mb-4 p-3 bg-slate-800/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30">Nova</Badge>
+                  <span className="text-slate-400">{duplicateSummary.newCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30">Já importada</Badge>
+                  <span className="text-slate-400">{duplicateSummary.duplicateCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>
+                  <span className="text-slate-400">{duplicateSummary.updateCount}</span>
+                </div>
+                {duplicateSummary.duplicateCount > 0 && (
+                  <span className="text-sm text-slate-500 ml-auto">
+                    Duplicatas são desmarcadas automaticamente
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/5">
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={processedData.length > 0 && processedData.every(r => r.selected)}
+                        onCheckedChange={(checked) => toggleAllSelection(!!checked)}
+                        disabled={checkingDuplicates}
+                      />
+                    </TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Apólice</TableHead>
@@ -478,23 +698,60 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsedData.slice(0, 10).map((row, idx) => (
-                    <TableRow key={idx} className="border-white/5">
-                      <TableCell>{row[columnMapping.name]}</TableCell>
-                      <TableCell>{row[columnMapping.phone]}</TableCell>
-                      <TableCell>{row[columnMapping.policy_number]}</TableCell>
-                      <TableCell>{row[columnMapping.insurer]}</TableCell>
-                      <TableCell>{row[columnMapping.installment]}</TableCell>
-                      <TableCell>{row[columnMapping.value]}</TableCell>
-                      <TableCell>{row[columnMapping.due_date]}</TableCell>
+                  {checkingDuplicates ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8">
+                        <div className="flex flex-col items-center gap-2">
+                          <RefreshCw className="w-6 h-6 text-amber-400 animate-spin" />
+                          <span className="text-slate-400">Verificando duplicatas...</span>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    processedData.slice(0, 50).map((row, idx) => (
+                      <TableRow 
+                        key={idx} 
+                        className={`border-white/5 ${
+                          row.duplicateStatus === 'duplicate' ? 'opacity-50' : ''
+                        }`}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={row.selected}
+                            onCheckedChange={(checked) => toggleRowSelection(idx, !!checked)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {getDuplicateStatusBadge(row.duplicateStatus)}
+                        </TableCell>
+                        <TableCell>{row.data[columnMapping.name]}</TableCell>
+                        <TableCell>{row.data[columnMapping.phone]}</TableCell>
+                        <TableCell>{row.data[columnMapping.policy_number]}</TableCell>
+                        <TableCell>{row.data[columnMapping.insurer]}</TableCell>
+                        <TableCell>{row.data[columnMapping.installment]}</TableCell>
+                        <TableCell>
+                          {row.duplicateStatus === 'update_available' && row.existingValue ? (
+                            <span className="flex items-center gap-1">
+                              <span className="line-through text-slate-500">
+                                {row.existingValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </span>
+                              <span className="text-blue-300">→</span>
+                              <span>{row.data[columnMapping.value]}</span>
+                            </span>
+                          ) : (
+                            row.data[columnMapping.value]
+                          )}
+                        </TableCell>
+                        <TableCell>{row.data[columnMapping.due_date]}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
-            {parsedData.length > 10 && (
+            {processedData.length > 50 && (
               <p className="text-sm text-slate-500 mt-2">
-                Mostrando 10 de {parsedData.length} registros
+                Mostrando 50 de {processedData.length} registros
               </p>
             )}
 
@@ -505,9 +762,10 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
               <Button 
                 onClick={() => importMutation.mutate()}
                 className="bg-amber-600 hover:bg-amber-700 gap-2"
+                disabled={checkingDuplicates || duplicateSummary.selectedCount === 0}
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                Importar {parsedData.length} Registros
+                Importar {duplicateSummary.selectedCount} Registros
               </Button>
             </div>
           </CardContent>
@@ -521,19 +779,20 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
             <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-4" />
             <h3 className="text-xl font-bold text-slate-200 mb-2">Importando...</h3>
             <p className="text-slate-400 mb-4">
-              {importProgress.success + importProgress.error} de {importProgress.total}
+              {importProgress.success + importProgress.error + importProgress.updated} de {importProgress.total}
             </p>
             <div className="w-full max-w-md mx-auto bg-slate-800 rounded-full h-2">
               <div 
                 className="bg-amber-500 h-2 rounded-full transition-all"
                 style={{ 
-                  width: `${((importProgress.success + importProgress.error) / importProgress.total) * 100}%` 
+                  width: `${((importProgress.success + importProgress.error + importProgress.updated) / importProgress.total) * 100}%` 
                 }}
               />
             </div>
             <div className="flex justify-center gap-6 mt-4">
-              <span className="text-green-400">{importProgress.success} sucesso</span>
-              <span className="text-rose-400">{importProgress.error} erros</span>
+              <span className="text-green-400">{importProgress.success} novo(s)</span>
+              <span className="text-blue-400">{importProgress.updated} atualizado(s)</span>
+              <span className="text-rose-400">{importProgress.error} erro(s)</span>
             </div>
           </CardContent>
         </Card>
@@ -548,7 +807,8 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
             </div>
             <h3 className="text-xl font-bold text-slate-200 mb-2">Importação Concluída!</h3>
             <p className="text-slate-400 mb-6">
-              {importProgress.success} registros importados com sucesso
+              {importProgress.success > 0 && `${importProgress.success} registros importados`}
+              {importProgress.updated > 0 && `, ${importProgress.updated} atualizados`}
               {importProgress.error > 0 && `, ${importProgress.error} erros`}
             </p>
             <Button onClick={resetImport} className="bg-amber-600 hover:bg-amber-700">
