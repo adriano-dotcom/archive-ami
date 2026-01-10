@@ -96,6 +96,7 @@ export const InstallmentsList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
+  const [insurerFilter, setInsurerFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -225,7 +226,7 @@ export const InstallmentsList: React.FC = () => {
   };
 
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -278,10 +279,19 @@ export const InstallmentsList: React.FC = () => {
       
       if (error) throw error;
       
+      let filteredData = data as Installment[];
+      
+      // Filter by insurer locally
+      if (insurerFilter !== 'all') {
+        filteredData = filteredData.filter(inst => 
+          inst.policy?.insurer?.toUpperCase() === insurerFilter.toUpperCase()
+        );
+      }
+      
       // Filter by search locally
       if (search) {
         const searchLower = search.toLowerCase();
-        return (data as Installment[]).filter(inst => 
+        filteredData = filteredData.filter(inst => 
           inst.contact?.name?.toLowerCase().includes(searchLower) ||
           inst.contact?.phone_number?.includes(search) ||
           inst.policy?.policy_number?.toLowerCase().includes(searchLower) ||
@@ -291,7 +301,7 @@ export const InstallmentsList: React.FC = () => {
         );
       }
       
-      return data as Installment[];
+      return filteredData;
     }
   });
 
@@ -557,6 +567,18 @@ export const InstallmentsList: React.FC = () => {
                 className="pl-10 bg-slate-800/50 border-white/10"
               />
             </div>
+
+            <Select value={insurerFilter} onValueChange={setInsurerFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Seguradora" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas Seguradoras</SelectItem>
+                {KNOWN_INSURERS.filter(i => i !== 'NÃO IDENTIFICADA').map(insurer => (
+                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[150px] bg-slate-800/50 border-white/10">
