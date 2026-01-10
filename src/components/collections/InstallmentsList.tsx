@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2 } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
   AlertDialog,
@@ -28,6 +28,28 @@ import { ptBR } from 'date-fns/locale';
 import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 import { SendInstallmentWhatsAppModal } from './SendInstallmentWhatsAppModal';
 import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
+import { CompanyDetailsDrawer, EditCompanyModal } from '@/components/segurados';
+
+// Interface for company details drawer
+interface CompanyForDrawer {
+  id: string;
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia: string | null;
+  city: string | null;
+  state: string | null;
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  cep?: string | null;
+  inscricao_estadual?: string | null;
+  inscricao_municipal?: string | null;
+  contacts_count: number;
+  billing_contacts_count: number;
+  policies_count: number;
+  overdue_value: number;
+  max_days_overdue: number;
+}
 
 interface Installment {
   id: string;
@@ -63,7 +85,70 @@ export const InstallmentsList: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedInstallmentForWhatsApp, setSelectedInstallmentForWhatsApp] = useState<Installment | null>(null);
   const [showBulkWhatsAppModal, setShowBulkWhatsAppModal] = useState(false);
+  const [selectedCompanyForDrawer, setSelectedCompanyForDrawer] = useState<CompanyForDrawer | null>(null);
+  const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<CompanyForDrawer | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Fetch company details for drawer
+  const handleOpenCompanyDrawer = async (companyId: string) => {
+    if (!companyId) return;
+    
+    setLoadingCompany(companyId);
+    try {
+      // Fetch company data
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', companyId)
+        .single();
+      
+      if (companyError) throw companyError;
+      
+      // Fetch counts and aggregations
+      const [contactsResult, billingContactsResult, policiesResult, installmentsResult] = await Promise.all([
+        supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+        supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_billing_contact', true),
+        supabase.from('policies').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+        supabase
+          .from('installments')
+          .select('value, days_overdue, policy:policies!inner(company_id)')
+          .eq('policy.company_id', companyId)
+          .in('status', ['pending', 'overdue', 'negotiating'])
+      ]);
+      
+      const overdueInstallments = installmentsResult.data || [];
+      const overdueValue = overdueInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
+      const maxDaysOverdue = overdueInstallments.length > 0 
+        ? Math.max(...overdueInstallments.map(i => i.days_overdue || 0))
+        : 0;
+      
+      setSelectedCompanyForDrawer({
+        id: company.id,
+        cnpj: company.cnpj,
+        razao_social: company.razao_social,
+        nome_fantasia: company.nome_fantasia,
+        city: company.city,
+        state: company.state,
+        street: company.street,
+        number: company.number,
+        neighborhood: company.neighborhood,
+        cep: company.cep,
+        inscricao_estadual: company.inscricao_estadual,
+        inscricao_municipal: company.inscricao_municipal,
+        contacts_count: contactsResult.count || 0,
+        billing_contacts_count: billingContactsResult.count || 0,
+        policies_count: policiesResult.count || 0,
+        overdue_value: overdueValue,
+        max_days_overdue: maxDaysOverdue
+      });
+    } catch (error) {
+      console.error('Error fetching company details:', error);
+      toast.error('Erro ao carregar dados da empresa');
+    } finally {
+      setLoadingCompany(null);
+    }
+  };
 
   const { data: installments, isLoading, refetch } = useQuery({
     queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter],
@@ -573,12 +658,25 @@ export const InstallmentsList: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <p 
-                        className="font-medium text-slate-200 truncate max-w-[180px]" 
-                        title={inst.policy?.company?.razao_social || ''}
-                      >
-                        {inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || 'N/A'}
-                      </p>
+                      {inst.policy?.company?.id ? (
+                        <button
+                          onClick={() => handleOpenCompanyDrawer(inst.policy!.company!.id)}
+                          disabled={loadingCompany === inst.policy?.company?.id}
+                          className="group flex items-center gap-2 font-medium text-slate-200 truncate max-w-[180px] hover:text-blue-400 transition-colors text-left disabled:opacity-50"
+                          title={inst.policy?.company?.razao_social || ''}
+                        >
+                          {loadingCompany === inst.policy?.company?.id ? (
+                            <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
+                          ) : (
+                            <Building2 className="w-3 h-3 text-slate-500 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social}
+                          </span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-500">N/A</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-300">
                       {inst.policy?.policy_number || 'N/A'}
@@ -705,6 +803,29 @@ export const InstallmentsList: React.FC = () => {
         onSent={() => {
           refetch();
           setSelectedIds([]);
+        }}
+      />
+
+      {/* Company Details Drawer */}
+      <CompanyDetailsDrawer
+        open={!!selectedCompanyForDrawer}
+        onOpenChange={(open) => !open && setSelectedCompanyForDrawer(null)}
+        company={selectedCompanyForDrawer}
+        onEdit={() => {
+          setSelectedCompanyForEdit(selectedCompanyForDrawer);
+        }}
+        onRefresh={() => refetch()}
+      />
+
+      {/* Edit Company Modal */}
+      <EditCompanyModal
+        open={!!selectedCompanyForEdit}
+        company={selectedCompanyForEdit}
+        onOpenChange={(open) => !open && setSelectedCompanyForEdit(null)}
+        onSuccess={() => {
+          setSelectedCompanyForEdit(null);
+          setSelectedCompanyForDrawer(null);
+          refetch();
         }}
       />
 
