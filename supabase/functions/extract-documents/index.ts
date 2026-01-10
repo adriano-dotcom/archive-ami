@@ -334,44 +334,59 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
 }
 
 // Limit content size for large text files (CSVs, etc.)
-const MAX_TEXT_CONTENT_LENGTH = 40000; // ~40KB of text content - reduced to prevent timeouts
-const MAX_CSV_LINES = 300; // Max lines for CSV files (header + 299 data rows)
+// IMPORTANT: Edge functions have a hard wall-clock timeout. For large CSVs we process in chunks.
+const MAX_TEXT_CONTENT_LENGTH = 20000; // ~20KB of text content
+const MAX_CSV_LINES = 100; // Header + 99 data rows (non-chunk mode)
+const CSV_CHUNK_SIZE = 80; // Data rows per chunk (chunk mode)
+
+function clampTextByChars(content: string, maxChars: number): { content: string; truncated: boolean } {
+  if (content.length <= maxChars) return { content, truncated: false };
+
+  const lines = content.split('\n');
+  let out = '';
+  let kept = 0;
+  for (const line of lines) {
+    if (out.length + line.length + 1 > maxChars) break;
+    out += line + '\n';
+    kept++;
+  }
+  console.log(`Content is ${content.length} chars, clamped to ~${out.length} chars (kept ${kept} lines)`);
+  return { content: out, truncated: true };
+}
 
 function limitTextContent(content: string, fileName: string): { content: string; truncated: boolean; originalLines?: number } {
   const isCSV = fileName.toLowerCase().endsWith('.csv');
   const lines = content.split('\n');
   const originalLines = lines.length;
-  
-  // For CSVs, limit by number of lines first (more predictable)
+
+  // For CSVs in non-chunk mode: limit by number of lines first (predictable)
   if (isCSV && lines.length > MAX_CSV_LINES) {
     console.log(`CSV ${fileName} has ${lines.length} lines, limiting to ${MAX_CSV_LINES}`);
-    const header = lines[0];
-    const dataLines = lines.slice(1, MAX_CSV_LINES);
+    const header = lines[0] ?? '';
+    const dataLines = lines.slice(1, MAX_CSV_LINES); // header + (MAX_CSV_LINES-1) data lines
     const truncatedContent = [header, ...dataLines].join('\n');
     return { content: truncatedContent, truncated: true, originalLines };
   }
-  
-  // Then check character length
-  if (content.length <= MAX_TEXT_CONTENT_LENGTH) {
-    return { content, truncated: false };
+
+  // Then clamp by character length
+  const clamped = clampTextByChars(content, MAX_TEXT_CONTENT_LENGTH);
+  return { ...clamped, originalLines };
+}
+
+function splitCSVIntoChunks(content: string, chunkSize: number): { chunks: string[]; originalLines: number } {
+  const lines = content.split('\n');
+  const originalLines = lines.length;
+  const header = lines[0] ?? '';
+  const dataLines = lines.slice(1).filter(l => l.trim().length > 0);
+
+  const chunks: string[] = [];
+  for (let i = 0; i < dataLines.length; i += chunkSize) {
+    const chunkLines = dataLines.slice(i, i + chunkSize);
+    const chunk = [header, ...chunkLines].join('\n');
+    chunks.push(chunk);
   }
-  
-  console.log(`Content for ${fileName} is ${content.length} chars, limiting to ${MAX_TEXT_CONTENT_LENGTH}`);
-  
-  // Keep complete lines up to the limit
-  let truncatedContent = '';
-  let lineCount = 0;
-  
-  for (const line of lines) {
-    if (truncatedContent.length + line.length > MAX_TEXT_CONTENT_LENGTH) {
-      break;
-    }
-    truncatedContent += line + '\n';
-    lineCount++;
-  }
-  
-  console.log(`Kept ${lineCount} of ${lines.length} lines from ${fileName}`);
-  return { content: truncatedContent, truncated: true, originalLines };
+
+  return { chunks: chunks.length ? chunks : [header], originalLines };
 }
 
 serve(async (req) => {
@@ -382,7 +397,7 @@ serve(async (req) => {
 
   try {
     const { files } = await req.json();
-    
+
     if (!files || !Array.isArray(files) || files.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No files provided' }),
@@ -408,159 +423,10 @@ serve(async (req) => {
       installments: []
     };
 
-    // Process each file
-    for (const file of files) {
-      const { name, type, content } = file;
-      
-      console.log(`Processing file: ${name}, type: ${type}`);
-      
-      let extractedText = '';
-      let messages: any[] = [];
-      
-      // For text-based files, decode first to detect content
-      if (type === 'text/csv' || type === 'application/vnd.ms-excel' || 
-          type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-          type === 'text/plain') {
-        try {
-          let decoded = atob(content);
-          const { content: limited, truncated } = limitTextContent(decoded, name);
-          extractedText = limited;
-          if (truncated) {
-            console.log(`Warning: Content truncated for ${name} to prevent timeout`);
-          }
-        } catch {
-          extractedText = content;
-        }
-      }
-      
-      // Detect if this is an insurance report (pass mimeType for images)
-      const detection = detectInsuranceReport(name, extractedText, type);
-      const prompt = detection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
-      
-      if (detection.isInsurance) {
-        console.log(`Detected insurance report: ${detection.insurer}`);
-        if (!allResults.insurer_detected && detection.insurer) {
-          allResults.insurer_detected = detection.insurer;
-        }
-      }
-      
-      // For images and PDFs, use Gemini Vision
-      if (type.startsWith('image/') || type === 'application/pdf') {
-        const mimeType = type === 'application/pdf' ? 'application/pdf' : type;
-        
-        // Mensagem especializada para screenshots/imagens de portais
-        const imageInstructions = detection.isInsurance 
-          ? `Analise esta imagem e extraia TODAS as parcelas de seguro visíveis.
-          
-INSTRUÇÕES CRÍTICAS:
-1. Se for uma TABELA com múltiplas linhas, extraia CADA linha como uma parcela separada
-2. Identifique as colunas: Segurado, CPF/CNPJ, Ramo, Apólice, Endosso, Vencimento, Parcela, Valor
-3. Para CADA linha da tabela, crie um objeto installment separado
-4. Mapeie os campos:
-   - Coluna "Segurado" → insured_name
-   - Coluna "CPF/CNPJ" → insured_document (apenas números)
-   - Coluna "Ramo" → branch (código como 540, 550, 531)
-   - Coluna "Apólice" → policy_number
-   - Coluna "Endosso" → endorsement
-   - Coluna "Telefone" → insured_phone (se disponível)
-   - Coluna "Vencimento" → due_date (formato YYYY-MM-DD)
-   - Coluna "Parcela" → installment_number
-   - Coluna "Valor Parcela" → value (número decimal)
+    const callAIGateway = async (fileLabel: string, messages: any[], model: string) => {
+      const startedAt = Date.now();
+      console.log(`[AI] Calling model=${model} for ${fileLabel} (messages=${messages.length})`);
 
-Arquivo: ${name}${detection.insurer ? ` (Modo: ${detection.insurer})` : ''}`
-          : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`;
-        
-        messages = [
-          { role: 'system', content: prompt },
-          { 
-            role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: imageInstructions
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${content}`
-                }
-              }
-            ]
-          }
-        ];
-      } else if (extractedText) {
-        // For text-based files with decoded content
-        messages = [
-          { role: 'system', content: prompt },
-          { 
-            role: 'user', 
-            content: detection.isInsurance
-              ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.
-              
-Arquivo: ${name}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}
-
-Conteúdo:
-${extractedText}`
-              : `Extraia todos os dados de empresas e contatos deste documento.
-            
-Arquivo: ${name}
-
-Conteúdo:
-${extractedText}`
-          }
-        ];
-      } else {
-        // For other types, try to decode as text or send as image
-        try {
-          extractedText = atob(content);
-          const textDetection = detectInsuranceReport(name, extractedText);
-          const textPrompt = textDetection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
-          
-          messages = [
-            { role: 'system', content: textPrompt },
-            { 
-              role: 'user', 
-              content: textDetection.isInsurance
-                ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.
-
-Arquivo: ${name}${textDetection.insurer ? ` (Seguradora detectada: ${textDetection.insurer})` : ''}
-
-Conteúdo:
-${extractedText}`
-                : `Extraia todos os dados de empresas e contatos deste documento.
-              
-Arquivo: ${name}
-
-Conteúdo:
-${extractedText}`
-            }
-          ];
-        } catch {
-          // Treat as binary/image
-          messages = [
-            { role: 'system', content: prompt },
-            { 
-              role: 'user', 
-              content: [
-                {
-                  type: 'text',
-                  text: detection.isInsurance
-                    ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora. Arquivo: ${name}`
-                    : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${type};base64,${content}`
-                  }
-                }
-              ]
-            }
-          ];
-        }
-      }
-
-      // Call Lovable AI Gateway
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -568,239 +434,414 @@ ${extractedText}`
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model,
           messages,
           temperature: 0.1,
         }),
       });
 
+      const elapsed = Date.now() - startedAt;
+      console.log(`[AI] Response status=${response.status} for ${fileLabel} in ${elapsed}ms`);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`AI Gateway error for ${name}:`, response.status, errorText);
-        
+        console.error(`AI Gateway error for ${fileLabel}:`, response.status, errorText);
+
         if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return { kind: 'fatal' as const, status: 429, message: 'Rate limit exceeded. Please try again later.' };
         }
         if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return { kind: 'fatal' as const, status: 402, message: 'Payment required. Please add credits to continue.' };
         }
-        
-        continue; // Skip this file but continue with others
+
+        return { kind: 'skip' as const, status: response.status, message: errorText };
       }
 
       const data = await response.json();
       const aiResponse = data.choices?.[0]?.message?.content;
+      return { kind: 'ok' as const, aiResponse: (aiResponse ?? '') as string };
+    };
 
-      if (aiResponse) {
-        console.log(`AI response for ${name}:`, aiResponse.substring(0, 500));
-        console.log(`AI response length for ${name}:`, aiResponse.length);
-        
-        // Parse the JSON response
-        try {
-          // Remove markdown code blocks if present
-          let jsonStr = aiResponse.trim();
-          if (jsonStr.startsWith('```json')) {
-            jsonStr = jsonStr.slice(7);
-          } else if (jsonStr.startsWith('```')) {
-            jsonStr = jsonStr.slice(3);
+    const mergeParsedIntoResults = (parsed: any, sourceName: string, detection: { isInsurance: boolean; insurer?: string }) => {
+      // Update detected insurer if provided
+      if (parsed?.insurer_detected && !allResults.insurer_detected) {
+        allResults.insurer_detected = parsed.insurer_detected;
+      }
+
+      // Add source info and merge results
+      if (parsed?.companies && Array.isArray(parsed.companies)) {
+        for (const company of parsed.companies) {
+          company.source = sourceName;
+          if (company.cnpj && company.cnpj.replace(/\D/g, '').length === 14) {
+            company.cnpj = company.cnpj.replace(/\D/g, '');
+            allResults.companies.push(company);
           }
-          if (jsonStr.endsWith('```')) {
-            jsonStr = jsonStr.slice(0, -3);
-          }
-          jsonStr = jsonStr.trim();
-          
-          let parsed;
-          try {
-            parsed = JSON.parse(jsonStr);
-          } catch (initialParseError) {
-            // Try to fix truncated JSON response
-            console.warn(`Initial JSON parse failed for ${name}, attempting to fix truncated response...`);
-            
-            // Count open brackets to determine what's missing
-            let openBraces = 0;
-            let openBrackets = 0;
-            let inString = false;
-            let escapeNext = false;
-            
-            for (const char of jsonStr) {
-              if (escapeNext) {
-                escapeNext = false;
-                continue;
-              }
-              if (char === '\\') {
-                escapeNext = true;
-                continue;
-              }
-              if (char === '"') {
-                inString = !inString;
-                continue;
-              }
-              if (!inString) {
-                if (char === '{') openBraces++;
-                else if (char === '}') openBraces--;
-                else if (char === '[') openBrackets++;
-                else if (char === ']') openBrackets--;
-              }
-            }
-            
-            console.log(`Unmatched brackets: { = ${openBraces}, [ = ${openBrackets}`);
-            
-            // Try to close the JSON properly
-            let fixedJson = jsonStr;
-            
-            // If in the middle of a string, close it
-            if (inString) {
-              fixedJson += '"';
-            }
-            
-            // Close any open objects/arrays in the correct order
-            // First close any open value (might be in the middle of a number or string)
-            const lastChar = fixedJson.trim().slice(-1);
-            if (lastChar === ':' || lastChar === ',') {
-              fixedJson += 'null';
-            }
-            
-            // Close brackets and braces
-            for (let i = 0; i < openBrackets; i++) {
-              fixedJson += ']';
-            }
-            for (let i = 0; i < openBraces; i++) {
-              fixedJson += '}';
-            }
-            
-            console.log(`Attempting to parse fixed JSON (last 100 chars): ${fixedJson.slice(-100)}`);
-            
-            try {
-              parsed = JSON.parse(fixedJson);
-              console.log(`Successfully parsed fixed JSON for ${name}`);
-            } catch (fixParseError) {
-              // Last resort: try to extract what we can
-              console.error(`Failed to parse fixed JSON for ${name}:`, fixParseError);
-              
-              // Try to extract at least some data using regex
-              const installmentsMatch = jsonStr.match(/"installments"\s*:\s*\[([\s\S]*?)(?:\]|$)/);
-              if (installmentsMatch) {
-                try {
-                  // Try to parse individual installment objects
-                  const installmentObjects = installmentsMatch[1].match(/\{[^{}]*\}/g);
-                  if (installmentObjects && installmentObjects.length > 0) {
-                    const partialInstallments = [];
-                    for (const obj of installmentObjects) {
-                      try {
-                        partialInstallments.push(JSON.parse(obj));
-                      } catch {
-                        // Skip malformed objects
-                      }
-                    }
-                    if (partialInstallments.length > 0) {
-                      console.log(`Recovered ${partialInstallments.length} installments from truncated response`);
-                      parsed = {
-                        companies: [],
-                        contacts: [],
-                        installments: partialInstallments
-                      };
-                    }
-                  }
-                } catch (regexError) {
-                  console.error(`Failed to extract partial data for ${name}:`, regexError);
-                }
-              }
-              
-              if (!parsed) {
-                throw initialParseError;
-              }
-            }
-          }
-          
-          // Update detected insurer if provided
-          if (parsed.insurer_detected && !allResults.insurer_detected) {
-            allResults.insurer_detected = parsed.insurer_detected;
-          }
-          
-          // Add source info and merge results
-          if (parsed.companies && Array.isArray(parsed.companies)) {
-            for (const company of parsed.companies) {
-              company.source = name;
-              // Validate CNPJ
-              if (company.cnpj && company.cnpj.replace(/\D/g, '').length === 14) {
-                company.cnpj = company.cnpj.replace(/\D/g, '');
-                allResults.companies.push(company);
-              }
-            }
-          }
-          
-          if (parsed.contacts && Array.isArray(parsed.contacts)) {
-            for (const contact of parsed.contacts) {
-              contact.source = name;
-              // Validate phone
-              const cleanPhone = contact.phone?.replace(/\D/g, '') || '';
-              if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
-                contact.phone = cleanPhone;
-                if (contact.cpf) {
-                  contact.cpf = contact.cpf.replace(/\D/g, '');
-                }
-                if (contact.company_cnpj) {
-                  contact.company_cnpj = contact.company_cnpj.replace(/\D/g, '');
-                }
-                allResults.contacts.push(contact);
-              }
-            }
-          }
-          
-          // Process installments
-          if (parsed.installments && Array.isArray(parsed.installments)) {
-            console.log(`Processing ${parsed.installments.length} installments from ${name}`);
-            for (const installment of parsed.installments) {
-              installment.source = name;
-              
-              // Clean up document (CPF/CNPJ)
-              if (installment.insured_document) {
-                installment.insured_document = installment.insured_document.replace(/\D/g, '');
-              }
-              
-              // Clean up phone if present
-              if (installment.insured_phone) {
-                installment.insured_phone = installment.insured_phone.replace(/\D/g, '');
-                if (installment.insured_phone.length < 10 || installment.insured_phone.length > 11) {
-                  installment.insured_phone = '';
-                }
-              }
-              
-              // Ensure value is a number
-              if (typeof installment.value === 'string') {
-                installment.value = parseFloat(installment.value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-              }
-              
-              // Ensure installment_number is a number
-              if (typeof installment.installment_number === 'string') {
-                installment.installment_number = parseInt(installment.installment_number) || 1;
-              }
-              
-              // Garantir que insurer nunca seja null (usa detecção ou fallback)
-              if (!installment.insurer) {
-                installment.insurer = allResults.insurer_detected || detection.insurer || 'NÃO IDENTIFICADA';
-              }
-              
-              // Validate required fields
-              if (installment.policy_number && installment.insured_name && installment.value > 0) {
-                allResults.installments.push(installment);
-              }
-            }
-          }
-        } catch (parseError) {
-          console.error(`Error parsing AI response for ${name}:`, parseError);
-          console.error(`Response that failed to parse (first 1000 chars):`, aiResponse.substring(0, 1000));
         }
+      }
+
+      if (parsed?.contacts && Array.isArray(parsed.contacts)) {
+        for (const contact of parsed.contacts) {
+          contact.source = sourceName;
+          const cleanPhone = contact.phone?.replace(/\D/g, '') || '';
+          if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+            contact.phone = cleanPhone;
+            if (contact.cpf) contact.cpf = contact.cpf.replace(/\D/g, '');
+            if (contact.company_cnpj) contact.company_cnpj = contact.company_cnpj.replace(/\D/g, '');
+            allResults.contacts.push(contact);
+          }
+        }
+      }
+
+      if (parsed?.installments && Array.isArray(parsed.installments)) {
+        console.log(`Processing ${parsed.installments.length} installments from ${sourceName}`);
+        for (const installment of parsed.installments) {
+          installment.source = sourceName;
+
+          if (installment.insured_document) {
+            installment.insured_document = installment.insured_document.replace(/\D/g, '');
+          }
+
+          if (installment.insured_phone) {
+            installment.insured_phone = installment.insured_phone.replace(/\D/g, '');
+            if (installment.insured_phone.length < 10 || installment.insured_phone.length > 11) {
+              installment.insured_phone = '';
+            }
+          }
+
+          if (typeof installment.value === 'string') {
+            installment.value = parseFloat(String(installment.value).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          }
+
+          if (typeof installment.installment_number === 'string') {
+            installment.installment_number = parseInt(installment.installment_number) || 1;
+          }
+
+          if (!installment.insurer) {
+            installment.insurer = allResults.insurer_detected || detection.insurer || 'NÃO IDENTIFICADA';
+          }
+
+          if (installment.policy_number && installment.insured_name && installment.value > 0) {
+            allResults.installments.push(installment);
+          }
+        }
+      }
+    };
+
+    const parseAIResponseToJson = (aiResponseRaw: string, sourceName: string) => {
+      if (!aiResponseRaw) return null;
+
+      console.log(`AI response for ${sourceName}:`, aiResponseRaw.substring(0, 500));
+      console.log(`AI response length for ${sourceName}:`, aiResponseRaw.length);
+
+      let jsonStr = aiResponseRaw.trim();
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+      jsonStr = jsonStr.trim();
+
+      try {
+        return JSON.parse(jsonStr);
+      } catch (initialParseError) {
+        console.warn(`Initial JSON parse failed for ${sourceName}, attempting to fix truncated response...`);
+
+        let openBraces = 0;
+        let openBrackets = 0;
+        let inString = false;
+        let escapeNext = false;
+
+        for (const char of jsonStr) {
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (!inString) {
+            if (char === '{') openBraces++;
+            else if (char === '}') openBraces--;
+            else if (char === '[') openBrackets++;
+            else if (char === ']') openBrackets--;
+          }
+        }
+
+        console.log('Unmatched brackets for', sourceName, '{ =', openBraces, '[ =', openBrackets);
+
+        let fixedJson = jsonStr;
+        if (inString) fixedJson += '"';
+
+        const lastChar = fixedJson.trim().slice(-1);
+        if (lastChar === ':' || lastChar === ',') fixedJson += 'null';
+
+        for (let i = 0; i < openBrackets; i++) fixedJson += ']';
+        for (let i = 0; i < openBraces; i++) fixedJson += '}';
+
+        try {
+          const parsed = JSON.parse(fixedJson);
+          console.log(`Successfully parsed fixed JSON for ${sourceName}`);
+          return parsed;
+        } catch (fixParseError) {
+          console.error(`Failed to parse fixed JSON for ${sourceName}:`, fixParseError);
+
+          const installmentsMatch = jsonStr.match(/"installments"\s*:\s*\[([\s\S]*?)(?:\]|$)/);
+          if (installmentsMatch) {
+            const installmentObjects = installmentsMatch[1].match(/\{[^{}]*\}/g);
+            if (installmentObjects && installmentObjects.length > 0) {
+              const partialInstallments = [];
+              for (const obj of installmentObjects) {
+                try {
+                  partialInstallments.push(JSON.parse(obj));
+                } catch {
+                  // ignore
+                }
+              }
+              if (partialInstallments.length > 0) {
+                console.log(`Recovered ${partialInstallments.length} installments from truncated response (${sourceName})`);
+                return { companies: [], contacts: [], installments: partialInstallments };
+              }
+            }
+          }
+
+          throw initialParseError;
+        }
+      }
+    };
+
+    const pickModel = (opts: { isVision: boolean; isLargeText: boolean; isCSV: boolean }) => {
+      if (opts.isVision) return 'google/gemini-2.5-flash';
+      if (opts.isLargeText || opts.isCSV) return 'google/gemini-2.5-flash-lite';
+      return 'google/gemini-2.5-flash';
+    };
+
+    // Process each file
+    for (const file of files) {
+      const { name, type, content } = file;
+
+      console.log(`Processing file: ${name}, type: ${type}`);
+
+      let extractedText = '';
+
+      // For text-based files, decode first to detect content and decide chunking
+      const isTextBased = type === 'text/csv' || type === 'application/vnd.ms-excel' ||
+        type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        type === 'text/plain';
+
+      if (isTextBased) {
+        try {
+          const decoded = atob(content);
+          extractedText = decoded;
+        } catch {
+          extractedText = '';
+        }
+      }
+
+      // Detect if this is an insurance report (pass mimeType for images)
+      const detection = detectInsuranceReport(name, extractedText, type);
+      const prompt = detection.isInsurance ? INSURANCE_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
+
+      if (detection.isInsurance) {
+        console.log(`Detected insurance report: ${detection.insurer}`);
+        if (!allResults.insurer_detected && detection.insurer) {
+          allResults.insurer_detected = detection.insurer;
+        }
+      }
+
+      const isCSV = type === 'text/csv' || name.toLowerCase().endsWith('.csv');
+
+      // ===== CSV CHUNK MODE (prevents timeouts) =====
+      if (isCSV && extractedText) {
+        const { chunks, originalLines } = splitCSVIntoChunks(extractedText, CSV_CHUNK_SIZE);
+
+        if (originalLines > MAX_CSV_LINES) {
+          console.log(`Large CSV detected (${originalLines} lines): processing ${chunks.length} chunk(s)`);
+
+          for (let idx = 0; idx < chunks.length; idx++) {
+            const chunkLabel = `${name} (parte ${idx + 1}/${chunks.length})`;
+            const clamped = clampTextByChars(chunks[idx], MAX_TEXT_CONTENT_LENGTH);
+            if (clamped.truncated) console.log(`Warning: Chunk content truncated for ${chunkLabel}`);
+
+            const messages = [
+              { role: 'system', content: prompt },
+              {
+                role: 'user',
+                content: detection.isInsurance
+                  ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.\n\nArquivo: ${chunkLabel}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}\n\nConteúdo:\n${clamped.content}`
+                  : `Extraia todos os dados de empresas e contatos deste documento.\n\nArquivo: ${chunkLabel}\n\nConteúdo:\n${clamped.content}`
+              }
+            ];
+
+            const model = pickModel({ isVision: false, isLargeText: clamped.content.length > 15000, isCSV: true });
+            const ai = await callAIGateway(chunkLabel, messages, model);
+
+            if (ai.kind === 'fatal') {
+              return new Response(
+                JSON.stringify({ error: ai.message }),
+                { status: ai.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+            if (ai.kind === 'skip') {
+              console.warn(`Skipping chunk due to AI error: ${chunkLabel}`);
+              continue;
+            }
+
+            try {
+              const parsed = parseAIResponseToJson(ai.aiResponse, chunkLabel);
+              if (parsed) mergeParsedIntoResults(parsed, chunkLabel, detection);
+            } catch (err) {
+              console.error(`Error parsing AI response for ${chunkLabel}:`, err);
+            }
+          }
+
+          // done with this file
+          continue;
+        }
+      }
+
+      // ===== NORMAL MODE (single request per file) =====
+      let messages: any[] = [];
+      let contentTruncated = false;
+
+      if (isTextBased && extractedText) {
+        const limited = limitTextContent(extractedText, name);
+        extractedText = limited.content;
+        contentTruncated = limited.truncated;
+        if (contentTruncated) {
+          console.log(`Warning: Content truncated for ${name} to prevent timeout`);
+        }
+      }
+
+      // For images and PDFs, use Vision
+      if (type.startsWith('image/') || type === 'application/pdf') {
+        const mimeType = type === 'application/pdf' ? 'application/pdf' : type;
+        const imageInstructions = detection.isInsurance
+          ? `Analise esta imagem e extraia TODAS as parcelas de seguro visíveis.\n\nINSTRUÇÕES CRÍTICAS:\n1. Se for uma TABELA com múltiplas linhas, extraia CADA linha como uma parcela separada\n2. Identifique as colunas: Segurado, CPF/CNPJ, Ramo, Apólice, Endosso, Vencimento, Parcela, Valor\n3. Para CADA linha da tabela, crie um objeto installment separado\n4. Mapeie os campos conforme as regras.\n\nArquivo: ${name}${detection.insurer ? ` (Modo: ${detection.insurer})` : ''}`
+          : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`;
+
+        messages = [
+          { role: 'system', content: prompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: imageInstructions },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${content}` } }
+            ]
+          }
+        ];
+      } else if (extractedText) {
+        messages = [
+          { role: 'system', content: prompt },
+          {
+            role: 'user',
+            content: detection.isInsurance
+              ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora.\n\nArquivo: ${name}${detection.insurer ? ` (Seguradora detectada: ${detection.insurer})` : ''}${contentTruncated ? ' (conteúdo truncado)' : ''}\n\nConteúdo:\n${extractedText}`
+              : `Extraia todos os dados de empresas e contatos deste documento.\n\nArquivo: ${name}${contentTruncated ? ' (conteúdo truncado)' : ''}\n\nConteúdo:\n${extractedText}`
+          }
+        ];
+      } else {
+        // Fallback: treat as binary/image
+        messages = [
+          { role: 'system', content: prompt },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: detection.isInsurance
+                  ? `Extraia todas as parcelas inadimplentes deste relatório de seguradora. Arquivo: ${name}`
+                  : `Extraia todos os dados de empresas e contatos deste documento. Arquivo: ${name}`
+              },
+              { type: 'image_url', image_url: { url: `data:${type};base64,${content}` } }
+            ]
+          }
+        ];
+      }
+
+      const model = pickModel({
+        isVision: type.startsWith('image/') || type === 'application/pdf',
+        isLargeText: extractedText.length > 15000,
+        isCSV
+      });
+
+      const ai = await callAIGateway(name, messages, model);
+
+      if (ai.kind === 'fatal') {
+        return new Response(
+          JSON.stringify({ error: ai.message }),
+          { status: ai.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (ai.kind === 'skip') {
+        continue;
+      }
+
+      try {
+        const parsed = parseAIResponseToJson(ai.aiResponse, name);
+        if (parsed) mergeParsedIntoResults(parsed, name, detection);
+      } catch (err) {
+        console.error(`Error parsing AI response for ${name}:`, err);
       }
     }
 
     // Deduplicate companies by CNPJ (keep highest confidence)
+    const uniqueCompanies = new Map<string, ExtractedCompany>();
+    for (const company of allResults.companies) {
+      const existing = uniqueCompanies.get(company.cnpj);
+      if (!existing || (company.confidence > existing.confidence)) {
+        uniqueCompanies.set(company.cnpj, company);
+      }
+    }
+
+    // Deduplicate contacts by phone (keep highest confidence)
+    const uniqueContacts = new Map<string, ExtractedContact>();
+    for (const contact of allResults.contacts) {
+      const existing = uniqueContacts.get(contact.phone);
+      if (!existing || (contact.confidence > existing.confidence)) {
+        uniqueContacts.set(contact.phone, contact);
+      }
+    }
+
+    // Deduplicate installments by policy_number + endorsement + installment_number + due_date
+    const uniqueInstallments = new Map<string, ExtractedInstallment>();
+    for (const installment of allResults.installments) {
+      const endorsement = (installment as any).endorsement || '';
+      const dueDate = installment.due_date || '';
+      const key = `${installment.policy_number}-${endorsement}-${installment.installment_number}-${dueDate}`;
+      const existing = uniqueInstallments.get(key);
+      if (!existing || (installment.confidence > existing.confidence)) {
+        uniqueInstallments.set(key, installment);
+      }
+    }
+
+    console.log(`Deduplication: ${allResults.installments.length} raw -> ${uniqueInstallments.size} unique installments`);
+
+    const result: ExtractionResult = {
+      insurer_detected: allResults.insurer_detected,
+      companies: Array.from(uniqueCompanies.values()),
+      contacts: Array.from(uniqueContacts.values()),
+      installments: Array.from(uniqueInstallments.values())
+    };
+
+    console.log(`Extraction complete: ${result.companies.length} companies, ${result.contacts.length} contacts, ${result.installments.length} installments`);
+
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in extract-documents:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+
     const uniqueCompanies = new Map<string, ExtractedCompany>();
     for (const company of allResults.companies) {
       const existing = uniqueCompanies.get(company.cnpj);
