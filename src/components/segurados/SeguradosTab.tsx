@@ -243,6 +243,14 @@ export const SeguradosTab: React.FC = () => {
     }
   };
 
+  // Helper para detectar se nome parece ser de empresa
+  const isCompanyName = (name: string | null): boolean => {
+    if (!name) return false;
+    const upperName = name.toUpperCase();
+    const companyIndicators = ['LTDA', 'S/A', 'S.A.', ' SA ', ' ME', 'EIRELI', 'EPP', 'TRANSPORTES', 'TRANSPORTE', 'LOGISTICA', 'LOGÍSTICA', 'COMERCIO', 'COMÉRCIO', 'INDUSTRIA', 'INDÚSTRIA', 'SERVICOS', 'SERVIÇOS', 'DISTRIBUIDORA', 'ATACADO', 'METALURGICA', 'METALÚRGICA', 'CONSTRUTORA', 'ENGENHARIA', 'LOCADORA', 'AGROPECUARIA', 'AGROPECUÁRIA', 'SUCATAO', 'SUCATÃO', 'METAIS'];
+    return companyIndicators.some(ind => upperName.includes(ind));
+  };
+
   const loadSeguradosPF = async () => {
     try {
       // Fetch contacts that are NOT linked to companies but have policies
@@ -267,6 +275,12 @@ export const SeguradosTab: React.FC = () => {
       // For each contact, check if they have policies or are from cobrança import
       const enrichedSegurados = await Promise.all(
         (contacts || []).map(async (contact) => {
+          // FILTRO PREVENTIVO: Excluir contatos cujo nome parece ser de empresa
+          if (isCompanyName(contact.name)) {
+            console.log(`Excluindo contato com nome de empresa da lista PF: ${contact.name}`);
+            return null;
+          }
+
           // Get policies for this contact
           const { data: policies, error: policiesError } = await supabase
             .from('policies')
