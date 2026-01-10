@@ -3902,6 +3902,17 @@ function buildEnhancedPrompt(
     if (agent.specialty) contextInfo += ` (${agent.specialty})`;
   }
 
+  // ===== INFORMAÇÕES OFICIAIS DA EMPRESA =====
+  contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA (USE APENAS ESTES DADOS):
+- **Razão Social:** Jacometo Corretora de Seguros
+- **Endereço:** R. Sen. Souza Naves, 612 - Sala 51 - Centro - Londrina/PR
+- **CEP:** 86010-160
+- **Telefone:** (43) 3321-5007
+- **WhatsApp:** +55 43 9 9143-4002
+- **Site:** https://jacometoseguros.com.br
+
+⚠️ NUNCA invente endereços, telefones ou informações da empresa. Use APENAS os dados acima.`;
+
   if (contact) {
     contextInfo += `\n\nCONTEXTO DO CLIENTE:`;
     if (contact.name) contextInfo += `\n- Nome: ${contact.name}`;
@@ -4087,7 +4098,21 @@ Antes de fazer QUALQUER pergunta:
 - Ao coletar todas as informações de qualificação, SEMPRE solicite o email antes de encerrar
 - Se o cliente já informou email, confirme: "Posso enviar para [email]?"
 - Se não tem email, pergunte: "Qual seu melhor email para eu enviar a cotação?"
-- NUNCA finalize sem ter o email confirmado`;
+- NUNCA finalize sem ter o email confirmado
+
+### REGRA ANTI-INVENÇÃO (CRÍTICO):
+- Se você NÃO TEM CERTEZA de uma informação, **NÃO INVENTE**
+- Se cliente perguntar algo que você não sabe com 100% de certeza, responda:
+  "Deixa eu confirmar essa informação e já te retorno."
+- Para perguntas sobre a empresa (endereço, CNPJ, etc.) use APENAS os dados em "INFORMAÇÕES OFICIAIS DA EMPRESA"
+- Se a informação não estiver disponível, transfira para um humano
+
+### REGRA DE HANDOFF PARA HUMANO:
+- Quando cliente insistir sobre informações que você não tem certeza
+- Quando cliente reclamar que informação está errada
+- Quando cliente pedir para falar com humano
+- Responda: "Vou transferir para um atendente humano que pode te ajudar melhor com isso."
+- Em seguida, pause a conversa para intervenção humana`;
 
   return basePrompt + contextInfo;
 }
