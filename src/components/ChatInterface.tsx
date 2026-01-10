@@ -46,9 +46,8 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, QuickActionsBar, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview } from './chat';
 import { EmailComposeModal } from './EmailComposeModal';
-import { SendToPipedriveModal } from './chat/SendToPipedriveModal';
 
 interface AgentQuestion {
   order: number;
@@ -76,9 +75,6 @@ const ChatInterface: React.FC = () => {
   // Mobile navigation state
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   
-  // Pipeline filter state
-  const [selectedPipelineFilter, setSelectedPipelineFilter] = useState<string | null>(null);
-  const [pipelines, setPipelines] = useState<{ id: string; name: string; icon: string; color: string }[]>([]);
   const [viewingArchived, setViewingArchived] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
   
@@ -101,12 +97,6 @@ const ChatInterface: React.FC = () => {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [isLookingUpCnpj, setIsLookingUpCnpj] = useState(false);
   
-  // Deal state
-  const [existingDeal, setExistingDeal] = useState<any>(null);
-  const [isCheckingDeal, setIsCheckingDeal] = useState(false);
-  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
-  const [dealStages, setDealStages] = useState<any[]>([]);
-  const [isChangingStage, setIsChangingStage] = useState(false);
   
   // Call modal state
   const [showCallModal, setShowCallModal] = useState(false);
@@ -136,7 +126,6 @@ const ChatInterface: React.FC = () => {
   const [closeReason, setCloseReason] = useState('');
   const [isClosingConversation, setIsClosingConversation] = useState(false);
   const [isReopeningConversation, setIsReopeningConversation] = useState(false);
-  const [showPipedriveModalFromClose, setShowPipedriveModalFromClose] = useState(false);
   
   // PDF preview state
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
@@ -335,9 +324,7 @@ const ChatInterface: React.FC = () => {
       console.error('Error loading team members:', err);
     });
 
-    api.fetchPipelines().then(setPipelines).catch(err => {
-      console.error('Error loading pipelines:', err);
-    });
+    // Pipelines removed - system now focused on collections and claims
 
     // Fetch archived conversations count
     supabase
@@ -458,86 +445,7 @@ const ChatInterface: React.FC = () => {
     }
   }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCnpj, activeChat?.contactCompany]);
 
-  // Check for existing deal when chat changes
-  useEffect(() => {
-    const checkDeal = async () => {
-      if (!activeChat?.contactId) {
-        setExistingDeal(null);
-        setDealStages([]);
-        return;
-      }
-      setIsCheckingDeal(true);
-      try {
-        const deal = await api.getDealByContactId(activeChat.contactId);
-        setExistingDeal(deal);
-        
-        // Load stages for the deal's pipeline
-        if (deal?.pipelineId) {
-          const stages = await api.fetchPipelineStages(deal.pipelineId);
-          setDealStages(stages);
-        } else {
-          setDealStages([]);
-        }
-      } catch (error) {
-        console.error('Error checking deal:', error);
-        setExistingDeal(null);
-        setDealStages([]);
-      } finally {
-        setIsCheckingDeal(false);
-      }
-    };
-    checkDeal();
-  }, [activeChat?.contactId]);
-
-  // Handle stage change
-  const handleStageChange = async (newStageId: string) => {
-    if (!existingDeal || isChangingStage || newStageId === existingDeal.stageId) return;
-    setIsChangingStage(true);
-    try {
-      const newStage = dealStages.find(s => s.id === newStageId);
-      
-      // Se for estágio "Perdido", encerrar conversa automaticamente
-      if (newStage?.title.toLowerCase() === 'perdido') {
-        // 1. Atualizar deal com lost_at e lost_reason
-        const { error: dealError } = await supabase
-          .from('deals')
-          .update({
-            stage_id: newStageId,
-            lost_at: new Date().toISOString(),
-            lost_reason: 'Movido manualmente para Perdido'
-          })
-          .eq('id', existingDeal.id);
-        
-        if (dealError) throw dealError;
-        
-        // 2. Encerrar a conversa
-        if (activeChat) {
-          const { error: convError } = await supabase
-            .from('conversations')
-            .update({
-              status: 'closed',
-              is_active: false
-            })
-            .eq('id', activeChat.id);
-          
-          if (convError) throw convError;
-        }
-        
-        setExistingDeal({ ...existingDeal, stageId: newStageId, stage: newStage.title });
-        toast.success('Negócio marcado como Perdido e conversa encerrada');
-      } else {
-        // Comportamento normal para outros estágios
-        await api.moveDealStage(existingDeal.id, newStageId);
-        setExistingDeal({ ...existingDeal, stageId: newStageId, stage: newStage?.title });
-        toast.success(`Estágio atualizado para "${newStage?.title || 'Novo estágio'}"`);
-      }
-    } catch (error) {
-      console.error('Error changing stage:', error);
-      toast.error('Erro ao atualizar estágio');
-    } finally {
-      setIsChangingStage(false);
-    }
-  };
+  // Deal/pipeline logic removed - system now focused on collections and claims
 
   // Handle agent change
   const handleChangeAgent = async (agentId: string) => {
@@ -555,36 +463,6 @@ const ChatInterface: React.FC = () => {
       
       if (error) throw error;
       
-      // Update deal pipeline if exists
-      if (existingDeal) {
-        const { data: pipeline } = await supabase
-          .from('pipelines')
-          .select('id')
-          .eq('agent_id', agentId)
-          .eq('is_active', true)
-          .maybeSingle();
-        
-        if (pipeline) {
-          const { data: firstStage } = await supabase
-            .from('pipeline_stages')
-            .select('id')
-            .eq('pipeline_id', pipeline.id)
-            .order('position')
-            .limit(1)
-            .single();
-          
-          if (firstStage) {
-            await supabase
-              .from('deals')
-              .update({ 
-                pipeline_id: pipeline.id,
-                stage_id: firstStage.id 
-              })
-              .eq('id', existingDeal.id);
-          }
-        }
-      }
-      
       toast.success(`Agente alterado para ${selectedAgent?.name}`);
       refetch();
     } catch (error) {
@@ -595,13 +473,13 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Handle close conversation (mark as lost)
+  // Handle close conversation
   const handleCloseConversation = async () => {
     if (!activeChat || isClosingConversation) return;
     setIsClosingConversation(true);
     
     try {
-      // 1. Mark conversation as closed and inactive
+      // Mark conversation as closed and inactive
       const { error: convError } = await supabase
         .from('conversations')
         .update({ 
@@ -612,51 +490,9 @@ const ChatInterface: React.FC = () => {
       
       if (convError) throw convError;
       
-      // 2. Find deal and move to "Perdido" stage
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id')
-        .eq('contact_id', activeChat.contactId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      // Se for "Enviado ao Pipedrive", abrir o modal do Pipedrive ao invés de encerrar diretamente
-      if (closeReason === 'Enviado ao Pipedrive') {
-        setShowCloseModal(false);
-        setShowPipedriveModalFromClose(true);
-        setIsClosingConversation(false);
-        return;
-      }
-
-      if (deal) {
-        // Find "Perdido" stage for this pipeline
-        const { data: lostStage } = await supabase
-          .from('pipeline_stages')
-          .select('id')
-          .eq('pipeline_id', deal.pipeline_id)
-          .eq('title', 'Perdido')
-          .maybeSingle();
-        
-        if (lostStage) {
-          await supabase
-            .from('deals')
-            .update({
-              stage_id: lostStage.id,
-              lost_at: new Date().toISOString(),
-              lost_reason: closeReason || 'Lead desqualificado/encerrado'
-            })
-            .eq('id', deal.id);
-        }
-        
-        toast.success('Atendimento encerrado', {
-          description: 'Lead movido para Perdido e automações desativadas'
-        });
-      } else {
-        toast.success('Atendimento encerrado', {
-          description: 'Conversa encerrada'
-        });
-      }
+      toast.success('Atendimento encerrado', {
+        description: 'Conversa encerrada'
+      });
       
       setShowCloseModal(false);
       setCloseReason('');
@@ -667,31 +503,6 @@ const ChatInterface: React.FC = () => {
       toast.error('Erro ao encerrar atendimento');
     } finally {
       setIsClosingConversation(false);
-    }
-  };
-
-  // Handle after Pipedrive modal sends successfully (from close flow)
-  const handlePipedriveSent = async () => {
-    if (!activeChat) return;
-    
-    try {
-      // Encerrar a conversa após envio ao Pipedrive
-      await supabase
-        .from('conversations')
-        .update({ is_active: false, status: 'closed' })
-        .eq('id', activeChat.id);
-      
-      toast.success('Lead enviado ao Pipedrive!', {
-        description: 'Conversa encerrada - continuar atendimento pelo Pipedrive'
-      });
-      
-      setShowPipedriveModalFromClose(false);
-      setCloseReason('');
-      setSelectedChatId(null);
-      refetch();
-    } catch (error) {
-      console.error('Error closing conversation after Pipedrive:', error);
-      toast.error('Erro ao encerrar conversa');
     }
   };
 
@@ -717,7 +528,7 @@ const ChatInterface: React.FC = () => {
     // Window still open - can reactivate directly
     setIsReopeningConversation(true);
     try {
-      // 1. Reactivate conversation
+      // Reactivate conversation
       const { error: convError } = await supabase
         .from('conversations')
         .update({ 
@@ -727,17 +538,6 @@ const ChatInterface: React.FC = () => {
         .eq('id', activeChat.id);
       
       if (convError) throw convError;
-      
-      // 2. Clear lost_at and lost_reason from deal
-      if (existingDeal) {
-        await supabase
-          .from('deals')
-          .update({
-            lost_at: null,
-            lost_reason: null
-          })
-          .eq('id', existingDeal.id);
-      }
       
       toast.success('Atendimento reaberto - conversa voltou para IA');
       await refetch();
@@ -906,49 +706,7 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Convert contact to deal
-  const handleConvertToDeal = async () => {
-    if (!activeChat) return;
-    
-    setIsCreatingDeal(true);
-    try {
-      // Get first stage of default pipeline
-      const pipelines = await api.fetchPipelines();
-      const defaultPipeline = pipelines.find(p => p.isActive) || pipelines[0];
-      
-      let firstStageId: string | undefined;
-      let pipelineId: string | undefined;
-      if (defaultPipeline) {
-        const stages = await api.fetchPipelineStages(defaultPipeline.id);
-        const firstStage = stages.sort((a, b) => a.position - b.position)[0];
-        firstStageId = firstStage?.id;
-        pipelineId = defaultPipeline.id;
-      }
-      
-      const deal = await api.createDeal({
-        contact_id: activeChat.contactId,
-        title: activeChat.contactCompany || activeChat.contactName || 'Novo Negócio',
-        company: activeChat.contactCompany || undefined,
-        stage_id: firstStageId,
-        owner_id: activeChat.assignedUserId || undefined,
-      });
-      
-      // Add pipelineId to deal for navigation
-      const dealWithPipeline = { ...deal, pipelineId };
-      setExistingDeal(dealWithPipeline);
-      toast.success('Negócio criado com sucesso!', {
-        action: {
-          label: 'Ver no Kanban',
-          onClick: () => navigate(pipelineId ? `/kanban?pipeline=${pipelineId}` : '/kanban')
-        }
-      });
-    } catch (error) {
-      console.error('Error creating deal:', error);
-      toast.error('Erro ao criar negócio');
-    } finally {
-      setIsCreatingDeal(false);
-    }
-  };
+  // Deal/pipeline functionality removed - system focused on collections and claims
 
   // Format CNPJ for display
   const formatCnpj = (cnpj: string) => {
@@ -961,21 +719,13 @@ const ChatInterface: React.FC = () => {
   const conversationCounts = useMemo(() => {
     const counts: Record<string, number> = {
       all: conversations.length,
-      'no-pipeline': conversations.filter(c => c.pipelineId === null).length,
     };
-    pipelines.forEach(p => {
-      counts[p.id] = conversations.filter(c => c.pipelineId === p.id).length;
-    });
     return counts;
-  }, [conversations, pipelines]);
+  }, [conversations]);
 
-  // Calculate status counts for filters (based on selected pipeline)
+  // Calculate status counts for filters
   const statusCounts = useMemo(() => {
-    const baseConversations = selectedPipelineFilter === 'no-pipeline'
-      ? conversations.filter(c => c.pipelineId === null)
-      : selectedPipelineFilter
-        ? conversations.filter(c => c.pipelineId === selectedPipelineFilter)
-        : conversations;
+    const baseConversations = conversations;
     
     // Calculate counts per agent dynamically
     const agentCounts: Record<string, number> = {};
@@ -990,15 +740,11 @@ const ChatInterface: React.FC = () => {
       human: baseConversations.filter(c => c.status === 'human').length,
       paused: baseConversations.filter(c => c.status === 'paused').length,
     };
-  }, [conversations, selectedPipelineFilter, filterAgents]);
+  }, [conversations, filterAgents]);
 
-  // Calculate available owners for filter (based on selected pipeline and status)
+  // Calculate available owners for filter
   const availableOwners = useMemo(() => {
-    let baseConversations = selectedPipelineFilter === 'no-pipeline'
-      ? conversations.filter(c => c.pipelineId === null)
-      : selectedPipelineFilter
-        ? conversations.filter(c => c.pipelineId === selectedPipelineFilter)
-        : conversations;
+    let baseConversations = conversations;
     
     if (selectedStatusFilter) {
       baseConversations = baseConversations.filter(c => c.status === selectedStatusFilter);
@@ -1006,30 +752,22 @@ const ChatInterface: React.FC = () => {
     
     const ownersMap = new Map<string, { id: string; name: string; count: number }>();
     baseConversations.forEach(c => {
-      if (c.dealOwnerId && c.dealOwnerName) {
-        const existing = ownersMap.get(c.dealOwnerId);
+      if (c.assignedUserId && c.assignedUserName) {
+        const existing = ownersMap.get(c.assignedUserId);
         if (existing) {
           existing.count++;
         } else {
-          ownersMap.set(c.dealOwnerId, { id: c.dealOwnerId, name: c.dealOwnerName, count: 1 });
+          ownersMap.set(c.assignedUserId, { id: c.assignedUserId, name: c.assignedUserName, count: 1 });
         }
       }
     });
     return Array.from(ownersMap.values());
-  }, [conversations, selectedPipelineFilter, selectedStatusFilter]);
+  }, [conversations, selectedStatusFilter]);
 
   const filteredConversations = conversations
     .filter(chat => {
       // Hide closed conversations by default (unless toggle is on)
       if (!showClosedConversations && chat.status === 'closed') {
-        return false;
-      }
-      
-      // Pipeline filter
-      if (selectedPipelineFilter === 'no-pipeline') {
-        // Show only conversations WITHOUT pipeline
-        if (chat.pipelineId !== null) return false;
-      } else if (selectedPipelineFilter && chat.pipelineId !== selectedPipelineFilter) {
         return false;
       }
       
@@ -1044,7 +782,7 @@ const ChatInterface: React.FC = () => {
       }
       
       // Owner filter
-      if (selectedOwnerFilter && chat.dealOwnerId !== selectedOwnerFilter) {
+      if (selectedOwnerFilter && chat.assignedUserId !== selectedOwnerFilter) {
         return false;
       }
       
@@ -1301,67 +1039,26 @@ const ChatInterface: React.FC = () => {
             {viewingArchived ? '📦 Arquivados' : 'Chats Ativos'}
           </h2>
           
-          {/* Pipeline Filter Pills - iOS 26 Style */}
+          {/* Filter Pills - iOS 26 Style */}
           <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
-            {!viewingArchived && (
-              <>
-                <button
-                  onClick={() => { setSelectedPipelineFilter(null); setSelectedStatusFilter(null); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                    selectedPipelineFilter === null
-                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30 scale-[1.02] border-transparent'
-                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Todos
-                  <span className={`text-[10px] ${selectedPipelineFilter === null ? 'text-white/80' : 'opacity-60'}`}>({conversationCounts.all})</span>
-                </button>
-                {/* Pipelines ordenados: Transporte, Saúde, Prospecção */}
-                {[...pipelines].sort((a, b) => {
-                  const pipelineOrder = ['transporte', 'saude', 'prospeccao'];
-                  const slugA = a.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const slugB = b.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const indexA = pipelineOrder.indexOf(slugA);
-                  const indexB = pipelineOrder.indexOf(slugB);
-                  return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-                }).map((pipeline) => {
-                  // Gradientes vibrantes por pipeline
-                  const pipelineGradients: Record<string, { gradient: string; shadow: string }> = {
-                    'transporte': { gradient: 'from-orange-400 to-amber-500', shadow: 'shadow-orange-500/30' },
-                    'saude': { gradient: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
-                    'prospeccao': { gradient: 'from-blue-400 to-indigo-500', shadow: 'shadow-blue-500/30' },
-                    'outros seguros': { gradient: 'from-violet-400 to-purple-500', shadow: 'shadow-violet-500/30' },
-                  };
-                  const slugNormalized = pipeline.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const style = pipelineGradients[slugNormalized] || { gradient: 'from-slate-400 to-slate-500', shadow: 'shadow-slate-500/30' };
-                  const isActive = selectedPipelineFilter === pipeline.id;
-                  
-                  return (
-                    <button
-                      key={pipeline.id}
-                      onClick={() => { setSelectedPipelineFilter(pipeline.id); setSelectedStatusFilter(null); }}
-                      className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                        isActive
-                          ? `bg-gradient-to-r ${style.gradient} text-white shadow-lg ${style.shadow} scale-[1.02] border-transparent`
-                          : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
-                      }`}
-                    >
-                      <span className="text-sm">{pipeline.icon}</span>
-                      {pipeline.name}
-                      <span className={`text-[10px] ${isActive ? 'text-white/80' : 'opacity-60'}`}>({conversationCounts[pipeline.id] || 0})</span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
+            <button
+              onClick={() => setSelectedStatusFilter(null)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                !viewingArchived && selectedStatusFilter === null
+                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30 scale-[1.02] border-transparent'
+                  : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Todos
+              <span className="text-[10px] opacity-60">({conversationCounts.all})</span>
+            </button>
             {/* Arquivados */}
             <button
               onClick={async () => {
                 const newViewingArchived = !viewingArchived;
                 setViewingArchived(newViewingArchived);
                 setSelectedChatId(null);
-                setSelectedPipelineFilter(null);
                 if (newViewingArchived) {
                   await fetchArchivedConversations();
                 } else {
@@ -1381,23 +1078,8 @@ const ChatInterface: React.FC = () => {
             >
               <Archive className="w-4 h-4" />
               {viewingArchived ? 'Voltar aos Ativos' : 'Arquivados'}
-              {!viewingArchived && <span className={`text-[10px] ${viewingArchived ? 'text-white/80' : 'opacity-60'}`}>({archivedCount})</span>}
+              {!viewingArchived && <span className="text-[10px] opacity-60">({archivedCount})</span>}
             </button>
-            {/* Sem Funil - depois de Arquivados */}
-            {!viewingArchived && (
-              <button
-                onClick={() => { setSelectedPipelineFilter('no-pipeline'); setSelectedStatusFilter(null); }}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                  selectedPipelineFilter === 'no-pipeline'
-                    ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg shadow-yellow-500/30 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
-                }`}
-              >
-                <Inbox className="w-4 h-4" />
-                Sem Funil
-                <span className={`text-[10px] ${selectedPipelineFilter === 'no-pipeline' ? 'text-white/80' : 'opacity-60'}`}>({conversationCounts['no-pipeline']})</span>
-              </button>
-            )}
           </div>
           
           {/* Status Filter Pills - iOS 26 Style */}
@@ -1774,27 +1456,6 @@ const ChatInterface: React.FC = () => {
                             ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      )}
-                      {/* Pipeline Badge */}
-                      {!isMobile && existingDeal?.pipeline && (
-                        <span 
-                          className="px-2.5 py-1 backdrop-blur-sm text-[10px] rounded-full font-medium flex items-center gap-1.5 border shadow-lg"
-                          style={{
-                            backgroundColor: `${existingDeal.pipeline.color || '#3b82f6'}20`,
-                            color: existingDeal.pipeline.color || '#3b82f6',
-                            borderColor: `${existingDeal.pipeline.color || '#3b82f6'}30`
-                          }}
-                        >
-                          <span>{existingDeal.pipeline.icon || '📋'}</span>
-                          {existingDeal.pipeline.name}
-                        </span>
-                      )}
-                      {/* Owner Badge */}
-                      {!isMobile && existingDeal?.owner && (
-                        <span className="px-2.5 py-1 bg-gradient-to-r from-emerald-500/20 to-green-500/20 backdrop-blur-sm text-emerald-300 border border-emerald-400/30 text-[10px] rounded-full font-medium flex items-center gap-1.5 shadow-lg shadow-emerald-500/10">
-                          <User className="w-3 h-3" />
-                          {existingDeal.owner.name?.split(' ')[0] || 'Sem responsável'}
-                        </span>
                       )}
                       {/* WhatsApp Window Badge - Real-time (hidden on mobile) */}
                       {!isMobile && windowTimeRemaining.isOpen ? (
@@ -2473,70 +2134,7 @@ const ChatInterface: React.FC = () => {
                   />
                 </div>
 
-                {/* Pipeline Stage Selector */}
-                {existingDeal && dealStages.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                      <Briefcase className="w-4 h-4" />
-                      Estágio do Negócio
-                    </h4>
-                    <select
-                      value={existingDeal.stageId || ''}
-                      onChange={(e) => handleStageChange(e.target.value)}
-                      disabled={isChangingStage}
-                      className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none transition-all disabled:opacity-50 disabled:cursor-wait"
-                    >
-                      {dealStages.map(stage => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Convert to Deal / View Deal Button */}
-                <div className="pt-2">
-                  {isCheckingDeal ? (
-                    <div className="flex items-center justify-center py-3">
-                      <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                    </div>
-                  ) : existingDeal ? (
-                    <Button
-                      variant="outline"
-                      className="w-full border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50"
-                      onClick={() => navigate(existingDeal.pipelineId ? `/kanban?pipeline=${existingDeal.pipelineId}` : '/kanban')}
-                    >
-                      <Briefcase className="w-4 h-4 mr-2" />
-                      Ver Negócio no Kanban
-                      <ExternalLink className="w-3 h-3 ml-2 opacity-50" />
-                    </Button>
-                  ) : (
-                    <Button
-                      className="w-full bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700"
-                      onClick={handleConvertToDeal}
-                      disabled={isCreatingDeal}
-                    >
-                      {isCreatingDeal ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Plus className="w-4 h-4 mr-2" />
-                      )}
-                      Converter em Negócio
-                    </Button>
-                  )}
-                </div>
-
-                {/* Quick Actions Bar */}
-                {existingDeal && (
-                  <QuickActionsBar
-                    activeChat={activeChat}
-                    existingDeal={existingDeal}
-                    dealStages={dealStages}
-                    onDealUpdated={setExistingDeal}
-                    onRefetch={refetch}
-                  />
-                )}
+                {/* Deal/Pipeline functionality removed - system focused on collections and claims */}
 
                 <div className="h-px bg-slate-800/50 w-full"></div>
 
@@ -2849,11 +2447,11 @@ const ChatInterface: React.FC = () => {
         <EmailComposeModal
           isOpen={showEmailModal}
           onClose={() => setShowEmailModal(false)}
-          dealId={existingDeal?.id || ''}
+          dealId=""
           contactEmail={activeChat.contactEmail || ''}
           contactName={activeChat.contactName}
           company={activeChat.contactCompany || ''}
-          value={existingDeal?.value || 0}
+          value={0}
           ninaContext={activeChat.ninaContext as Record<string, any> | null}
           clientMemory={activeChat.clientMemory}
           agentSlug={activeChat.agentSlug}
@@ -2866,29 +2464,6 @@ const ChatInterface: React.FC = () => {
             toast.success('Email enviado com sucesso!');
             setShowEmailModal(false);
           }}
-        />
-      )}
-
-      {/* Pipedrive Modal (from close flow) */}
-      {activeChat && (
-        <SendToPipedriveModal
-          open={showPipedriveModalFromClose}
-          onOpenChange={(open) => {
-            setShowPipedriveModalFromClose(open);
-            if (!open) setCloseReason('');
-          }}
-          contact={{
-            id: activeChat.contactId,
-            name: activeChat.contactName,
-            phone_number: activeChat.contactPhone,
-            email: activeChat.contactEmail,
-            company: activeChat.contactCompany,
-            tags: activeChat.tags
-          }}
-          dealId={existingDeal?.id}
-          conversationId={activeChat.id}
-          onSent={handlePipedriveSent}
-          initialNotes={activeChat.notes}
         />
       )}
     </div>
