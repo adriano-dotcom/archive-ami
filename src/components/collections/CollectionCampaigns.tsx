@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollectionEmailCampaign } from './CollectionEmailCampaign';
+import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
 
 interface CollectionBatch {
   id: string;
@@ -64,7 +65,9 @@ const COLLECTION_TEMPLATES = [
 export const CollectionCampaigns: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [currentBatchId, setCurrentBatchId] = useState<string | undefined>();
+  const [selectedRangeFilter, setSelectedRangeFilter] = useState('all');
   const [newCampaign, setNewCampaign] = useState({
     name: '',
     description: '',
@@ -351,6 +354,34 @@ export const CollectionCampaigns: React.FC = () => {
                 </div>
               )}
 
+              {/* Show WhatsApp Template button for whatsapp channel */}
+              {newCampaign.channel === 'whatsapp' && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-green-500/20">
+                      <MessageSquare className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-200">Template do Meta WhatsApp</p>
+                      <p className="text-xs text-slate-400">
+                        Use templates aprovados pelo Meta para enviar cobranças em massa
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setSelectedRangeFilter(newCampaign.rangeFilter);
+                      setIsCreateOpen(false);
+                      setShowWhatsAppModal(true);
+                    }}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Enviar via WhatsApp Template
+                  </Button>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4">
                 <Button 
                   variant="outline" 
@@ -495,6 +526,16 @@ export const CollectionCampaigns: React.FC = () => {
         onOpenChange={setShowEmailCampaign}
         filters={{ range: newCampaign.rangeFilter }}
         batchId={currentBatchId}
+      />
+
+      {/* WhatsApp Template Modal */}
+      <SendCollectionTemplateModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        rangeFilter={selectedRangeFilter}
+        onSent={() => {
+          queryClient.invalidateQueries({ queryKey: ['collection-batches'] });
+        }}
       />
     </div>
   );
