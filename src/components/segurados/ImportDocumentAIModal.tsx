@@ -32,7 +32,8 @@ import {
   Mail,
   ArrowRight,
   Save,
-  History
+  History,
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -99,6 +100,12 @@ interface ExtractedInstallment {
   matchStatus?: 'matched_document' | 'matched_phone' | 'matched_name' | 'new';
   matchedContactId?: string;
   matchedContactName?: string;
+  // Duplicate detection status
+  duplicateStatus?: 'new' | 'duplicate' | 'update_available';
+  existingInstallmentId?: string;
+  existingValue?: number;
+  existingStatus?: string;
+  existingDueDate?: string;
 }
 
 interface UploadedFile {
@@ -480,6 +487,118 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     }
     
     return matchedInstallments;
+  };
+
+  // Check for duplicate installments in the database before import
+  const checkDuplicatesInDatabase = async (installments: ExtractedInstallment[]): Promise<ExtractedInstallment[]> => {
+    const checkedInstallments: ExtractedInstallment[] = [];
+    
+    // Group installments by policy_number + insurer for batch lookup
+    const policyMap = new Map<string, ExtractedInstallment[]>();
+    
+    for (const inst of installments) {
+      const key = `${inst.policy_number}|${inst.insurer || 'UNKNOWN'}`;
+      if (!policyMap.has(key)) {
+        policyMap.set(key, []);
+      }
+      policyMap.get(key)!.push(inst);
+    }
+    
+    // Check each policy group
+    for (const [key, policyInstallments] of policyMap) {
+      const [policyNumber, insurer] = key.split('|');
+      
+      // Find policy in database
+      const { data: existingPolicy } = await supabase
+        .from('policies')
+        .select('id')
+        .eq('policy_number', policyNumber)
+        .eq('insurer', insurer)
+        .maybeSingle();
+      
+      if (!existingPolicy) {
+        // Policy doesn't exist - all installments are new
+        for (const inst of policyInstallments) {
+          checkedInstallments.push({
+            ...inst,
+            duplicateStatus: 'new',
+            selected: true // Select new installments by default
+          });
+        }
+        continue;
+      }
+      
+      // Policy exists - check each installment
+      for (const inst of policyInstallments) {
+        const installmentNumber = (
+          inst.installment_number != null && 
+          !isNaN(Number(inst.installment_number)) && 
+          Number(inst.installment_number) > 0
+        ) ? Math.floor(Number(inst.installment_number)) : 1;
+        
+        // Check if installment already exists with same key
+        const { data: existingInstallment } = await supabase
+          .from('installments')
+          .select('id, value, status, due_date')
+          .eq('policy_id', existingPolicy.id)
+          .eq('installment_number', installmentNumber)
+          .eq('due_date', inst.due_date)
+          .maybeSingle();
+        
+        if (!existingInstallment) {
+          // Installment doesn't exist - it's new
+          checkedInstallments.push({
+            ...inst,
+            duplicateStatus: 'new',
+            selected: true
+          });
+        } else {
+          // Installment exists - check if it's exactly the same or has updates
+          const expectedStatus = inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending';
+          const isSameValue = Math.abs(existingInstallment.value - inst.value) < 0.01;
+          const isSameStatus = existingInstallment.status === expectedStatus;
+          
+          if (isSameValue && isSameStatus) {
+            // Exact duplicate - deselect by default
+            checkedInstallments.push({
+              ...inst,
+              duplicateStatus: 'duplicate',
+              existingInstallmentId: existingInstallment.id,
+              existingValue: existingInstallment.value,
+              existingStatus: existingInstallment.status,
+              existingDueDate: existingInstallment.due_date,
+              selected: false // Deselect duplicates by default
+            });
+          } else {
+            // Has updates available
+            checkedInstallments.push({
+              ...inst,
+              duplicateStatus: 'update_available',
+              existingInstallmentId: existingInstallment.id,
+              existingValue: existingInstallment.value,
+              existingStatus: existingInstallment.status,
+              existingDueDate: existingInstallment.due_date,
+              selected: true // Select for update
+            });
+          }
+        }
+      }
+    }
+    
+    // Show summary toast
+    const newCount = checkedInstallments.filter(i => i.duplicateStatus === 'new').length;
+    const duplicateCount = checkedInstallments.filter(i => i.duplicateStatus === 'duplicate').length;
+    const updateCount = checkedInstallments.filter(i => i.duplicateStatus === 'update_available').length;
+    
+    if (duplicateCount > 0 || updateCount > 0) {
+      const parts = [];
+      if (newCount > 0) parts.push(`${newCount} nova(s)`);
+      if (duplicateCount > 0) parts.push(`${duplicateCount} já importada(s)`);
+      if (updateCount > 0) parts.push(`${updateCount} com atualização`);
+      toast.info(`Verificação: ${parts.join(', ')}`);
+    }
+    
+    return checkedInstallments;
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -865,6 +984,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       if (extractedInstallments.length > 0) {
         toast.info('Vinculando parcelas a clientes existentes...');
         extractedInstallments = await matchInstallmentsToContacts(extractedInstallments);
+        
+        // Check for duplicates in database
+        toast.info('Verificando duplicatas no banco de dados...');
+        extractedInstallments = await checkDuplicatesInDatabase(extractedInstallments);
       }
 
       setCompanies(extractedCompanies);
@@ -1050,6 +1173,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       
       // Counters for accurate tracking
       let successfulInstallments = 0;
+      let updatedInstallments = 0;
+      let skippedDuplicates = 0;
       let failedInstallments = 0;
       const importErrors: Array<{ type: string; data: any; error: string }> = [];
       
@@ -1233,17 +1358,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             continue;
           }
           
-          // Create installment - APRENDIZADO: Usar chave composta policy_id + installment_number + due_date
-          // para permitir múltiplas parcelas da mesma apólice com endossos diferentes (ex: Tokio Marine)
+          // Create installment - Use existingInstallmentId from duplicate check if available
           if (policyId) {
-            // Verificar se já existe parcela com mesma policy_id, installment_number E due_date
-            const { data: existingInst } = await supabase
-              .from('installments')
-              .select('id')
-              .eq('policy_id', policyId)
-              .eq('installment_number', installmentNumber)
-              .eq('due_date', inst.due_date)
-              .maybeSingle();
+            // Use pre-detected existingInstallmentId to avoid redundant query
+            const existingInstId = inst.existingInstallmentId;
             
             const installmentData = {
               policy_id: policyId,
@@ -1262,12 +1380,12 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               }
             };
             
-            if (existingInst) {
-              // Atualizar parcela existente
+            if (existingInstId) {
+              // Update existing installment
               const { error: updateError } = await supabase
                 .from('installments')
                 .update(installmentData)
-                .eq('id', existingInst.id);
+                .eq('id', existingInstId);
               
               if (updateError) {
                 console.error('Error updating installment:', updateError);
@@ -1278,10 +1396,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 });
                 failedInstallments++;
               } else {
-                successfulInstallments++;
+                updatedInstallments++;
               }
             } else {
-              // Inserir nova parcela
+              // Insert new installment
               const { error: insertError } = await supabase
                 .from('installments')
                 .insert(installmentData);
@@ -1325,9 +1443,12 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       if (selectedCompanies.length > 0) summary.push(`${selectedCompanies.length} empresas`);
       if (selectedContacts.length > 0) summary.push(`${selectedContacts.length} contatos`);
       
-      // Use actual successful count for installments
+      // Use actual counts for installments
       if (successfulInstallments > 0) {
-        summary.push(`${successfulInstallments} parcelas`);
+        summary.push(`${successfulInstallments} novas parcelas`);
+      }
+      if (updatedInstallments > 0) {
+        summary.push(`${updatedInstallments} atualizadas`);
       }
       
       // Log import errors for debugging
@@ -1337,10 +1458,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       
       // Update audit log with REAL import counts
       await updateAuditLog({
-        status: failedInstallments > 0 && successfulInstallments === 0 ? 'partial_error' : 'completed',
+        status: failedInstallments > 0 && successfulInstallments === 0 && updatedInstallments === 0 ? 'partial_error' : 'completed',
         imported_companies: selectedCompanies.length,
         imported_contacts: selectedContacts.length,
-        imported_installments: successfulInstallments,
+        imported_installments: successfulInstallments + updatedInstallments,
         extraction_errors: importErrors.length > 0 ? importErrors.slice(0, 20) : null // Store first 20 errors
       });
       
@@ -1348,11 +1469,12 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       clearPendingData();
       
       // Show appropriate toast based on results
-      if (failedInstallments > 0 && successfulInstallments > 0) {
-        toast.warning(`Importação parcial: ${successfulInstallments} parcelas OK, ${failedInstallments} com erro`, {
-          description: 'Verifique o console para detalhes dos erros'
+      const totalSuccess = successfulInstallments + updatedInstallments;
+      if (failedInstallments > 0 && totalSuccess > 0) {
+        toast.warning(`Importação parcial: ${totalSuccess} parcelas OK, ${failedInstallments} com erro`, {
+          description: updatedInstallments > 0 ? `${updatedInstallments} foram atualizadas` : undefined
         });
-      } else if (failedInstallments > 0 && successfulInstallments === 0) {
+      } else if (failedInstallments > 0 && totalSuccess === 0) {
         toast.error(`Falha na importação: ${failedInstallments} parcelas com erro`, {
           description: 'Nenhuma parcela foi importada. Verifique os dados.'
         });
@@ -1428,10 +1550,46 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     return <Badge variant="outline" className="text-xs">{status}</Badge>;
   };
 
+  // Get duplicate status badge
+  const getDuplicateStatusBadge = (duplicateStatus?: string, existingValue?: number, existingStatus?: string) => {
+    switch (duplicateStatus) {
+      case 'new':
+        return (
+          <Badge className="bg-emerald-500/20 text-emerald-400 text-xs whitespace-nowrap">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Nova
+          </Badge>
+        );
+      case 'duplicate':
+        return (
+          <Badge className="bg-yellow-500/20 text-yellow-400 text-xs whitespace-nowrap" title={`Valor: R$ ${existingValue?.toFixed(2)}, Status: ${existingStatus}`}>
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Já importada
+          </Badge>
+        );
+      case 'update_available':
+        return (
+          <Badge className="bg-blue-500/20 text-blue-400 text-xs whitespace-nowrap" title={`Valor anterior: R$ ${existingValue?.toFixed(2)}, Status anterior: ${existingStatus}`}>
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Atualizar
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Calculate installments summary
   const selectedInstallmentsTotal = installments
     .filter(inst => inst.selected)
     .reduce((sum, inst) => sum + inst.value, 0);
+  
+  // Calculate duplicate statistics
+  const duplicateStats = {
+    new: installments.filter(i => i.duplicateStatus === 'new').length,
+    duplicate: installments.filter(i => i.duplicateStatus === 'duplicate').length,
+    update_available: installments.filter(i => i.duplicateStatus === 'update_available').length
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -1739,6 +1897,31 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                   </Badge>
                 )}
               </div>
+              
+              {/* Duplicate Statistics */}
+              {installments.length > 0 && (duplicateStats.duplicate > 0 || duplicateStats.update_available > 0) && (
+                <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm text-slate-300">
+                    {duplicateStats.new > 0 && (
+                      <span className="text-emerald-400 font-medium">{duplicateStats.new} nova(s)</span>
+                    )}
+                    {duplicateStats.new > 0 && (duplicateStats.duplicate > 0 || duplicateStats.update_available > 0) && ' • '}
+                    {duplicateStats.duplicate > 0 && (
+                      <span className="text-yellow-400">{duplicateStats.duplicate} já importada(s)</span>
+                    )}
+                    {duplicateStats.duplicate > 0 && duplicateStats.update_available > 0 && ' • '}
+                    {duplicateStats.update_available > 0 && (
+                      <span className="text-blue-400">{duplicateStats.update_available} com atualização</span>
+                    )}
+                  </span>
+                  {duplicateStats.duplicate > 0 && (
+                    <span className="text-xs text-slate-500 ml-auto">
+                      Duplicatas desmarcadas automaticamente
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Installments */}
               {installments.length > 0 && (
@@ -1778,7 +1961,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                           <TableHead className="w-10"></TableHead>
                           <TableHead>Segurado</TableHead>
                           <TableHead>Vinculação</TableHead>
-                          <TableHead>CPF/CNPJ</TableHead>
+                          <TableHead>Banco</TableHead>
                           <TableHead>Apólice</TableHead>
                           <TableHead className="text-center">Parcela</TableHead>
                           <TableHead className="text-right">Valor</TableHead>
@@ -1790,7 +1973,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                         {installments.map((inst) => (
                           <TableRow 
                             key={inst.id} 
-                            className={`${!inst.selected ? 'opacity-50' : ''} hover:bg-slate-800/30`}
+                            className={`${!inst.selected ? 'opacity-50' : ''} ${inst.duplicateStatus === 'duplicate' ? 'bg-yellow-500/5' : ''} hover:bg-slate-800/30`}
                           >
                             <TableCell>
                               <Checkbox
@@ -1809,8 +1992,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             <TableCell>
                               {getMatchStatusBadge(inst.matchStatus, inst.matchedContactName)}
                             </TableCell>
-                            <TableCell className="text-slate-400 text-sm">
-                              {formatDocument(inst.insured_document)}
+                            <TableCell>
+                              {getDuplicateStatusBadge(inst.duplicateStatus, inst.existingValue, inst.existingStatus)}
                             </TableCell>
                             <TableCell className="text-slate-300">
                               {inst.policy_number}
@@ -1822,6 +2005,11 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             </TableCell>
                             <TableCell className="text-right font-medium text-emerald-400">
                               {formatCurrency(inst.value)}
+                              {inst.duplicateStatus === 'update_available' && inst.existingValue && (
+                                <div className="text-xs text-slate-500 line-through">
+                                  {formatCurrency(inst.existingValue)}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="text-slate-400">
                               <div className="flex items-center gap-1">
