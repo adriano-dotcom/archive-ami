@@ -99,11 +99,11 @@ interface ExtractedInstallment {
   confidence: number;
   selected: boolean;
   // Contact matching status
-  matchStatus?: 'matched_document' | 'matched_phone' | 'matched_name' | 'new';
+  matchStatus?: 'matched_document' | 'matched_phone' | 'matched_name' | 'matched_similar' | 'new';
   matchedContactId?: string;
   matchedContactName?: string;
   // Company matching status
-  companyMatchStatus?: 'matched_cnpj' | 'matched_name' | 'new_company' | 'not_company';
+  companyMatchStatus?: 'matched_cnpj' | 'matched_name' | 'matched_similar' | 'new_company' | 'not_company';
   matchedCompanyId?: string;
   matchedCompanyName?: string;
   // Duplicate detection status
@@ -375,9 +375,37 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       .trim();
   };
 
+  // Calculate similarity between two strings (fuzzy matching)
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const s1 = normalizeText(str1);
+    const s2 = normalizeText(str2);
+    
+    if (s1 === s2) return 1.0;
+    if (!s1 || !s2) return 0;
+    
+    // If one contains the other, high similarity
+    if (s1.includes(s2) || s2.includes(s1)) return 0.85;
+    
+    // Calculate word-based similarity
+    const words1 = s1.split(' ').filter(w => w.length > 2);
+    const words2 = s2.split(' ').filter(w => w.length > 2);
+    
+    if (words1.length === 0 || words2.length === 0) return 0;
+    
+    const commonWords = words1.filter(w => words2.some(w2 => w2.includes(w) || w.includes(w2)));
+    return commonWords.length / Math.max(words1.length, words2.length);
+  };
+
   // Intelligent matching function to link installments to existing contacts
   const matchInstallmentsToContacts = async (installments: ExtractedInstallment[]): Promise<ExtractedInstallment[]> => {
     const matchedInstallments: ExtractedInstallment[] = [];
+    
+    // Pre-fetch all contacts for fuzzy matching
+    const { data: allContacts } = await supabase
+      .from('contacts')
+      .select('id, name, phone_number, cpf, cnpj')
+      .not('name', 'is', null)
+      .limit(1000);
     
     for (const inst of installments) {
       let matchStatus: ExtractedInstallment['matchStatus'] = 'new';
@@ -386,7 +414,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       
       const docClean = inst.insured_document?.replace(/\D/g, '') || '';
       
-      // Priority 1: Match by CPF/CNPJ (most reliable)
+      // Priority 1a: Match by CPF
       if (docClean.length === 11) {
         const { data: contactByCpf } = await supabase
           .from('contacts')
@@ -399,26 +427,43 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           matchedContactId = contactByCpf.id;
           matchedContactName = contactByCpf.name || undefined;
         }
-      } else if (docClean.length === 14) {
-        // For CNPJ, find company and its billing contact
-        const { data: company } = await supabase
-          .from('companies')
-          .select('id')
+      }
+      
+      // Priority 1b: Match by CNPJ in contacts table
+      if (!matchedContactId && docClean.length === 14) {
+        const { data: contactByCnpj } = await supabase
+          .from('contacts')
+          .select('id, name')
           .eq('cnpj', docClean)
           .maybeSingle();
         
-        if (company) {
-          const { data: billingContact } = await supabase
-            .from('contacts')
-            .select('id, name')
-            .eq('company_id', company.id)
-            .eq('is_billing_contact', true)
+        if (contactByCnpj) {
+          matchStatus = 'matched_document';
+          matchedContactId = contactByCnpj.id;
+          matchedContactName = contactByCnpj.name || undefined;
+        }
+        
+        // If not found, try to find company and its billing contact
+        if (!matchedContactId) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('cnpj', docClean)
             .maybeSingle();
           
-          if (billingContact) {
-            matchStatus = 'matched_document';
-            matchedContactId = billingContact.id;
-            matchedContactName = billingContact.name || undefined;
+          if (company) {
+            const { data: billingContact } = await supabase
+              .from('contacts')
+              .select('id, name')
+              .eq('company_id', company.id)
+              .eq('is_billing_contact', true)
+              .maybeSingle();
+            
+            if (billingContact) {
+              matchStatus = 'matched_document';
+              matchedContactId = billingContact.id;
+              matchedContactName = billingContact.name || undefined;
+            }
           }
         }
       }
@@ -456,7 +501,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         }
       }
       
-      // Priority 3: Match by name (similarity search)
+      // Priority 3: Match by name (exact match using pattern)
       if (!matchedContactId && inst.insured_name) {
         const normalizedName = normalizeText(inst.insured_name);
         const nameParts = normalizedName.split(' ').filter(p => p.length > 2);
@@ -479,6 +524,27 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         }
       }
       
+      // Priority 4: Fuzzy matching by name similarity
+      if (!matchedContactId && inst.insured_name && allContacts && allContacts.length > 0) {
+        let bestMatch: { contact: typeof allContacts[0]; score: number } | null = null;
+        
+        for (const contact of allContacts) {
+          if (!contact.name) continue;
+          const score = calculateSimilarity(inst.insured_name, contact.name);
+          
+          // Require higher similarity (80%) for fuzzy matching
+          if (score >= 0.80 && (!bestMatch || score > bestMatch.score)) {
+            bestMatch = { contact, score };
+          }
+        }
+        
+        if (bestMatch) {
+          matchStatus = 'matched_similar';
+          matchedContactId = bestMatch.contact.id;
+          matchedContactName = bestMatch.contact.name || undefined;
+        }
+      }
+      
       matchedInstallments.push({
         ...inst,
         matchStatus,
@@ -487,9 +553,21 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       });
     }
     
-    const matchedCount = matchedInstallments.filter(i => i.matchStatus !== 'new').length;
-    if (matchedCount > 0) {
-      toast.success(`${matchedCount} parcela(s) vinculada(s) a clientes existentes`);
+    const matchedByDoc = matchedInstallments.filter(i => i.matchStatus === 'matched_document').length;
+    const matchedByPhone = matchedInstallments.filter(i => i.matchStatus === 'matched_phone').length;
+    const matchedByName = matchedInstallments.filter(i => i.matchStatus === 'matched_name').length;
+    const matchedBySimilar = matchedInstallments.filter(i => i.matchStatus === 'matched_similar').length;
+    const newCount = matchedInstallments.filter(i => i.matchStatus === 'new').length;
+    
+    const parts = [];
+    if (matchedByDoc > 0) parts.push(`${matchedByDoc} por documento`);
+    if (matchedByPhone > 0) parts.push(`${matchedByPhone} por telefone`);
+    if (matchedByName > 0) parts.push(`${matchedByName} por nome`);
+    if (matchedBySimilar > 0) parts.push(`${matchedBySimilar} similar(es)`);
+    if (newCount > 0) parts.push(`${newCount} novo(s)`);
+    
+    if (parts.length > 0) {
+      toast.info(`Segurados: ${parts.join(', ')}`);
     }
     
     return matchedInstallments;
@@ -561,7 +639,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         }
       }
       
-      // Priority 2: Match by name/razão social
+      // Priority 2: Match by name/razão social (exact)
       if (!matchedCompanyId && inst.insured_name) {
         const normalizedInsuredName = normalizeText(inst.insured_name);
         const normalizedCompanyName = inst.insured_company_name ? normalizeText(inst.insured_company_name) : null;
@@ -583,6 +661,31 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         }
       }
       
+      // Priority 3: Match by fuzzy name similarity
+      if (!matchedCompanyId && inst.insured_name && companies && companies.length > 0) {
+        let bestMatch: { company: typeof companies[0]; score: number } | null = null;
+        
+        for (const company of companies) {
+          const scoreRazao = calculateSimilarity(inst.insured_name, company.razao_social);
+          const scoreFantasia = company.nome_fantasia 
+            ? calculateSimilarity(inst.insured_name, company.nome_fantasia) 
+            : 0;
+          
+          const maxScore = Math.max(scoreRazao, scoreFantasia);
+          
+          // Require 75% similarity for company matching
+          if (maxScore >= 0.75 && (!bestMatch || maxScore > bestMatch.score)) {
+            bestMatch = { company, score: maxScore };
+          }
+        }
+        
+        if (bestMatch) {
+          companyMatchStatus = 'matched_similar';
+          matchedCompanyId = bestMatch.company.id;
+          matchedCompanyName = bestMatch.company.razao_social;
+        }
+      }
+      
       // No match found - it's a new company
       if (!matchedCompanyId) {
         companyMatchStatus = 'new_company';
@@ -601,12 +704,14 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     // Show summary toast
     const matchedByCNPJ = matchedInstallments.filter(i => i.companyMatchStatus === 'matched_cnpj').length;
     const matchedByName = matchedInstallments.filter(i => i.companyMatchStatus === 'matched_name').length;
+    const matchedBySimilar = matchedInstallments.filter(i => i.companyMatchStatus === 'matched_similar').length;
     const newCompanies = matchedInstallments.filter(i => i.companyMatchStatus === 'new_company').length;
     
-    if (matchedByCNPJ > 0 || matchedByName > 0 || newCompanies > 0) {
+    if (matchedByCNPJ > 0 || matchedByName > 0 || matchedBySimilar > 0 || newCompanies > 0) {
       const parts = [];
       if (matchedByCNPJ > 0) parts.push(`${matchedByCNPJ} por CNPJ`);
       if (matchedByName > 0) parts.push(`${matchedByName} por nome`);
+      if (matchedBySimilar > 0) parts.push(`${matchedBySimilar} similar(es)`);
       if (newCompanies > 0) parts.push(`${newCompanies} nova(s)`);
       toast.info(`Empresas: ${parts.join(', ')}`);
     }
@@ -1390,11 +1495,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // Find or create company if CNPJ
-          let companyId: string | null = null;
-          if (inst.insured_document?.replace(/\D/g, '').length === 14) {
+          // Find or create company if CNPJ - use pre-matched company if available
+          let companyId: string | null = inst.matchedCompanyId || null;
+          
+          if (!companyId && inst.insured_document?.replace(/\D/g, '').length === 14) {
             const cnpj = inst.insured_document.replace(/\D/g, '');
             
+            // Check if company exists by CNPJ
             const { data: existingCompany } = await supabase
               .from('companies')
               .select('id')
@@ -1404,17 +1511,43 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             if (existingCompany) {
               companyId = existingCompany.id;
             } else {
-              const { data: newCompany } = await supabase
-                .from('companies')
-                .insert({
-                  cnpj: cnpj,
-                  razao_social: inst.insured_name
-                })
-                .select('id')
-                .single();
+              // Check for similar company by name before creating
+              if (inst.insured_name) {
+                const { data: similarCompanies } = await supabase
+                  .from('companies')
+                  .select('id, razao_social, cnpj')
+                  .limit(20);
+                
+                const matchedSimilar = similarCompanies?.find(c => 
+                  calculateSimilarity(inst.insured_name, c.razao_social) >= 0.75
+                );
+                
+                if (matchedSimilar) {
+                  companyId = matchedSimilar.id;
+                  // Update CNPJ if it was null
+                  if (!matchedSimilar.cnpj) {
+                    await supabase
+                      .from('companies')
+                      .update({ cnpj })
+                      .eq('id', matchedSimilar.id);
+                  }
+                }
+              }
               
-              if (newCompany) {
-                companyId = newCompany.id;
+              // Create new company only if no match found
+              if (!companyId) {
+                const { data: newCompany } = await supabase
+                  .from('companies')
+                  .insert({
+                    cnpj: cnpj,
+                    razao_social: inst.insured_name
+                  })
+                  .select('id')
+                  .single();
+                
+                if (newCompany) {
+                  companyId = newCompany.id;
+                }
               }
             }
           }
@@ -1662,6 +1795,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             Nome
           </Badge>
         );
+      case 'matched_similar':
+        return (
+          <Badge className="bg-cyan-500/20 text-cyan-400 text-xs whitespace-nowrap" title={`Similar a: ${matchedName}`}>
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Similar
+          </Badge>
+        );
       default:
         return (
           <Badge className="bg-purple-500/20 text-purple-400 text-xs whitespace-nowrap">
@@ -1725,6 +1865,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             Nome
           </Badge>
         );
+      case 'matched_similar':
+        return (
+          <Badge className="bg-cyan-500/20 text-cyan-400 text-xs whitespace-nowrap" title={`Empresa similar: ${matchedName}`}>
+            <Building2 className="w-3 h-3 mr-1" />
+            Similar
+          </Badge>
+        );
       case 'new_company':
         return (
           <Badge className="bg-purple-500/20 text-purple-400 text-xs whitespace-nowrap">
@@ -1753,7 +1900,17 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const companyStats = {
     matched_cnpj: installments.filter(i => i.companyMatchStatus === 'matched_cnpj').length,
     matched_name: installments.filter(i => i.companyMatchStatus === 'matched_name').length,
+    matched_similar: installments.filter(i => i.companyMatchStatus === 'matched_similar').length,
     new_company: installments.filter(i => i.companyMatchStatus === 'new_company').length
+  };
+  
+  // Calculate contact statistics
+  const contactStats = {
+    matched_document: installments.filter(i => i.matchStatus === 'matched_document').length,
+    matched_phone: installments.filter(i => i.matchStatus === 'matched_phone').length,
+    matched_name: installments.filter(i => i.matchStatus === 'matched_name').length,
+    matched_similar: installments.filter(i => i.matchStatus === 'matched_similar').length,
+    new: installments.filter(i => i.matchStatus === 'new').length
   };
 
   return (
@@ -2063,8 +2220,33 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 )}
               </div>
               
+              {/* Contact Statistics */}
+              {installments.length > 0 && (contactStats.matched_document > 0 || contactStats.matched_phone > 0 || contactStats.matched_similar > 0 || contactStats.new > 0) && (
+                <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <User className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-slate-300">
+                    <span className="font-medium">Segurados:</span>
+                    {contactStats.matched_document > 0 && (
+                      <span className="text-emerald-400 ml-2">{contactStats.matched_document} por CPF/CNPJ</span>
+                    )}
+                    {contactStats.matched_phone > 0 && (
+                      <span className="text-blue-400 ml-2">{contactStats.matched_phone} por telefone</span>
+                    )}
+                    {contactStats.matched_name > 0 && (
+                      <span className="text-amber-400 ml-2">{contactStats.matched_name} por nome</span>
+                    )}
+                    {contactStats.matched_similar > 0 && (
+                      <span className="text-cyan-400 ml-2">{contactStats.matched_similar} similar(es)</span>
+                    )}
+                    {contactStats.new > 0 && (
+                      <span className="text-purple-400 ml-2">{contactStats.new} novo(s)</span>
+                    )}
+                  </span>
+                </div>
+              )}
+              
               {/* Company Statistics */}
-              {installments.length > 0 && (companyStats.matched_cnpj > 0 || companyStats.matched_name > 0 || companyStats.new_company > 0) && (
+              {installments.length > 0 && (companyStats.matched_cnpj > 0 || companyStats.matched_name > 0 || companyStats.matched_similar > 0 || companyStats.new_company > 0) && (
                 <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
                   <Building2 className="w-4 h-4 text-blue-400" />
                   <span className="text-sm text-slate-300">
@@ -2074,6 +2256,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                     )}
                     {companyStats.matched_name > 0 && (
                       <span className="text-amber-400 ml-2">{companyStats.matched_name} por nome</span>
+                    )}
+                    {companyStats.matched_similar > 0 && (
+                      <span className="text-cyan-400 ml-2">{companyStats.matched_similar} similar(es)</span>
                     )}
                     {companyStats.new_company > 0 && (
                       <span className="text-purple-400 ml-2">{companyStats.new_company} nova(s)</span>
