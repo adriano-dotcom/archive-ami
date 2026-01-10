@@ -468,38 +468,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         }
       }
       
-      // Priority 2: Match by phone (if no document match)
-      if (!matchedContactId && inst.insured_phone) {
-        const phoneClean = inst.insured_phone.replace(/\D/g, '');
-        if (phoneClean.length >= 10) {
-          // Try exact match first
-          let { data: contactByPhone } = await supabase
-            .from('contacts')
-            .select('id, name')
-            .eq('phone_number', phoneClean)
-            .maybeSingle();
-          
-          // If no exact match, try matching last 9 digits
-          if (!contactByPhone && phoneClean.length >= 9) {
-            const last9 = phoneClean.slice(-9);
-            const { data: contactByPartialPhone } = await supabase
-              .from('contacts')
-              .select('id, name, phone_number')
-              .ilike('phone_number', `%${last9}`)
-              .limit(1);
-            
-            if (contactByPartialPhone && contactByPartialPhone.length > 0) {
-              contactByPhone = contactByPartialPhone[0];
-            }
-          }
-          
-          if (contactByPhone) {
-            matchStatus = 'matched_phone';
-            matchedContactId = contactByPhone.id;
-            matchedContactName = contactByPhone.name || undefined;
-          }
-        }
-      }
+      // Priority 2: Match by phone DESABILITADO para parcelas
+      // Telefones de relatórios de inadimplência são da corretora, não do segurado
+      // Não usar para matching pois criaria associações incorretas
       
       // Priority 3: Match by name (exact match using pattern)
       if (!matchedContactId && inst.insured_name) {
@@ -1484,17 +1455,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // Create contact if not found - either with phone or with pending phone
+          // Create contact if not found - always use pending phone
+          // IMPORTANTE: NÃO usar telefones do arquivo - são da corretora, não do segurado
           if (!contactId) {
-            const cleanPhone = inst.insured_phone?.replace(/\D/g, '') || '';
             const docClean = inst.insured_document?.replace(/\D/g, '') || '';
             
-            // Generate phone: real phone, or temporary based on document/name
-            let phoneNumber = cleanPhone.length >= 10 ? cleanPhone : null;
-            if (!phoneNumber) {
-              // Create with pending phone for later manual update
-              phoneNumber = docClean ? `PENDENTE_${docClean}` : `PENDENTE_${Date.now()}`;
-            }
+            // Sempre criar com telefone pendente - telefones do arquivo são da corretora
+            const phoneNumber = docClean ? `PENDENTE_${docClean}` : `PENDENTE_${Date.now()}`;
             
             const { data: newContact } = await supabase
               .from('contacts')
@@ -1506,7 +1473,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 cnpj: docClean.length === 14 ? docClean : null,
                 is_billing_contact: true,
                 lead_source: 'import_cobranca',
-                tags: cleanPhone.length < 10 ? ['telefone_pendente'] : null
+                tags: ['telefone_pendente'] // Sempre marcar para atualização manual
               }, { onConflict: 'phone_number' })
               .select('id')
               .single();
