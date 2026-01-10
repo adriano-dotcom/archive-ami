@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import ProspectingDashboard from './components/ProspectingDashboard';
 import CampaignsDashboard from './components/CampaignsDashboard';
 import ChatInterface from './components/ChatInterface';
 import Contacts from './components/Contacts';
@@ -12,7 +11,6 @@ import Team from './components/Team';
 import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
 import MeetingRoom from './components/MeetingRoom';
-import Functions from './components/Functions';
 import WhatsAppDashboard from './components/WhatsAppDashboard';
 import { CollectionsDashboard } from './components/collections';
 import Auth from './pages/Auth';
@@ -80,8 +78,6 @@ const App: React.FC = () => {
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/scheduling" element={<Scheduling />} />
                 <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
-                <Route path="/functions" element={<AdminRoute><Functions /></AdminRoute>} />
-                <Route path="/prospecting" element={<ProspectingDashboard />} />
                 <Route path="/campaigns" element={<CampaignsDashboard />} />
                 <Route path="/collections" element={<CollectionsDashboard />} />
                 <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
