@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -684,13 +685,60 @@ serve(async (req) => {
       console.log('Processing file: ' + name + ', type: ' + type);
 
       let extractedText = '';
+      let isExcel = false;
 
-      // For text-based files, decode first to detect content and decide chunking
-      const isTextBased = type === 'text/csv' || type === 'application/vnd.ms-excel' ||
+      // Check if this is an Excel file
+      const isExcelType = type === 'application/vnd.ms-excel' ||
         type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        type === 'text/plain';
+        name.toLowerCase().endsWith('.xls') ||
+        name.toLowerCase().endsWith('.xlsx');
 
-      if (isTextBased) {
+      // For text-based files (NOT Excel), decode first to detect content and decide chunking
+      const isTextBased = type === 'text/csv' || type === 'text/plain';
+
+      if (isExcelType) {
+        // Convert Excel to CSV using SheetJS
+        isExcel = true;
+        console.log('[EXCEL] Detected Excel file: ' + name + ', type: ' + type);
+        
+        try {
+          // Decode base64 to binary
+          const binaryString = atob(content);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          console.log('[EXCEL] Decoded base64, size: ' + bytes.length + ' bytes');
+          
+          // Read workbook with SheetJS
+          const workbook = XLSX.read(bytes, { type: 'array' });
+          console.log('[EXCEL] Workbook loaded, sheets: ' + workbook.SheetNames.join(', '));
+          
+          // Convert each sheet to CSV and concatenate
+          const csvParts: string[] = [];
+          for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const csv = XLSX.utils.sheet_to_csv(sheet, { FS: ';', RS: '\n' });
+            if (csv && csv.trim().length > 0) {
+              csvParts.push(`--- Planilha: ${sheetName} ---\n${csv}`);
+            }
+          }
+          
+          extractedText = csvParts.join('\n\n');
+          const lineCount = extractedText.split('\n').length;
+          console.log('[EXCEL] Converted to CSV: ' + extractedText.length + ' chars, ' + lineCount + ' lines');
+          
+          // Log first few lines for debugging
+          const firstLines = extractedText.split('\n').slice(0, 5).join('\n');
+          console.log('[EXCEL] First lines:\n' + firstLines);
+          
+        } catch (excelError) {
+          console.error('[EXCEL] Error converting Excel to CSV:', excelError);
+          // Fallback: treat as vision/image (binary file)
+          extractedText = '';
+        }
+      } else if (isTextBased) {
         try {
           const decoded = atob(content);
           extractedText = decoded;
@@ -710,7 +758,8 @@ serve(async (req) => {
         }
       }
 
-      const isCSV = type === 'text/csv' || name.toLowerCase().endsWith('.csv');
+      // Treat Excel as CSV after conversion
+      const isCSV = type === 'text/csv' || name.toLowerCase().endsWith('.csv') || isExcel;
 
       // ===== CSV CHUNK MODE (prevents timeouts) =====
       if (isCSV && extractedText) {

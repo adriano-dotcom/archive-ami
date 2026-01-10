@@ -1204,10 +1204,31 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         matchStatus: 'new' as const
       }));
 
+      // Check if Excel files were uploaded but no installments extracted
+      const hasExcelFiles = files.some(f => 
+        f.file.name.toLowerCase().endsWith('.xls') || 
+        f.file.name.toLowerCase().endsWith('.xlsx') ||
+        f.file.type === 'application/vnd.ms-excel' ||
+        f.file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+
       if (extractedCompanies.length === 0 && extractedContacts.length === 0 && extractedInstallments.length === 0) {
-        toast.warning('Nenhum dado foi identificado nos documentos');
+        if (hasExcelFiles) {
+          toast.warning('Nenhuma parcela foi identificada nos arquivos Excel. Verifique se o layout da planilha está correto ou exporte como CSV.', {
+            duration: 8000
+          });
+        } else {
+          toast.warning('Nenhum dado foi identificado nos documentos');
+        }
         setStep('upload');
         return;
+      }
+
+      // Warn if Excel files were uploaded but 0 installments extracted
+      if (hasExcelFiles && extractedInstallments.length === 0 && (extractedCompanies.length > 0 || extractedContacts.length > 0)) {
+        toast.warning('Empresas/contatos identificados, mas nenhuma parcela foi extraída dos arquivos Excel. Verifique o layout da planilha.', {
+          duration: 6000
+        });
       }
 
       // Run intelligent matching for installments
