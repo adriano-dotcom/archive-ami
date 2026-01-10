@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Kanban, Receipt, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Receipt, MessageCircle } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
@@ -10,7 +10,6 @@ import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 
 const allMenuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-  { id: 'kanban', label: 'Pipeline', icon: Kanban, adminOnly: false },
   { id: 'chat', label: 'Chat Ao Vivo', icon: MessageSquare, adminOnly: false },
   { id: 'contacts', label: 'Contatos', icon: Users, adminOnly: false },
   { id: 'scheduling', label: 'Agendamentos', icon: Calendar, adminOnly: false },

@@ -10,7 +10,7 @@ import {
   UIConversation,
   transformDBToUIConversation
 } from '../types';
-import { MOCK_CONTACTS, MOCK_TEAM, MOCK_APPOINTMENTS, MOCK_DEALS } from '../constants';
+import { MOCK_CONTACTS, MOCK_TEAM, MOCK_APPOINTMENTS } from '../constants';
 
 // Helper functions for dashboard metrics
 const formatResponseTime = (ms: number): string => {
