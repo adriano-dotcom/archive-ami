@@ -2,6 +2,7 @@ project_id = "bbllbsbcogngjfrhhggq"
 
 [functions.extract-documents]
 verify_jwt = false
+wall_clock_timeout = 180
 
 [functions.generate-collection-emails]
 verify_jwt = false
