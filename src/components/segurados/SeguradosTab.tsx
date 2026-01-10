@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
@@ -21,7 +23,7 @@ import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
-
+import { KNOWN_INSURERS } from '@/constants/insurers';
 interface Company {
   id: string;
   cnpj: string;
@@ -65,6 +67,17 @@ export const SeguradosTab: React.FC = () => {
   const [showImportCompaniesWithContacts, setShowImportCompaniesWithContacts] = useState(false);
   const [showImportDocumentAI, setShowImportDocumentAI] = useState(false);
   
+  // Filters for Companies (PJ)
+  const [stateFilterPJ, setStateFilterPJ] = useState<string>('all');
+  const [overdueStatusPJ, setOverdueStatusPJ] = useState<string>('all');
+  const [overdueRangePJ, setOverdueRangePJ] = useState<string>('all');
+  
+  // Filters for Segurados (PF)
+  const [insurerFilterPF, setInsurerFilterPF] = useState<string>('all');
+  const [stateFilterPF, setStateFilterPF] = useState<string>('all');
+  const [overdueStatusPF, setOverdueStatusPF] = useState<string>('all');
+  const [overdueRangePF, setOverdueRangePF] = useState<string>('all');
+  
   // Edit/Delete states
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [editingSegurado, setEditingSegurado] = useState<SeguradoPF | null>(null);
@@ -84,6 +97,36 @@ export const SeguradosTab: React.FC = () => {
   
   // Company details drawer
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
+  
+  // Dynamic state options
+  const uniqueStatesPJ = useMemo(() => {
+    return [...new Set(companies.map(c => c.state).filter(Boolean))].sort() as string[];
+  }, [companies]);
+  
+  const uniqueStatesPF = useMemo(() => {
+    return [...new Set(seguradosPF.map(s => s.state).filter(Boolean))].sort() as string[];
+  }, [seguradosPF]);
+  
+  // Check if any PJ filters are active
+  const hasActivePJFilters = stateFilterPJ !== 'all' || overdueStatusPJ !== 'all' || overdueRangePJ !== 'all';
+  
+  // Check if any PF filters are active
+  const hasActivePFFilters = insurerFilterPF !== 'all' || stateFilterPF !== 'all' || overdueStatusPF !== 'all' || overdueRangePF !== 'all';
+  
+  // Clear all PJ filters
+  const clearPJFilters = () => {
+    setStateFilterPJ('all');
+    setOverdueStatusPJ('all');
+    setOverdueRangePJ('all');
+  };
+  
+  // Clear all PF filters
+  const clearPFFilters = () => {
+    setInsurerFilterPF('all');
+    setStateFilterPF('all');
+    setOverdueStatusPF('all');
+    setOverdueRangePF('all');
+  };
 
   const downloadCompaniesTemplate = () => {
     const headers = 'cnpj;razao_social;nome_fantasia;cep;cidade;estado\n';
@@ -538,18 +581,67 @@ export const SeguradosTab: React.FC = () => {
     }
   };
 
-  // Filter data based on search term
-  const filteredCompanies = companies.filter(c => 
-    c.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.nome_fantasia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.cnpj.includes(searchTerm)
-  );
+  // Filter data based on search term and filters
+  const filteredCompanies = useMemo(() => {
+    return companies.filter(c => {
+      // Text search
+      const matchesSearch = searchTerm === '' ||
+        c.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.nome_fantasia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.cnpj.includes(searchTerm);
+      
+      // State filter
+      const matchesState = stateFilterPJ === 'all' || c.state === stateFilterPJ;
+      
+      // Overdue status filter
+      const matchesOverdueStatus = 
+        overdueStatusPJ === 'all' ||
+        (overdueStatusPJ === 'overdue' && c.max_days_overdue > 0) ||
+        (overdueStatusPJ === 'no_overdue' && c.max_days_overdue === 0);
+      
+      // Overdue range filter
+      const matchesOverdueRange = 
+        overdueRangePJ === 'all' ||
+        (overdueRangePJ === '1-30' && c.max_days_overdue >= 1 && c.max_days_overdue <= 30) ||
+        (overdueRangePJ === '31-60' && c.max_days_overdue >= 31 && c.max_days_overdue <= 60) ||
+        (overdueRangePJ === '60+' && c.max_days_overdue > 60);
+      
+      return matchesSearch && matchesState && matchesOverdueStatus && matchesOverdueRange;
+    });
+  }, [companies, searchTerm, stateFilterPJ, overdueStatusPJ, overdueRangePJ]);
 
-  const filteredSeguradosPF = seguradosPF.filter(s =>
-    s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.cpf?.includes(searchTerm) ||
-    s.phone_number.includes(searchTerm)
-  );
+  const filteredSeguradosPF = useMemo(() => {
+    return seguradosPF.filter(s => {
+      // Text search
+      const matchesSearch = searchTerm === '' ||
+        s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.cpf?.includes(searchTerm) ||
+        s.phone_number.includes(searchTerm);
+      
+      // Insurer filter
+      const matchesInsurer = 
+        insurerFilterPF === 'all' || 
+        s.insurers.some(i => i.toUpperCase() === insurerFilterPF.toUpperCase());
+      
+      // State filter
+      const matchesState = stateFilterPF === 'all' || s.state === stateFilterPF;
+      
+      // Overdue status filter
+      const matchesOverdueStatus = 
+        overdueStatusPF === 'all' ||
+        (overdueStatusPF === 'overdue' && s.max_days_overdue > 0) ||
+        (overdueStatusPF === 'no_overdue' && s.max_days_overdue === 0);
+      
+      // Overdue range filter
+      const matchesOverdueRange = 
+        overdueRangePF === 'all' ||
+        (overdueRangePF === '1-30' && s.max_days_overdue >= 1 && s.max_days_overdue <= 30) ||
+        (overdueRangePF === '31-60' && s.max_days_overdue >= 31 && s.max_days_overdue <= 60) ||
+        (overdueRangePF === '60+' && s.max_days_overdue > 60);
+      
+      return matchesSearch && matchesInsurer && matchesState && matchesOverdueStatus && matchesOverdueRange;
+    });
+  }, [seguradosPF, searchTerm, insurerFilterPF, stateFilterPF, overdueStatusPF, overdueRangePF]);
 
   return (
     <div className="space-y-4">
@@ -637,6 +729,177 @@ export const SeguradosTab: React.FC = () => {
             Novo Segurado PF
           </Button>
         )}
+      </div>
+
+      {/* Filters Row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="w-4 h-4 text-slate-500" />
+        
+        {activeSubTab === 'pj' ? (
+          <>
+            <Select value={stateFilterPJ} onValueChange={setStateFilterPJ}>
+              <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todos Estados</SelectItem>
+                {uniqueStatesPJ.map(state => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={overdueStatusPJ} onValueChange={setOverdueStatusPJ}>
+              <SelectTrigger className="w-[140px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Status Atraso" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="overdue">Com Atraso</SelectItem>
+                <SelectItem value="no_overdue">Sem Atraso</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={overdueRangePJ} onValueChange={setOverdueRangePJ}>
+              <SelectTrigger className="w-[140px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Faixa Atraso" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todas Faixas</SelectItem>
+                <SelectItem value="1-30">1-30 dias</SelectItem>
+                <SelectItem value="31-60">31-60 dias</SelectItem>
+                <SelectItem value="60+">60+ dias</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {hasActivePJFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearPJFilters}
+                className="h-8 text-slate-400 hover:text-slate-200 gap-1 px-2"
+              >
+                <X className="w-3 h-3" />
+                Limpar
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Select value={insurerFilterPF} onValueChange={setInsurerFilterPF}>
+              <SelectTrigger className="w-[160px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Seguradora" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700 max-h-[300px]">
+                <SelectItem value="all">Todas Seguradoras</SelectItem>
+                {KNOWN_INSURERS.map(insurer => (
+                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={stateFilterPF} onValueChange={setStateFilterPF}>
+              <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todos Estados</SelectItem>
+                {uniqueStatesPF.map(state => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={overdueStatusPF} onValueChange={setOverdueStatusPF}>
+              <SelectTrigger className="w-[140px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Status Atraso" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="overdue">Com Atraso</SelectItem>
+                <SelectItem value="no_overdue">Sem Atraso</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={overdueRangePF} onValueChange={setOverdueRangePF}>
+              <SelectTrigger className="w-[140px] h-8 bg-slate-900/50 border-slate-600 text-sm">
+                <SelectValue placeholder="Faixa Atraso" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all">Todas Faixas</SelectItem>
+                <SelectItem value="1-30">1-30 dias</SelectItem>
+                <SelectItem value="31-60">31-60 dias</SelectItem>
+                <SelectItem value="60+">60+ dias</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {hasActivePFFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearPFFilters}
+                className="h-8 text-slate-400 hover:text-slate-200 gap-1 px-2"
+              >
+                <X className="w-3 h-3" />
+                Limpar
+              </Button>
+            )}
+          </>
+        )}
+        
+        {/* Active filters badges */}
+        <div className="flex items-center gap-1 ml-2">
+          {activeSubTab === 'pj' && (
+            <>
+              {stateFilterPJ !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {stateFilterPJ}
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setStateFilterPJ('all')} />
+                </Badge>
+              )}
+              {overdueStatusPJ !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {overdueStatusPJ === 'overdue' ? 'Com Atraso' : 'Sem Atraso'}
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setOverdueStatusPJ('all')} />
+                </Badge>
+              )}
+              {overdueRangePJ !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {overdueRangePJ} dias
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setOverdueRangePJ('all')} />
+                </Badge>
+              )}
+            </>
+          )}
+          {activeSubTab === 'pf' && (
+            <>
+              {insurerFilterPF !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {insurerFilterPF}
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setInsurerFilterPF('all')} />
+                </Badge>
+              )}
+              {stateFilterPF !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {stateFilterPF}
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setStateFilterPF('all')} />
+                </Badge>
+              )}
+              {overdueStatusPF !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {overdueStatusPF === 'overdue' ? 'Com Atraso' : 'Sem Atraso'}
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setOverdueStatusPF('all')} />
+                </Badge>
+              )}
+              {overdueRangePF !== 'all' && (
+                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
+                  {overdueRangePF} dias
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setOverdueRangePF('all')} />
+                </Badge>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Sub-tabs for PJ and PF */}
