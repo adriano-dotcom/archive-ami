@@ -1553,7 +1553,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 </p>
                 <p className="text-sm text-slate-500">
                   {sequentialMode 
-                    ? 'Modo sequencial: cada arquivo é processado individualmente'
+                    ? (files.some(f => f.file.type === 'text/csv' && f.file.size > LARGE_FILE_THRESHOLD)
+                      ? 'CSV grande: o backend processa em partes para evitar timeout'
+                      : 'Modo sequencial: cada arquivo é processado individualmente')
                     : 'Isso pode levar alguns segundos'
                   }
                 </p>
