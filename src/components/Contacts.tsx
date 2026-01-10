@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useContacts, useCampaigns, useContactFilters, ContactLight } from '@/hooks/useContacts';
+import { useContactsInfinite, useCampaigns, useContactFilters, ContactLight } from '@/hooks/useContacts';
 import { Button } from './ui/button';
 import { api } from '../services/api';
 import { Contact } from '../types';
@@ -32,11 +32,15 @@ type ExtendedContact = ContactLight;
 const Contacts: React.FC = () => {
   const navigate = useNavigate();
   
-  // React Query hooks para dados com cache
+  // React Query hooks para dados com cache e paginação infinita
   const { 
     contacts, 
+    totalCount,
     isLoading: loading, 
     isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
     updateStatus, 
     deleteContact: deleteContactMutation,
     isDeleting,
@@ -47,10 +51,13 @@ const Contacts: React.FC = () => {
     bulkUpdateCampaign,
     isBulkUpdatingCampaign: isBulkCampaignUpdating,
     invalidateContacts
-  } = useContacts();
+  } = useContactsInfinite();
   
   const { data: availableCampaigns = [] } = useCampaigns();
   const { owners: availableOwners, pipelines: availablePipelines } = useContactFilters();
+  
+  // Ref para IntersectionObserver (scroll infinito)
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   
   // Local UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,7 +93,29 @@ const Contacts: React.FC = () => {
   const [createdDateFilter, setCreatedDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month'>('all');
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'archived' | 'none'>('all');
 
-  const handleConverse = async (contactId: string) => {
+  // IntersectionObserver callback para scroll infinito
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const [target] = entries;
+    if (target.isIntersecting && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Setup do IntersectionObserver
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '200px',
+      threshold: 0.1
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
     try {
       setIsLoadingConversation(true);
       const conversationId = await api.getOrCreateConversation(contactId);
@@ -423,7 +452,7 @@ const Contacts: React.FC = () => {
   const clearStatusFilters = () => {
     setSelectedStatuses([]);
   };
-  const ContactsTable = ({ contacts }: { contacts: ExtendedContact[] }) => {
+  const ContactsTable = ({ contacts, showLoadMore }: { contacts: ExtendedContact[]; showLoadMore?: boolean }) => {
     const allSelected = contacts.length > 0 && selectedContactIds.size === contacts.length;
     const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < contacts.length;
     
@@ -922,6 +951,23 @@ const Contacts: React.FC = () => {
               ))}
             </tbody>
           </table>
+          
+          {/* Load More Trigger - only show for inbound tab */}
+          {showLoadMore && (
+            <div ref={loadMoreRef} className="py-4 flex justify-center">
+              {isFetchingNextPage && (
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Carregando mais contatos...</span>
+                </div>
+              )}
+              {!isFetchingNextPage && !hasNextPage && contacts.length > 0 && (
+                <span className="text-sm text-slate-500">
+                  Todos os {totalCount} contatos carregados
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1129,19 +1175,19 @@ const Contacts: React.FC = () => {
         )}
 
         <TabsContent value="inbound" className="mt-0">
-          <ContactsTable contacts={filteredContacts} />
+          <ContactsTable contacts={filteredContacts} showLoadMore={true} />
         </TabsContent>
 
         <TabsContent value="outbound" className="mt-0">
-          <ContactsTable contacts={filteredContacts} />
+          <ContactsTable contacts={filteredContacts} showLoadMore={true} />
         </TabsContent>
 
         <TabsContent value="facebook" className="mt-0">
-          <ContactsTable contacts={filteredContacts} />
+          <ContactsTable contacts={filteredContacts} showLoadMore={true} />
         </TabsContent>
 
         <TabsContent value="google" className="mt-0">
-          <ContactsTable contacts={filteredContacts} />
+          <ContactsTable contacts={filteredContacts} showLoadMore={true} />
         </TabsContent>
 
         <TabsContent value="segurados" className="mt-6">
