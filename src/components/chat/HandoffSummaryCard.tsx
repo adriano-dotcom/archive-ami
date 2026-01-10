@@ -75,7 +75,7 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
     <div className="space-y-3">
       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
         <ClipboardList className="w-4 h-4" />
-        Resumo da Qualificação
+        Resumo do Contato
         <span className="ml-auto px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded font-medium">
           {answeredCount} itens
         </span>
