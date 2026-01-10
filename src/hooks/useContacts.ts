@@ -1,6 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useMemo } from 'react';
+
+const PAGE_SIZE = 50;
 
 // Interface para contatos leves (carregamento rápido)
 export interface ContactLight {
@@ -61,47 +64,64 @@ const formatCPFDisplay = (cpf: string | null) => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
 };
 
-// Função para buscar contatos (apenas dados essenciais)
-const fetchContactsLight = async (): Promise<ContactLight[]> => {
-  const { data: contactsData, error } = await supabase
+// Mapear contato para interface
+const mapContactToLight = (c: any): ContactLight => ({
+  id: c.id,
+  name: c.name || c.call_name || c.phone_number,
+  phone: c.phone_number,
+  email: c.email || '',
+  company: c.company || undefined,
+  cnpj: formatCNPJDisplay(c.cnpj),
+  cpf: formatCPFDisplay(c.cpf),
+  cep: c.cep || undefined,
+  street: c.street || undefined,
+  number: c.number || undefined,
+  complement: c.complement || undefined,
+  neighborhood: c.neighborhood || undefined,
+  city: c.city || undefined,
+  state: c.state || undefined,
+  notes: c.notes || undefined,
+  status: c.lead_status || 'new',
+  lastContact: new Date(c.last_activity).toLocaleDateString('pt-BR'),
+  created_at: c.created_at,
+  lead_source: c.lead_source || 'inbound',
+  whatsapp_id: c.whatsapp_id || undefined,
+  utm_source: c.utm_source || undefined,
+  utm_campaign: c.utm_campaign || undefined,
+  utm_content: c.utm_content || undefined,
+  utm_term: c.utm_term || undefined,
+  campaign: c.campaign || undefined,
+  vertical: c.vertical as 'transporte' | 'frotas' | undefined,
+});
+
+// Função para buscar uma página de contatos
+const fetchContactsPage = async (page: number): Promise<{
+  contacts: ContactLight[];
+  nextPage: number | null;
+  totalCount: number;
+}> => {
+  const from = page * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const { data: contactsData, error, count } = await supabase
     .from('contacts')
-    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical')
+    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical', { count: 'exact' })
     .order('last_activity', { ascending: false })
-    .limit(500);
+    .range(from, to);
 
   if (error) {
-    console.error('[useContacts] Error fetching contacts:', error);
+    console.error('[useContacts] Error fetching contacts page:', error);
     throw error;
   }
 
-  return (contactsData || []).map(c => ({
-    id: c.id,
-    name: c.name || c.call_name || c.phone_number,
-    phone: c.phone_number,
-    email: c.email || '',
-    company: c.company || undefined,
-    cnpj: formatCNPJDisplay(c.cnpj),
-    cpf: formatCPFDisplay(c.cpf),
-    cep: c.cep || undefined,
-    street: c.street || undefined,
-    number: c.number || undefined,
-    complement: c.complement || undefined,
-    neighborhood: c.neighborhood || undefined,
-    city: c.city || undefined,
-    state: c.state || undefined,
-    notes: c.notes || undefined,
-    status: c.lead_status || 'new',
-    lastContact: new Date(c.last_activity).toLocaleDateString('pt-BR'),
-    created_at: c.created_at,
-    lead_source: c.lead_source || 'inbound',
-    whatsapp_id: c.whatsapp_id || undefined,
-    utm_source: c.utm_source || undefined,
-    utm_campaign: c.utm_campaign || undefined,
-    utm_content: c.utm_content || undefined,
-    utm_term: c.utm_term || undefined,
-    campaign: c.campaign || undefined,
-    vertical: c.vertical as 'transporte' | 'frotas' | undefined,
-  }));
+  const contacts = (contactsData || []).map(mapContactToLight);
+  const hasMore = count ? from + contacts.length < count : false;
+  
+  return {
+    contacts,
+    nextPage: hasMore ? page + 1 : null,
+    totalCount: count || 0
+  };
 };
 
 // Função para enriquecer contatos com dados relacionais
@@ -195,27 +215,38 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
   });
 };
 
-// Função principal que busca contatos + relações
-const fetchContactsFull = async (): Promise<ContactLight[]> => {
-  const contacts = await fetchContactsLight();
-  return enrichContactsWithRelations(contacts);
-};
-
-export const useContacts = () => {
+// Hook principal com paginação infinita
+export const useContactsInfinite = () => {
   const queryClient = useQueryClient();
 
-  // Query principal com cache agressivo (10 minutos stale, 30 minutos em cache)
-  const { 
-    data: contacts = [], 
-    isLoading, 
+  const {
+    data,
+    isLoading,
     isFetching,
-    refetch 
-  } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: fetchContactsFull,
-    staleTime: 10 * 60 * 1000,  // 10 minutos - considera dados frescos
-    gcTime: 30 * 60 * 1000,     // 30 minutos - mantém em cache
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    refetch
+  } = useInfiniteQuery({
+    queryKey: ['contacts-infinite'],
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = await fetchContactsPage(pageParam);
+      const enriched = await enrichContactsWithRelations(page.contacts);
+      return { ...page, contacts: enriched };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    staleTime: 10 * 60 * 1000,  // 10 minutos
+    gcTime: 30 * 60 * 1000,     // 30 minutos
   });
+
+  // Flatten todas as páginas em uma lista única
+  const contacts = useMemo(() => 
+    data?.pages.flatMap(page => page.contacts) ?? [],
+    [data?.pages]
+  );
+
+  const totalCount = data?.pages[0]?.totalCount ?? 0;
 
   // Mutation para atualizar status com optimistic update
   const updateStatusMutation = useMutation({
@@ -227,17 +258,23 @@ export const useContacts = () => {
       if (error) throw error;
     },
     onMutate: async ({ id, status }) => {
-      await queryClient.cancelQueries({ queryKey: ['contacts'] });
-      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
       
-      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
-        old?.map(c => c.id === id ? { ...c, status } : c) || []
-      );
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.map((c: ContactLight) => 
+            c.id === id ? { ...c, status } : c
+          )
+        })) || []
+      }));
       
-      return { previousContacts };
+      return { previousData };
     },
     onError: (err, vars, context) => {
-      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
       toast.error('Erro ao atualizar status');
     },
     onSuccess: () => {
@@ -255,17 +292,22 @@ export const useContacts = () => {
       if (error) throw error;
     },
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['contacts'] });
-      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
       
-      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
-        old?.filter(c => c.id !== id) || []
-      );
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.filter((c: ContactLight) => c.id !== id),
+          totalCount: page.totalCount - 1
+        })) || []
+      }));
       
-      return { previousContacts };
+      return { previousData };
     },
     onError: (err, vars, context) => {
-      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
       toast.error('Erro ao excluir contato');
     },
     onSuccess: () => {
@@ -283,17 +325,23 @@ export const useContacts = () => {
       if (error) throw error;
     },
     onMutate: async ({ ids, status }) => {
-      await queryClient.cancelQueries({ queryKey: ['contacts'] });
-      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
       
-      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
-        old?.map(c => ids.includes(c.id) ? { ...c, status } : c) || []
-      );
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.map((c: ContactLight) => 
+            ids.includes(c.id) ? { ...c, status } : c
+          )
+        })) || []
+      }));
       
-      return { previousContacts };
+      return { previousData };
     },
     onError: (err, vars, context) => {
-      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
       toast.error('Erro ao atualizar status em massa');
     },
     onSuccess: (_, { ids }) => {
@@ -311,17 +359,22 @@ export const useContacts = () => {
       if (error) throw error;
     },
     onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey: ['contacts'] });
-      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
       
-      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
-        old?.filter(c => !ids.includes(c.id)) || []
-      );
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.filter((c: ContactLight) => !ids.includes(c.id)),
+          totalCount: page.totalCount - ids.length
+        })) || []
+      }));
       
-      return { previousContacts };
+      return { previousData };
     },
     onError: (err, vars, context) => {
-      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
       toast.error('Erro ao excluir contatos em massa');
     },
     onSuccess: (_, ids) => {
@@ -339,17 +392,23 @@ export const useContacts = () => {
       if (error) throw error;
     },
     onMutate: async ({ ids, campaign }) => {
-      await queryClient.cancelQueries({ queryKey: ['contacts'] });
-      const previousContacts = queryClient.getQueryData<ContactLight[]>(['contacts']);
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
       
-      queryClient.setQueryData<ContactLight[]>(['contacts'], (old) => 
-        old?.map(c => ids.includes(c.id) ? { ...c, campaign: campaign || undefined } : c) || []
-      );
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.map((c: ContactLight) => 
+            ids.includes(c.id) ? { ...c, campaign: campaign || undefined } : c
+          )
+        })) || []
+      }));
       
-      return { previousContacts };
+      return { previousData };
     },
     onError: (err, vars, context) => {
-      queryClient.setQueryData(['contacts'], context?.previousContacts);
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
       toast.error('Erro ao atualizar campanha em massa');
     },
     onSuccess: (_, { ids, campaign }) => {
@@ -359,8 +418,12 @@ export const useContacts = () => {
 
   return {
     contacts,
+    totalCount,
     isLoading,
     isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage: hasNextPage ?? false,
     refetch,
     updateStatus: updateStatusMutation.mutate,
     updateStatusAsync: updateStatusMutation.mutateAsync,
@@ -374,9 +437,12 @@ export const useContacts = () => {
     isBulkDeleting: bulkDeleteMutation.isPending,
     bulkUpdateCampaign: bulkUpdateCampaignMutation.mutate,
     isBulkUpdatingCampaign: bulkUpdateCampaignMutation.isPending,
-    invalidateContacts: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    invalidateContacts: () => queryClient.invalidateQueries({ queryKey: ['contacts-infinite'] }),
   };
 };
+
+// Manter useContacts como alias para compatibilidade
+export const useContacts = useContactsInfinite;
 
 // Hook separado para campanhas (cache longo)
 export const useCampaigns = () => {
