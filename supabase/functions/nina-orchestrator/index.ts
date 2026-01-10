@@ -78,51 +78,70 @@ function isCollectionQuery(messageContent: string): boolean {
 // Function to fetch and sum pending installments for a contact
 async function fetchContactInstallments(supabase: any, contactId: string): Promise<InstallmentsData | null> {
   try {
-    const { data, error } = await supabase
+    // 1. Buscar parcelas primeiro (sem JOIN para evitar problemas de foreign key)
+    const { data: installments, error: instError } = await supabase
       .from('installments')
-      .select(`
-        id, 
-        value, 
-        due_date, 
-        days_overdue, 
-        status,
-        installment_number,
-        policy_id,
-        policies!inner(insurer, policy_number)
-      `)
+      .select('id, value, due_date, days_overdue, status, installment_number, policy_id')
       .eq('contact_id', contactId)
       .in('status', ['pending', 'overdue', 'negotiating'])
       .order('due_date', { ascending: true });
     
-    if (error) {
-      console.error('[Nina] Error fetching installments:', error);
+    if (instError) {
+      console.error('[Nina] Error fetching installments:', instError);
       return null;
     }
     
-    if (!data || data.length === 0) {
+    if (!installments || installments.length === 0) {
       console.log('[Nina] No pending installments found for contact');
       return null;
     }
+
+    // 2. Extrair policy_ids únicos e buscar seguradoras separadamente
+    const policyIds = [...new Set(installments.map((i: any) => i.policy_id).filter(Boolean))];
+    let policiesMap: Record<string, { insurer: string; policy_number: string }> = {};
     
-    const totalValue = data.reduce((sum: number, inst: any) => sum + parseFloat(inst.value || 0), 0);
-    const oldestDueDate = data[0]?.due_date || null;
+    if (policyIds.length > 0) {
+      const { data: policies, error: polError } = await supabase
+        .from('policies')
+        .select('id, insurer, policy_number')
+        .in('id', policyIds);
+      
+      if (polError) {
+        console.warn('[Nina] Error fetching policies:', polError);
+      } else if (policies) {
+        policies.forEach((p: any) => {
+          policiesMap[p.id] = { insurer: p.insurer, policy_number: p.policy_number };
+        });
+        console.log(`[Nina] 📋 Found ${policies.length} policies for ${policyIds.length} policy_ids`);
+      }
+    }
+
+    // 3. Combinar dados de parcelas com informações das apólices
+    const enrichedInstallments = installments.map((inst: any) => ({
+      ...inst,
+      policies: policiesMap[inst.policy_id] || null
+    }));
+
+    const totalValue = enrichedInstallments.reduce((sum: number, inst: any) => 
+      sum + parseFloat(inst.value || 0), 0);
+    const oldestDueDate = enrichedInstallments[0]?.due_date || null;
     
-    // Extrair seguradoras únicas
+    // 4. Extrair seguradoras únicas
     const insurersSet = new Set<string>();
-    data.forEach((inst: any) => {
+    enrichedInstallments.forEach((inst: any) => {
       if (inst.policies?.insurer) {
         insurersSet.add(inst.policies.insurer);
       }
     });
     const insurers = Array.from(insurersSet);
     
-    console.log(`[Nina] 💰 Found ${data.length} pending installments, total: R$ ${totalValue.toFixed(2)}, insurers: ${insurers.join(', ')}`);
+    console.log(`[Nina] 💰 Found ${enrichedInstallments.length} pending installments, total: R$ ${totalValue.toFixed(2)}, insurers: ${insurers.join(', ') || 'N/A'}`);
     
     return {
-      count: data.length,
+      count: enrichedInstallments.length,
       totalValue,
       oldestDueDate,
-      installments: data,
+      installments: enrichedInstallments,
       insurers
     };
   } catch (error) {
