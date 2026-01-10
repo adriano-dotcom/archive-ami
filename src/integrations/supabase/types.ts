@@ -267,58 +267,6 @@ export type Database = {
           },
         ]
       }
-      callback_assignments: {
-        Row: {
-          assignment_count: number | null
-          created_at: string | null
-          id: string
-          last_assigned_member_id: string | null
-          pipeline_id: string | null
-          team_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          assignment_count?: number | null
-          created_at?: string | null
-          id?: string
-          last_assigned_member_id?: string | null
-          pipeline_id?: string | null
-          team_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          assignment_count?: number | null
-          created_at?: string | null
-          id?: string
-          last_assigned_member_id?: string | null
-          pipeline_id?: string | null
-          team_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "callback_assignments_last_assigned_member_id_fkey"
-            columns: ["last_assigned_member_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "callback_assignments_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "callback_assignments_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       campaigns: {
         Row: {
           color: string | null
@@ -904,165 +852,6 @@ export type Database = {
           },
         ]
       }
-      deal_activities: {
-        Row: {
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          deal_id: string
-          description: string | null
-          id: string
-          is_completed: boolean | null
-          scheduled_at: string | null
-          title: string
-          type: string
-          updated_at: string | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          deal_id: string
-          description?: string | null
-          id?: string
-          is_completed?: boolean | null
-          scheduled_at?: string | null
-          title: string
-          type?: string
-          updated_at?: string | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          deal_id?: string
-          description?: string | null
-          id?: string
-          is_completed?: boolean | null
-          scheduled_at?: string | null
-          title?: string
-          type?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deal_activities_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "team_members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_activities_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      deals: {
-        Row: {
-          company: string | null
-          contact_id: string | null
-          created_at: string | null
-          due_date: string | null
-          id: string
-          lost_at: string | null
-          lost_reason: string | null
-          notes: string | null
-          owner_id: string | null
-          pipedrive_deal_id: string | null
-          pipeline_id: string | null
-          priority: string | null
-          stage: string | null
-          stage_id: string
-          tags: string[] | null
-          title: string
-          updated_at: string | null
-          value: number | null
-          won_at: string | null
-        }
-        Insert: {
-          company?: string | null
-          contact_id?: string | null
-          created_at?: string | null
-          due_date?: string | null
-          id?: string
-          lost_at?: string | null
-          lost_reason?: string | null
-          notes?: string | null
-          owner_id?: string | null
-          pipedrive_deal_id?: string | null
-          pipeline_id?: string | null
-          priority?: string | null
-          stage?: string | null
-          stage_id: string
-          tags?: string[] | null
-          title: string
-          updated_at?: string | null
-          value?: number | null
-          won_at?: string | null
-        }
-        Update: {
-          company?: string | null
-          contact_id?: string | null
-          created_at?: string | null
-          due_date?: string | null
-          id?: string
-          lost_at?: string | null
-          lost_reason?: string | null
-          notes?: string | null
-          owner_id?: string | null
-          pipedrive_deal_id?: string | null
-          pipeline_id?: string | null
-          priority?: string | null
-          stage?: string | null
-          stage_id?: string
-          tags?: string[] | null
-          title?: string
-          updated_at?: string | null
-          value?: number | null
-          won_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deals_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts_with_stats"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_stage_id_fkey"
-            columns: ["stage_id"]
-            isOneToOne: false
-            referencedRelation: "pipeline_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       email_templates: {
         Row: {
           body_html: string
@@ -1541,13 +1330,6 @@ export type Database = {
             referencedRelation: "agents"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "learning_insights_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
         ]
       }
       message_grouping_queue: {
@@ -1993,103 +1775,6 @@ export type Database = {
           },
         ]
       }
-      pipeline_stages: {
-        Row: {
-          ai_trigger_criteria: string | null
-          color: string
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          is_ai_managed: boolean | null
-          is_system: boolean | null
-          pipeline_id: string | null
-          position: number
-          sync_to_pipedrive: boolean | null
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          ai_trigger_criteria?: string | null
-          color?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_ai_managed?: boolean | null
-          is_system?: boolean | null
-          pipeline_id?: string | null
-          position?: number
-          sync_to_pipedrive?: boolean | null
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          ai_trigger_criteria?: string | null
-          color?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_ai_managed?: boolean | null
-          is_system?: boolean | null
-          pipeline_id?: string | null
-          position?: number
-          sync_to_pipedrive?: boolean | null
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pipeline_stages_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pipelines: {
-        Row: {
-          agent_id: string | null
-          color: string | null
-          created_at: string | null
-          icon: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          slug: string
-          updated_at: string | null
-        }
-        Insert: {
-          agent_id?: string | null
-          color?: string | null
-          created_at?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          slug: string
-          updated_at?: string | null
-        }
-        Update: {
-          agent_id?: string | null
-          color?: string | null
-          created_at?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          slug?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pipelines_agent_id_fkey"
-            columns: ["agent_id"]
-            isOneToOne: false
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       policies: {
         Row: {
           branch: string | null
@@ -2268,13 +1953,6 @@ export type Database = {
             referencedRelation: "agents"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "sales_coaching_reports_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
         ]
       }
       scheduled_emails: {
@@ -2339,13 +2017,6 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts_with_stats"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "scheduled_emails_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
@@ -2572,15 +2243,7 @@ export type Database = {
           pipeline_id?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "teams_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       template_status_notifications: {
         Row: {
