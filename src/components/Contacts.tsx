@@ -9,7 +9,6 @@ import CreateContactModal from './CreateContactModal';
 import ImportContactsModal from './ImportContactsModal';
 import EditContactModal from './EditContactModal';
 import ContactDetailsDrawer from './ContactDetailsDrawer';
-import { ProspectingEmailModal } from './ProspectingEmailModal';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { toast } from 'sonner';
@@ -92,9 +91,6 @@ const Contacts: React.FC = () => {
   const [isBulkSendTemplateOpen, setIsBulkSendTemplateOpen] = useState(false);
   const [isBulkCampaignUpdating, setIsBulkCampaignUpdating] = useState(false);
   
-  // Prospecting modal state
-  const [isProspectingModalOpen, setIsProspectingModalOpen] = useState(false);
-  const [prospectingContact, setProspectingContact] = useState<ExtendedContact | null>(null);
   
   const { isAdmin } = useUserRole();
   
@@ -1362,27 +1358,6 @@ const Contacts: React.FC = () => {
         }}
       />
 
-      {/* Prospecting Email Modal */}
-      {prospectingContact && (
-        <ProspectingEmailModal
-          isOpen={isProspectingModalOpen}
-          onClose={() => {
-            setIsProspectingModalOpen(false);
-            setProspectingContact(null);
-          }}
-          contact={{
-            id: prospectingContact.id,
-            name: prospectingContact.name,
-            phone: prospectingContact.phone,
-            email: prospectingContact.email,
-            company: prospectingContact.company,
-            cnpj: prospectingContact.cnpj,
-            city: prospectingContact.city,
-            state: prospectingContact.state,
-          }}
-          onContactUpdated={loadContacts}
-        />
-      )}
     </div>
   );
 };

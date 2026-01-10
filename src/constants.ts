@@ -1,4 +1,4 @@
-import { Contact, Conversation, MessageDirection, MessageType, StatMetric, TeamMember, Appointment, Deal, KanbanColumn, BackendFunction } from "./types";
+import { Contact, Conversation, MessageDirection, MessageType, StatMetric, TeamMember, Appointment, Deal, KanbanColumn } from "./types";
 
 export const STATS: StatMetric[] = [
   { label: 'Atendimentos Hoje', value: '142', trend: '+12%', trendUp: true },
@@ -226,102 +226,5 @@ export const MOCK_DEALS: Deal[] = [
     ownerAvatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
     tags: ['Renovação'],
     priority: 'high'
-  }
-];
-
-export const MOCK_BACKEND_FUNCTIONS: BackendFunction[] = [
-  {
-    id: 'fn_1',
-    name: 'WhatsApp Webhook Handler',
-    method: 'WEBHOOK',
-    route: '/api/v1/webhooks/whatsapp',
-    description: 'Recebe eventos da Evolution API, identifica o tipo de mensagem (texto/audio) e inicia o fluxo de IA.',
-    category: 'integration',
-    status: 'pending',
-    code: `
-async function handleWhatsAppWebhook(req, res) {
-  const { eventType, data } = req.body;
-  
-  if (eventType !== 'MESSAGES_UPSERT') return res.status(200);
-  
-  const message = data.message;
-  const contactPhone = data.key.remoteJid;
-  
-  // 1. Salvar mensagem no Supabase
-  const { error } = await supabase.from('messages').insert({
-    content: message.conversation || message.extendedTextMessage?.text,
-    type: message.audioMessage ? 'audio' : 'text',
-    direction: 'incoming',
-    contact_id: contactPhone
-  });
-  
-  // 2. Acionar IA em fila (Background Job)
-  await queue.add('process-ai-response', { contactPhone, message });
-  
-  return res.status(200).send('OK');
-}`
-  },
-  {
-    id: 'fn_2',
-    name: 'AI Response Processor',
-    method: 'POST',
-    route: 'Internal Worker',
-    description: 'Processa o histórico de conversa, gera resposta com OpenAI/Gemini e envia via Evolution API.',
-    category: 'ai',
-    status: 'pending',
-    code: `
-async function processAIResponse(job) {
-  const { contactPhone } = job.data;
-  
-  // 1. Buscar histórico (Contexto)
-  const history = await supabase
-    .from('messages')
-    .select('*')
-    .eq('contact_id', contactPhone)
-    .order('created_at', { ascending: true })
-    .limit(10);
-    
-  // 2. Gerar resposta LLM
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4-turbo",
-    messages: [
-      { role: "system", content: "Você é um assistente virtual da empresa..." },
-      ...history.map(msg => ({ role: msg.direction === 'incoming' ? 'user' : 'assistant', content: msg.content }))
-    ]
-  });
-  
-  const reply = completion.choices[0].message.content;
-  
-  // 3. Enviar via Evolution API
-  await axios.post(\`\${EVOLUTION_URL}/message/sendText/\${INSTANCE}\`, {
-    number: contactPhone,
-    text: reply
-  });
-}`
-  },
-  {
-    id: 'fn_3',
-    name: 'CRM Sync (Pipeline)',
-    method: 'PUT',
-    route: '/api/v1/crm/sync',
-    description: 'Atualiza o status do deal no Kanban baseado na análise de sentimento da conversa.',
-    category: 'core',
-    status: 'development',
-    code: `
-async function syncCRMPipeline(contactId, sentimentScore) {
-  // Lógica de movimentação automática baseada em score
-  let newStage = 'qualification';
-  
-  if (sentimentScore > 0.8) newStage = 'negotiation';
-  else if (sentimentScore > 0.5) newStage = 'presentation';
-  
-  // Atualizar Deal
-  const { data, error } = await supabase
-    .from('deals')
-    .update({ stage: newStage, last_activity: new Date() })
-    .eq('contact_id', contactId);
-    
-  return data;
-}`
   }
 ];

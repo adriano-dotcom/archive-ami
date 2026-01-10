@@ -176,16 +176,6 @@ export interface KanbanColumn {
   syncToPipedrive?: boolean;
 }
 
-export interface BackendFunction {
-  id: string;
-  name: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'WEBHOOK';
-  route: string;
-  description: string;
-  category: 'core' | 'ai' | 'integration' | 'database';
-  status: 'pending' | 'development' | 'completed';
-  code: string;
-}
 
 export interface TagDefinition {
   id: string;
