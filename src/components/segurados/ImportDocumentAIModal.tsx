@@ -1455,11 +1455,107 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // Create contact if not found - always use pending phone
-          // IMPORTANTE: NÃO usar telefones do arquivo - são da corretora, não do segurado
+          // CORREÇÃO: Criar empresa ANTES do contato para poder vincular
+          const docClean = inst.insured_document?.replace(/\D/g, '') || '';
+          const isCompanyDocument = docClean.length === 14;
+          
+          // Helper para detectar nome de empresa
+          const detectCompanyName = (name: string | null): boolean => {
+            if (!name) return false;
+            const upperName = name.toUpperCase();
+            const companyIndicators = ['LTDA', 'S/A', 'S.A.', ' SA ', ' ME', 'EIRELI', 'EPP', 'TRANSPORTES', 'TRANSPORTE', 'LOGISTICA', 'LOGÍSTICA', 'COMERCIO', 'COMÉRCIO', 'INDUSTRIA', 'INDÚSTRIA', 'SERVICOS', 'SERVIÇOS', 'DISTRIBUIDORA', 'ATACADO', 'METALURGICA', 'METALÚRGICA', 'CONSTRUTORA', 'ENGENHARIA', 'LOCADORA', 'AGROPECUARIA', 'AGROPECUÁRIA'];
+            return companyIndicators.some(ind => upperName.includes(ind));
+          };
+          
+          const isCompany = isCompanyDocument || detectCompanyName(inst.insured_name);
+          
+          // 1. PRIMEIRO: Buscar ou criar empresa (se for CNPJ ou nome de empresa)
+          let companyId: string | null = inst.matchedCompanyId || null;
+          
+          if (!companyId && (isCompanyDocument || isCompany)) {
+            if (isCompanyDocument) {
+              // Check if company exists by CNPJ
+              const { data: existingCompany } = await supabase
+                .from('companies')
+                .select('id')
+                .eq('cnpj', docClean)
+                .maybeSingle();
+              
+              if (existingCompany) {
+                companyId = existingCompany.id;
+              } else {
+                // Check for similar company by name before creating
+                if (inst.insured_name) {
+                  const { data: similarCompanies } = await supabase
+                    .from('companies')
+                    .select('id, razao_social, cnpj')
+                    .limit(20);
+                  
+                  const matchedSimilar = similarCompanies?.find(c => 
+                    calculateSimilarity(inst.insured_name, c.razao_social) >= 0.75
+                  );
+                  
+                  if (matchedSimilar) {
+                    companyId = matchedSimilar.id;
+                    // Update CNPJ if it was null
+                    if (!matchedSimilar.cnpj) {
+                      await supabase
+                        .from('companies')
+                        .update({ cnpj: docClean })
+                        .eq('id', matchedSimilar.id);
+                    }
+                  }
+                }
+                
+                // Create new company only if no match found
+                if (!companyId) {
+                  const { data: newCompany } = await supabase
+                    .from('companies')
+                    .insert({
+                      cnpj: docClean,
+                      razao_social: inst.insured_name
+                    })
+                    .select('id')
+                    .single();
+                  
+                  if (newCompany) {
+                    companyId = newCompany.id;
+                  }
+                }
+              }
+            } else if (isCompany && inst.insured_name) {
+              // Nome de empresa sem CNPJ - buscar por nome similar
+              const { data: similarCompanies } = await supabase
+                .from('companies')
+                .select('id, razao_social')
+                .limit(50);
+              
+              const matchedSimilar = similarCompanies?.find(c => 
+                calculateSimilarity(inst.insured_name!, c.razao_social) >= 0.8
+              );
+              
+              if (matchedSimilar) {
+                companyId = matchedSimilar.id;
+              } else {
+                // Criar empresa sem CNPJ (apenas com nome)
+                const { data: newCompany } = await supabase
+                  .from('companies')
+                  .insert({
+                    cnpj: `PENDENTE_${Date.now()}`, // CNPJ pendente
+                    razao_social: inst.insured_name
+                  })
+                  .select('id')
+                  .single();
+                
+                if (newCompany) {
+                  companyId = newCompany.id;
+                }
+              }
+            }
+          }
+          
+          // 2. DEPOIS: Criar contato já vinculado à empresa
           if (!contactId) {
-            const docClean = inst.insured_document?.replace(/\D/g, '') || '';
-            
             // Sempre criar com telefone pendente - telefones do arquivo são da corretora
             const phoneNumber = docClean ? `PENDENTE_${docClean}` : `PENDENTE_${Date.now()}`;
             
@@ -1471,73 +1567,32 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 email: inst.insured_email || null,
                 cpf: docClean.length === 11 ? docClean : null,
                 cnpj: docClean.length === 14 ? docClean : null,
+                company_id: companyId, // ✅ VINCULAR À EMPRESA
                 is_billing_contact: true,
                 lead_source: 'import_cobranca',
-                tags: ['telefone_pendente'] // Sempre marcar para atualização manual
+                tags: ['telefone_pendente']
               }, { onConflict: 'phone_number' })
               .select('id')
               .single();
             
             if (newContact) {
               contactId = newContact.id;
-            }
-          }
-          
-          // Find or create company if CNPJ - use pre-matched company if available
-          let companyId: string | null = inst.matchedCompanyId || null;
-          
-          if (!companyId && inst.insured_document?.replace(/\D/g, '').length === 14) {
-            const cnpj = inst.insured_document.replace(/\D/g, '');
-            
-            // Check if company exists by CNPJ
-            const { data: existingCompany } = await supabase
-              .from('companies')
-              .select('id')
-              .eq('cnpj', cnpj)
-              .maybeSingle();
-            
-            if (existingCompany) {
-              companyId = existingCompany.id;
-            } else {
-              // Check for similar company by name before creating
-              if (inst.insured_name) {
-                const { data: similarCompanies } = await supabase
-                  .from('companies')
-                  .select('id, razao_social, cnpj')
-                  .limit(20);
-                
-                const matchedSimilar = similarCompanies?.find(c => 
-                  calculateSimilarity(inst.insured_name, c.razao_social) >= 0.75
-                );
-                
-                if (matchedSimilar) {
-                  companyId = matchedSimilar.id;
-                  // Update CNPJ if it was null
-                  if (!matchedSimilar.cnpj) {
-                    await supabase
-                      .from('companies')
-                      .update({ cnpj })
-                      .eq('id', matchedSimilar.id);
-                  }
-                }
-              }
-              
-              // Create new company only if no match found
-              if (!companyId) {
-                const { data: newCompany } = await supabase
-                  .from('companies')
-                  .insert({
-                    cnpj: cnpj,
-                    razao_social: inst.insured_name
-                  })
-                  .select('id')
-                  .single();
-                
-                if (newCompany) {
-                  companyId = newCompany.id;
-                }
+              // Se o contato já existia (upsert), atualizar o company_id
+              if (companyId) {
+                await supabase
+                  .from('contacts')
+                  .update({ company_id: companyId })
+                  .eq('id', contactId)
+                  .is('company_id', null);
               }
             }
+          } else if (companyId) {
+            // Contato já existia, vincular à empresa se ainda não estiver
+            await supabase
+              .from('contacts')
+              .update({ company_id: companyId })
+              .eq('id', contactId)
+              .is('company_id', null);
           }
           
           // Find or create policy
