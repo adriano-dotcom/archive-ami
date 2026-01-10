@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive } from 'lucide-react';
 import { VirtualizedContactsTable } from './contacts';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useContactsInfinite, useCampaigns, useContactFilters, ContactLight } from '@/hooks/useContacts';
+import { useContactsInfinite, useCampaigns, ContactLight } from '@/hooks/useContacts';
 import { Button } from './ui/button';
 import { api } from '../services/api';
 import { Contact } from '../types';
@@ -55,7 +55,6 @@ const Contacts: React.FC = () => {
   } = useContactsInfinite();
   
   const { data: availableCampaigns = [] } = useCampaigns();
-  const { owners: availableOwners, pipelines: availablePipelines } = useContactFilters();
   
   // Ref para IntersectionObserver (scroll infinito)
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -88,9 +87,6 @@ const Contacts: React.FC = () => {
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [verticalFilter, setVerticalFilter] = useState<'all' | 'transporte' | 'frotas' | 'none'>('all');
   
-  // New filters: Owner, Pipeline, and Chat status
-  const [ownerFilter, setOwnerFilter] = useState<string>('all');
-  const [pipelineFilter, setPipelineFilter] = useState<string>('all');
   const [createdDateFilter, setCreatedDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month'>('all');
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'archived' | 'none'>('all');
 
@@ -245,23 +241,6 @@ const Contacts: React.FC = () => {
       }
     }
     
-    // Filtrar por responsável (owner)
-    if (ownerFilter !== 'all') {
-      if (ownerFilter === 'none') {
-        filtered = filtered.filter(c => !(c as ExtendedContact).ownerId);
-      } else {
-        filtered = filtered.filter(c => (c as ExtendedContact).ownerId === ownerFilter);
-      }
-    }
-    
-    // Filtrar por pipeline (tipo)
-    if (pipelineFilter !== 'all') {
-      if (pipelineFilter === 'none') {
-        filtered = filtered.filter(c => !(c as ExtendedContact).pipelineId);
-      } else {
-        filtered = filtered.filter(c => (c as ExtendedContact).pipelineSlug === pipelineFilter);
-      }
-    }
     
     // Filtrar por data de criação
     if (createdDateFilter !== 'all') {
@@ -308,7 +287,7 @@ const Contacts: React.FC = () => {
           contact.company?.toLowerCase().includes(search) ||
           contact.cnpj?.includes(search) ||
           extContact.campaign?.toLowerCase().includes(search) ||
-          extContact.ownerName?.toLowerCase().includes(search);
+          extContact.campaign?.toLowerCase().includes(search);
       });
     }
     
@@ -374,13 +353,11 @@ const Contacts: React.FC = () => {
     setLetterFilter('all');
     setCampaignFilter('all');
     setVerticalFilter('all');
-    setOwnerFilter('all');
-    setPipelineFilter('all');
     setCreatedDateFilter('all');
     setChatStatusFilter('all');
   };
   
-  const hasActiveFilters = selectedStatuses.length > 0 || cnpjFilter !== 'all' || channelFilter !== 'all' || dateFilter !== 'all' || letterFilter !== 'all' || campaignFilter !== 'all' || verticalFilter !== 'all' || ownerFilter !== 'all' || pipelineFilter !== 'all' || createdDateFilter !== 'all' || chatStatusFilter !== 'all';
+  const hasActiveFilters = selectedStatuses.length > 0 || cnpjFilter !== 'all' || channelFilter !== 'all' || dateFilter !== 'all' || letterFilter !== 'all' || campaignFilter !== 'all' || verticalFilter !== 'all' || createdDateFilter !== 'all' || chatStatusFilter !== 'all';
   
   const getChatStatusBadge = (contact: ExtendedContact) => {
     if (contact.conversationActive === null || contact.conversationActive === undefined) {
@@ -402,26 +379,6 @@ const Contacts: React.FC = () => {
     );
   };
   
-  const getPipelineBadge = (contact: ExtendedContact) => {
-    if (!contact.pipelineSlug) return <span className="text-slate-600 text-xs">-</span>;
-    
-    const icon = contact.pipelineIcon || '📋';
-    const name = contact.pipelineName || '';
-    const color = contact.pipelineColor || '#3b82f6';
-    
-    return (
-      <span 
-        className="px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border"
-        style={{ 
-          backgroundColor: `${color}15`, 
-          borderColor: `${color}30`,
-          color: color 
-        }}
-      >
-        {icon} {name}
-      </span>
-    );
-  };
   
   const getVerticalBadge = (vertical?: 'transporte' | 'frotas') => {
     if (vertical === 'transporte') {
@@ -671,12 +628,6 @@ const Contacts: React.FC = () => {
             setLetterFilter={setLetterFilter}
             selectedStatuses={selectedStatuses}
             toggleStatusFilter={toggleStatusFilter}
-            pipelineFilter={pipelineFilter}
-            setPipelineFilter={setPipelineFilter}
-            availablePipelines={availablePipelines}
-            ownerFilter={ownerFilter}
-            setOwnerFilter={setOwnerFilter}
-            availableOwners={availableOwners}
             createdDateFilter={createdDateFilter}
             setCreatedDateFilter={setCreatedDateFilter}
             chatStatusFilter={chatStatusFilter}

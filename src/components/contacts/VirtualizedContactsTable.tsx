@@ -42,12 +42,6 @@ interface VirtualizedContactsTableProps {
   setLetterFilter: (v: string) => void;
   selectedStatuses: string[];
   toggleStatusFilter: (status: string) => void;
-  pipelineFilter: string;
-  setPipelineFilter: (v: string) => void;
-  availablePipelines: Array<{ id: string; slug: string; name: string; icon?: string }>;
-  ownerFilter: string;
-  setOwnerFilter: (v: string) => void;
-  availableOwners: Array<{ id: string; name: string }>;
   createdDateFilter: CreatedDateFilter;
   setCreatedDateFilter: (v: CreatedDateFilter) => void;
   chatStatusFilter: ChatStatusFilter;
@@ -80,8 +74,7 @@ const ContactRow = memo(({
   handleConverse,
   getStatusColor,
   getStatusLabel,
-  getChatStatusBadge,
-  getPipelineBadge
+  getChatStatusBadge
 }: {
   contact: ExtendedContact;
   isSelected: boolean;
@@ -95,7 +88,6 @@ const ContactRow = memo(({
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
   getChatStatusBadge: (contact: ExtendedContact) => React.ReactNode;
-  getPipelineBadge: (contact: ExtendedContact) => React.ReactNode;
 }) => {
   return (
     <tr 
@@ -150,21 +142,6 @@ const ContactRow = memo(({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      </td>
-      {/* Pipeline/Tipo Cell */}
-      <td className="px-4 py-4 min-w-[100px]">
-        {getPipelineBadge(contact)}
-      </td>
-      {/* Responsável Cell */}
-      <td className="px-4 py-4 min-w-[100px]">
-        {contact.ownerName ? (
-          <span className="text-slate-300 text-xs flex items-center gap-1.5">
-            <User className="w-3 h-3 text-slate-500" />
-            {contact.ownerName?.split(' ')[0]}
-          </span>
-        ) : (
-          <span className="text-slate-600 text-xs">-</span>
-        )}
       </td>
       {/* Data Criação Cell */}
       <td className="px-4 py-4 min-w-[90px]">
@@ -266,12 +243,6 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
   setLetterFilter,
   selectedStatuses,
   toggleStatusFilter,
-  pipelineFilter,
-  setPipelineFilter,
-  availablePipelines,
-  ownerFilter,
-  setOwnerFilter,
-  availableOwners,
   createdDateFilter,
   setCreatedDateFilter,
   chatStatusFilter,
@@ -349,26 +320,6 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
     );
   };
 
-  const getPipelineBadge = (contact: ExtendedContact) => {
-    if (!contact.pipelineSlug) return <span className="text-slate-600 text-xs">-</span>;
-    
-    const icon = contact.pipelineIcon || '📋';
-    const name = contact.pipelineName || '';
-    const color = contact.pipelineColor || '#3b82f6';
-    
-    return (
-      <span 
-        className="px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border"
-        style={{ 
-          backgroundColor: `${color}15`, 
-          borderColor: `${color}30`,
-          color: color 
-        }}
-      >
-        {icon} {name}
-      </span>
-    );
-  };
 
   const virtualRows = rowVirtualizer.getVirtualItems();
 
@@ -489,90 +440,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                   </PopoverContent>
                 </Popover>
               </th>
-              {/* Pipeline/Tipo Header with Filter */}
-              <th className="px-4 py-4 min-w-[100px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      Tipo
-                      <ChevronDown className="w-3 h-3" />
-                      {pipelineFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-48 p-2">
-                    <div className="space-y-1 max-h-60 overflow-y-auto">
-                      <button
-                        onClick={() => setPipelineFilter('all')}
-                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${pipelineFilter === 'all' ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                      >
-                        Todos os tipos
-                        {pipelineFilter === 'all' && <span>✓</span>}
-                      </button>
-                      {availablePipelines.map(pipeline => (
-                        <button
-                          key={pipeline.id}
-                          onClick={() => setPipelineFilter(pipeline.slug)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${pipelineFilter === pipeline.slug ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{pipeline.icon || '📋'}</span>
-                            <span>{pipeline.name}</span>
-                          </div>
-                          {pipelineFilter === pipeline.slug && <span>✓</span>}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setPipelineFilter('none')}
-                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${pipelineFilter === 'none' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'}`}
-                      >
-                        Sem pipeline
-                        {pipelineFilter === 'none' && <span>✓</span>}
-                      </button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Responsável Header with Filter */}
-              <th className="px-4 py-4 min-w-[100px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      <User className="w-3 h-3" />
-                      Responsável
-                      <ChevronDown className="w-3 h-3" />
-                      {ownerFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-48 p-2">
-                    <div className="space-y-1 max-h-60 overflow-y-auto">
-                      <button
-                        onClick={() => setOwnerFilter('all')}
-                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${ownerFilter === 'all' ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                      >
-                        Todos
-                        {ownerFilter === 'all' && <span>✓</span>}
-                      </button>
-                      {availableOwners.map(owner => (
-                        <button
-                          key={owner.id}
-                          onClick={() => setOwnerFilter(owner.id)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${ownerFilter === owner.id ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          {owner.name}
-                          {ownerFilter === owner.id && <span>✓</span>}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setOwnerFilter('none')}
-                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${ownerFilter === 'none' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'}`}
-                      >
-                        Sem responsável
-                        {ownerFilter === 'none' && <span>✓</span>}
-                      </button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
+              {/* Data Criação Header with Filter */}
               {/* Data Criação Header with Filter */}
               <th className="px-4 py-4 min-w-[90px]">
                 <Popover>
@@ -764,7 +632,6 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                   getStatusColor={getStatusColor}
                   getStatusLabel={getStatusLabel}
                   getChatStatusBadge={getChatStatusBadge}
-                  getPipelineBadge={getPipelineBadge}
                 />
               );
             })}

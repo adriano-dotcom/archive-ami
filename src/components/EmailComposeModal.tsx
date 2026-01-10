@@ -18,7 +18,6 @@ interface EmailTemplate {
 interface EmailComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  dealId: string;
   contactEmail?: string;
   contactName?: string;
   company?: string;
@@ -44,7 +43,6 @@ const EMAIL_TYPES = [
 export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   isOpen,
   onClose,
-  dealId,
   contactEmail = '',
   contactName = '',
   company = '',

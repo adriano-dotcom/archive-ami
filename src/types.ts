@@ -43,7 +43,6 @@ export interface Team {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  pipeline_id?: string | null;
 }
 
 export interface TeamFunction {
@@ -107,74 +106,6 @@ export interface Appointment {
   attendees?: string[];
 }
 
-// Pipeline type
-export interface Pipeline {
-  id: string;
-  name: string;
-  slug: string;
-  agentId: string | null;
-  agentName?: string;
-  color: string;
-  icon: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Deal {
-  id: string;
-  title: string;
-  company: string;
-  value: number;
-  stage: string;
-  stageId?: string;
-  pipelineId?: string;
-  owner?: { name: string; avatar?: string } | null;
-  ownerAvatar: string;
-  ownerId?: string;
-  ownerName?: string;
-  pipeline?: { id: string; slug: string; name: string; color?: string; icon?: string } | null;
-  tags: string[];
-  dueDate?: string;
-  priority: 'low' | 'medium' | 'high';
-  contactId?: string;
-  contactName?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-  wonAt?: string;
-  lostAt?: string;
-  lostReason?: string;
-  clientMemory?: ClientMemory;
-  conversationId?: string;
-}
-
-export interface DealActivity {
-  id: string;
-  dealId: string;
-  type: 'note' | 'call' | 'email' | 'meeting' | 'task';
-  title: string;
-  description?: string;
-  scheduledAt?: string;
-  completedAt?: string;
-  isCompleted: boolean;
-  createdBy?: string;
-  createdByName?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface KanbanColumn {
-  id: string;
-  title: string;
-  color: string;
-  position: number;
-  isSystem: boolean;
-  isActive: boolean;
-  isAiManaged: boolean;
-  aiTriggerCriteria: string | null;
-  pipelineId?: string;
-  syncToPipedrive?: boolean;
-}
 
 
 export interface TagDefinition {
@@ -267,11 +198,6 @@ export interface DBConversation {
   contact?: DBContact;
   messages?: DBMessage[];
   agent?: { id: string; name: string; slug: string } | null;
-  // Pipeline data (from deal)
-  pipelineId?: string | null;
-  pipelineName?: string | null;
-  pipelineIcon?: string | null;
-  pipelineColor?: string | null;
   // Assigned user name (extracted from email)
   assignedUserName?: string | null;
 }
@@ -324,17 +250,10 @@ export interface UIConversation {
   agentId: string | null;
   agentName: string | null;
   agentSlug: string | null;
-  pipelineId: string | null;
-  pipelineName: string | null;
-  pipelineIcon: string | null;
-  pipelineColor: string | null;
   // WhatsApp 24h window fields
   whatsappWindowStart: string | null;
   isWhatsAppWindowOpen: boolean;
   windowHoursRemaining: number | null;
-  // Deal owner fields
-  dealOwnerId: string | null;
-  dealOwnerName: string | null;
 }
 
 export interface UIMessage {
@@ -403,17 +322,10 @@ export function transformDBToUIConversation(
     agentId: conv.agent?.id || null,
     agentName: conv.agent?.name || null,
     agentSlug: conv.agent?.slug || null,
-    pipelineId: conv.pipelineId || null,
-    pipelineName: conv.pipelineName || null,
-    pipelineIcon: conv.pipelineIcon || null,
-    pipelineColor: conv.pipelineColor || null,
     // WhatsApp 24h window
     whatsappWindowStart: conv.whatsapp_window_start || null,
     isWhatsAppWindowOpen: isWindowOpen,
-    windowHoursRemaining: hoursRemaining,
-    // Deal owner (enriched by API)
-    dealOwnerId: (conv as any).dealOwnerId || null,
-    dealOwnerName: (conv as any).dealOwnerName || null
+    windowHoursRemaining: hoursRemaining
   };
 }
 
