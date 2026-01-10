@@ -8,7 +8,7 @@ import Contacts from './components/Contacts';
 import Settings from './components/Settings';
 import Team from './components/Team';
 import Scheduling from './components/Scheduling';
-import Kanban from './components/Kanban';
+
 import MeetingRoom from './components/MeetingRoom';
 import WhatsAppDashboard from './components/WhatsAppDashboard';
 import { CollectionsDashboard } from './components/collections';
@@ -72,7 +72,7 @@ const App: React.FC = () => {
               }>
                 <Route path="/" element={<DefaultRedirect />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/kanban" element={<Kanban />} />
+                
                 <Route path="/chat" element={<ChatInterface />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/scheduling" element={<Scheduling />} />

@@ -1,4 +1,4 @@
-import { Contact, Conversation, MessageDirection, MessageType, StatMetric, TeamMember, Appointment, Deal, KanbanColumn } from "./types";
+import { Contact, Conversation, MessageDirection, MessageType, StatMetric, TeamMember, Appointment } from "./types";
 
 export const STATS: StatMetric[] = [
   { label: 'Atendimentos Hoje', value: '142', trend: '+12%', trendUp: true },
@@ -156,75 +156,3 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
     }
 ];
 
-export const MOCK_KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: 'new', title: 'Novos Leads', color: 'border-slate-500', position: 0, isSystem: false, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-  { id: 'qualification', title: 'Qualificação', color: 'border-cyan-500', position: 1, isSystem: false, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-  { id: 'presentation', title: 'Apresentação', color: 'border-violet-500', position: 2, isSystem: false, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-  { id: 'negotiation', title: 'Negociação', color: 'border-orange-500', position: 3, isSystem: false, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-  { id: 'won', title: 'Fechado / Ganho', color: 'border-emerald-500', position: 4, isSystem: true, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-  { id: 'lost', title: 'Perdido', color: 'border-red-500', position: 5, isSystem: true, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
-];
-
-export const MOCK_DEALS: Deal[] = [
-  {
-    id: 'd1',
-    title: 'Implantação Chatbot',
-    company: 'Tech Solutions Ltd',
-    value: 5000,
-    stage: 'new',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=Admin+User&background=0891b2&color=fff',
-    tags: ['Hot', 'Indicação'],
-    priority: 'high'
-  },
-  {
-    id: 'd2',
-    title: 'Automação WhatsApp',
-    company: 'Clínica Saúde',
-    value: 2500,
-    stage: 'qualification',
-    ownerAvatar: 'https://i.pravatar.cc/150?u=sarah',
-    tags: ['Saúde'],
-    priority: 'medium'
-  },
-  {
-    id: 'd3',
-    title: 'Plano Enterprise',
-    company: 'Grupo Varejo Sul',
-    value: 15000,
-    stage: 'presentation',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
-    tags: ['Enterprise', 'Reunião'],
-    priority: 'high',
-    dueDate: '2023-11-10'
-  },
-  {
-    id: 'd4',
-    title: 'Consultoria IA',
-    company: 'Advocacia Silva',
-    value: 8000,
-    stage: 'negotiation',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=Admin+User&background=0891b2&color=fff',
-    tags: ['Jurídico'],
-    priority: 'medium'
-  },
-  {
-    id: 'd5',
-    title: 'Licença Anual',
-    company: 'StartUp Hub',
-    value: 3000,
-    stage: 'new',
-    ownerAvatar: 'https://i.pravatar.cc/150?u=sarah',
-    tags: ['SaaS'],
-    priority: 'low'
-  },
-  {
-    id: 'd6',
-    title: 'Renovação Contrato',
-    company: 'Logística Express',
-    value: 12000,
-    stage: 'won',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
-    tags: ['Renovação'],
-    priority: 'high'
-  }
-];
