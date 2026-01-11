@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,25 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ArrowUpDown, Truck } from 'lucide-react';
-
-// Ramos SUSEP de seguro de transporte/carga
-const CARGO_BRANCHES = ['309', '31', '32', '33', '0309', '031', '032', '033'];
-
-// Produtos de seguro de carga
-const CARGO_PRODUCTS = ['transportador', 'rctr', 'rctr-c', 'rc-dc', 'carga', 'transporte', 'embarcador'];
-
-// Helper to check if a policy is cargo insurance
-const isCargoInsurance = (policy: { branch?: string | null; product?: string | null; is_cargo_insurance?: boolean } | null): boolean => {
-  if (!policy) return false;
-  if (policy.is_cargo_insurance) return true;
-  if (policy.branch && CARGO_BRANCHES.includes(policy.branch)) return true;
-  if (policy.product) {
-    const productLower = policy.product.toLowerCase();
-    return CARGO_PRODUCTS.some(p => productLower.includes(p));
-  }
-  return false;
-};
+import { 
+  Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
+  Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
+  ChevronUp, ChevronDown, ArrowUpDown, Truck, History
+} from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
   AlertDialog,
@@ -48,6 +33,15 @@ import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 import { SendInstallmentWhatsAppModal } from './SendInstallmentWhatsAppModal';
 import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
 import { CompanyDetailsDrawer, EditCompanyModal } from '@/components/segurados';
+import { 
+  useInstallments, 
+  isCargoInsurance, 
+  Installment, 
+  SortColumn 
+} from './installments';
+import { InstallmentHistoryDrawer } from './installments/InstallmentHistoryDrawer';
+import { MarkAsPaidDialog } from './installments/MarkAsPaidDialog';
+import { EmptyState } from './installments/EmptyState';
 
 // Interface for company details drawer
 interface CompanyForDrawer {
@@ -72,38 +66,6 @@ interface CompanyForDrawer {
   max_days_overdue: number;
 }
 
-interface Installment {
-  id: string;
-  installment_number: number;
-  value: number;
-  due_date: string;
-  status: string;
-  days_overdue: number;
-  contact: {
-    id: string;
-    name: string;
-    phone_number: string;
-  } | null;
-  policy: {
-    id: string;
-    policy_number: string;
-    insurer: string;
-    branch: string | null;
-    product: string | null;
-    is_cargo_insurance?: boolean | null;
-    start_date: string | null;
-    end_date: string | null;
-    total_value: number | null;
-    status: string;
-    company: {
-      id: string;
-      razao_social: string;
-      nome_fantasia: string | null;
-      cnpj: string | null;
-    } | null;
-  } | null;
-}
-
 const formatCNPJ = (cnpj: string | null | undefined) => {
   if (!cnpj) return 'N/A';
   const cleaned = cnpj.replace(/\D/g, '');
@@ -114,17 +76,23 @@ const formatCNPJ = (cnpj: string | null | undefined) => {
   );
 };
 
-type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
-type SortDirection = 'asc' | 'desc';
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value || 0);
+};
 
 export const InstallmentsList: React.FC = () => {
+  // Filters state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   const [insurerFilter, setInsurerFilter] = useState<string>('all');
   const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMarkAsPaidConfirm, setShowMarkAsPaidConfirm] = useState(false);
@@ -134,20 +102,53 @@ export const InstallmentsList: React.FC = () => {
   const [selectedCompanyForDrawer, setSelectedCompanyForDrawer] = useState<CompanyForDrawer | null>(null);
   const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<CompanyForDrawer | null>(null);
   const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('days_overdue');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [lastMarkedAsPaid, setLastMarkedAsPaid] = useState<{ ids: string[]; previousStatuses: Map<string, { status: string; paid_at: string | null }> } | null>(null);
-  const queryClient = useQueryClient();
+  const [selectedInstallmentForHistory, setSelectedInstallmentForHistory] = useState<Installment | null>(null);
 
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
+  // Use custom hook
+  const {
+    sortedInstallments,
+    attemptCounts,
+    isLoading,
+    selectedIds,
+    setSelectedIds,
+    toggleSelect,
+    toggleSelectAll,
+    selectOverdue30Plus,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    selectedTotal,
+    overdue30Count,
+    incompleteCount,
+    atmRiskCount,
+    uniqueContactsCount,
+    markAsPaidMutation,
+    deleteMutation,
+    updateInsurerMutation,
+    bulkUpdateInsurerMutation,
+    refetch,
+  } = useInstallments({
+    search,
+    statusFilter,
+    rangeFilter,
+    dataQualityFilter,
+    insurerFilter,
+    cargoOnlyFilter,
+  });
 
+  // Pending mark as paid value
+  const pendingMarkAsPaidValue = useMemo(() => {
+    if (pendingMarkAsPaidIds.length === 0) return 0;
+    return sortedInstallments
+      .filter(inst => pendingMarkAsPaidIds.includes(inst.id))
+      .reduce((sum, inst) => sum + (inst.value || 0), 0);
+  }, [sortedInstallments, pendingMarkAsPaidIds]);
+
+  const pendingInstallments = useMemo(() => {
+    return sortedInstallments.filter(inst => pendingMarkAsPaidIds.includes(inst.id));
+  }, [sortedInstallments, pendingMarkAsPaidIds]);
+
+  // Sortable header component
   const SortableHeader: React.FC<{ column: SortColumn; label: string; className?: string }> = ({ column, label, className = '' }) => (
     <TableHead 
       className={`cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
@@ -170,16 +171,11 @@ export const InstallmentsList: React.FC = () => {
 
   // Fetch company details for drawer
   const handleOpenCompanyDrawer = async (companyId: string) => {
-    if (!companyId) {
-      console.log('handleOpenCompanyDrawer: No companyId provided');
-      return;
-    }
+    if (!companyId) return;
     
-    console.log('handleOpenCompanyDrawer: Opening drawer for company:', companyId);
     setLoadingCompany(companyId);
     
     try {
-      // Fetch company data
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('*')
@@ -187,25 +183,20 @@ export const InstallmentsList: React.FC = () => {
         .single();
       
       if (companyError) throw companyError;
-      console.log('handleOpenCompanyDrawer: Company data loaded:', company);
       
-      // First fetch policies for this company
       const { data: policies } = await supabase
         .from('policies')
         .select('id')
         .eq('company_id', companyId);
       
       const policyIds = policies?.map(p => p.id) || [];
-      console.log('handleOpenCompanyDrawer: Found policies:', policyIds.length);
       
-      // Fetch counts and aggregations
       const [contactsResult, billingContactsResult, policiesResult] = await Promise.all([
         supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
         supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_billing_contact', true),
         supabase.from('policies').select('id', { count: 'exact', head: true }).eq('company_id', companyId)
       ]);
       
-      // Fetch installments using policy IDs
       let overdueValue = 0;
       let maxDaysOverdue = 0;
       
@@ -223,7 +214,7 @@ export const InstallmentsList: React.FC = () => {
           : 0;
       }
       
-      const companyData = {
+      setSelectedCompanyForDrawer({
         id: company.id,
         cnpj: company.cnpj,
         razao_social: company.razao_social,
@@ -243,362 +234,12 @@ export const InstallmentsList: React.FC = () => {
         policies_count: policiesResult.count || 0,
         overdue_value: overdueValue,
         max_days_overdue: maxDaysOverdue
-      };
-      
-      console.log('handleOpenCompanyDrawer: Setting company for drawer:', companyData);
-      setSelectedCompanyForDrawer(companyData);
+      });
     } catch (error) {
       console.error('Error fetching company details:', error);
       toast.error('Erro ao carregar dados da empresa');
     } finally {
       setLoadingCompany(null);
-    }
-  };
-
-  // Fetch attempt counts (WhatsApp from collection_attempts, Email from collection_email_logs)
-  const { data: attemptCounts } = useQuery({
-    queryKey: ['installment-attempt-counts'],
-    queryFn: async () => {
-      // Get WhatsApp counts from collection_attempts
-      const { data: whatsappData, error: whatsappError } = await supabase
-        .from('collection_attempts')
-        .select('installment_id')
-        .eq('channel', 'whatsapp')
-        .eq('status', 'sent');
-
-      if (whatsappError) throw whatsappError;
-
-      // Get Email logs to count installments
-      const { data: emailData, error: emailError } = await supabase
-        .from('collection_email_logs')
-        .select('installments_included')
-        .eq('status', 'sent');
-
-      if (emailError) throw emailError;
-
-      // Process WhatsApp counts
-      const whatsappCounts: Record<string, number> = {};
-      whatsappData?.forEach(row => {
-        if (row.installment_id) {
-          whatsappCounts[row.installment_id] = (whatsappCounts[row.installment_id] || 0) + 1;
-        }
-      });
-
-      // Process Email counts
-      const emailCounts: Record<string, number> = {};
-      emailData?.forEach(log => {
-        const installments = log.installments_included as Array<{ id: string }> | null;
-        installments?.forEach(inst => {
-          if (inst.id) {
-            emailCounts[inst.id] = (emailCounts[inst.id] || 0) + 1;
-          }
-        });
-      });
-
-      return { whatsappCounts, emailCounts };
-    }
-  });
-
-  const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter],
-    queryFn: async () => {
-      let query = supabase
-        .from('installments')
-        .select(`
-          *,
-          contact:contacts(id, name, phone_number),
-          policy:policies(id, policy_number, insurer, branch, product, is_cargo_insurance, start_date, end_date, total_value, status, company:companies(id, razao_social, nome_fantasia, cnpj))
-        `)
-        .order('days_overdue', { ascending: false });
-
-      if (statusFilter === 'all-including-paid') {
-        // Não aplica filtro de status - mostra todas as parcelas
-      } else if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      } else {
-        // 'all' = apenas pendentes (comportamento padrão para cobrança)
-        query = query.in('status', ['pending', 'overdue', 'negotiating']);
-      }
-
-      if (rangeFilter !== 'all') {
-        switch (rangeFilter) {
-          case '1-30':
-            query = query.gte('days_overdue', 1).lte('days_overdue', 30);
-            break;
-          case '31-60':
-            query = query.gte('days_overdue', 31).lte('days_overdue', 60);
-            break;
-          case '61-90':
-            query = query.gte('days_overdue', 61).lte('days_overdue', 90);
-            break;
-          case '90+':
-            query = query.gt('days_overdue', 90);
-            break;
-        }
-      }
-
-      // Data quality filter
-      if (dataQualityFilter !== 'all') {
-        switch (dataQualityFilter) {
-          case 'no-policy':
-            query = query.is('policy_id', null);
-            break;
-          case 'no-contact':
-            query = query.is('contact_id', null);
-            break;
-          case 'incomplete':
-            query = query.or('policy_id.is.null,contact_id.is.null');
-            break;
-        }
-      }
-
-      const { data, error } = await query.limit(100);
-      
-      if (error) throw error;
-      
-      let filteredData = data as Installment[];
-      
-      // Filter by insurer locally
-      if (insurerFilter !== 'all') {
-        filteredData = filteredData.filter(inst => 
-          inst.policy?.insurer?.toUpperCase() === insurerFilter.toUpperCase()
-        );
-      }
-      
-      // Filter by cargo insurance only
-      if (cargoOnlyFilter) {
-        filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
-      }
-      
-      // Filter by search locally
-      if (search) {
-        const searchLower = search.toLowerCase();
-        // Normalize search term for CNPJ comparison (remove non-digits)
-        const searchDigitsOnly = search.replace(/\D/g, '');
-        
-        filteredData = filteredData.filter(inst => {
-          // Text-based searches
-          const matchesName = inst.contact?.name?.toLowerCase().includes(searchLower);
-          const matchesPhone = inst.contact?.phone_number?.includes(search);
-          const matchesPolicyNumber = inst.policy?.policy_number?.toLowerCase().includes(searchLower);
-          const matchesInsurer = inst.policy?.insurer?.toLowerCase().includes(searchLower);
-          const matchesRazaoSocial = inst.policy?.company?.razao_social?.toLowerCase().includes(searchLower);
-          const matchesNomeFantasia = inst.policy?.company?.nome_fantasia?.toLowerCase().includes(searchLower);
-          
-          // CNPJ search - compare normalized digits
-          const companyCnpj = inst.policy?.company?.cnpj?.replace(/\D/g, '') || '';
-          const matchesCNPJ = searchDigitsOnly.length > 0 && companyCnpj.includes(searchDigitsOnly);
-          
-          return matchesName || matchesPhone || matchesPolicyNumber || 
-                 matchesInsurer || matchesRazaoSocial || matchesNomeFantasia || matchesCNPJ;
-        });
-      }
-      
-      return filteredData;
-    }
-  });
-
-  // Sort installments
-  const sortedInstallments = useMemo(() => {
-    if (!installments) return [];
-    
-    return [...installments].sort((a, b) => {
-      let valA: string | number;
-      let valB: string | number;
-      
-      switch (sortColumn) {
-        case 'empresa':
-          valA = (a.policy?.company?.nome_fantasia || a.policy?.company?.razao_social || '').toLowerCase();
-          valB = (b.policy?.company?.nome_fantasia || b.policy?.company?.razao_social || '').toLowerCase();
-          break;
-        case 'cnpj':
-          valA = a.policy?.company?.cnpj || '';
-          valB = b.policy?.company?.cnpj || '';
-          break;
-        case 'contato':
-          valA = (a.contact?.name || '').toLowerCase();
-          valB = (b.contact?.name || '').toLowerCase();
-          break;
-        case 'seguradora':
-          valA = (a.policy?.insurer || '').toLowerCase();
-          valB = (b.policy?.insurer || '').toLowerCase();
-          break;
-        case 'apolice':
-          valA = (a.policy?.policy_number || '').toLowerCase();
-          valB = (b.policy?.policy_number || '').toLowerCase();
-          break;
-        case 'parcela':
-          valA = a.installment_number || 0;
-          valB = b.installment_number || 0;
-          break;
-        case 'valor':
-          valA = a.value || 0;
-          valB = b.value || 0;
-          break;
-        case 'vencimento':
-          valA = new Date(a.due_date).getTime();
-          valB = new Date(b.due_date).getTime();
-          break;
-        case 'days_overdue':
-          valA = a.days_overdue || 0;
-          valB = b.days_overdue || 0;
-          break;
-        default:
-          return 0;
-      }
-      
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [installments, sortColumn, sortDirection]);
-
-  // Calculate selected total value
-  const selectedTotal = useMemo(() => {
-    if (!installments || selectedIds.length === 0) return 0;
-    return installments
-      .filter(inst => selectedIds.includes(inst.id))
-      .reduce((sum, inst) => sum + (inst.value || 0), 0);
-  }, [installments, selectedIds]);
-
-  // Count of installments with >30 days overdue
-  const overdue30Count = useMemo(() => {
-    return installments?.filter(inst => inst.days_overdue > 30).length || 0;
-  }, [installments]);
-
-  // Count of incomplete installments
-  const incompleteCount = useMemo(() => {
-    return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
-  }, [installments]);
-
-  // Count of cargo insurance installments with ATM at risk (>= 15 days overdue)
-  const atmRiskCount = useMemo(() => {
-    return installments?.filter(inst => 
-      isCargoInsurance(inst.policy) && inst.days_overdue >= 15
-    ).length || 0;
-  }, [installments]);
-
-  // Count unique contacts among selected installments
-  const uniqueContactsCount = useMemo(() => {
-    if (!installments || selectedIds.length === 0) return 0;
-    
-    const selectedInstallments = installments.filter(inst => selectedIds.includes(inst.id));
-    const uniquePhones = new Set(
-      selectedInstallments
-        .map(inst => inst.contact?.phone_number)
-        .filter(Boolean)
-    );
-    
-    return uniquePhones.size;
-  }, [installments, selectedIds]);
-
-  // Select all installments with >30 days overdue
-  const selectOverdue30Plus = () => {
-    if (!installments) return;
-    
-    const overdue30 = installments.filter(inst => inst.days_overdue > 30);
-    const overdue30Ids = overdue30.map(i => i.id);
-    
-    // Toggle: if all are already selected, deselect
-    const allSelected = overdue30Ids.length > 0 && overdue30Ids.every(id => selectedIds.includes(id));
-    
-    if (allSelected) {
-      setSelectedIds(prev => prev.filter(id => !overdue30Ids.includes(id)));
-    } else {
-      setSelectedIds(prev => [...new Set([...prev, ...overdue30Ids])]);
-    }
-  };
-
-  // Get pending mark as paid value for confirmation dialog
-  const pendingMarkAsPaidValue = useMemo(() => {
-    if (!installments || pendingMarkAsPaidIds.length === 0) return 0;
-    return installments
-      .filter(inst => pendingMarkAsPaidIds.includes(inst.id))
-      .reduce((sum, inst) => sum + (inst.value || 0), 0);
-  }, [installments, pendingMarkAsPaidIds]);
-
-  const markAsPaidMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      // First, save the current status of the installments for potential undo
-      const { data: currentData, error: fetchError } = await supabase
-        .from('installments')
-        .select('id, status, paid_at')
-        .in('id', ids);
-      
-      if (fetchError) throw fetchError;
-      
-      const previousStatuses = new Map<string, { status: string; paid_at: string | null }>();
-      currentData?.forEach(item => {
-        previousStatuses.set(item.id, { status: item.status, paid_at: item.paid_at });
-      });
-
-      const { error } = await supabase
-        .from('installments')
-        .update({ 
-          status: 'paid', 
-          paid_at: new Date().toISOString(),
-          days_overdue: 0 
-        })
-        .in('id', ids);
-      
-      if (error) throw error;
-      
-      return { ids, previousStatuses };
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
-      setSelectedIds([]);
-      setShowMarkAsPaidConfirm(false);
-      setPendingMarkAsPaidIds([]);
-      
-      // Store for potential undo
-      setLastMarkedAsPaid(data);
-      
-      // Toast with undo action
-      toast.success(
-        `${data.ids.length} parcela(s) marcada(s) como paga(s)`,
-        {
-          duration: 15000,
-          action: {
-            label: 'Desfazer',
-            onClick: () => handleUndoMarkAsPaid(data),
-          },
-        }
-      );
-      
-      // Clear undo data after 30 seconds
-      setTimeout(() => {
-        setLastMarkedAsPaid(null);
-      }, 30000);
-    },
-    onError: () => {
-      toast.error('Erro ao atualizar parcelas');
-    }
-  });
-
-  const handleUndoMarkAsPaid = async (data: { ids: string[]; previousStatuses: Map<string, { status: string; paid_at: string | null }> }) => {
-    try {
-      // Restore each installment to its previous status
-      for (const [id, prev] of data.previousStatuses) {
-        await supabase
-          .from('installments')
-          .update({ 
-            status: prev.status, 
-            paid_at: prev.paid_at,
-            // Recalculate days_overdue would require the due_date, so we skip resetting it here
-            // The scheduled job will recalculate it
-          })
-          .eq('id', id);
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
-      setLastMarkedAsPaid(null);
-      toast.success('Ação desfeita! Parcelas restauradas ao status anterior.');
-    } catch (error) {
-      console.error('Error undoing mark as paid:', error);
-      toast.error('Erro ao desfazer ação');
     }
   };
 
@@ -609,77 +250,8 @@ export const InstallmentsList: React.FC = () => {
 
   const confirmMarkAsPaid = () => {
     markAsPaidMutation.mutate(pendingMarkAsPaidIds);
-  };
-
-  const deleteMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from('installments')
-        .delete()
-        .in('id', ids);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
-      const count = selectedIds.length;
-      setSelectedIds([]);
-      setShowDeleteConfirm(false);
-      toast.success(`${count} parcela(s) excluída(s)`);
-    },
-    onError: () => {
-      toast.error('Erro ao excluir parcelas');
-    }
-  });
-
-  const updateInsurerMutation = useMutation({
-    mutationFn: async ({ policyId, insurer }: { policyId: string; insurer: string }) => {
-      const { error } = await supabase
-        .from('policies')
-        .update({ insurer })
-        .eq('id', policyId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      toast.success('Seguradora atualizada');
-    },
-    onError: () => {
-      toast.error('Erro ao atualizar seguradora');
-    }
-  });
-
-  const bulkUpdateInsurerMutation = useMutation({
-    mutationFn: async ({ installmentIds, insurer }: { installmentIds: string[]; insurer: string }) => {
-      const selectedInstallments = installments?.filter(inst => installmentIds.includes(inst.id)) || [];
-      const policyIds = [...new Set(selectedInstallments.map(inst => inst.policy?.id).filter(Boolean))] as string[];
-      
-      if (policyIds.length === 0) throw new Error('Nenhuma apólice encontrada');
-      
-      const { error } = await supabase
-        .from('policies')
-        .update({ insurer })
-        .in('id', policyIds);
-      
-      if (error) throw error;
-      return policyIds.length;
-    },
-    onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      toast.success(`Seguradora atualizada em ${count} apólice(s)`);
-    },
-    onError: () => {
-      toast.error('Erro ao atualizar seguradoras');
-    }
-  });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value || 0);
+    setShowMarkAsPaidConfirm(false);
+    setPendingMarkAsPaidIds([]);
   };
 
   const getStatusBadge = (status: string, daysOverdue: number) => {
@@ -704,7 +276,6 @@ export const InstallmentsList: React.FC = () => {
     return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">Pendente</Badge>;
   };
 
-  // Badge for ATM at risk (cargo insurance >= 15 days overdue)
   const getAtmRiskBadge = (inst: Installment) => {
     if (isCargoInsurance(inst.policy) && inst.days_overdue >= 15) {
       return (
@@ -727,29 +298,15 @@ export const InstallmentsList: React.FC = () => {
     return null;
   };
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (installments && selectedIds.length === installments.length) {
-      setSelectedIds([]);
-    } else if (installments) {
-      setSelectedIds(installments.map(i => i.id));
-    }
-  };
-
   const handleExport = () => {
-    if (!installments || installments.length === 0) {
+    if (!sortedInstallments || sortedInstallments.length === 0) {
       toast.error('Nenhuma parcela para exportar');
       return;
     }
 
     const csvContent = [
       ['Empresa', 'CNPJ', 'Contato', 'Telefone', 'Seguradora', 'Apólice', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
-      ...installments.map(inst => [
+      ...sortedInstallments.map(inst => [
         inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || '',
         inst.policy?.company?.cnpj || '',
         inst.contact?.name || '',
@@ -997,42 +554,6 @@ export const InstallmentsList: React.FC = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-
-              {/* Mark as Paid Confirmation Dialog */}
-              <AlertDialog open={showMarkAsPaidConfirm} onOpenChange={setShowMarkAsPaidConfirm}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-amber-400" />
-                      Confirmar marcação como pago
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-3 pt-2">
-                      <p>
-                        Você está prestes a marcar <span className="font-bold text-foreground">{pendingMarkAsPaidIds.length} parcela(s)</span> como paga(s).
-                      </p>
-                      <p className="text-amber-400 font-medium text-base">
-                        Valor total: {formatCurrency(pendingMarkAsPaidValue)}
-                      </p>
-                      <p className="text-slate-400 text-sm">
-                        Após confirmar, as parcelas serão removidas da lista de cobrança. 
-                        Você terá 15 segundos para desfazer a ação.
-                      </p>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setPendingMarkAsPaidIds([])}>
-                      Cancelar
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={confirmMarkAsPaid}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                      disabled={markAsPaidMutation.isPending}
-                    >
-                      {markAsPaidMutation.isPending ? 'Processando...' : `Confirmar (${pendingMarkAsPaidIds.length})`}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
           )}
         </CardContent>
@@ -1260,7 +781,16 @@ export const InstallmentsList: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-blue-500/20 hover:text-blue-400"
+                          title="Ver histórico"
+                          onClick={() => setSelectedInstallmentForHistory(inst)}
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -1298,29 +828,10 @@ export const InstallmentsList: React.FC = () => {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12 space-y-4">
-              <div className="text-slate-400 text-lg">
-                {statusFilter === 'all' ? (
-                  <>
-                    <AlertCircle className="w-12 h-12 mx-auto mb-4 text-slate-500" />
-                    <p className="font-medium">Nenhuma parcela pendente/atrasada encontrada</p>
-                    <p className="text-sm text-slate-500 mt-2">
-                      Pode ser que as parcelas tenham sido marcadas como pagas.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      className="mt-4 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
-                      onClick={() => setStatusFilter('all-including-paid')}
-                    >
-                      <Filter className="w-4 h-4" />
-                      Mostrar todas (incluindo pagas)
-                    </Button>
-                  </>
-                ) : (
-                  <p>Nenhuma parcela encontrada com os filtros aplicados</p>
-                )}
-              </div>
-            </div>
+            <EmptyState 
+              statusFilter={statusFilter}
+              onShowAllIncludingPaid={() => setStatusFilter('all-including-paid')}
+            />
           )}
         </CardContent>
       </Card>
@@ -1353,6 +864,26 @@ export const InstallmentsList: React.FC = () => {
           refetch();
           setSelectedIds([]);
         }}
+      />
+
+      {/* Mark as Paid Dialog */}
+      <MarkAsPaidDialog
+        open={showMarkAsPaidConfirm}
+        onOpenChange={(open) => {
+          setShowMarkAsPaidConfirm(open);
+          if (!open) setPendingMarkAsPaidIds([]);
+        }}
+        installments={pendingInstallments}
+        totalValue={pendingMarkAsPaidValue}
+        isPending={markAsPaidMutation.isPending}
+        onConfirm={confirmMarkAsPaid}
+      />
+
+      {/* History Drawer */}
+      <InstallmentHistoryDrawer
+        open={!!selectedInstallmentForHistory}
+        onOpenChange={(open) => !open && setSelectedInstallmentForHistory(null)}
+        installment={selectedInstallmentForHistory}
       />
 
       {/* Company Details Drawer */}

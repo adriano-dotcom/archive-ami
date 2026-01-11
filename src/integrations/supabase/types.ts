@@ -1187,6 +1187,68 @@ export type Database = {
         }
         Relationships: []
       }
+      installment_history: {
+        Row: {
+          action: string
+          can_revert: boolean | null
+          created_at: string
+          id: string
+          installment_id: string | null
+          metadata: Json | null
+          new_paid_at: string | null
+          new_status: string | null
+          new_value: number | null
+          notes: string | null
+          performed_at: string
+          performed_by: string | null
+          previous_paid_at: string | null
+          previous_status: string | null
+          previous_value: number | null
+        }
+        Insert: {
+          action: string
+          can_revert?: boolean | null
+          created_at?: string
+          id?: string
+          installment_id?: string | null
+          metadata?: Json | null
+          new_paid_at?: string | null
+          new_status?: string | null
+          new_value?: number | null
+          notes?: string | null
+          performed_at?: string
+          performed_by?: string | null
+          previous_paid_at?: string | null
+          previous_status?: string | null
+          previous_value?: number | null
+        }
+        Update: {
+          action?: string
+          can_revert?: boolean | null
+          created_at?: string
+          id?: string
+          installment_id?: string | null
+          metadata?: Json | null
+          new_paid_at?: string | null
+          new_status?: string | null
+          new_value?: number | null
+          notes?: string | null
+          performed_at?: string
+          performed_by?: string | null
+          previous_paid_at?: string | null
+          previous_status?: string | null
+          previous_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installment_history_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "installments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installments: {
         Row: {
           contact_id: string | null
