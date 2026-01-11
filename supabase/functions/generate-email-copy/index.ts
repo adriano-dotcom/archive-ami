@@ -165,6 +165,31 @@ TOM: Direto, personalizado, curioso, sem ser invasivo ou agressivo.
 
 // Tipos de email com instruções específicas
 const EMAIL_TYPES: Record<string, string> = {
+  'cobranca': `
+OBJETIVO: Cobrar parcelas em atraso de forma profissional mas firme
+
+ESTRUTURA:
+1. Saudação cordial mas direta (usar a saudação fornecida)
+2. Identificar a empresa e mencionar o relacionamento como corretor
+3. Informar o valor total em aberto e quantidade de parcelas
+4. Mencionar consequências sutis (regularização para manter apólice ativa, evitar cancelamento)
+5. Oferecer formas de pagamento e parcelamento se aplicável
+6. CTA claro (entrar em contato para regularização, solicitar novo boleto)
+7. Tom profissional, sem agressividade, mas com senso de urgência
+
+VARIÁVEIS DISPONÍVEIS:
+- {{valor_total}} - Valor total em aberto
+- {{qtd_parcelas}} - Quantidade de parcelas
+- {{dias_atraso}} - Maior atraso em dias
+- {{empresa}} - Nome da empresa
+
+IMPORTANTE:
+- Seja cordial mas firme
+- Foco em regularização e manutenção do relacionamento
+- Mencione que a Jacometo está à disposição para ajudar
+- Não seja agressivo ou ameaçador
+- Ofereça alternativas (parcelamento, novo boleto, etc.)
+`,
   'cold-email': `
 OBJETIVO: Primeiro contato frio com lead de prospecção
 
@@ -326,6 +351,16 @@ IMPORTANTE: Retorne APENAS o JSON, sem markdown, sem explicações.`;
       
       if (leadContext.conversation_summary) {
         userPrompt += `\n\nRESUMO DA CONVERSA:\n${leadContext.conversation_summary}`;
+      }
+      
+      // Contexto de cobrança
+      if (leadContext.collectionContext) {
+        userPrompt += `\n\nCONTEXTO DE COBRANÇA:`;
+        userPrompt += `\n- Valor total em aberto: R$ ${leadContext.collectionContext.totalOverdue?.toFixed(2) || '0.00'}`;
+        userPrompt += `\n- Quantidade de parcelas/apólices: ${leadContext.collectionContext.installmentsCount || 0}`;
+        userPrompt += `\n- Maior atraso: ${leadContext.collectionContext.maxDaysOverdue || 0} dias`;
+        userPrompt += `\n- Empresa: ${leadContext.collectionContext.companyName || 'Não informada'}`;
+        userPrompt += `\n\nUse as variáveis: {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}, {{empresa}}`;
       }
     }
     
