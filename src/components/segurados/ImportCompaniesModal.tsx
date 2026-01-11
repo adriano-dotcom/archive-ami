@@ -80,7 +80,25 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 });
+  const [validating, setValidating] = useState(false);
+  const [existingCNPJs, setExistingCNPJs] = useState<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const checkExistingCNPJs = async (cnpjs: string[]): Promise<Map<string, string>> => {
+    const normalizedCNPJs = cnpjs.map(c => c.replace(/\D/g, '')).filter(c => c.length === 14);
+    if (normalizedCNPJs.length === 0) return new Map();
+    
+    const { data } = await supabase
+      .from('companies')
+      .select('cnpj, razao_social, nome_fantasia')
+      .in('cnpj', normalizedCNPJs);
+    
+    const existingMap = new Map<string, string>();
+    data?.forEach(c => {
+      existingMap.set(c.cnpj, c.nome_fantasia || c.razao_social);
+    });
+    return existingMap;
+  };
 
   const resetState = () => {
     setStep('upload');
@@ -90,6 +108,8 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
     setPreviewRows([]);
     setImporting(false);
     setImportProgress({ current: 0, total: 0, success: 0, failed: 0 });
+    setValidating(false);
+    setExistingCNPJs(new Map());
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +159,25 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
     }));
   };
 
-  const validateAndPreview = () => {
+  const validateAndPreview = async () => {
+    setValidating(true);
+    
+    // First, extract all CNPJs from CSV
+    const allCNPJs: string[] = [];
+    csvData.forEach(row => {
+      const colIndex = columnMapping['cnpj'];
+      if (colIndex !== undefined && colIndex !== '') {
+        const cnpj = (row[parseInt(colIndex)] || '').replace(/\D/g, '');
+        if (cnpj.length === 14) {
+          allCNPJs.push(cnpj);
+        }
+      }
+    });
+    
+    // Check which CNPJs already exist in database
+    const existing = await checkExistingCNPJs(allCNPJs);
+    setExistingCNPJs(existing);
+    
     const rows: PreviewRow[] = csvData.map(row => {
       const data: Record<string, string> = {};
       const errors: string[] = [];
@@ -151,11 +189,15 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
         }
       });
 
+      const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
+      
       // Validate CNPJ
       if (!data.cnpj) {
         errors.push('CNPJ é obrigatório');
       } else if (!validateCNPJ(data.cnpj)) {
         errors.push('CNPJ inválido');
+      } else if (existing.has(cnpjDigits)) {
+        errors.push(`CNPJ já cadastrado: ${existing.get(cnpjDigits)}`);
       }
 
       // Validate Razão Social
@@ -171,6 +213,7 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
     });
 
     setPreviewRows(rows);
+    setValidating(false);
     setStep('preview');
   };
 
@@ -341,8 +384,15 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
                 <Button variant="outline" onClick={() => setStep('upload')} className="border-slate-700">
                   Voltar
                 </Button>
-                <Button onClick={validateAndPreview} className="bg-blue-600 hover:bg-blue-700">
-                  Validar e Pré-visualizar
+                <Button onClick={validateAndPreview} disabled={validating} className="bg-blue-600 hover:bg-blue-700">
+                  {validating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    'Validar e Pré-visualizar'
+                  )}
                 </Button>
               </div>
             </div>
@@ -350,15 +400,21 @@ export const ImportCompaniesModal: React.FC<ImportCompaniesModalProps> = ({
 
           {step === 'preview' && (
             <div className="space-y-4">
-              <div className="flex gap-4 text-sm">
+              <div className="flex gap-4 text-sm flex-wrap">
                 <span className="text-green-400">
                   <Check className="inline w-4 h-4 mr-1" />
-                  {previewRows.filter(r => r.valid).length} válidas
+                  {previewRows.filter(r => r.valid).length} novas
                 </span>
                 <span className="text-red-400">
                   <X className="inline w-4 h-4 mr-1" />
                   {previewRows.filter(r => !r.valid).length} com erros
                 </span>
+                {existingCNPJs.size > 0 && (
+                  <span className="text-amber-400">
+                    <AlertCircle className="inline w-4 h-4 mr-1" />
+                    {previewRows.filter(r => r.errors.some(e => e.includes('já cadastrado'))).length} já existentes
+                  </span>
+                )}
               </div>
               <ScrollArea className="h-[350px]">
                 <table className="w-full text-sm">

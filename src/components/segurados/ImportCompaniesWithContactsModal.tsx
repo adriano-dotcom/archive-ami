@@ -131,7 +131,25 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
   const [parsedCompanies, setParsedCompanies] = useState<ParsedCompany[]>([]);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, companiesSuccess: 0, contactsSuccess: 0, failed: 0 });
+  const [validating, setValidating] = useState(false);
+  const [existingCNPJsCount, setExistingCNPJsCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const checkExistingCNPJs = async (cnpjs: string[]): Promise<Map<string, string>> => {
+    const normalizedCNPJs = cnpjs.filter(c => c.length === 14);
+    if (normalizedCNPJs.length === 0) return new Map();
+    
+    const { data } = await supabase
+      .from('companies')
+      .select('cnpj, razao_social, nome_fantasia')
+      .in('cnpj', normalizedCNPJs);
+    
+    const existingMap = new Map<string, string>();
+    data?.forEach(c => {
+      existingMap.set(c.cnpj, c.nome_fantasia || c.razao_social);
+    });
+    return existingMap;
+  };
 
   const resetState = () => {
     setStep('upload');
@@ -141,6 +159,8 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
     setParsedCompanies([]);
     setImporting(false);
     setImportProgress({ current: 0, total: 0, companiesSuccess: 0, contactsSuccess: 0, failed: 0 });
+    setValidating(false);
+    setExistingCNPJsCount(0);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,7 +224,9 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
     }));
   };
 
-  const validateAndPreview = () => {
+  const validateAndPreview = async () => {
+    setValidating(true);
+    
     // Group rows by CNPJ
     const companiesMap = new Map<string, { companyData: Record<string, string>, contacts: Record<string, string>[] }>();
     
@@ -233,11 +255,21 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
       }
     });
 
+    // Check existing CNPJs in database
+    const cnpjs = Array.from(companiesMap.keys());
+    const existingCNPJs = await checkExistingCNPJs(cnpjs);
+    setExistingCNPJsCount(existingCNPJs.size);
+
     // Parse and validate companies
     const parsed: ParsedCompany[] = [];
     
     companiesMap.forEach((data, cnpj) => {
       const companyErrors: string[] = [];
+      
+      // Check if CNPJ already exists in database
+      if (existingCNPJs.has(cnpj)) {
+        companyErrors.push(`CNPJ já cadastrado: ${existingCNPJs.get(cnpj)}`);
+      }
       
       // Validate CNPJ
       if (!validateCNPJ(cnpj)) {
@@ -309,6 +341,7 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
     });
 
     setParsedCompanies(parsed);
+    setValidating(false);
     setStep('preview');
   };
 
@@ -585,8 +618,15 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
                 <Button variant="outline" onClick={() => setStep('upload')} className="border-slate-700">
                   Voltar
                 </Button>
-                <Button onClick={validateAndPreview} className="bg-purple-600 hover:bg-purple-700">
-                  Validar e Pré-visualizar
+                <Button onClick={validateAndPreview} disabled={validating} className="bg-purple-600 hover:bg-purple-700">
+                  {validating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    'Validar e Pré-visualizar'
+                  )}
                 </Button>
               </div>
             </div>
@@ -597,16 +637,22 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
               <div className="flex gap-4 text-sm flex-wrap">
                 <span className="flex items-center gap-1 text-green-400">
                   <Building2 className="w-4 h-4" />
-                  {validCompaniesCount} empresas válidas
+                  {validCompaniesCount} empresas novas
                 </span>
                 <span className="flex items-center gap-1 text-green-400">
                   <User className="w-4 h-4" />
                   {validContactsCount} contatos válidos
                 </span>
-                {invalidCompaniesCount > 0 && (
+                {existingCNPJsCount > 0 && (
+                  <span className="flex items-center gap-1 text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                    {parsedCompanies.filter(c => c.errors.some(e => e.includes('já cadastrado'))).length} já existentes
+                  </span>
+                )}
+                {invalidCompaniesCount > 0 && invalidCompaniesCount !== existingCNPJsCount && (
                   <span className="flex items-center gap-1 text-red-400">
                     <X className="w-4 h-4" />
-                    {invalidCompaniesCount} empresas com erros
+                    {invalidCompaniesCount - parsedCompanies.filter(c => c.errors.some(e => e.includes('já cadastrado'))).length} empresas com erros
                   </span>
                 )}
                 {invalidContactsCount > 0 && (
