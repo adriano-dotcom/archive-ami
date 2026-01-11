@@ -601,12 +601,20 @@ export const SeguradosTab: React.FC = () => {
 
   // Filter data based on search term and filters
   const filteredCompanies = useMemo(() => {
+    const normalizedSearch = searchTerm.replace(/\D/g, '');
+    const lowerSearch = searchTerm.toLowerCase();
+    
     return companies.filter(c => {
-      // Text search
-      const matchesSearch = searchTerm === '' ||
-        c.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.nome_fantasia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.cnpj.includes(searchTerm);
+      // Text search - normalize CNPJ for comparison (remove formatting)
+      const matchesName = 
+        c.razao_social.toLowerCase().includes(lowerSearch) ||
+        c.nome_fantasia?.toLowerCase().includes(lowerSearch);
+      
+      const matchesCNPJ = 
+        normalizedSearch.length > 0 && 
+        c.cnpj.includes(normalizedSearch);
+      
+      const matchesSearch = searchTerm === '' || matchesName || matchesCNPJ;
       
       // State filter
       const matchesState = stateFilterPJ === 'all' || c.state === stateFilterPJ;
