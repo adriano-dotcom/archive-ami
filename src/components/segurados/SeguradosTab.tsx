@@ -38,6 +38,8 @@ interface Company {
   policies_count: number;
   overdue_value: number;
   max_days_overdue: number;
+  seller_id: string | null;
+  seller_name: string | null;
 }
 
 interface SeguradoPF {
@@ -182,7 +184,11 @@ export const SeguradosTab: React.FC = () => {
           razao_social,
           nome_fantasia,
           city,
-          state
+          state,
+          seller_id,
+          team_members!companies_seller_id_fkey (
+            name
+          )
         `)
         .order('razao_social');
 
@@ -235,7 +241,8 @@ export const SeguradosTab: React.FC = () => {
             billing_contacts_count: billingCount || 0,
             policies_count: policiesCount || 0,
             overdue_value: overdueValue,
-            max_days_overdue: maxDaysOverdue
+            max_days_overdue: maxDaysOverdue,
+            seller_name: (company as any).team_members?.name || null
           };
         })
       );

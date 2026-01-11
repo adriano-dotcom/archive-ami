@@ -38,6 +38,7 @@ interface ContactWithInstallments {
   email: string;
   companyName: string;
   companyCnpj: string;
+  companyId: string | null;
   installments: InstallmentData[];
   totalValue: number;
 }
@@ -193,10 +194,10 @@ serve(async (req) => {
     const companyIdsFromPolicies = (policies || []).map(p => p.company_id).filter(Boolean);
     const allCompanyIds = [...new Set([...companyIdsFromContacts, ...companyIdsFromPolicies])];
 
-    // Fetch companies
+    // Fetch companies with seller info
     const { data: companies } = await supabase
       .from('companies')
-      .select('id, razao_social, nome_fantasia, cnpj')
+      .select('id, razao_social, nome_fantasia, cnpj, seller_id')
       .in('id', allCompanyIds);
 
     const companiesMap = new Map((companies || []).map(c => [c.id, c]));
@@ -336,12 +337,29 @@ serve(async (req) => {
         email: resolved.email,
         companyName,
         companyCnpj,
+        companyId: company?.id || contact.company_id || null,
         installments: contactInstallments as InstallmentData[],
         totalValue
       });
     }
 
     console.log(`Processing ${contactsWithInstallments.length} contacts with email, skipped ${skippedContacts.length}`);
+
+    // Fetch seller info for all companies
+    const companyIds = [...new Set(contactsWithInstallments.map(c => c.companyId).filter(Boolean))];
+    const sellerIds = [...new Set(
+      companyIds.map(cid => companiesMap.get(cid)?.seller_id).filter(Boolean)
+    )];
+
+    let sellersMap = new Map<string, { name: string; email: string | null }>();
+    if (sellerIds.length > 0) {
+      const { data: sellers } = await supabase
+        .from('team_members')
+        .select('id, name, email')
+        .in('id', sellerIds);
+      
+      sellersMap = new Map((sellers || []).map(s => [s.id, { name: s.name, email: s.email }]));
+    }
 
     // Generate emails using AI
     const generatedEmails: any[] = [];
@@ -427,6 +445,20 @@ Retorne APENAS um JSON válido no formato:
           continue;
         }
 
+        // Get seller info for this contact's company
+        let sellerEmail: string | undefined;
+        let sellerName: string | undefined;
+        if (contactData.companyId) {
+          const company = companiesMap.get(contactData.companyId);
+          if (company?.seller_id) {
+            const seller = sellersMap.get(company.seller_id);
+            if (seller?.email) {
+              sellerEmail = seller.email;
+              sellerName = seller.name;
+            }
+          }
+        }
+
         generatedEmails.push({
           contactId: contactData.contactId,
           contactName: contactData.contactName,
@@ -440,7 +472,9 @@ Retorne APENAS um JSON válido no formato:
             daysOverdue: i.days_overdue
           })),
           totalValue: contactData.totalValue,
-          installmentCount: contactData.installments.length
+          installmentCount: contactData.installments.length,
+          sellerEmail,
+          sellerName
         });
 
       } catch (error: any) {
