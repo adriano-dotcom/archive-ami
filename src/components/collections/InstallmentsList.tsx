@@ -127,6 +127,8 @@ export const InstallmentsList: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMarkAsPaidConfirm, setShowMarkAsPaidConfirm] = useState(false);
+  const [pendingMarkAsPaidIds, setPendingMarkAsPaidIds] = useState<string[]>([]);
   const [selectedInstallmentForWhatsApp, setSelectedInstallmentForWhatsApp] = useState<Installment | null>(null);
   const [showBulkWhatsAppModal, setShowBulkWhatsAppModal] = useState(false);
   const [selectedCompanyForDrawer, setSelectedCompanyForDrawer] = useState<CompanyForDrawer | null>(null);
@@ -134,6 +136,7 @@ export const InstallmentsList: React.FC = () => {
   const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>('days_overdue');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [lastMarkedAsPaid, setLastMarkedAsPaid] = useState<{ ids: string[]; previousStatuses: Map<string, { status: string; paid_at: string | null }> } | null>(null);
   const queryClient = useQueryClient();
 
   const handleSort = (column: SortColumn) => {
@@ -506,8 +509,29 @@ export const InstallmentsList: React.FC = () => {
     }
   };
 
+  // Get pending mark as paid value for confirmation dialog
+  const pendingMarkAsPaidValue = useMemo(() => {
+    if (!installments || pendingMarkAsPaidIds.length === 0) return 0;
+    return installments
+      .filter(inst => pendingMarkAsPaidIds.includes(inst.id))
+      .reduce((sum, inst) => sum + (inst.value || 0), 0);
+  }, [installments, pendingMarkAsPaidIds]);
+
   const markAsPaidMutation = useMutation({
     mutationFn: async (ids: string[]) => {
+      // First, save the current status of the installments for potential undo
+      const { data: currentData, error: fetchError } = await supabase
+        .from('installments')
+        .select('id, status, paid_at')
+        .in('id', ids);
+      
+      if (fetchError) throw fetchError;
+      
+      const previousStatuses = new Map<string, { status: string; paid_at: string | null }>();
+      currentData?.forEach(item => {
+        previousStatuses.set(item.id, { status: item.status, paid_at: item.paid_at });
+      });
+
       const { error } = await supabase
         .from('installments')
         .update({ 
@@ -518,17 +542,74 @@ export const InstallmentsList: React.FC = () => {
         .in('id', ids);
       
       if (error) throw error;
+      
+      return { ids, previousStatuses };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['installments'] });
       queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
       setSelectedIds([]);
-      toast.success('Parcelas marcadas como pagas');
+      setShowMarkAsPaidConfirm(false);
+      setPendingMarkAsPaidIds([]);
+      
+      // Store for potential undo
+      setLastMarkedAsPaid(data);
+      
+      // Toast with undo action
+      toast.success(
+        `${data.ids.length} parcela(s) marcada(s) como paga(s)`,
+        {
+          duration: 15000,
+          action: {
+            label: 'Desfazer',
+            onClick: () => handleUndoMarkAsPaid(data),
+          },
+        }
+      );
+      
+      // Clear undo data after 30 seconds
+      setTimeout(() => {
+        setLastMarkedAsPaid(null);
+      }, 30000);
     },
     onError: () => {
       toast.error('Erro ao atualizar parcelas');
     }
   });
+
+  const handleUndoMarkAsPaid = async (data: { ids: string[]; previousStatuses: Map<string, { status: string; paid_at: string | null }> }) => {
+    try {
+      // Restore each installment to its previous status
+      for (const [id, prev] of data.previousStatuses) {
+        await supabase
+          .from('installments')
+          .update({ 
+            status: prev.status, 
+            paid_at: prev.paid_at,
+            // Recalculate days_overdue would require the due_date, so we skip resetting it here
+            // The scheduled job will recalculate it
+          })
+          .eq('id', id);
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
+      setLastMarkedAsPaid(null);
+      toast.success('Ação desfeita! Parcelas restauradas ao status anterior.');
+    } catch (error) {
+      console.error('Error undoing mark as paid:', error);
+      toast.error('Erro ao desfazer ação');
+    }
+  };
+
+  const handleMarkAsPaid = (ids: string[]) => {
+    setPendingMarkAsPaidIds(ids);
+    setShowMarkAsPaidConfirm(true);
+  };
+
+  const confirmMarkAsPaid = () => {
+    markAsPaidMutation.mutate(pendingMarkAsPaidIds);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -813,12 +894,13 @@ export const InstallmentsList: React.FC = () => {
               </span>
               <Button 
                 size="sm" 
-                className="bg-green-600 hover:bg-green-700 gap-2"
-                onClick={() => markAsPaidMutation.mutate(selectedIds)}
+                variant="outline"
+                className="border-amber-500/50 text-amber-400 hover:bg-amber-500/20 gap-2"
+                onClick={() => handleMarkAsPaid(selectedIds)}
                 disabled={markAsPaidMutation.isPending}
               >
                 <CheckCircle className="w-4 h-4" />
-                Marcar como Pago
+                Marcar como Pago ({selectedIds.length})
               </Button>
               <TooltipProvider>
                 <Tooltip>
@@ -915,6 +997,42 @@ export const InstallmentsList: React.FC = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+
+              {/* Mark as Paid Confirmation Dialog */}
+              <AlertDialog open={showMarkAsPaidConfirm} onOpenChange={setShowMarkAsPaidConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-amber-400" />
+                      Confirmar marcação como pago
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3 pt-2">
+                      <p>
+                        Você está prestes a marcar <span className="font-bold text-foreground">{pendingMarkAsPaidIds.length} parcela(s)</span> como paga(s).
+                      </p>
+                      <p className="text-amber-400 font-medium text-base">
+                        Valor total: {formatCurrency(pendingMarkAsPaidValue)}
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        Após confirmar, as parcelas serão removidas da lista de cobrança. 
+                        Você terá 15 segundos para desfazer a ação.
+                      </p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setPendingMarkAsPaidIds([])}>
+                      Cancelar
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={confirmMarkAsPaid}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      disabled={markAsPaidMutation.isPending}
+                    >
+                      {markAsPaidMutation.isPending ? 'Processando...' : `Confirmar (${pendingMarkAsPaidIds.length})`}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </CardContent>
@@ -929,7 +1047,7 @@ export const InstallmentsList: React.FC = () => {
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : installments && installments.length > 0 ? (
+          ) : sortedInstallments && sortedInstallments.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow className="border-white/5 hover:bg-transparent">
@@ -1146,9 +1264,9 @@ export const InstallmentsList: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 hover:bg-green-500/20 hover:text-green-400"
+                          className="h-8 w-8 hover:bg-amber-500/20 hover:text-amber-400"
                           title="Marcar como pago"
-                          onClick={() => markAsPaidMutation.mutate([inst.id])}
+                          onClick={() => handleMarkAsPaid([inst.id])}
                         >
                           <CheckCircle className="w-4 h-4" />
                         </Button>
@@ -1180,8 +1298,28 @@ export const InstallmentsList: React.FC = () => {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12 text-slate-500">
-              Nenhuma parcela encontrada com os filtros aplicados
+            <div className="text-center py-12 space-y-4">
+              <div className="text-slate-400 text-lg">
+                {statusFilter === 'all' ? (
+                  <>
+                    <AlertCircle className="w-12 h-12 mx-auto mb-4 text-slate-500" />
+                    <p className="font-medium">Nenhuma parcela pendente/atrasada encontrada</p>
+                    <p className="text-sm text-slate-500 mt-2">
+                      Pode ser que as parcelas tenham sido marcadas como pagas.
+                    </p>
+                    <Button 
+                      variant="outline"
+                      className="mt-4 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
+                      onClick={() => setStatusFilter('all-including-paid')}
+                    >
+                      <Filter className="w-4 h-4" />
+                      Mostrar todas (incluindo pagas)
+                    </Button>
+                  </>
+                ) : (
+                  <p>Nenhuma parcela encontrada com os filtros aplicados</p>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
