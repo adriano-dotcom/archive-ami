@@ -308,9 +308,12 @@ export const InstallmentsList: React.FC = () => {
         `)
         .order('days_overdue', { ascending: false });
 
-      if (statusFilter !== 'all') {
+      if (statusFilter === 'all-including-paid') {
+        // Não aplica filtro de status - mostra todas as parcelas
+      } else if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       } else {
+        // 'all' = apenas pendentes (comportamento padrão para cobrança)
         query = query.in('status', ['pending', 'overdue', 'negotiating']);
       }
 
@@ -717,14 +720,16 @@ export const InstallmentsList: React.FC = () => {
             </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px] bg-slate-800/50 border-white/10">
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todas Pendentes</SelectItem>
+                <SelectItem value="all-including-paid">Todas as Parcelas</SelectItem>
                 <SelectItem value="pending">Pendente</SelectItem>
                 <SelectItem value="overdue">Vencido</SelectItem>
                 <SelectItem value="negotiating">Negociando</SelectItem>
+                <SelectItem value="paid">Pago</SelectItem>
               </SelectContent>
             </Select>
 
