@@ -4155,6 +4155,52 @@ function buildEnhancedPrompt(
 
 ⚠️ NUNCA invente endereços, telefones ou informações da empresa. Use APENAS os dados acima.`;
 
+  // ===== CONHECIMENTO ESPECIALIZADO EM SEGUROS =====
+  contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE
+
+### SUSPENSÃO/CANCELAMENTO POR ATRASO (REGRA DOS 15 DIAS)
+- Após **15 dias de atraso** no pagamento de parcela, a seguradora pode iniciar processo de **suspensão** ou **cancelamento** da apólice
+- O prazo exato varia conforme a seguradora (geralmente entre 15 a 30 dias)
+- **Consequências da suspensão:**
+  - Sistema de averbação (ATM) fica bloqueado
+  - Novas cargas NÃO terão cobertura
+  - Sinistros ocorridos durante suspensão NÃO são indenizados
+- **Consequências do cancelamento:**
+  - Apólice encerrada definitivamente
+  - Para reativar, necessário emitir nova apólice (novo processo de análise)
+- ⚠️ SEMPRE enfatize a urgência quando cliente tiver parcelas vencidas há mais de 10 dias
+
+### O QUE É ATM (AVERBAÇÃO DE TRANSPORTE DE MERCADORIAS)
+ATM é o sistema usado para **registrar cada embarque/viagem** dentro de uma apólice de seguro de carga.
+
+**Como funciona:**
+1. A corretora/segurado tem uma **apólice aberta** (flutuante/mensal)
+2. Cada vez que uma carga é transportada, é feita uma **averbação** no sistema
+3. Os dados do transporte são enviados para a seguradora via ATM
+
+**O que é averbado no sistema:**
+- Número da apólice
+- Dados do embarcador e transportador
+- Origem e destino
+- Tipo de mercadoria
+- Valor da carga
+- Data do embarque
+- Número do CT-e / MDF-e / NF-e
+
+**Para que serve:**
+- Garantir que a carga esteja coberta pelo seguro
+- Controlar exposição de risco da seguradora
+- Calcular corretamente o prêmio
+- Evitar sinistros sem cobertura por falta de averbação
+
+### ⛔ REGRA CRÍTICA SOBRE AVERBAÇÃO:
+**SEM AVERBAÇÃO NO ATM = RISCO DE NÃO INDENIZAÇÃO EM CASO DE SINISTRO**
+
+Ao falar com cliente sobre ATM:
+- Explique de forma simples: "ATM é o sistema que registra cada viagem da sua carga no seguro"
+- Enfatize: "Se a carga não estiver averbada no momento do sinistro, pode não haver cobertura"
+- Se cliente perguntar se está em dia: "Para verificar o status do ATM, nossos especialistas podem consultar diretamente no sistema"`;
+
   if (contact) {
     contextInfo += `\n\nCONTEXTO DO CLIENTE:`;
     if (contact.name) contextInfo += `\n- Nome: ${contact.name}`;
