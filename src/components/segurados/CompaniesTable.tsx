@@ -1,5 +1,5 @@
-import React from 'react';
-import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,6 +30,9 @@ interface CompaniesTableProps {
   onDeleteCompany: (company: Company) => void;
 }
 
+type SortField = 'empresa' | 'cnpj' | 'localizacao' | 'contatos' | 'apolices' | 'valor' | 'atraso';
+type SortDirection = 'asc' | 'desc';
+
 export const CompaniesTable: React.FC<CompaniesTableProps> = ({ 
   companies, 
   loading, 
@@ -39,8 +42,73 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
   onEditCompany,
   onDeleteCompany
 }) => {
+  const [sortField, setSortField] = useState<SortField>('empresa');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
   const allSelected = companies.length > 0 && selectedIds.length === companies.length;
   const someSelected = selectedIds.length > 0 && selectedIds.length < companies.length;
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedCompanies = useMemo(() => {
+    return [...companies].sort((a, b) => {
+      let compareA: string | number;
+      let compareB: string | number;
+
+      switch (sortField) {
+        case 'empresa':
+          compareA = (a.nome_fantasia || a.razao_social).toLowerCase();
+          compareB = (b.nome_fantasia || b.razao_social).toLowerCase();
+          break;
+        case 'cnpj':
+          compareA = a.cnpj.replace(/\D/g, '');
+          compareB = b.cnpj.replace(/\D/g, '');
+          break;
+        case 'localizacao':
+          compareA = `${a.state || ''}${a.city || ''}`.toLowerCase();
+          compareB = `${b.state || ''}${b.city || ''}`.toLowerCase();
+          break;
+        case 'contatos':
+          compareA = a.contacts_count;
+          compareB = b.contacts_count;
+          break;
+        case 'apolices':
+          compareA = a.policies_count;
+          compareB = b.policies_count;
+          break;
+        case 'valor':
+          compareA = a.overdue_value;
+          compareB = b.overdue_value;
+          break;
+        case 'atraso':
+          compareA = a.max_days_overdue;
+          compareB = b.max_days_overdue;
+          break;
+        default:
+          return 0;
+      }
+
+      if (compareA < compareB) return sortDirection === 'asc' ? -1 : 1;
+      if (compareA > compareB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [companies, sortField, sortDirection]);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ChevronsUpDown className="w-4 h-4 opacity-30" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="w-4 h-4" /> : 
+      <ChevronDown className="w-4 h-4" />;
+  };
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -108,18 +176,74 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                 className="border-slate-600"
               />
             </TableHead>
-            <TableHead className="text-slate-400">Empresa</TableHead>
-            <TableHead className="text-slate-400">CNPJ</TableHead>
-            <TableHead className="text-slate-400">Localização</TableHead>
-            <TableHead className="text-slate-400 text-center">Contatos</TableHead>
-            <TableHead className="text-slate-400 text-center">Apólices</TableHead>
-            <TableHead className="text-slate-400 text-right">Valor em Aberto</TableHead>
-            <TableHead className="text-slate-400 text-center">Atraso</TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('empresa')}
+            >
+              <div className="flex items-center gap-1">
+                Empresa
+                <SortIcon field="empresa" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('cnpj')}
+            >
+              <div className="flex items-center gap-1">
+                CNPJ
+                <SortIcon field="cnpj" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('localizacao')}
+            >
+              <div className="flex items-center gap-1">
+                Localização
+                <SortIcon field="localizacao" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('contatos')}
+            >
+              <div className="flex items-center justify-center gap-1">
+                Contatos
+                <SortIcon field="contatos" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('apolices')}
+            >
+              <div className="flex items-center justify-center gap-1">
+                Apólices
+                <SortIcon field="apolices" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-right cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('valor')}
+            >
+              <div className="flex items-center justify-end gap-1">
+                Valor em Aberto
+                <SortIcon field="valor" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('atraso')}
+            >
+              <div className="flex items-center justify-center gap-1">
+                Atraso
+                <SortIcon field="atraso" />
+              </div>
+            </TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {companies.map((company) => (
+          {sortedCompanies.map((company) => (
             <TableRow 
               key={company.id} 
               className={`border-white/5 hover:bg-white/5 cursor-pointer ${selectedIds.includes(company.id) ? 'bg-blue-500/10' : ''}`}
