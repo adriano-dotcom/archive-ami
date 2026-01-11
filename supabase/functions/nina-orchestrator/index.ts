@@ -279,6 +279,146 @@ function detectOutOfScopeInsurance(messageContent: string, currentAgentSlug: str
   return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
 }
 
+// ===== TRANSFER TO HUMAN DETECTION =====
+// Keywords que indicam confirmação de transferência
+const TRANSFER_CONFIRMATION_KEYWORDS = [
+  'sim', 'pode', 'ok', 'quero', 'por favor', 'pode sim', 
+  'quero sim', 'tá', 'tá bom', 'ta bom', 'transfira', 'passa', 
+  'pode transferir', 'quero falar', 'sim por favor', 'claro',
+  'pode ser', 'isso', 'isso mesmo', 'quero sim', 'aceito'
+];
+
+// Padrões que indicam que Nina ofereceu transferência
+const TRANSFER_OFFER_PATTERNS = [
+  /transferir.*especialista/i,
+  /encaminhar.*atendente/i,
+  /passar.*humano/i,
+  /falar.*corretor/i,
+  /transferir.*você/i,
+  /posso\s+transferir/i,
+  /quer\s+falar.*corretor/i,
+  /quer\s+falar.*atendente/i,
+  /gostaria.*falar.*humano/i,
+  /encaminh.*para.*equipe/i,
+  /passar.*para.*equipe/i
+];
+
+// Keywords para pedido direto de transferência
+const DIRECT_TRANSFER_KEYWORDS = [
+  'quero falar com humano',
+  'quero um atendente',
+  'falar com pessoa',
+  'atendente humano',
+  'não quero falar com robô',
+  'nao quero falar com robo',
+  'não quero falar com bot',
+  'nao quero falar com bot',
+  'me transfere',
+  'passar para atendente',
+  'falar com alguém',
+  'falar com alguem',
+  'quero falar com gente',
+  'atendimento humano',
+  'quero falar com corretor',
+  'falar com corretor',
+  'passar pra alguém',
+  'passar pra alguem'
+];
+
+// Detect direct transfer request
+function detectDirectTransferRequest(messageContent: string): boolean {
+  const normalized = messageContent.toLowerCase().trim();
+  return DIRECT_TRANSFER_KEYWORDS.some(keyword => 
+    normalized.includes(keyword)
+  );
+}
+
+// Detect transfer confirmation (user said "sim" after Nina offered transfer)
+function detectTransferConfirmation(
+  currentMessage: string, 
+  recentMessages: any[]
+): boolean {
+  const normalizedMessage = currentMessage.toLowerCase().trim();
+  
+  // Check if current message is a confirmation
+  const isConfirmation = TRANSFER_CONFIRMATION_KEYWORDS.some(keyword => 
+    normalizedMessage === keyword || 
+    normalizedMessage.startsWith(keyword + ' ') ||
+    normalizedMessage.startsWith(keyword + ',') ||
+    normalizedMessage.startsWith(keyword + '.')
+  );
+  
+  if (!isConfirmation) return false;
+  
+  // Check if last Nina message offered transfer
+  const lastNinaMessage = recentMessages
+    .filter((m: any) => m.from_type === 'nina')
+    .slice(-1)[0];
+  
+  if (!lastNinaMessage?.content) return false;
+  
+  return TRANSFER_OFFER_PATTERNS.some(pattern => 
+    pattern.test(lastNinaMessage.content)
+  );
+}
+
+// Find online agent (last_active within 5 minutes, sorted by fewest active conversations)
+async function findOnlineAgent(supabase: any): Promise<{
+  id: string;
+  name: string;
+  email: string;
+} | null> {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  
+  // Get agents online (last_active within 5 min, status active)
+  const { data: onlineAgents, error } = await supabase
+    .from('team_members')
+    .select('id, name, email')
+    .eq('status', 'active')
+    .gte('last_active', fiveMinutesAgo)
+    .order('last_active', { ascending: false });
+  
+  if (error) {
+    console.error('[Nina] Error fetching online agents:', error);
+    return null;
+  }
+  
+  if (!onlineAgents || onlineAgents.length === 0) {
+    console.log('[Nina] Nenhum agente online encontrado');
+    return null;
+  }
+  
+  console.log(`[Nina] 👥 ${onlineAgents.length} agente(s) online: ${onlineAgents.map((a: any) => a.name).join(', ')}`);
+  
+  // Get conversation counts for each agent to do load balancing
+  const agentsWithCounts = await Promise.all(
+    onlineAgents.map(async (agent: any) => {
+      const { count } = await supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+        .eq('assigned_user_id', agent.id)
+        .eq('status', 'human')
+        .eq('is_active', true);
+      
+      return {
+        ...agent,
+        activeConversations: count || 0
+      };
+    })
+  );
+  
+  // Sort by fewest active conversations (round-robin load balancing)
+  agentsWithCounts.sort((a: any, b: any) => 
+    a.activeConversations - b.activeConversations
+  );
+  
+  const selectedAgent = agentsWithCounts[0];
+  console.log(`[Nina] 🎯 Agente selecionado: ${selectedAgent.name} (${selectedAgent.activeConversations} conversas ativas)`);
+  
+  return selectedAgent;
+}
+// ===== END TRANSFER TO HUMAN DETECTION =====
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -2406,6 +2546,108 @@ async function processQueueItem(
     }
   }
   // ===== END OUT OF SCOPE INSURANCE DETECTION =====
+
+  // ===== TRANSFER TO HUMAN DETECTION =====
+  // Check if user is requesting transfer to human agent (direct request or confirmation)
+  if (message.content) {
+    const messageText = message.content.trim();
+    
+    // Get recent messages for context
+    const { data: recentMessages } = await supabase
+      .from('messages')
+      .select('id, content, from_type, sent_at')
+      .eq('conversation_id', conversation.id)
+      .order('sent_at', { ascending: false })
+      .limit(5);
+    
+    const isDirectRequest = detectDirectTransferRequest(messageText);
+    const isConfirmation = detectTransferConfirmation(messageText, recentMessages || []);
+    
+    if (isDirectRequest || isConfirmation) {
+      console.log(`[Nina] 🔄 Transfer to human detected - Direct: ${isDirectRequest}, Confirmation: ${isConfirmation}`);
+      
+      // Find online agent
+      const onlineAgent = await findOnlineAgent(supabase);
+      
+      let responseMessage: string;
+      const contactName = conversation.contact?.call_name || conversation.contact?.name || 'você';
+      
+      // Calculate delay
+      const delayMin = settings?.response_delay_min || 1000;
+      const delayMax = settings?.response_delay_max || 3000;
+      const delay = Math.random() * (delayMax - delayMin) + delayMin;
+      
+      // Get AI settings for metadata
+      const aiSettings = getModelSettings(settings, [], message, conversation.contact, {});
+      
+      if (onlineAgent) {
+        responseMessage = `Perfeito, ${contactName}! Estou transferindo você para ${onlineAgent.name} que já vai te atender. 🙂`;
+        
+        // Assign conversation to online agent
+        await supabase
+          .from('conversations')
+          .update({
+            status: 'human',
+            assigned_user_id: onlineAgent.id,
+            assigned_user_name: onlineAgent.name,
+            nina_context: {
+              ...ninaContext,
+              transferred_at: new Date().toISOString(),
+              transferred_to: onlineAgent.name,
+              transferred_to_id: onlineAgent.id,
+              transfer_reason: isDirectRequest ? 'direct_request' : 'user_confirmation'
+            }
+          })
+          .eq('id', conversation.id);
+        
+        console.log(`[Nina] ✅ Conversa transferida para ${onlineAgent.name} (ID: ${onlineAgent.id})`);
+      } else {
+        responseMessage = `${contactName}, nossos atendentes estão ocupados no momento. Mas não se preocupe, um corretor vai te responder assim que possível! ⏳`;
+        
+        // Mark as human without assignment (for triage)
+        await supabase
+          .from('conversations')
+          .update({
+            status: 'human',
+            nina_context: {
+              ...ninaContext,
+              transferred_at: new Date().toISOString(),
+              transfer_reason: isDirectRequest ? 'direct_request' : 'user_confirmation',
+              no_agent_available: true
+            }
+          })
+          .eq('id', conversation.id);
+        
+        console.log(`[Nina] ⚠️ Nenhum agente online - conversa marcada como human para triagem`);
+      }
+      
+      // Queue the transfer confirmation message
+      await queueTextResponse(supabase, conversation, message, responseMessage, settings, aiSettings, delay, agent);
+      
+      // Mark messages as processed
+      const responseTime = Date.now() - new Date(message.sent_at).getTime();
+      await markMessagesAsProcessed(supabase, message.id, aggregatedMessageIds, responseTime);
+      
+      // Trigger whatsapp-sender
+      try {
+        const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
+        fetch(senderUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({ triggered_by: 'nina-orchestrator-transfer-to-human' })
+        }).catch(err => console.error('[Nina] Error triggering whatsapp-sender:', err));
+      } catch (e) {
+        console.error('[Nina] Failed to trigger whatsapp-sender:', e);
+      }
+      
+      console.log(`[Nina] ✅ Transfer to human completed`);
+      return;
+    }
+  }
+  // ===== END TRANSFER TO HUMAN DETECTION =====
 
   // ===== CALLBACK REQUEST DETECTION =====
   // Detect when lead wants to be called back at a specific time
