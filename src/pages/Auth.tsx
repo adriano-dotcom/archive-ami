@@ -110,10 +110,16 @@ export default function Auth() {
     toast.success("Conta criada! Verifique seu email para confirmar.");
   };
   return <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-3 sm:p-4">
-      {/* Background Image - Truck Fleet */}
-      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105" style={{
-      backgroundImage: `url('https://images.unsplash.com/photo-1492168732976-2676c584c675?auto=format&fit=crop&w=1920&q=60')`
-    }} />
+      {/* Background Image - Truck Fleet - Using img tag for better LCP */}
+      <img 
+        src="https://images.unsplash.com/photo-1492168732976-2676c584c675?auto=format&fit=crop&w=1920&q=60"
+        alt=""
+        width={1920}
+        height={1280}
+        fetchPriority="high"
+        decoding="async"
+        className="absolute inset-0 w-full h-full object-cover scale-105"
+      />
       
       {/* Dark Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/85 via-slate-900/80 to-indigo-900/85" />
