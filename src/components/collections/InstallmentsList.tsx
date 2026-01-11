@@ -226,6 +226,50 @@ export const InstallmentsList: React.FC = () => {
     }
   };
 
+  // Fetch attempt counts (WhatsApp from collection_attempts, Email from collection_email_logs)
+  const { data: attemptCounts } = useQuery({
+    queryKey: ['installment-attempt-counts'],
+    queryFn: async () => {
+      // Get WhatsApp counts from collection_attempts
+      const { data: whatsappData, error: whatsappError } = await supabase
+        .from('collection_attempts')
+        .select('installment_id')
+        .eq('channel', 'whatsapp')
+        .eq('status', 'sent');
+
+      if (whatsappError) throw whatsappError;
+
+      // Get Email logs to count installments
+      const { data: emailData, error: emailError } = await supabase
+        .from('collection_email_logs')
+        .select('installments_included')
+        .eq('status', 'sent');
+
+      if (emailError) throw emailError;
+
+      // Process WhatsApp counts
+      const whatsappCounts: Record<string, number> = {};
+      whatsappData?.forEach(row => {
+        if (row.installment_id) {
+          whatsappCounts[row.installment_id] = (whatsappCounts[row.installment_id] || 0) + 1;
+        }
+      });
+
+      // Process Email counts
+      const emailCounts: Record<string, number> = {};
+      emailData?.forEach(log => {
+        const installments = log.installments_included as Array<{ id: string }> | null;
+        installments?.forEach(inst => {
+          if (inst.id) {
+            emailCounts[inst.id] = (emailCounts[inst.id] || 0) + 1;
+          }
+        });
+      });
+
+      return { whatsappCounts, emailCounts };
+    }
+  });
+
   const { data: installments, isLoading, refetch } = useQuery({
     queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter],
     queryFn: async () => {
@@ -821,6 +865,7 @@ export const InstallmentsList: React.FC = () => {
                   <SortableHeader column="vencimento" label="Vencimento" className="text-center" />
                   <SortableHeader column="days_overdue" label="Atraso" className="text-center" />
                   <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Envios</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -920,6 +965,49 @@ export const InstallmentsList: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-center">
                       {getStatusBadge(inst.status, inst.days_overdue)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1">
+                                <Mail className="w-3 h-3 text-purple-400" />
+                                <span className={`text-sm ${
+                                  (attemptCounts?.emailCounts[inst.id] || 0) > 0 
+                                    ? 'text-purple-400' 
+                                    : 'text-slate-600'
+                                }`}>
+                                  {attemptCounts?.emailCounts[inst.id] || 0}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {attemptCounts?.emailCounts[inst.id] || 0} e-mail(s) enviado(s)
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1">
+                                <MessageSquare className="w-3 h-3 text-green-400" />
+                                <span className={`text-sm ${
+                                  (attemptCounts?.whatsappCounts[inst.id] || 0) > 0 
+                                    ? 'text-green-400' 
+                                    : 'text-slate-600'
+                                }`}>
+                                  {attemptCounts?.whatsappCounts[inst.id] || 0}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {attemptCounts?.whatsappCounts[inst.id] || 0} WhatsApp(s) enviado(s)
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
