@@ -313,6 +313,32 @@ const ChatInterface: React.FC = () => {
   const { activeCall, callHistory, loading: callHistoryLoading, dismissActiveCall } = useActiveCall(selectedChatId);
 
 
+  // ===== PRESENCE HEARTBEAT =====
+  // Update last_active every 60 seconds to indicate operator is online
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    const updatePresence = async () => {
+      try {
+        await supabase
+          .from('team_members')
+          .update({ last_active: new Date().toISOString() })
+          .eq('email', user.email);
+      } catch (err) {
+        console.error('[Presence] Error updating last_active:', err);
+      }
+    };
+    
+    // Update immediately on mount
+    updatePresence();
+    
+    // Update every 60 seconds
+    const interval = setInterval(updatePresence, 60000);
+    
+    return () => clearInterval(interval);
+  }, [user?.email]);
+  // ===== END PRESENCE HEARTBEAT =====
+
   // Load tag definitions, team members, and pipelines
   useEffect(() => {
     api.fetchTagDefinitions().then(setAvailableTags).catch(err => {
