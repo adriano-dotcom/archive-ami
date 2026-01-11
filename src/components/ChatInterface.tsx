@@ -62,7 +62,7 @@ const ChatInterface: React.FC = () => {
   const { sdrName, companyName } = useCompanySettings();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
-  const [showProfileInfo, setShowProfileInfo] = useState(true);
+  const [showProfileInfo, setShowProfileInfo] = useState(false);
   const [isPinnedProfileInfo, setIsPinnedProfileInfo] = useState(() => {
     const saved = localStorage.getItem('pinnedProfileInfo');
     return saved === 'true';
@@ -454,12 +454,6 @@ const ChatInterface: React.FC = () => {
     }
   }, [conversations, selectedChatId, loading, refetch, isMobile]);
 
-  // Reopen profile panel when pinned and chat changes
-  useEffect(() => {
-    if (isPinnedProfileInfo && selectedChatId) {
-      setShowProfileInfo(true);
-    }
-  }, [selectedChatId, isPinnedProfileInfo]);
 
   useEffect(() => {
     if (activeChat) {
