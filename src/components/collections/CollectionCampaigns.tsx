@@ -73,6 +73,7 @@ export const CollectionCampaigns: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [currentBatchId, setCurrentBatchId] = useState<string | undefined>();
   const [selectedRangeFilter, setSelectedRangeFilter] = useState('all');
+  const [attemptStatusFilter, setAttemptStatusFilter] = useState<string>('all');
   const [newCampaign, setNewCampaign] = useState({
     name: '',
     description: '',
@@ -758,10 +759,40 @@ export const CollectionCampaigns: React.FC = () => {
 
               {/* Attempts List with Company/Contact Details */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Detalhes dos Envios ({campaignAttempts?.length || 0})
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Detalhes dos Envios ({(() => {
+                      if (!campaignAttempts) return 0;
+                      if (attemptStatusFilter === 'all') return campaignAttempts.length;
+                      return campaignAttempts.filter(a => a.status === attemptStatusFilter).length;
+                    })()})
+                  </h4>
+                  
+                  <Select 
+                    value={attemptStatusFilter} 
+                    onValueChange={setAttemptStatusFilter}
+                  >
+                    <SelectTrigger className="w-[150px] h-8 text-xs bg-slate-800/50 border-white/10">
+                      <SelectValue placeholder="Filtrar status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos ({campaignAttempts?.length || 0})</SelectItem>
+                      <SelectItem value="sent">
+                        Enviados ({campaignAttempts?.filter(a => a.status === 'sent').length || 0})
+                      </SelectItem>
+                      <SelectItem value="delivered">
+                        Entregues ({campaignAttempts?.filter(a => a.status === 'delivered').length || 0})
+                      </SelectItem>
+                      <SelectItem value="failed">
+                        Falhas ({campaignAttempts?.filter(a => a.status === 'failed').length || 0})
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        Pendentes ({campaignAttempts?.filter(a => a.status === 'pending').length || 0})
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 {isLoadingAttempts ? (
                   <div className="space-y-2">
@@ -771,7 +802,23 @@ export const CollectionCampaigns: React.FC = () => {
                   </div>
                 ) : campaignAttempts && campaignAttempts.length > 0 ? (
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                    {campaignAttempts.map((attempt) => {
+                    {(() => {
+                      const filteredAttempts = attemptStatusFilter === 'all' 
+                        ? campaignAttempts 
+                        : campaignAttempts.filter(a => a.status === attemptStatusFilter);
+                      
+                      if (filteredAttempts.length === 0) {
+                        return (
+                          <div className="text-center py-6 text-slate-500 text-sm">
+                            Nenhum envio com status "{attemptStatusFilter === 'sent' ? 'enviado' : 
+                              attemptStatusFilter === 'delivered' ? 'entregue' : 
+                              attemptStatusFilter === 'failed' ? 'falha' : 
+                              attemptStatusFilter === 'pending' ? 'pendente' : attemptStatusFilter}"
+                          </div>
+                        );
+                      }
+                      
+                      return filteredAttempts.map((attempt) => {
                       const contact = Array.isArray(attempt.contact) ? attempt.contact[0] : attempt.contact;
                       const installment = Array.isArray(attempt.installment) ? attempt.installment[0] : attempt.installment;
                       const policy = installment?.policy;
@@ -824,11 +871,12 @@ export const CollectionCampaigns: React.FC = () => {
                           {attempt.error_message && (
                             <p className="text-xs text-rose-400 mt-2 pl-5">
                               {attempt.error_message}
-                            </p>
+                          </p>
                           )}
                         </div>
                       );
-                    })}
+                    });
+                    })()}
                   </div>
                 ) : (
                   <div className="text-center py-6 text-slate-500 text-sm">
