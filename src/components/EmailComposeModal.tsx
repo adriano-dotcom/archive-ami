@@ -42,12 +42,11 @@ interface EmailComposeModalProps {
 }
 
 const EMAIL_TYPES = [
-  { value: 'cobranca', label: 'Cobrança', icon: '💳' },
-  { value: 'follow-up', label: 'Follow-up', icon: '📬' },
-  { value: 'proposta', label: 'Proposta Comercial', icon: '📋' },
-  { value: 'cotacao', label: 'Envio de Cotação', icon: '💰' },
-  { value: 'boas-vindas', label: 'Boas-vindas', icon: '🎉' },
-  { value: 'renewal', label: 'Renovação', icon: '🔄' },
+  { value: 'cobranca-leve', label: 'Cobrança Leve', icon: '💬', description: 'Tom amigável, primeiro contato' },
+  { value: 'cobranca-moderada', label: 'Cobrança Moderada', icon: '⚠️', description: 'Tom profissional, reforço' },
+  { value: 'cobranca-firme', label: 'Cobrança Firme', icon: '🔴', description: 'Tom assertivo, urgência' },
+  { value: 'cobranca-negociacao', label: 'Proposta de Negociação', icon: '🤝', description: 'Oferta de parcelamento' },
+  { value: 'cobranca-aviso-final', label: 'Aviso Final', icon: '⛔', description: 'Último aviso antes de ações' },
 ];
 
 export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
@@ -77,7 +76,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   const [senderName, setSenderName] = useState('');
   
   // AI Assistant state
-  const [selectedEmailType, setSelectedEmailType] = useState(collectionContext ? 'cobranca' : 'follow-up');
+  const [selectedEmailType, setSelectedEmailType] = useState('cobranca-leve');
   const [customContext, setCustomContext] = useState('');
   const [generatingAI, setGeneratingAI] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
@@ -89,10 +88,19 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   const interests = clientMemory?.lead_profile?.interests || [];
   const painPoints = clientMemory?.sales_intelligence?.pain_points || [];
 
-  // Auto-select "cobranca" when collectionContext is provided
+  // Auto-select appropriate collection type based on days overdue
   useEffect(() => {
     if (collectionContext) {
-      setSelectedEmailType('cobranca');
+      const days = collectionContext.maxDaysOverdue;
+      if (days <= 7) {
+        setSelectedEmailType('cobranca-leve');
+      } else if (days <= 30) {
+        setSelectedEmailType('cobranca-moderada');
+      } else if (days <= 60) {
+        setSelectedEmailType('cobranca-firme');
+      } else {
+        setSelectedEmailType('cobranca-aviso-final');
+      }
     }
   }, [collectionContext]);
 
