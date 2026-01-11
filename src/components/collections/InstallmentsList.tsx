@@ -292,14 +292,25 @@ export const InstallmentsList: React.FC = () => {
       // Filter by search locally
       if (search) {
         const searchLower = search.toLowerCase();
-        filteredData = filteredData.filter(inst => 
-          inst.contact?.name?.toLowerCase().includes(searchLower) ||
-          inst.contact?.phone_number?.includes(search) ||
-          inst.policy?.policy_number?.toLowerCase().includes(searchLower) ||
-          inst.policy?.insurer?.toLowerCase().includes(searchLower) ||
-          inst.policy?.company?.razao_social?.toLowerCase().includes(searchLower) ||
-          inst.policy?.company?.nome_fantasia?.toLowerCase().includes(searchLower)
-        );
+        // Normalize search term for CNPJ comparison (remove non-digits)
+        const searchDigitsOnly = search.replace(/\D/g, '');
+        
+        filteredData = filteredData.filter(inst => {
+          // Text-based searches
+          const matchesName = inst.contact?.name?.toLowerCase().includes(searchLower);
+          const matchesPhone = inst.contact?.phone_number?.includes(search);
+          const matchesPolicyNumber = inst.policy?.policy_number?.toLowerCase().includes(searchLower);
+          const matchesInsurer = inst.policy?.insurer?.toLowerCase().includes(searchLower);
+          const matchesRazaoSocial = inst.policy?.company?.razao_social?.toLowerCase().includes(searchLower);
+          const matchesNomeFantasia = inst.policy?.company?.nome_fantasia?.toLowerCase().includes(searchLower);
+          
+          // CNPJ search - compare normalized digits
+          const companyCnpj = inst.policy?.company?.cnpj?.replace(/\D/g, '') || '';
+          const matchesCNPJ = searchDigitsOnly.length > 0 && companyCnpj.includes(searchDigitsOnly);
+          
+          return matchesName || matchesPhone || matchesPolicyNumber || 
+                 matchesInsurer || matchesRazaoSocial || matchesNomeFantasia || matchesCNPJ;
+        });
       }
       
       return filteredData;
