@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,6 +32,9 @@ interface SeguradosPFTableProps {
   onDeleteSegurado: (segurado: SeguradoPF) => void;
 }
 
+type SortField = 'segurado' | 'cpf' | 'contato' | 'seguradoras' | 'apolices' | 'valor' | 'atraso';
+type SortDirection = 'asc' | 'desc';
+
 export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({ 
   segurados, 
   loading, 
@@ -42,6 +45,71 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
   onEditSegurado,
   onDeleteSegurado
 }) => {
+  const [sortField, setSortField] = useState<SortField>('segurado');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedSegurados = useMemo(() => {
+    return [...segurados].sort((a, b) => {
+      let compareA: string | number;
+      let compareB: string | number;
+      
+      switch (sortField) {
+        case 'segurado':
+          compareA = (a.name || '').toLowerCase();
+          compareB = (b.name || '').toLowerCase();
+          break;
+        case 'cpf':
+          compareA = a.cpf || '';
+          compareB = b.cpf || '';
+          break;
+        case 'contato':
+          compareA = a.phone_number;
+          compareB = b.phone_number;
+          break;
+        case 'seguradoras':
+          compareA = (a.insurers[0] || '').toLowerCase();
+          compareB = (b.insurers[0] || '').toLowerCase();
+          break;
+        case 'apolices':
+          compareA = a.policies_count;
+          compareB = b.policies_count;
+          break;
+        case 'valor':
+          compareA = a.overdue_value;
+          compareB = b.overdue_value;
+          break;
+        case 'atraso':
+          compareA = a.max_days_overdue;
+          compareB = b.max_days_overdue;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (compareA < compareB) return sortDirection === 'asc' ? -1 : 1;
+      if (compareA > compareB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [segurados, sortField, sortDirection]);
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ChevronsUpDown className="w-4 h-4 opacity-30" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="w-4 h-4" /> : 
+      <ChevronDown className="w-4 h-4" />;
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -108,18 +176,74 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                 {...(someSelected ? { "data-state": "indeterminate" } : {})}
               />
             </TableHead>
-            <TableHead className="text-slate-400">Segurado</TableHead>
-            <TableHead className="text-slate-400">CPF</TableHead>
-            <TableHead className="text-slate-400">Contato</TableHead>
-            <TableHead className="text-slate-400">Seguradoras</TableHead>
-            <TableHead className="text-slate-400 text-center">Apólices</TableHead>
-            <TableHead className="text-slate-400 text-right">Valor em Aberto</TableHead>
-            <TableHead className="text-slate-400 text-center">Atraso</TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('segurado')}
+            >
+              <div className="flex items-center gap-1">
+                Segurado
+                {getSortIcon('segurado')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('cpf')}
+            >
+              <div className="flex items-center gap-1">
+                CPF
+                {getSortIcon('cpf')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('contato')}
+            >
+              <div className="flex items-center gap-1">
+                Contato
+                {getSortIcon('contato')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('seguradoras')}
+            >
+              <div className="flex items-center gap-1">
+                Seguradoras
+                {getSortIcon('seguradoras')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('apolices')}
+            >
+              <div className="flex items-center justify-center gap-1">
+                Apólices
+                {getSortIcon('apolices')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-right cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('valor')}
+            >
+              <div className="flex items-center justify-end gap-1">
+                Valor em Aberto
+                {getSortIcon('valor')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
+              onClick={() => handleSort('atraso')}
+            >
+              <div className="flex items-center justify-center gap-1">
+                Atraso
+                {getSortIcon('atraso')}
+              </div>
+            </TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {segurados.map((segurado) => (
+          {sortedSegurados.map((segurado) => (
             <TableRow 
               key={segurado.id} 
               className={`border-white/5 hover:bg-white/5 ${selectedIds.includes(segurado.id) ? 'bg-emerald-500/10' : ''}`}
