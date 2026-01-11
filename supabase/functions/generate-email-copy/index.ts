@@ -163,57 +163,164 @@ TOM: Direto, personalizado, curioso, sem ser invasivo ou agressivo.
 `
 };
 
-// Tipos de email com instruções específicas
+// Tipos de email com instruções específicas - agora com HTML profissional
 const EMAIL_TYPES: Record<string, string> = {
   'cobranca': `
 OBJETIVO: Cobrar parcelas em atraso de forma profissional mas firme
 
-ESTRUTURA:
-1. Saudação cordial mas direta (usar a saudação fornecida)
-2. Identificar a empresa e mencionar o relacionamento como corretor
-3. Informar o valor total em aberto e quantidade de parcelas
-4. Mencionar consequências sutis (regularização para manter apólice ativa, evitar cancelamento)
-5. Oferecer formas de pagamento e parcelamento se aplicável
-6. CTA claro (entrar em contato para regularização, solicitar novo boleto)
-7. Tom profissional, sem agressividade, mas com senso de urgência
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container com max-width: 600px, centralizado, fundo branco
+2. Header azul marinho (#1e3a5f) com logo/nome da empresa
+3. Saudação cordial usando {{nome}}
+4. Se tiver {{empresa}} e {{cnpj}}, referenciar
+5. TABELA ESTILIZADA de parcelas se houver detalhes (fundo alternado, bordas arredondadas)
+6. Box de DESTAQUE para valor total (fundo azul claro #dbeafe, borda azul #3b82f6)
+7. Texto sobre regularização
+8. Botão CTA estilizado (fundo #1e3a5f, texto branco, border-radius: 8px)
+9. Footer com assinatura: Jacometo Seguros - Equipe de Cobrança
 
 VARIÁVEIS DISPONÍVEIS:
-- {{valor_total}} - Valor total em aberto
-- {{qtd_parcelas}} - Quantidade de parcelas
-- {{dias_atraso}} - Maior atraso em dias
-- {{empresa}} - Nome da empresa
+- {{nome}}, {{empresa}}, {{cnpj}}, {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}
 
 IMPORTANTE:
 - Seja cordial mas firme
 - Foco em regularização e manutenção do relacionamento
 - Mencione que a Jacometo está à disposição para ajudar
-- Não seja agressivo ou ameaçador
-- Ofereça alternativas (parcelamento, novo boleto, etc.)
+`,
+  'cobranca-leve': `
+OBJETIVO: Primeiro contato amigável sobre parcelas em atraso
+
+TOM: Amigável, acolhedor, oferecendo ajuda
+
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
+2. Header com background #1e3a5f, padding 24px, texto branco "Jacometo Seguros"
+3. Corpo com padding 32px, background branco
+4. Saudação personalizada: "{{saudacao}} {{nome}}," em negrito
+5. Referência à empresa: "Referente à empresa {{empresa}}" + CNPJ se disponível
+6. Se houver parcelas: TABELA HTML ESTILIZADA com:
+   - Header da tabela: background #f1f5f9, texto #475569
+   - Colunas: Seguradora | Parcela | Valor | Vencimento | Atraso
+   - Linhas alternadas: #ffffff e #f8fafc
+   - Bordas suaves, border-radius: 8px no container
+7. Box de VALOR TOTAL com:
+   - background: #dbeafe (azul claro)
+   - border-left: 4px solid #3b82f6
+   - padding: 16px
+   - Texto grande e bold para o valor
+8. Parágrafo com tom acolhedor oferecendo ajuda
+9. Botão CTA: background #1e3a5f, color white, padding 14px 28px, border-radius 8px
+10. Footer: background #f3f4f6, texto #6b7280, font-size 12px
+
+IMPORTANTE: Gere HTML COMPLETO e INLINE STYLES (não use classes CSS).
+`,
+  'cobranca-moderada': `
+OBJETIVO: Lembrete profissional, reforço de contato
+
+TOM: Profissional, direto mas cordial
+
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
+2. Header com background #1e3a5f, texto branco "Jacometo Seguros"
+3. Corpo com padding 32px
+4. Saudação + referência ao contato anterior
+5. TABELA DE PARCELAS ESTILIZADA:
+   - Header: background #fef3c7 (amarelo claro) para indicar alerta
+   - Colunas destacando dias de atraso
+   - Valores em negrito
+6. Box de VALOR TOTAL com:
+   - border: 2px solid #f59e0b (laranja)
+   - background: #fffbeb
+   - Ícone de alerta (pode usar emoji ⚠️ no texto)
+7. Parágrafo sobre importância de manter apólice ativa
+8. Botão CTA laranja: background #f59e0b, color white
+9. Footer com Equipe de Cobrança
+
+TOM: Mais assertivo que o leve, mencionar que é segundo contato.
+`,
+  'cobranca-firme': `
+OBJETIVO: Tom assertivo, criar senso de urgência
+
+TOM: Firme, profissional, com urgência clara
+
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container com BORDA VERMELHA no topo (border-top: 4px solid #dc2626)
+2. Header com background #dc2626 (vermelho), texto branco
+3. Badge/texto "URGENTE" ou "ATENÇÃO IMEDIATA" no início
+4. TABELA DE PARCELAS com:
+   - Header vermelho (#fecaca) para destaque
+   - Valores em atraso crítico em vermelho (#dc2626)
+   - Dias de atraso em BOLD e vermelho se > 30
+5. Box de VALOR TOTAL com:
+   - background: #fef2f2 (rosa claro)
+   - border: 2px solid #dc2626
+   - Texto do valor em vermelho e grande
+6. Parágrafo sobre CONSEQUÊNCIAS:
+   - Suspensão de cobertura
+   - Risco de cancelamento
+   - Perda de proteção
+7. Botão CTA URGENTE: background #dc2626, texto "REGULARIZAR AGORA"
+8. Footer sério: Departamento de Cobrança
+
+IMPORTANTE: Criar senso real de urgência sem ser agressivo.
+`,
+  'cobranca-negociacao': `
+OBJETIVO: Oferecer alternativas de pagamento
+
+TOM: Empático, solução-orientado
+
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container com visual amigável (borda verde #10b981 no topo)
+2. Header azul padrão
+3. Saudação empática reconhecendo possíveis dificuldades
+4. TABELA DE PARCELAS padrão
+5. Box de VALOR TOTAL neutro
+6. SEÇÃO DESTACADA de opções:
+   - Background #ecfdf5 (verde claro)
+   - Título "Opções de Negociação"
+   - Lista de alternativas:
+     * Parcelamento do débito
+     * Desconto para pagamento à vista
+     * Renegociação de datas
+7. Botão CTA verde: "AGENDAR CONVERSA" ou "SOLICITAR NEGOCIAÇÃO"
+8. Mensagem de que equipe está disponível para encontrar solução
+
+TOM: Mostrar que entendemos dificuldades e queremos ajudar.
+`,
+  'cobranca-aviso-final': `
+OBJETIVO: Último aviso antes de ações mais severas
+
+TOM: Sério, formal, definitivo
+
+ESTRUTURA HTML OBRIGATÓRIA:
+1. Container com BORDA GROSSA VERMELHA (border: 3px solid #dc2626)
+2. BANNER no topo: background #dc2626, texto branco grande "⚠️ AVISO FINAL"
+3. Saudação formal
+4. Texto explicando que é ÚLTIMA comunicação antes de medidas
+5. TABELA COMPLETA de todas as parcelas em atraso
+6. Box VERMELHO com valor total e prazo final
+7. SEÇÃO de consequências em lista:
+   - Cancelamento definitivo da apólice
+   - Possível negativação
+   - Perda total de cobertura
+8. PRAZO FINAL em destaque (data específica se possível)
+9. Botão CTA final: "REGULARIZAR ATÉ [DATA]"
+10. Footer formal: Departamento Jurídico/Cobrança
+
+IMPORTANTE: Tom definitivo, última chance real.
 `,
   'cold-email': `
 OBJETIVO: Primeiro contato frio com lead de prospecção
 
-SEGMENTAÇÃO POR VERTICAL/CNAE:
-- Se vertical="transporte": Focar em proteção da carga, segurança operacional, tranquilidade no dia a dia, especialização em transportadores
-- Se vertical="frotas": Focar em proteção patrimonial dos veículos, seguro de frota empresarial, economia por volume, gestão centralizada
-- Se vertical="ambos": Oferecer SOLUÇÃO COMPLETA - seguro de carga + seguro de frota juntos, economia ao centralizar com mesmo corretor, proteção total da operação
-- Se vertical="prospeccao" (genérico): Usar CNAE para identificar melhor abordagem
+ESTRUTURA HTML PROFISSIONAL:
+1. Container limpo max-width: 600px
+2. Header discreto azul
+3. Personalização com nome e empresa
+4. Proposta de valor em 2-3 parágrafos curtos
+5. CTA para agendar conversa
+6. Footer com dados de contato
 
-PERSONALIZAÇÃO GEOGRÁFICA:
-- SEMPRE usar cidade/estado do lead para criar proximidade regional
-- Mencionar "aqui na região de [cidade]" ou "empresas de [estado]" quando disponível
-- Contextualizar riscos locais se relevante (ex: grandes centros = mais roubo, rodovias = mais acidentes)
-
-ESTRUTURA:
-1. Saudação dinâmica por horário + nome do lead (usar a saudação fornecida: "Bom dia/Boa tarde/Boa noite [Nome],")
-2. Reconhecimento da empresa e localização
-3. Gancho relevante baseado na vertical:
-   - Transporte: Proteção da operação, segurança da carga, especialização em transportadores
-   - Frotas: Proteção do patrimônio, veículos como ativos, economia
-3. Proposta de valor em 2-3 frases concisas
-4. CTA único e claro (agendar conversa breve de 10-15 min)
-5. Tom consultivo, não vendedor
-6. Máximo 150 palavras no corpo
+TOM: Consultivo, não vendedor, criar curiosidade.
 `,
   'follow-up': `
 OBJETIVO: Reengajar lead que não respondeu
@@ -276,26 +383,117 @@ serve(async (req) => {
     const verticalKnowledge = VERTICAL_KNOWLEDGE[vertical] || '';
     const emailTypeInstructions = EMAIL_TYPES[emailType] || '';
 
+    // Detectar se é email de cobrança para usar HTML elaborado
+    const isCollectionEmail = emailType.startsWith('cobranca');
+    
+    const htmlBaseTemplate = isCollectionEmail ? `
+ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
+<div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;background:#ffffff;">
+  <!-- HEADER -->
+  <div style="background:#1e3a5f;padding:24px;text-align:center;">
+    <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:0.5px;">Jacometo Seguros</span>
+  </div>
+  
+  <!-- CORPO -->
+  <div style="padding:32px;background:#ffffff;">
+    <!-- Saudação -->
+    <p style="font-size:16px;color:#1e293b;margin-bottom:24px;">
+      <strong>{{saudacao}} {{nome}},</strong>
+    </p>
+    
+    <!-- Referência empresa -->
+    <p style="font-size:14px;color:#475569;margin-bottom:8px;">
+      Referente à empresa <strong>{{empresa}}</strong>
+    </p>
+    <p style="font-size:13px;color:#64748b;margin-bottom:24px;">
+      CNPJ: {{cnpj}}
+    </p>
+    
+    <!-- TABELA DE PARCELAS (se houver) -->
+    <div style="margin:24px 0;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:12px;text-align:left;font-size:12px;color:#475569;font-weight:600;text-transform:uppercase;">Seguradora</th>
+            <th style="padding:12px;text-align:center;font-size:12px;color:#475569;font-weight:600;text-transform:uppercase;">Parcela</th>
+            <th style="padding:12px;text-align:right;font-size:12px;color:#475569;font-weight:600;text-transform:uppercase;">Valor</th>
+            <th style="padding:12px;text-align:center;font-size:12px;color:#475569;font-weight:600;text-transform:uppercase;">Vencimento</th>
+            <th style="padding:12px;text-align:center;font-size:12px;color:#475569;font-weight:600;text-transform:uppercase;">Atraso</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Linhas alternadas: background #ffffff e #f8fafc -->
+          <tr style="background:#ffffff;">
+            <td style="padding:12px;font-size:14px;color:#1e293b;">Seguradora</td>
+            <td style="padding:12px;text-align:center;font-size:14px;color:#1e293b;">X/Y</td>
+            <td style="padding:12px;text-align:right;font-size:14px;color:#1e293b;font-weight:600;">R$ 0,00</td>
+            <td style="padding:12px;text-align:center;font-size:14px;color:#1e293b;">DD/MM/AA</td>
+            <td style="padding:12px;text-align:center;font-size:14px;color:#dc2626;font-weight:600;">X dias</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- BOX VALOR TOTAL -->
+    <div style="margin:24px 0;padding:20px;background:#dbeafe;border-left:4px solid #3b82f6;border-radius:0 8px 8px 0;">
+      <p style="margin:0;font-size:13px;color:#1e40af;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Valor Total em Aberto</p>
+      <p style="margin:0;font-size:28px;color:#1e3a8a;font-weight:bold;">R$ {{valor_total}}</p>
+      <p style="margin:0;font-size:12px;color:#3b82f6;margin-top:4px;">{{qtd_parcelas}} parcela(s) • Maior atraso: {{dias_atraso}} dias</p>
+    </div>
+    
+    <!-- Texto -->
+    <p style="font-size:15px;color:#334155;line-height:1.7;margin-bottom:24px;">
+      [TEXTO DO EMAIL AQUI]
+    </p>
+    
+    <!-- BOTÃO CTA -->
+    <div style="text-align:center;margin:32px 0;">
+      <a href="#" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">
+        Regularizar Agora
+      </a>
+    </div>
+  </div>
+  
+  <!-- FOOTER -->
+  <div style="background:#f3f4f6;padding:20px;text-align:center;">
+    <p style="margin:0;font-size:12px;color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</p>
+    <p style="margin:4px 0 0 0;font-size:11px;color:#9ca3af;">Este é um email automático. Não responda diretamente.</p>
+  </div>
+</div>
+` : '';
+    
     const systemPrompt = `Você é um copywriter especialista em emails B2B para uma corretora de seguros (Jacometo Seguros).
 
 ${verticalKnowledge}
 
 ${emailTypeInstructions}
 
+${htmlBaseTemplate}
+
 REGRAS CRÍTICAS:
-1. NUNCA use emojis no corpo do email
-2. Use as variáveis disponíveis: {{nome}}, {{empresa}}, {{valor}}, {{email}}, {{telefone}}
-3. O HTML deve ser simples e responsivo (max-width: 600px)
+1. NUNCA use emojis no corpo do email (exceto em badges de urgência quando apropriado)
+2. Use as variáveis disponíveis: {{nome}}, {{empresa}}, {{cnpj}}, {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}
+3. ${isCollectionEmail ? 'Gere HTML PROFISSIONAL E RESPONSIVO usando a estrutura base fornecida. Use INLINE STYLES (não classes CSS).' : 'O HTML deve ser simples e responsivo (max-width: 600px)'}
 4. Parágrafos curtos (máx 3 linhas)
 5. Assunto máximo 60 caracteres
 6. Tom profissional e brasileiro
-7. NÃO inclua assinatura no final - ela será adicionada automaticamente pelo sistema com o nome do operador
-8. SEMPRE inicie o email com a saudação do horário fornecida seguida do nome (ex: "Bom dia João," ou "Boa tarde Maria,")
+7. NÃO inclua assinatura pessoal no final - use apenas o footer corporativo
+8. SEMPRE inicie o email com a saudação do horário fornecida seguida do nome
+
+${isCollectionEmail ? `
+PARA EMAILS DE COBRANÇA:
+- Use a estrutura HTML base fornecida
+- Se tiver detalhes de parcelas, CRIE A TABELA com os dados reais
+- Ajuste as cores conforme o tom (leve=azul, moderado=laranja, firme/final=vermelho)
+- O BOX de valor total é OBRIGATÓRIO
+- O BOTÃO CTA é OBRIGATÓRIO
+- CORES: azul=#1e3a5f, vermelho=#dc2626, laranja=#f59e0b, verde=#10b981
+` : ''}
 
 FORMATO DE RESPOSTA (JSON):
 {
   "subject": "Assunto do email aqui",
-  "body_html": "<div style='...'>HTML do email aqui</div>"
+  "body_html": "<div style='...'>HTML COMPLETO do email aqui</div>"
 }
 
 IMPORTANTE: Retorne APENAS o JSON, sem markdown, sem explicações.`;
@@ -353,14 +551,26 @@ IMPORTANTE: Retorne APENAS o JSON, sem markdown, sem explicações.`;
         userPrompt += `\n\nRESUMO DA CONVERSA:\n${leadContext.conversation_summary}`;
       }
       
-      // Contexto de cobrança
+      // Contexto de cobrança - enriquecido com detalhes de parcelas
       if (leadContext.collectionContext) {
-        userPrompt += `\n\nCONTEXTO DE COBRANÇA:`;
-        userPrompt += `\n- Valor total em aberto: R$ ${leadContext.collectionContext.totalOverdue?.toFixed(2) || '0.00'}`;
-        userPrompt += `\n- Quantidade de parcelas/apólices: ${leadContext.collectionContext.installmentsCount || 0}`;
-        userPrompt += `\n- Maior atraso: ${leadContext.collectionContext.maxDaysOverdue || 0} dias`;
-        userPrompt += `\n- Empresa: ${leadContext.collectionContext.companyName || 'Não informada'}`;
-        userPrompt += `\n\nUse as variáveis: {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}, {{empresa}}`;
+        const cc = leadContext.collectionContext;
+        userPrompt += `\n\n=== CONTEXTO DE COBRANÇA ===`;
+        userPrompt += `\n- Empresa: ${cc.companyName || leadContext.company || 'Não informada'}`;
+        userPrompt += `\n- CNPJ: ${cc.cnpj || leadContext.cnpj || 'Não informado'}`;
+        userPrompt += `\n- Valor total em aberto: R$ ${cc.totalOverdue?.toFixed(2) || '0.00'}`;
+        userPrompt += `\n- Quantidade de parcelas: ${cc.installmentsCount || 0}`;
+        userPrompt += `\n- Maior atraso: ${cc.maxDaysOverdue || 0} dias`;
+        
+        // Se tiver detalhes de parcelas individuais, inclui para gerar tabela
+        if (cc.installmentDetails && Array.isArray(cc.installmentDetails) && cc.installmentDetails.length > 0) {
+          userPrompt += `\n\nDETALHES DAS PARCELAS (use para criar a TABELA):`;
+          cc.installmentDetails.forEach((inst: any, idx: number) => {
+            userPrompt += `\n${idx + 1}. Seguradora: ${inst.insurer || 'N/A'} | Parcela: ${inst.number || 'N/A'} | Valor: R$ ${inst.value?.toFixed(2) || '0.00'} | Vencimento: ${inst.dueDate || 'N/A'} | Atraso: ${inst.daysOverdue || 0} dias`;
+          });
+          userPrompt += `\n\nCRIE UMA TABELA HTML BONITA com esses dados de parcelas!`;
+        }
+        
+        userPrompt += `\n\nVARIÁVEIS A USAR: {{valor_total}}=${cc.totalOverdue?.toFixed(2)}, {{qtd_parcelas}}=${cc.installmentsCount}, {{dias_atraso}}=${cc.maxDaysOverdue}, {{empresa}}=${cc.companyName || leadContext.company}`;
       }
     }
     
