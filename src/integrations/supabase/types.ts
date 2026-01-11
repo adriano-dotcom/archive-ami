@@ -1556,14 +1556,6 @@ export type Database = {
           elevenlabs_stability: number
           elevenlabs_style: number
           elevenlabs_voice_id: string
-          facebook_email_enabled: boolean | null
-          facebook_lead_email_template: string | null
-          facebook_lead_template: string | null
-          facebook_whatsapp_enabled: boolean | null
-          google_email_enabled: boolean | null
-          google_lead_email_template: string | null
-          google_lead_template: string | null
-          google_whatsapp_enabled: boolean | null
           id: string
           is_active: boolean
           message_breaking_enabled: boolean
@@ -1621,14 +1613,6 @@ export type Database = {
           elevenlabs_stability?: number
           elevenlabs_style?: number
           elevenlabs_voice_id?: string
-          facebook_email_enabled?: boolean | null
-          facebook_lead_email_template?: string | null
-          facebook_lead_template?: string | null
-          facebook_whatsapp_enabled?: boolean | null
-          google_email_enabled?: boolean | null
-          google_lead_email_template?: string | null
-          google_lead_template?: string | null
-          google_whatsapp_enabled?: boolean | null
           id?: string
           is_active?: boolean
           message_breaking_enabled?: boolean
@@ -1686,14 +1670,6 @@ export type Database = {
           elevenlabs_stability?: number
           elevenlabs_style?: number
           elevenlabs_voice_id?: string
-          facebook_email_enabled?: boolean | null
-          facebook_lead_email_template?: string | null
-          facebook_lead_template?: string | null
-          facebook_whatsapp_enabled?: boolean | null
-          google_email_enabled?: boolean | null
-          google_lead_email_template?: string | null
-          google_lead_template?: string | null
-          google_whatsapp_enabled?: boolean | null
           id?: string
           is_active?: boolean
           message_breaking_enabled?: boolean
@@ -1723,22 +1699,7 @@ export type Database = {
           whatsapp_verify_token?: string | null
           whatsapp_waba_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "nina_settings_facebook_lead_email_template_fkey"
-            columns: ["facebook_lead_email_template"]
-            isOneToOne: false
-            referencedRelation: "email_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nina_settings_google_lead_email_template_fkey"
-            columns: ["google_lead_email_template"]
-            isOneToOne: false
-            referencedRelation: "email_templates"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       pending_invites: {
         Row: {
