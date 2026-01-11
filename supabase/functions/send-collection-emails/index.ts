@@ -68,8 +68,9 @@ serve(async (req) => {
       try {
         // Send email via Resend
         const emailResponse = await resend.emails.send({
-          from: "Jacometo Seguros <cobranca@jacometo.com.br>",
+          from: "Jacometo Seguros <jacometo@jacometo.com.br>",
           to: [emailData.email],
+          bcc: ["joao.pedro@jacometo.com.br"],
           subject: emailData.subject,
           html: emailData.bodyHtml,
         });
