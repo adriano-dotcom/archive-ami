@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { ImportContactsSeguradosModal } from './ImportContactsSeguradosModal';
 import { ImportCompaniesWithContactsModal } from './ImportCompaniesWithContactsModal';
 import { ImportDocumentAIModal } from './ImportDocumentAIModal';
 import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
+import { MergeCompaniesModal } from './MergeCompaniesModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export const SeguradosTab: React.FC = () => {
   const [showImportContacts, setShowImportContacts] = useState(false);
   const [showImportCompaniesWithContacts, setShowImportCompaniesWithContacts] = useState(false);
   const [showImportDocumentAI, setShowImportDocumentAI] = useState(false);
+  const [showMergeCompanies, setShowMergeCompanies] = useState(false);
   
   // Filters for Companies (PJ)
   const [stateFilterPJ, setStateFilterPJ] = useState<string>('all');
@@ -942,32 +944,46 @@ export const SeguradosTab: React.FC = () => {
         </TabsList>
 
         <TabsContent value="pj" className="mt-4 space-y-3">
-          {/* Bulk Actions Bar */}
-          {selectedCompanyIds.length > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <span className="text-sm text-blue-400 font-medium">
-                {selectedCompanyIds.length} selecionada(s)
-              </span>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setShowBulkDeleteConfirm(true)}
-                className="gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir ({selectedCompanyIds.length})
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSelectedCompanyIds([])}
-                className="text-slate-400 hover:text-slate-200 gap-2"
-              >
-                <X className="w-4 h-4" />
-                Limpar seleção
-              </Button>
-            </div>
-          )}
+          {/* Actions Bar */}
+          <div className="flex items-center gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowMergeCompanies(true)}
+              disabled={companies.length < 2}
+              className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 gap-2"
+            >
+              <GitMerge className="w-4 h-4" />
+              Mesclar Duplicadas
+            </Button>
+            
+            {selectedCompanyIds.length > 0 && (
+              <>
+                <div className="h-4 w-px bg-slate-700" />
+                <span className="text-sm text-blue-400 font-medium">
+                  {selectedCompanyIds.length} selecionada(s)
+                </span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir ({selectedCompanyIds.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedCompanyIds([])}
+                  className="text-slate-400 hover:text-slate-200 gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar seleção
+                </Button>
+              </>
+            )}
+          </div>
           
           <Card className="bg-slate-900/30 border-white/5">
             <CompaniesTable
@@ -1185,6 +1201,13 @@ export const SeguradosTab: React.FC = () => {
       <ImportDocumentAIModal
         open={showImportDocumentAI}
         onOpenChange={setShowImportDocumentAI}
+        onSuccess={loadData}
+      />
+
+      <MergeCompaniesModal
+        open={showMergeCompanies}
+        companies={companies}
+        onOpenChange={setShowMergeCompanies}
         onSuccess={loadData}
       />
     </div>
