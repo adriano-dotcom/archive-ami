@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Progress } from '@/components/ui/progress';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -66,6 +67,8 @@ export const CollectionCampaigns: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<CollectionBatch | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [currentBatchId, setCurrentBatchId] = useState<string | undefined>();
   const [selectedRangeFilter, setSelectedRangeFilter] = useState('all');
   const [newCampaign, setNewCampaign] = useState({
@@ -493,6 +496,10 @@ export const CollectionCampaigns: React.FC = () => {
                           size="icon" 
                           className="h-8 w-8 hover:bg-blue-500/20 hover:text-blue-400"
                           title="Ver detalhes"
+                          onClick={() => {
+                            setSelectedCampaign(campaign);
+                            setIsDetailsOpen(true);
+                          }}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -537,6 +544,110 @@ export const CollectionCampaigns: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ['collection-batches'] });
         }}
       />
+
+      {/* Campaign Details Modal */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-2xl bg-slate-900 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{selectedCampaign?.name}</DialogTitle>
+            {selectedCampaign?.description && (
+              <p className="text-slate-400 text-sm">{selectedCampaign.description}</p>
+            )}
+          </DialogHeader>
+          
+          {selectedCampaign && (
+            <div className="space-y-6 mt-4">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-slate-800/50 border border-white/5 text-center">
+                  <p className="text-2xl font-bold text-slate-200">{selectedCampaign.total_count}</p>
+                  <p className="text-xs text-slate-400">Total</p>
+                </div>
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
+                  <p className="text-2xl font-bold text-green-400">{selectedCampaign.sent_count}</p>
+                  <p className="text-xs text-slate-400">Enviados</p>
+                </div>
+                <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-center">
+                  <p className="text-2xl font-bold text-rose-400">{selectedCampaign.failed_count}</p>
+                  <p className="text-xs text-slate-400">Falhas</p>
+                </div>
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
+                  <p className="text-2xl font-bold text-blue-400">{selectedCampaign.replied_count}</p>
+                  <p className="text-xs text-slate-400">Respostas</p>
+                </div>
+              </div>
+
+              {/* Success Rate */}
+              {selectedCampaign.total_count > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Taxa de Sucesso</span>
+                    <span className="text-slate-200 font-medium">
+                      {Math.round((selectedCampaign.sent_count / selectedCampaign.total_count) * 100)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(selectedCampaign.sent_count / selectedCampaign.total_count) * 100} 
+                    className="h-2 bg-slate-800"
+                  />
+                </div>
+              )}
+
+              {/* Campaign Info */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-800/30 border border-white/5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">Canal</span>
+                  <Badge variant="outline" className="border-white/10">
+                    {selectedCampaign.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                  </Badge>
+                </div>
+                {selectedCampaign.template_name && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Template</span>
+                    <span className="text-sm text-slate-200">{selectedCampaign.template_name}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">Status</span>
+                  {getStatusBadge(selectedCampaign.status)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">Criado em</span>
+                  <span className="text-sm text-slate-200">
+                    {format(new Date(selectedCampaign.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+                {selectedCampaign.scheduled_at && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Agendado para</span>
+                    <span className="text-sm text-slate-200">
+                      {format(new Date(selectedCampaign.scheduled_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+                {selectedCampaign.completed_at && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Concluído em</span>
+                    <span className="text-sm text-slate-200">
+                      {format(new Date(selectedCampaign.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Delivered Stats */}
+              {selectedCampaign.delivered_count > 0 && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-300">
+                    {selectedCampaign.delivered_count} mensagens entregues
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
