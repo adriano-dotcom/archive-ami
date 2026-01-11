@@ -13,3 +13,4 @@ export { SeguradosTab } from './SeguradosTab';
 export { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 export { AddContactToCompanyModal } from './AddContactToCompanyModal';
 export { MergeCompaniesModal } from './MergeCompaniesModal';
+export { DuplicateCompaniesReportModal } from './DuplicateCompaniesReportModal';
