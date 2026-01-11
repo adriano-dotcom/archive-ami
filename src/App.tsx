@@ -1,18 +1,7 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import ChatInterface from './components/ChatInterface';
-import Contacts from './components/Contacts';
-import Settings from './components/Settings';
-import Team from './components/Team';
-import Scheduling from './components/Scheduling';
-
-import MeetingRoom from './components/MeetingRoom';
-import WhatsAppDashboard from './components/WhatsAppDashboard';
-import { CollectionsDashboard } from './components/collections';
-import Auth from './pages/Auth';
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
 import { UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
@@ -20,7 +9,26 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
 
+// Lazy load route components for code splitting
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const ChatInterface = lazy(() => import('./components/ChatInterface'));
+const Contacts = lazy(() => import('./components/Contacts'));
+const Settings = lazy(() => import('./components/Settings'));
+const Team = lazy(() => import('./components/Team'));
+const Scheduling = lazy(() => import('./components/Scheduling'));
+const MeetingRoom = lazy(() => import('./components/MeetingRoom'));
+const WhatsAppDashboard = lazy(() => import('./components/WhatsAppDashboard'));
+const CollectionsDashboard = lazy(() => import('./components/collections').then(m => ({ default: m.CollectionsDashboard })));
+const Auth = lazy(() => import('./pages/Auth'));
+
 const queryClient = new QueryClient();
+
+// Loading fallback component
+const PageLoader: React.FC = () => (
+  <div className="flex items-center justify-center h-full w-full bg-slate-950">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+  </div>
+);
 
 // Default redirect component - redirects all users to /chat
 const DefaultRedirect: React.FC = () => {
@@ -42,7 +50,9 @@ const AppLayout: React.FC = () => {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent opacity-50 z-20"></div>
         
         <div className="flex-1 w-full h-full relative overflow-hidden">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>
@@ -55,33 +65,35 @@ const App: React.FC = () => {
       <AuthProvider>
         <CompanySettingsProvider>
           <BrowserRouter>
-            <Routes>
-              {/* Auth Route */}
-              <Route path="/auth" element={<Auth />} />
-              
-              {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
-              <Route path="/meeting/:id" element={<MeetingRoom />} />
-
-              {/* Rotas Internas (Com Sidebar) - Protected */}
-              <Route element={
-                <ProtectedRoute>
-                  <UnreadMessagesProvider>
-                    <AppLayout />
-                  </UnreadMessagesProvider>
-                </ProtectedRoute>
-              }>
-                <Route path="/" element={<DefaultRedirect />} />
-                <Route path="/dashboard" element={<Dashboard />} />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                {/* Auth Route */}
+                <Route path="/auth" element={<Auth />} />
                 
-                <Route path="/chat" element={<ChatInterface />} />
-                <Route path="/contacts" element={<Contacts />} />
-                <Route path="/scheduling" element={<Scheduling />} />
-                <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
-                <Route path="/collections" element={<CollectionsDashboard />} />
-                <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-            </Routes>
+                {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
+                <Route path="/meeting/:id" element={<MeetingRoom />} />
+
+                {/* Rotas Internas (Com Sidebar) - Protected */}
+                <Route element={
+                  <ProtectedRoute>
+                    <UnreadMessagesProvider>
+                      <AppLayout />
+                    </UnreadMessagesProvider>
+                  </ProtectedRoute>
+                }>
+                  <Route path="/" element={<DefaultRedirect />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  
+                  <Route path="/chat" element={<ChatInterface />} />
+                  <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/scheduling" element={<Scheduling />} />
+                  <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
+                  <Route path="/collections" element={<CollectionsDashboard />} />
+                  <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+              </Routes>
+            </Suspense>
           </BrowserRouter>
           <Toaster 
             position="top-right"
