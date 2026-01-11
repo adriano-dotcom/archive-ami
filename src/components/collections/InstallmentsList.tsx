@@ -70,6 +70,12 @@ interface Installment {
     id: string;
     policy_number: string;
     insurer: string;
+    branch: string | null;
+    product: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    total_value: number | null;
+    status: string;
     company: {
       id: string;
       razao_social: string;
@@ -278,7 +284,7 @@ export const InstallmentsList: React.FC = () => {
         .select(`
           *,
           contact:contacts(id, name, phone_number),
-          policy:policies(id, policy_number, insurer, company:companies(id, razao_social, nome_fantasia, cnpj))
+          policy:policies(id, policy_number, insurer, branch, product, start_date, end_date, total_value, status, company:companies(id, razao_social, nome_fantasia, cnpj))
         `)
         .order('days_overdue', { ascending: false });
 
@@ -949,8 +955,50 @@ export const InstallmentsList: React.FC = () => {
                         'N/A'
                       )}
                     </TableCell>
-                    <TableCell className="text-slate-300 truncate max-w-[120px]" title={inst.policy?.policy_number || ''}>
-                      {inst.policy?.policy_number || 'N/A'}
+                    <TableCell className="text-slate-300">
+                      {inst.policy ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help truncate max-w-[120px] inline-block underline decoration-dotted decoration-slate-500 hover:decoration-slate-300 transition-colors">
+                                {inst.policy.policy_number || 'N/A'}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs p-3">
+                              <div className="space-y-2 text-xs">
+                                <div className="font-semibold text-sm border-b border-slate-600 pb-1.5 mb-2">
+                                  Apólice {inst.policy.policy_number}
+                                </div>
+                                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+                                  <span className="text-slate-400">Seguradora:</span>
+                                  <span className="text-slate-200">{inst.policy.insurer || 'N/A'}</span>
+                                  
+                                  <span className="text-slate-400">Ramo:</span>
+                                  <span className="text-slate-200">{inst.policy.branch || 'N/A'}</span>
+                                  
+                                  <span className="text-slate-400">Produto:</span>
+                                  <span className="text-slate-200">{inst.policy.product || 'N/A'}</span>
+                                  
+                                  <span className="text-slate-400">Vigência:</span>
+                                  <span className="text-slate-200">
+                                    {inst.policy.start_date && inst.policy.end_date 
+                                      ? `${format(new Date(inst.policy.start_date), 'dd/MM/yy')} - ${format(new Date(inst.policy.end_date), 'dd/MM/yy')}`
+                                      : 'N/A'}
+                                  </span>
+                                  
+                                  <span className="text-slate-400">Valor Total:</span>
+                                  <span className="text-slate-200">{inst.policy.total_value ? formatCurrency(inst.policy.total_value) : 'N/A'}</span>
+                                  
+                                  <span className="text-slate-400">Status:</span>
+                                  <span className="text-slate-200 capitalize">{inst.policy.status || 'N/A'}</span>
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        'N/A'
+                      )}
                     </TableCell>
                     <TableCell className="text-center text-slate-300">
                       {inst.installment_number}
