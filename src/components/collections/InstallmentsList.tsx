@@ -89,7 +89,7 @@ const formatCNPJ = (cnpj: string | null | undefined) => {
   );
 };
 
-type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
+type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
 type SortDirection = 'asc' | 'desc';
 
 export const InstallmentsList: React.FC = () => {
@@ -386,6 +386,10 @@ export const InstallmentsList: React.FC = () => {
           valA = (a.policy?.insurer || '').toLowerCase();
           valB = (b.policy?.insurer || '').toLowerCase();
           break;
+        case 'apolice':
+          valA = (a.policy?.policy_number || '').toLowerCase();
+          valB = (b.policy?.policy_number || '').toLowerCase();
+          break;
         case 'parcela':
           valA = a.installment_number || 0;
           valB = b.installment_number || 0;
@@ -599,13 +603,14 @@ export const InstallmentsList: React.FC = () => {
     }
 
     const csvContent = [
-      ['Empresa', 'CNPJ', 'Contato', 'Telefone', 'Seguradora', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
+      ['Empresa', 'CNPJ', 'Contato', 'Telefone', 'Seguradora', 'Apólice', 'Parcela', 'Valor', 'Vencimento', 'Dias Atraso', 'Status'].join(';'),
       ...installments.map(inst => [
         inst.policy?.company?.nome_fantasia || inst.policy?.company?.razao_social || '',
         inst.policy?.company?.cnpj || '',
         inst.contact?.name || '',
         inst.contact?.phone_number || '',
         inst.policy?.insurer || '',
+        inst.policy?.policy_number || '',
         inst.installment_number,
         inst.value,
         inst.due_date,
@@ -860,6 +865,7 @@ export const InstallmentsList: React.FC = () => {
                   <SortableHeader column="cnpj" label="CNPJ" />
                   <SortableHeader column="contato" label="Contato" />
                   <SortableHeader column="seguradora" label="Seguradora" />
+                  <SortableHeader column="apolice" label="Apólice" />
                   <SortableHeader column="parcela" label="Parcela" className="text-center" />
                   <SortableHeader column="valor" label="Valor" className="text-right" />
                   <SortableHeader column="vencimento" label="Vencimento" className="text-center" />
@@ -942,6 +948,9 @@ export const InstallmentsList: React.FC = () => {
                       ) : (
                         'N/A'
                       )}
+                    </TableCell>
+                    <TableCell className="text-slate-300 truncate max-w-[120px]" title={inst.policy?.policy_number || ''}>
+                      {inst.policy?.policy_number || 'N/A'}
                     </TableCell>
                     <TableCell className="text-center text-slate-300">
                       {inst.installment_number}
