@@ -1543,6 +1543,8 @@ export type Database = {
           business_hours_start: string
           calcom_api_key: string | null
           calcom_key_in_vault: boolean | null
+          collection_email_bcc: string[] | null
+          collection_email_from: string | null
           company_name: string | null
           created_at: string
           elevenlabs_api_key: string | null
@@ -1606,6 +1608,8 @@ export type Database = {
           business_hours_start?: string
           calcom_api_key?: string | null
           calcom_key_in_vault?: boolean | null
+          collection_email_bcc?: string[] | null
+          collection_email_from?: string | null
           company_name?: string | null
           created_at?: string
           elevenlabs_api_key?: string | null
@@ -1669,6 +1673,8 @@ export type Database = {
           business_hours_start?: string
           calcom_api_key?: string | null
           calcom_key_in_vault?: boolean | null
+          collection_email_bcc?: string[] | null
+          collection_email_from?: string | null
           company_name?: string | null
           created_at?: string
           elevenlabs_api_key?: string | null

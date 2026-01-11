@@ -44,6 +44,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendApiKey);
 
+    // Fetch email configuration from nina_settings
+    const { data: settings } = await supabase
+      .from('nina_settings')
+      .select('collection_email_from, collection_email_bcc')
+      .single();
+
+    const emailFrom = settings?.collection_email_from || 'Jacometo Seguros <jacometo@jacometo.com.br>';
+    const emailBcc = settings?.collection_email_bcc || ['joao.pedro@jacometo.com.br'];
+
     const { batchId, emails }: SendEmailsRequest = await req.json();
 
     if (!emails || emails.length === 0) {
@@ -66,11 +75,11 @@ serve(async (req) => {
 
     for (const emailData of emails) {
       try {
-        // Send email via Resend
+        // Send email via Resend with dynamic settings
         const emailResponse = await resend.emails.send({
-          from: "Jacometo Seguros <jacometo@jacometo.com.br>",
+          from: emailFrom,
           to: [emailData.email],
-          bcc: ["joao.pedro@jacometo.com.br"],
+          bcc: emailBcc,
           subject: emailData.subject,
           html: emailData.bodyHtml,
         });
