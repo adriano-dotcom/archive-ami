@@ -186,7 +186,7 @@ export const SeguradosTab: React.FC = () => {
           city,
           state,
           seller_id,
-          team_members!companies_seller_id_fkey (
+          sellers!companies_seller_id_fkey (
             name
           )
         `)
@@ -242,7 +242,7 @@ export const SeguradosTab: React.FC = () => {
             policies_count: policiesCount || 0,
             overdue_value: overdueValue,
             max_days_overdue: maxDaysOverdue,
-            seller_name: (company as any).team_members?.name || null
+            seller_name: (company as any).sellers?.name || null
           };
         })
       );
