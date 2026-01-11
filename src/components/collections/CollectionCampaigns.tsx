@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail, RefreshCw, ChevronDown } from 'lucide-react';
+import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail, RefreshCw, ChevronDown, Phone, Building2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -200,6 +200,35 @@ export const CollectionCampaigns: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['collection-batches'] });
       toast.success('Campanha pausada');
     }
+  });
+
+  // Query for all attempts of selected campaign with company/contact info
+  const { data: campaignAttempts, isLoading: isLoadingAttempts } = useQuery({
+    queryKey: ['campaign-attempts', selectedCampaign?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('collection_attempts')
+        .select(`
+          id,
+          status,
+          sent_at,
+          error_message,
+          created_at,
+          contact:contacts(name, phone_number),
+          installment:installments(
+            id,
+            policy:policies(
+              company:companies(razao_social)
+            )
+          )
+        `)
+        .eq('batch_id', selectedCampaign!.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCampaign && isDetailsOpen
   });
 
   // Query for failed attempts of selected campaign
@@ -723,6 +752,87 @@ export const CollectionCampaigns: React.FC = () => {
                     <span className="text-sm text-slate-200">
                       {format(new Date(selectedCampaign.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Attempts List with Company/Contact Details */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Detalhes dos Envios ({campaignAttempts?.length || 0})
+                </h4>
+                
+                {isLoadingAttempts ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : campaignAttempts && campaignAttempts.length > 0 ? (
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                    {campaignAttempts.map((attempt) => {
+                      const contact = Array.isArray(attempt.contact) ? attempt.contact[0] : attempt.contact;
+                      const installment = Array.isArray(attempt.installment) ? attempt.installment[0] : attempt.installment;
+                      const policy = installment?.policy;
+                      const company = Array.isArray(policy) ? policy[0]?.company : policy?.company;
+                      const companyName = Array.isArray(company) ? company[0]?.razao_social : company?.razao_social;
+                      
+                      const getAttemptStatusBadge = (status: string) => {
+                        switch (status) {
+                          case 'sent':
+                            return <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Enviado</Badge>;
+                          case 'delivered':
+                            return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Entregue</Badge>;
+                          case 'failed':
+                            return <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs">Falha</Badge>;
+                          case 'pending':
+                            return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Pendente</Badge>;
+                          default:
+                            return <Badge className="text-xs">{status}</Badge>;
+                        }
+                      };
+                      
+                      return (
+                        <div 
+                          key={attempt.id} 
+                          className="p-3 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800/70 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                <p className="text-sm font-medium text-slate-200 truncate">
+                                  {companyName || 'Empresa não identificada'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-slate-400">
+                                <span className="flex items-center gap-1.5">
+                                  <User className="w-3 h-3" />
+                                  {contact?.name || 'Contato desconhecido'}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Phone className="w-3 h-3" />
+                                  {contact?.phone_number || 'Sem telefone'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              {getAttemptStatusBadge(attempt.status)}
+                            </div>
+                          </div>
+                          {attempt.error_message && (
+                            <p className="text-xs text-rose-400 mt-2 pl-5">
+                              {attempt.error_message}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-slate-500 text-sm">
+                    Nenhum envio registrado ainda
                   </div>
                 )}
               </div>
