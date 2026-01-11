@@ -243,13 +243,22 @@ serve(async (req) => {
       return null;
     }
 
+    // Validate email format
+    const isValidEmail = (email: string): boolean => {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
     // Helper function to resolve email through company relationships
     async function resolveContactEmail(contact: any): Promise<{ email: string; contactName: string } | null> {
       const contactName = contact.name || contact.call_name || 'Cliente';
 
-      // 1. Direct email on contact
-      if (contact.email) {
+      // 1. Direct email on contact (only if valid format)
+      if (contact.email && isValidEmail(contact.email)) {
         return { email: contact.email, contactName };
+      }
+
+      if (contact.email && !isValidEmail(contact.email)) {
+        console.log(`Invalid email format for contact ${contact.id}: ${contact.email}`);
       }
 
       // 2. Search by company_id if available
@@ -295,20 +304,31 @@ serve(async (req) => {
       const contactInstallments = installments.filter(i => i.contact_id === contact.id);
       const totalValue = contactInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
 
-      // Get company info - try from contact's company_id first, then from policies
-      let company = contact.company_id ? companiesMap.get(contact.company_id) : null;
+      // Get company info - PRIORITY: from policies first (correct company for the installments being collected)
+      let company = null;
       
-      if (!company) {
-        // Try to get company from one of the installment's policies
-        const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
+      // 1. First try to get company from one of the installment's policies
+      const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
+      if (policyId) {
         const policy = policies?.find(p => p.id === policyId);
         if (policy?.company_id) {
           company = companiesMap.get(policy.company_id);
+          console.log(`Resolving company for contact ${contact.id} (${contact.name || 'unnamed'})`);
+          console.log(`  - Using company from policy: ${company?.razao_social || 'not found'} (policy_id: ${policyId})`);
         }
+      }
+      
+      // 2. Fallback to contact's company_id only if no policy company found
+      if (!company && contact.company_id) {
+        company = companiesMap.get(contact.company_id);
+        console.log(`Resolving company for contact ${contact.id} (${contact.name || 'unnamed'})`);
+        console.log(`  - Fallback to contact company: ${company?.razao_social || 'not found'} (company_id: ${contact.company_id})`);
       }
 
       const companyName = company?.nome_fantasia || company?.razao_social || contact.company || 'N/A';
       const companyCnpj = company?.cnpj || contact.cnpj || '';
+      
+      console.log(`  - Final company: ${companyName} (CNPJ: ${companyCnpj || 'none'})`);
 
       contactsWithInstallments.push({
         contactId: contact.id,
