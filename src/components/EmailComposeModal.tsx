@@ -15,6 +15,13 @@ interface EmailTemplate {
   category: string;
 }
 
+interface CollectionContext {
+  totalOverdue: number;
+  maxDaysOverdue: number;
+  installmentsCount: number;
+  companyName: string;
+}
+
 interface EmailComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -30,9 +37,12 @@ interface EmailComposeModalProps {
   agentSlug?: string | null;
   contactPhone?: string;
   contactCnpj?: string | null;
+  // Collection context for billing emails
+  collectionContext?: CollectionContext | null;
 }
 
 const EMAIL_TYPES = [
+  { value: 'cobranca', label: 'Cobrança', icon: '💳' },
   { value: 'follow-up', label: 'Follow-up', icon: '📬' },
   { value: 'proposta', label: 'Proposta Comercial', icon: '📋' },
   { value: 'cotacao', label: 'Envio de Cotação', icon: '💰' },
@@ -54,6 +64,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   agentSlug,
   contactPhone,
   contactCnpj,
+  collectionContext,
 }) => {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -66,7 +77,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   const [senderName, setSenderName] = useState('');
   
   // AI Assistant state
-  const [selectedEmailType, setSelectedEmailType] = useState('follow-up');
+  const [selectedEmailType, setSelectedEmailType] = useState(collectionContext ? 'cobranca' : 'follow-up');
   const [customContext, setCustomContext] = useState('');
   const [generatingAI, setGeneratingAI] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
@@ -77,6 +88,13 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   const qualificationScore = clientMemory?.lead_profile?.qualification_score || 0;
   const interests = clientMemory?.lead_profile?.interests || [];
   const painPoints = clientMemory?.sales_intelligence?.pain_points || [];
+
+  // Auto-select "cobranca" when collectionContext is provided
+  useEffect(() => {
+    if (collectionContext) {
+      setSelectedEmailType('cobranca');
+    }
+  }, [collectionContext]);
 
   useEffect(() => {
     if (isOpen) {
@@ -182,6 +200,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
         interests: interests,
         pain_points: painPoints,
         conversation_summary: conversationHistory,
+        collectionContext: collectionContext,
       };
 
       // Build a detailed briefing from lead context

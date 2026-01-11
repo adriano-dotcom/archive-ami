@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { AddContactToCompanyModal } from './AddContactToCompanyModal';
 import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
+import { EmailComposeModal } from '@/components/EmailComposeModal';
 
 interface Company {
   id: string;
@@ -69,6 +70,7 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [editingContact, setEditingContact] = useState<CompanyContact | null>(null);
+  const [emailModalContact, setEmailModalContact] = useState<CompanyContact | null>(null);
 
   useEffect(() => {
     if (open && company) {
@@ -110,11 +112,12 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
   };
 
   const handleSendEmail = (contact: CompanyContact) => {
-    if (contact.email) {
-      window.location.href = `mailto:${contact.email}`;
-    } else {
+    if (!contact.email) {
       toast.error('Este contato não possui email cadastrado');
+      return;
     }
+    // Abrir modal de email com contexto de cobrança
+    setEmailModalContact(contact);
   };
 
   const formatCurrency = (value: number) => {
@@ -384,6 +387,25 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
             setEditingContact(null);
             loadContacts();
             onRefresh?.();
+          }}
+        />
+      )}
+
+      {/* Modal para email de cobrança */}
+      {emailModalContact && company && (
+        <EmailComposeModal
+          isOpen={!!emailModalContact}
+          onClose={() => setEmailModalContact(null)}
+          contactEmail={emailModalContact.email || ''}
+          contactName={emailModalContact.name || ''}
+          company={company.nome_fantasia || company.razao_social}
+          value={company.overdue_value}
+          contactPhone={emailModalContact.phone_number}
+          collectionContext={{
+            totalOverdue: company.overdue_value,
+            maxDaysOverdue: company.max_days_overdue,
+            installmentsCount: company.policies_count,
+            companyName: company.nome_fantasia || company.razao_social
           }}
         />
       )}
