@@ -112,7 +112,7 @@ export default function Auth() {
   return <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-3 sm:p-4">
       {/* Background Image - Truck Fleet */}
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105" style={{
-      backgroundImage: `url('https://images.unsplash.com/photo-1492168732976-2676c584c675?auto=format&fit=crop&w=2000&q=80')`
+      backgroundImage: `url('https://images.unsplash.com/photo-1492168732976-2676c584c675?auto=format&fit=crop&w=1920&q=60')`
     }} />
       
       {/* Dark Gradient Overlay */}
@@ -128,7 +128,7 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-2 sm:p-3 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={logo} alt="Jacometo Seguros" className="h-9 sm:h-12" />
+              <img src={logo} alt="Jacometo Seguros" width={46} height={48} className="h-9 sm:h-12 w-auto" />
             </div>
           </div>
           
