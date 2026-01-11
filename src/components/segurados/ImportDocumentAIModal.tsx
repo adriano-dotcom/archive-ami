@@ -33,7 +33,10 @@ import {
   ArrowRight,
   Save,
   History,
-  RefreshCw
+  RefreshCw,
+  GitMerge,
+  Replace,
+  Ban
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -56,6 +59,18 @@ interface ExtractedCompany {
   confidence: number;
   selected: boolean;
   isEditing?: boolean;
+  // Duplicate detection
+  duplicateStatus?: 'new' | 'duplicate' | 'merge_available';
+  existingCompanyId?: string;
+  existingData?: {
+    razao_social: string;
+    nome_fantasia: string | null;
+    city: string | null;
+    state: string | null;
+    contacts_count: number;
+    policies_count: number;
+  };
+  mergeStrategy?: 'ignore' | 'merge' | 'replace';
 }
 
 interface ExtractedContact {
@@ -802,6 +817,100 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     return checkedInstallments;
   };
 
+  // Check for duplicate companies in the database before import
+  const matchCompaniesToDatabase = async (companies: ExtractedCompany[]): Promise<ExtractedCompany[]> => {
+    const checkedCompanies: ExtractedCompany[] = [];
+    
+    for (const company of companies) {
+      const cnpjClean = company.cnpj.replace(/\D/g, '');
+      
+      // Skip if CNPJ is invalid
+      if (cnpjClean.length !== 14 || cnpjClean === '00000000000000') {
+        checkedCompanies.push({
+          ...company,
+          cnpj: cnpjClean,
+          duplicateStatus: 'new',
+          selected: true
+        });
+        continue;
+      }
+      
+      // Search for existing company by CNPJ
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('id, razao_social, nome_fantasia, city, state')
+        .eq('cnpj', cnpjClean)
+        .maybeSingle();
+      
+      if (!existing) {
+        // New company
+        checkedCompanies.push({
+          ...company,
+          cnpj: cnpjClean,
+          duplicateStatus: 'new',
+          selected: true
+        });
+      } else {
+        // CNPJ already exists - check for differences
+        const hasNameChange = company.razao_social !== existing.razao_social;
+        const hasFantasiaChange = (company.nome_fantasia || null) !== existing.nome_fantasia;
+        const hasCityChange = (company.city || null) !== existing.city;
+        const hasStateChange = (company.state || null) !== existing.state;
+        
+        // Check if new data fills empty fields
+        const canFillEmpty = 
+          (!existing.nome_fantasia && company.nome_fantasia) ||
+          (!existing.city && company.city) ||
+          (!existing.state && company.state);
+        
+        // Get counts of related records
+        const { count: contactsCount } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', existing.id);
+        
+        const { count: policiesCount } = await supabase
+          .from('policies')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', existing.id);
+        
+        const hasChanges = hasNameChange || hasFantasiaChange || hasCityChange || hasStateChange || canFillEmpty;
+        
+        checkedCompanies.push({
+          ...company,
+          cnpj: cnpjClean,
+          duplicateStatus: hasChanges ? 'merge_available' : 'duplicate',
+          existingCompanyId: existing.id,
+          existingData: {
+            razao_social: existing.razao_social,
+            nome_fantasia: existing.nome_fantasia,
+            city: existing.city,
+            state: existing.state,
+            contacts_count: contactsCount || 0,
+            policies_count: policiesCount || 0
+          },
+          mergeStrategy: hasChanges ? 'merge' : 'ignore',
+          selected: !!hasChanges // Select only if there are changes to merge
+        });
+      }
+    }
+    
+    // Show summary toast
+    const newCount = checkedCompanies.filter(c => c.duplicateStatus === 'new').length;
+    const duplicateCount = checkedCompanies.filter(c => c.duplicateStatus === 'duplicate').length;
+    const mergeCount = checkedCompanies.filter(c => c.duplicateStatus === 'merge_available').length;
+    
+    if (duplicateCount > 0 || mergeCount > 0) {
+      const parts = [];
+      if (newCount > 0) parts.push(`${newCount} nova(s)`);
+      if (duplicateCount > 0) parts.push(`${duplicateCount} já cadastrada(s)`);
+      if (mergeCount > 0) parts.push(`${mergeCount} com dados novos`);
+      toast.info(`Empresas: ${parts.join(', ')}`);
+    }
+    
+    return checkedCompanies;
+  };
+
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1154,7 +1263,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       }
 
       // Process results
-      const extractedCompanies: ExtractedCompany[] = (data.companies || []).map((c: any, i: number) => ({
+      let extractedCompanies: ExtractedCompany[] = (data.companies || []).map((c: any, i: number) => ({
         ...c,
         id: `company-${i}-${Date.now()}`,
         selected: true,
@@ -1214,6 +1323,12 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         // Check for duplicates in database
         toast.info('Verificando duplicatas no banco de dados...');
         extractedInstallments = await checkDuplicatesInDatabase(extractedInstallments);
+      }
+
+      // Check for duplicate companies in database
+      if (extractedCompanies.length > 0) {
+        toast.info('Verificando empresas duplicadas...');
+        extractedCompanies = await matchCompaniesToDatabase(extractedCompanies);
       }
 
       setCompanies(extractedCompanies);
@@ -1316,6 +1431,51 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       for (let i = 0; i < selectedCompanies.length; i++) {
         const company = selectedCompanies[i];
         
+        // Skip if it's a duplicate and strategy is ignore
+        if (company.duplicateStatus === 'duplicate' && company.mergeStrategy === 'ignore') {
+          if (company.existingCompanyId) {
+            companyIdMap.set(company.cnpj, company.existingCompanyId);
+          }
+          setImportProgress({ current: i + 1, total });
+          continue;
+        }
+        
+        // Handle merge strategy
+        if (company.duplicateStatus === 'merge_available' && company.mergeStrategy === 'merge' && company.existingCompanyId) {
+          // Merge - only fill empty fields in existing record
+          const updates: Record<string, any> = {};
+          if (company.nome_fantasia && !company.existingData?.nome_fantasia) {
+            updates.nome_fantasia = company.nome_fantasia;
+          }
+          if (company.city && !company.existingData?.city) {
+            updates.city = company.city;
+          }
+          if (company.state && !company.existingData?.state) {
+            updates.state = company.state;
+          }
+          if (company.cep) updates.cep = company.cep;
+          if (company.street) updates.street = company.street;
+          if (company.number) updates.number = company.number;
+          if (company.neighborhood) updates.neighborhood = company.neighborhood;
+          
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase
+              .from('companies')
+              .update(updates)
+              .eq('id', company.existingCompanyId);
+            
+            if (error) {
+              console.error('Error merging company:', error);
+              toast.error(`Erro ao mesclar ${company.razao_social}`);
+            }
+          }
+          
+          companyIdMap.set(company.cnpj, company.existingCompanyId);
+          setImportProgress({ current: i + 1, total });
+          continue;
+        }
+        
+        // Upsert (new or replace strategy)
         const { data, error } = await supabase
           .from('companies')
           .upsert({
@@ -1939,12 +2099,19 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     update_available: installments.filter(i => i.duplicateStatus === 'update_available').length
   };
   
-  // Calculate company statistics
+  // Calculate company statistics (from installments matching)
   const companyStats = {
     matched_cnpj: installments.filter(i => i.companyMatchStatus === 'matched_cnpj').length,
     matched_name: installments.filter(i => i.companyMatchStatus === 'matched_name').length,
     matched_similar: installments.filter(i => i.companyMatchStatus === 'matched_similar').length,
     new_company: installments.filter(i => i.companyMatchStatus === 'new_company').length
+  };
+  
+  // Calculate extracted companies duplicate statistics
+  const companyDuplicateStats = {
+    new: companies.filter(c => c.duplicateStatus === 'new').length,
+    duplicate: companies.filter(c => c.duplicateStatus === 'duplicate').length,
+    merge_available: companies.filter(c => c.duplicateStatus === 'merge_available').length
   };
   
   // Calculate contact statistics
@@ -2452,17 +2619,33 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               {/* Companies */}
               {companies.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-blue-400" />
-                    Empresas Encontradas
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                      Empresas Encontradas
+                    </h4>
+                    {(companyDuplicateStats.duplicate > 0 || companyDuplicateStats.merge_available > 0) && (
+                      <div className="flex items-center gap-2 text-xs">
+                        {companyDuplicateStats.new > 0 && (
+                          <span className="text-emerald-400">{companyDuplicateStats.new} nova(s)</span>
+                        )}
+                        {companyDuplicateStats.duplicate > 0 && (
+                          <span className="text-yellow-400">{companyDuplicateStats.duplicate} já cadastrada(s)</span>
+                        )}
+                        {companyDuplicateStats.merge_available > 0 && (
+                          <span className="text-blue-400">{companyDuplicateStats.merge_available} com dados novos</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   
                   {companies.map((company) => (
-                    <Card key={company.id} className={`p-4 bg-slate-800/50 border-slate-700 ${!company.selected ? 'opacity-50' : ''}`}>
+                    <Card key={company.id} className={`p-4 bg-slate-800/50 border-slate-700 ${!company.selected ? 'opacity-50' : ''} ${company.duplicateStatus === 'duplicate' ? 'border-yellow-500/30' : company.duplicateStatus === 'merge_available' ? 'border-blue-500/30' : ''}`}>
                       <div className="flex items-start gap-3">
                         <Checkbox
                           checked={company.selected}
                           onCheckedChange={(checked) => updateCompany(company.id, { selected: !!checked })}
+                          disabled={company.duplicateStatus === 'duplicate' && company.mergeStrategy === 'ignore'}
                         />
                         <div className="flex-1 space-y-2">
                           {company.isEditing ? (
@@ -2494,10 +2677,29 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                             </div>
                           ) : (
                             <>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-slate-200">{company.razao_social}</span>
                                 {company.nome_fantasia && (
                                   <span className="text-sm text-slate-500">({company.nome_fantasia})</span>
+                                )}
+                                {/* Duplicate status badge */}
+                                {company.duplicateStatus === 'new' && (
+                                  <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    Nova
+                                  </Badge>
+                                )}
+                                {company.duplicateStatus === 'duplicate' && (
+                                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                    Já cadastrada
+                                  </Badge>
+                                )}
+                                {company.duplicateStatus === 'merge_available' && (
+                                  <Badge className="bg-blue-500/20 text-blue-400 text-xs">
+                                    <RefreshCw className="w-3 h-3 mr-1" />
+                                    Atualizar
+                                  </Badge>
                                 )}
                                 {getConfidenceBadge(company.confidence)}
                               </div>
@@ -2506,6 +2708,55 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                                 {company.city && ` • ${company.city}`}
                                 {company.state && `/${company.state}`}
                               </p>
+                              
+                              {/* Show existing data for duplicates/merge */}
+                              {company.existingData && (company.duplicateStatus === 'duplicate' || company.duplicateStatus === 'merge_available') && (
+                                <div className="mt-2 p-2 bg-slate-900/50 rounded-md border border-slate-700">
+                                  <p className="text-xs text-slate-500 mb-1">
+                                    Cadastro atual: {company.existingData.razao_social}
+                                    {company.existingData.nome_fantasia && ` (${company.existingData.nome_fantasia})`}
+                                    {company.existingData.city && ` • ${company.existingData.city}`}
+                                    {company.existingData.state && `/${company.existingData.state}`}
+                                  </p>
+                                  <p className="text-xs text-slate-600">
+                                    {company.existingData.contacts_count} contato(s), {company.existingData.policies_count} apólice(s)
+                                  </p>
+                                  
+                                  {/* Merge strategy options */}
+                                  {company.duplicateStatus === 'merge_available' && (
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <span className="text-xs text-slate-400">Ação:</span>
+                                      <Button
+                                        variant={company.mergeStrategy === 'merge' ? 'default' : 'outline'}
+                                        size="sm"
+                                        className={`h-6 text-xs ${company.mergeStrategy === 'merge' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                                        onClick={() => updateCompany(company.id, { mergeStrategy: 'merge', selected: true })}
+                                      >
+                                        <GitMerge className="w-3 h-3 mr-1" />
+                                        Mesclar
+                                      </Button>
+                                      <Button
+                                        variant={company.mergeStrategy === 'replace' ? 'default' : 'outline'}
+                                        size="sm"
+                                        className={`h-6 text-xs ${company.mergeStrategy === 'replace' ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
+                                        onClick={() => updateCompany(company.id, { mergeStrategy: 'replace', selected: true })}
+                                      >
+                                        <Replace className="w-3 h-3 mr-1" />
+                                        Substituir
+                                      </Button>
+                                      <Button
+                                        variant={company.mergeStrategy === 'ignore' ? 'default' : 'outline'}
+                                        size="sm"
+                                        className={`h-6 text-xs ${company.mergeStrategy === 'ignore' ? 'bg-slate-600 hover:bg-slate-700' : ''}`}
+                                        onClick={() => updateCompany(company.id, { mergeStrategy: 'ignore', selected: false })}
+                                      >
+                                        <Ban className="w-3 h-3 mr-1" />
+                                        Ignorar
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </>
                           )}
                           {company.source && (
