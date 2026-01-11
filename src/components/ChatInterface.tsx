@@ -1408,76 +1408,87 @@ const ChatInterface: React.FC = () => {
                     <ArrowLeft className="w-5 h-5" />
                   </Button>
                 )}
-                <div 
-                  className="flex items-center cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors pr-3"
-                  onClick={() => !isMobile && setShowProfileInfo(!showProfileInfo)}
-                >
-                  <div className="relative">
-                    <img src={activeChat.contactAvatar} alt={activeChat.contactName} className={`${isMobile ? 'w-8 h-8' : 'w-9 h-9'} rounded-full ring-2 ring-slate-800`} />
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
-                  </div>
-                  <div className="ml-3">
-                    <h2 className={`${isMobile ? 'text-sm' : 'text-sm'} font-bold text-slate-100 flex items-center gap-2 flex-wrap`}>
-                      <span className="truncate max-w-[120px] md:max-w-none">{activeChat.contactName}</span>
-                      {!isMobile && renderStatusBadge(activeChat.status, activeChat.assignedUserName)}
-                      {/* Agent Selector Dropdown */}
-                      {!isMobile && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button 
-                              className="px-2.5 py-1 bg-gradient-to-r from-violet-500/20 to-purple-500/20 backdrop-blur-sm text-violet-300 border border-violet-400/30 text-[10px] rounded-full font-medium flex items-center gap-1.5 hover:from-violet-500/30 hover:to-purple-500/30 transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-violet-500/10"
-                              disabled={isChangingAgent}
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              {isChangingAgent ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                activeChat.agentName || 'Sem agente'
-                              )}
-                              <ChevronDown className="w-3 h-3 opacity-60" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="bg-slate-800 border-slate-700">
-                            <DropdownMenuLabel className="text-xs text-slate-400">
-                              Trocar agente
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-slate-700" />
-                            {availableAgents.map(agent => (
-                              <DropdownMenuItem
-                                key={agent.id}
-                                onClick={() => handleChangeAgent(agent.id)}
-                                className={`cursor-pointer ${
-                                  activeChat.agentId === agent.id 
-                                    ? 'bg-violet-500/20 text-violet-300' 
-                                    : 'text-slate-200'
-                                }`}
-                              >
-                                <Bot className="w-4 h-4 mr-2" />
-                                {agent.name}
-                                {activeChat.agentId === agent.id && (
-                                  <Check className="w-4 h-4 ml-auto text-violet-400" />
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                      {/* WhatsApp Window Badge - Real-time (hidden on mobile) */}
-                      {!isMobile && windowTimeRemaining.isOpen ? (
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center gap-1 ${getWindowBadgeStyle()}`}>
-                          <Clock className="w-3 h-3" />
-                          {formatWindowTime()}
-                        </span>
-                      ) : !isMobile && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center gap-1 bg-red-500/20 text-red-400 border-red-500/30">
-                          <AlertTriangle className="w-3 h-3" />
-                          Janela fechada
-                        </span>
-                      )}
-                    </h2>
-                    <p className="text-xs text-cyan-500 font-medium">{activeChat.contactPhone}</p>
-                  </div>
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors pr-3"
+                        onClick={() => !isMobile && setShowProfileInfo(!showProfileInfo)}
+                      >
+                        <div className="relative">
+                          <img src={activeChat.contactAvatar} alt={activeChat.contactName} className={`${isMobile ? 'w-8 h-8' : 'w-9 h-9'} rounded-full ring-2 ring-slate-800`} />
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <h2 className={`${isMobile ? 'text-sm' : 'text-sm'} font-bold text-slate-100 flex items-center gap-2 flex-wrap`}>
+                            <span className="truncate max-w-[120px] md:max-w-none">{activeChat.contactName}</span>
+                            {!isMobile && renderStatusBadge(activeChat.status, activeChat.assignedUserName)}
+                            {/* Agent Selector Dropdown */}
+                            {!isMobile && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button 
+                                    className="px-2.5 py-1 bg-gradient-to-r from-violet-500/20 to-purple-500/20 backdrop-blur-sm text-violet-300 border border-violet-400/30 text-[10px] rounded-full font-medium flex items-center gap-1.5 hover:from-violet-500/30 hover:to-purple-500/30 transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-violet-500/10"
+                                    disabled={isChangingAgent}
+                                  >
+                                    <Sparkles className="w-3 h-3" />
+                                    {isChangingAgent ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      activeChat.agentName || 'Sem agente'
+                                    )}
+                                    <ChevronDown className="w-3 h-3 opacity-60" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="bg-slate-800 border-slate-700">
+                                  <DropdownMenuLabel className="text-xs text-slate-400">
+                                    Trocar agente
+                                  </DropdownMenuLabel>
+                                  <DropdownMenuSeparator className="bg-slate-700" />
+                                  {availableAgents.map(agent => (
+                                    <DropdownMenuItem
+                                      key={agent.id}
+                                      onClick={() => handleChangeAgent(agent.id)}
+                                      className={`cursor-pointer ${
+                                        activeChat.agentId === agent.id 
+                                          ? 'bg-violet-500/20 text-violet-300' 
+                                          : 'text-slate-200'
+                                      }`}
+                                    >
+                                      <Bot className="w-4 h-4 mr-2" />
+                                      {agent.name}
+                                      {activeChat.agentId === agent.id && (
+                                        <Check className="w-4 h-4 ml-auto text-violet-400" />
+                                      )}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                            {/* WhatsApp Window Badge - Real-time (hidden on mobile) */}
+                            {!isMobile && windowTimeRemaining.isOpen ? (
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center gap-1 ${getWindowBadgeStyle()}`}>
+                                <Clock className="w-3 h-3" />
+                                {formatWindowTime()}
+                              </span>
+                            ) : !isMobile && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center gap-1 bg-red-500/20 text-red-400 border-red-500/30">
+                                <AlertTriangle className="w-3 h-3" />
+                                Janela fechada
+                              </span>
+                            )}
+                          </h2>
+                          <p className="text-xs text-cyan-500 font-medium">{activeChat.contactPhone}</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    {!isMobile && (
+                      <TooltipContent side="bottom" className="bg-slate-800 border-slate-700">
+                        <p className="text-xs text-slate-300">Clique para ver informações do contato</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               <div className={`flex items-center ${isMobile ? 'gap-0.5' : 'gap-1'}`}>
                 {/* Status control buttons - show fewer on mobile */}
