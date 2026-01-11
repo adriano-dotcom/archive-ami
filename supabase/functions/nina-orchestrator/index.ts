@@ -1749,6 +1749,21 @@ async function processQueueItem(
     return;
   }
 
+  // 🆕 DUPLICATE PROCESSING CHECK: Skip if message already has a Nina response after it
+  const { data: subsequentNinaMessages } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('conversation_id', conversation.id)
+    .eq('from_type', 'nina')
+    .gt('sent_at', message.sent_at)
+    .limit(1);
+
+  if (subsequentNinaMessages && subsequentNinaMessages.length > 0) {
+    console.log('[Nina] ⏭️ Message already has Nina response after it, skipping duplicate processing');
+    console.log(`[Nina] ⏭️ Message ID: ${message.id}, Subsequent Nina message: ${subsequentNinaMessages[0].id}`);
+    return; // Skip processing - already handled
+  }
+
   // Check WhatsApp 24h window
   const windowStart = conversation.whatsapp_window_start ? new Date(conversation.whatsapp_window_start) : null;
   const now = new Date();
@@ -3717,16 +3732,49 @@ async function processQueueItem(
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
         aiContent = fallbackData.choices?.[0]?.message?.content;
-        console.log('[Nina] Fallback model response:', aiContent ? 'success' : 'also empty');
+        console.log('[Nina] Fallback model (gemini-2.5-flash) response in handoff:', aiContent ? 'success' : 'also empty');
       } else {
-        console.error('[Nina] Fallback model also failed:', fallbackResponse.status);
+        console.error('[Nina] Fallback model (gemini-2.5-flash) also failed in handoff:', fallbackResponse.status);
+      }
+    }
+
+    // 🆕 Second fallback in handoff: Try GPT-5-mini
+    if (!aiContent) {
+      console.warn('[Nina] ⚠️ Gemini fallback also empty in handoff, trying gpt-5-mini...');
+      
+      try {
+        const gptFallbackResponse = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'openai/gpt-5-mini',
+            messages: [
+              { role: 'system', content: processedPrompt },
+              ...conversationHistory
+            ],
+            max_completion_tokens: 1000
+          })
+        });
+
+        if (gptFallbackResponse.ok) {
+          const gptData = await gptFallbackResponse.json();
+          aiContent = gptData.choices?.[0]?.message?.content;
+          console.log('[Nina] GPT-5-mini fallback response in handoff:', aiContent ? 'success' : 'also empty');
+        } else {
+          console.error('[Nina] GPT-5-mini fallback also failed in handoff:', gptFallbackResponse.status);
+        }
+      } catch (gptError) {
+        console.error('[Nina] GPT-5-mini fallback error in handoff:', gptError);
       }
     }
     
-    // If still no content, use generic fallback message
+    // 🆕 Enhanced fallback message for handoff
     if (!aiContent) {
-      console.error('[Nina] All models returned empty response in handoff, using fallback message');
-      aiContent = 'Desculpe, não consegui processar sua mensagem. Pode repetir de outra forma?';
+      console.error('[Nina] All 3 models returned empty response in handoff, using enhanced fallback message');
+      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
     
     // Queue AI response with additional delay after handoff
@@ -3815,21 +3863,63 @@ async function processQueueItem(
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
         aiContent = fallbackData.choices?.[0]?.message?.content;
-        console.log('[Nina] Fallback model response:', aiContent ? 'success' : 'also empty');
+        console.log('[Nina] Fallback model (gemini-2.5-flash) response:', aiContent ? 'success' : 'also empty');
       } else {
-        console.error('[Nina] Fallback model also failed:', fallbackResponse.status);
+        console.error('[Nina] Fallback model (gemini-2.5-flash) also failed:', fallbackResponse.status);
+      }
+    }
+
+    // 🆕 Second fallback: Try GPT-5-mini if Gemini also failed
+    if (!aiContent) {
+      console.warn('[Nina] ⚠️ Gemini fallback also empty, trying gpt-5-mini as last resort...');
+      
+      try {
+        const gptFallbackResponse = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'openai/gpt-5-mini',
+            messages: [
+              { role: 'system', content: processedPrompt },
+              ...conversationHistory
+            ],
+            max_completion_tokens: 1000
+          })
+        });
+
+        if (gptFallbackResponse.ok) {
+          const gptData = await gptFallbackResponse.json();
+          aiContent = gptData.choices?.[0]?.message?.content;
+          console.log('[Nina] GPT-5-mini fallback response:', aiContent ? 'success' : 'also empty');
+        } else {
+          console.error('[Nina] GPT-5-mini fallback also failed:', gptFallbackResponse.status);
+        }
+      } catch (gptError) {
+        console.error('[Nina] GPT-5-mini fallback error:', gptError);
       }
     }
     
-    // If still no content, use generic fallback message instead of failing
+    // 🆕 Enhanced fallback message with transfer option
     if (!aiContent) {
-      console.error('[Nina] All models returned empty response, using fallback message');
+      console.error('[Nina] ❌ All 3 models returned empty response, using enhanced fallback message');
       console.error('[Nina] Message that caused empty response:', JSON.stringify({
         content: message.content?.substring(0, 100),
         from: message.from_type,
         conversationId: conversation.id
       }));
-      aiContent = 'Desculpe, não consegui processar sua mensagem. Pode repetir de outra forma?';
+      
+      // Log to queue for traceability
+      await supabase
+        .from('nina_processing_queue')
+        .update({ 
+          error_message: 'All AI models (primary + gemini + gpt-5-mini) returned empty response - fallback used'
+        })
+        .eq('id', item.id);
+      
+      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
     console.log('[Nina] AI response received, length:', aiContent.length);
