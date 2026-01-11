@@ -2042,14 +2042,22 @@ const ChatInterface: React.FC = () => {
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : activeChat.contactEmail ? (
-                        <button
-                          onClick={() => setShowEmailModal(true)}
-                          className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors text-left flex items-center gap-2 group"
-                          title="Clique para enviar email"
-                        >
-                          {activeChat.contactEmail}
-                          <Send className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-cyan-400 font-medium">{activeChat.contactEmail}</span>
+                          <button
+                            onClick={() => setShowEmailModal(true)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 
+                                       bg-gradient-to-r from-cyan-500/20 to-blue-500/20 
+                                       border border-cyan-500/40 rounded-md
+                                       text-cyan-400 text-xs font-medium
+                                       hover:from-cyan-500/30 hover:to-blue-500/30 
+                                       hover:border-cyan-400/60 transition-all"
+                            title="Enviar email de cobrança"
+                          >
+                            <Send className="w-3 h-3" />
+                            Enviar
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-slate-500 italic">Não informado</span>
                       )}
