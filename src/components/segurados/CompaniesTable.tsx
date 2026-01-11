@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Building2, ChevronRight, Users, AlertTriangle, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, UserCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,6 +19,8 @@ interface Company {
   policies_count: number;
   overdue_value: number;
   max_days_overdue: number;
+  seller_id: string | null;
+  seller_name: string | null;
 }
 
 interface CompaniesTableProps {
@@ -31,7 +33,7 @@ interface CompaniesTableProps {
   onDeleteCompany: (company: Company) => void;
 }
 
-type SortField = 'empresa' | 'cnpj' | 'localizacao' | 'contatos' | 'apolices' | 'valor' | 'atraso';
+type SortField = 'empresa' | 'cnpj' | 'localizacao' | 'contatos' | 'apolices' | 'valor' | 'atraso' | 'vendedor';
 type SortDirection = 'asc' | 'desc';
 
 export const CompaniesTable: React.FC<CompaniesTableProps> = ({ 
@@ -95,6 +97,10 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
         case 'atraso':
           compareA = a.max_days_overdue;
           compareB = b.max_days_overdue;
+          break;
+        case 'vendedor':
+          compareA = (a.seller_name || '').toLowerCase();
+          compareB = (b.seller_name || '').toLowerCase();
           break;
         default:
           return 0;
@@ -268,6 +274,15 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                   <SortIcon field="atraso" />
                 </div>
               </TableHead>
+              <TableHead 
+                className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
+                onClick={() => handleSort('vendedor')}
+              >
+                <div className="flex items-center gap-1">
+                  Vendedor
+                  <SortIcon field="vendedor" />
+                </div>
+              </TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -350,6 +365,18 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                     </Badge>
                   ) : (
                     <span className="text-slate-600">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {company.seller_name ? (
+                    <div className="flex items-center gap-1.5">
+                      <UserCog className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-sm text-slate-300 truncate max-w-[100px]" title={company.seller_name}>
+                        {company.seller_name}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600 text-sm">-</span>
                   )}
                 </TableCell>
                 <TableCell>

@@ -39,6 +39,8 @@ interface GeneratedEmail {
   }>;
   totalValue: number;
   installmentCount: number;
+  sellerEmail?: string;
+  sellerName?: string;
 }
 
 interface CollectionEmailCampaignProps {
@@ -61,6 +63,7 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
 }) => {
   const [step, setStep] = useState<Step>('config');
   const [emailTone, setEmailTone] = useState<'friendly' | 'reminder' | 'urgent' | 'final'>('friendly');
+  const [ccSeller, setCcSeller] = useState(true);
   const [generatedEmails, setGeneratedEmails] = useState<GeneratedEmail[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
@@ -110,7 +113,8 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
       const { data, error } = await supabase.functions.invoke('send-collection-emails', {
         body: {
           batchId,
-          emails: emailsToSend
+          emails: emailsToSend,
+          ccSeller
         }
       });
 
@@ -136,6 +140,7 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
     setExpandedEmails(new Set());
     setSendProgress(0);
     setSendResults({ sent: 0, failed: 0, results: [] });
+    setCcSeller(true);
     onOpenChange(false);
   };
 
@@ -207,6 +212,17 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
             </SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox 
+          id="ccSeller" 
+          checked={ccSeller} 
+          onCheckedChange={(checked) => setCcSeller(checked === true)}
+        />
+        <Label htmlFor="ccSeller" className="text-sm text-slate-300 cursor-pointer">
+          Copiar vendedor responsável no email (CC)
+        </Label>
       </div>
 
       <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">

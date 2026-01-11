@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Pencil, Star, User, Phone, Trash2 } from 'lucide-react';
+import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Pencil, Star, User, Phone, Trash2, UserCog } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -160,8 +160,35 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
     neighborhood: '',
     city: '',
     state: '',
-    notes: ''
+    notes: '',
+    seller_id: ''
   });
+
+  // Team members for seller selection
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string | null }>>([]);
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false);
+
+  // Load team members on mount
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      setLoadingTeamMembers(true);
+      try {
+        const { data, error } = await supabase
+          .from('team_members')
+          .select('id, name, email')
+          .eq('status', 'active')
+          .order('name');
+
+        if (error) throw error;
+        setTeamMembers(data || []);
+      } catch (error) {
+        console.error('Error loading team members:', error);
+      } finally {
+        setLoadingTeamMembers(false);
+      }
+    };
+    loadTeamMembers();
+  }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -238,7 +265,8 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
         neighborhood: data.neighborhood || '',
         city: data.city || '',
         state: data.state || '',
-        notes: data.notes || ''
+        notes: data.notes || '',
+        seller_id: data.seller_id || ''
       });
     } catch (error) {
       console.error('Error loading company:', error);
@@ -320,7 +348,8 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
           neighborhood: formData.neighborhood.trim() || null,
           city: formData.city.trim() || null,
           state: formData.state || null,
-          notes: formData.notes.trim() || null
+          notes: formData.notes.trim() || null,
+          seller_id: formData.seller_id || null
         })
         .eq('id', company.id);
 
@@ -523,6 +552,37 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+              </div>
+
+              {/* Vendedor Responsável */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <UserCog className="w-4 h-4" /> Vendedor Responsável
+                </h3>
+                <div>
+                  <Label className="text-slate-300">Vendedor</Label>
+                  <Select 
+                    value={formData.seller_id} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, seller_id: value === 'none' ? '' : value }))}
+                  >
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
+                      <SelectValue placeholder={loadingTeamMembers ? "Carregando..." : "Selecione um vendedor"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="none" className="text-slate-400 focus:bg-slate-800">
+                        Nenhum vendedor
+                      </SelectItem>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id} className="text-slate-100 focus:bg-slate-800">
+                          {member.name} {member.email ? `(${member.email})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    O vendedor será copiado nos emails de cobrança desta empresa
+                  </p>
                 </div>
               </div>
 

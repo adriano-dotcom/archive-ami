@@ -20,11 +20,14 @@ interface EmailToSend {
     daysOverdue: number;
   }>;
   totalValue: number;
+  sellerEmail?: string;
+  sellerName?: string;
 }
 
 interface SendEmailsRequest {
   batchId: string;
   emails: EmailToSend[];
+  ccSeller?: boolean;
 }
 
 serve(async (req) => {
@@ -53,7 +56,7 @@ serve(async (req) => {
     const emailFrom = settings?.collection_email_from || 'Jacometo Seguros <jacometo@jacometo.com.br>';
     const emailBcc = settings?.collection_email_bcc || ['joao.pedro@jacometo.com.br'];
 
-    const { batchId, emails }: SendEmailsRequest = await req.json();
+    const { batchId, emails, ccSeller }: SendEmailsRequest = await req.json();
 
     if (!emails || emails.length === 0) {
       return new Response(
@@ -75,11 +78,18 @@ serve(async (req) => {
 
     for (const emailData of emails) {
       try {
+        // Build BCC list: always include configured BCC, optionally add seller
+        const bccList = [...emailBcc];
+        if (ccSeller && emailData.sellerEmail) {
+          bccList.push(emailData.sellerEmail);
+          console.log(`Including seller ${emailData.sellerName} (${emailData.sellerEmail}) in BCC for ${emailData.email}`);
+        }
+
         // Send email via Resend with dynamic settings
         const emailResponse = await resend.emails.send({
           from: emailFrom,
           to: [emailData.email],
-          bcc: emailBcc,
+          bcc: bccList,
           subject: emailData.subject,
           html: emailData.bodyHtml,
         });

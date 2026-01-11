@@ -548,6 +548,7 @@ export type Database = {
           notes: string | null
           number: string | null
           razao_social: string
+          seller_id: string | null
           state: string | null
           street: string | null
           updated_at: string
@@ -567,6 +568,7 @@ export type Database = {
           notes?: string | null
           number?: string | null
           razao_social: string
+          seller_id?: string | null
           state?: string | null
           street?: string | null
           updated_at?: string
@@ -586,11 +588,20 @@ export type Database = {
           notes?: string | null
           number?: string | null
           razao_social?: string
+          seller_id?: string | null
           state?: string | null
           street?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
