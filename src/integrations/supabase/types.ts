@@ -2546,6 +2546,7 @@ export type Database = {
       cleanup_processed_message_queue: { Args: never; Returns: undefined }
       cleanup_processed_queues: { Args: never; Returns: undefined }
       delete_vault_secret: { Args: { secret_name: string }; Returns: boolean }
+      get_current_team_member_id: { Args: never; Returns: string }
       get_or_create_conversation_state: {
         Args: { p_conversation_id: string }
         Returns: {
