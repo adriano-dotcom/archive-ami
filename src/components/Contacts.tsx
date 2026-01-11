@@ -532,35 +532,37 @@ const Contacts: React.FC = () => {
           </div>
         )}
 
-        {/* Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 bg-slate-900/50 p-2 rounded-xl border border-slate-800">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="Buscar por nome, email, telefone, empresa ou CNPJ"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 placeholder:text-slate-600 transition-all"
-            />
+        {/* Search Bar - hidden on Segurados tab which has its own search */}
+        {activeTab !== 'segurados' && (
+          <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 bg-slate-900/50 p-2 rounded-xl border border-slate-800">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Buscar por nome, email, telefone, empresa ou CNPJ"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 placeholder:text-slate-600 transition-all"
+              />
+            </div>
+            
+            {/* Clear All Filters Button */}
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-slate-400 hover:text-cyan-400"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpar filtros
+              </Button>
+            )}
           </div>
-          
-          {/* Clear All Filters Button */}
-          {hasActiveFilters && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={clearAllFilters}
-              className="text-slate-400 hover:text-cyan-400"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Limpar filtros
-            </Button>
-          )}
-        </div>
+        )}
 
-        {/* Active Filter Chips */}
-        {hasActiveFilters && (
+        {/* Active Filter Chips - only for Inbound tab */}
+        {activeTab !== 'segurados' && hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="text-xs text-muted-foreground">Filtros ativos:</span>
             {selectedStatuses.map(status => {
