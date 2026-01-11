@@ -278,16 +278,42 @@ const Contacts: React.FC = () => {
     
     // Filtrar por termo de busca (incluindo campanha e responsável)
     if (searchTerm) {
-      const search = searchTerm.toLowerCase();
+      const lowerSearch = searchTerm.toLowerCase();
+      // Normalizar busca: remover caracteres não-numéricos para CNPJ/CPF/Telefone
+      const normalizedSearch = searchTerm.replace(/\D/g, '');
+      
       filtered = filtered.filter(contact => {
         const extContact = contact as ExtendedContact;
-        return contact.name.toLowerCase().includes(search) ||
-          contact.email?.toLowerCase().includes(search) ||
-          contact.phone?.includes(search) ||
-          contact.company?.toLowerCase().includes(search) ||
-          contact.cnpj?.includes(search) ||
-          extContact.campaign?.toLowerCase().includes(search) ||
-          extContact.campaign?.toLowerCase().includes(search);
+        
+        // Busca por nome (parcial, case-insensitive)
+        const matchesName = contact.name?.toLowerCase().includes(lowerSearch);
+        
+        // Busca por empresa (parcial, case-insensitive)
+        const matchesCompany = contact.company?.toLowerCase().includes(lowerSearch);
+        
+        // Busca por CNPJ normalizado (sem formatação)
+        const contactCnpjDigits = contact.cnpj?.replace(/\D/g, '') || '';
+        const matchesCnpj = normalizedSearch.length > 0 && 
+          contactCnpjDigits.includes(normalizedSearch);
+        
+        // Busca por CPF normalizado (sem formatação)
+        const contactCpfDigits = (contact as any).cpf?.replace(/\D/g, '') || '';
+        const matchesCpf = normalizedSearch.length > 0 && 
+          contactCpfDigits.includes(normalizedSearch);
+        
+        // Busca por email
+        const matchesEmail = contact.email?.toLowerCase().includes(lowerSearch);
+        
+        // Busca por telefone (numérico normalizado)
+        const contactPhoneDigits = contact.phone?.replace(/\D/g, '') || '';
+        const matchesPhone = contact.phone?.includes(lowerSearch) ||
+          (normalizedSearch.length > 0 && contactPhoneDigits.includes(normalizedSearch));
+        
+        // Busca por campanha
+        const matchesCampaign = extContact.campaign?.toLowerCase().includes(lowerSearch);
+        
+        return matchesName || matchesCompany || matchesCnpj || matchesCpf || 
+               matchesEmail || matchesPhone || matchesCampaign;
       });
     }
     
