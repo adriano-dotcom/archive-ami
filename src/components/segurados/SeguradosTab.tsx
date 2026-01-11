@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { ImportCompaniesWithContactsModal } from './ImportCompaniesWithContactsM
 import { ImportDocumentAIModal } from './ImportDocumentAIModal';
 import { CompanyDetailsDrawer } from './CompanyDetailsDrawer';
 import { MergeCompaniesModal } from './MergeCompaniesModal';
+import { DuplicateCompaniesReportModal } from './DuplicateCompaniesReportModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -68,6 +69,7 @@ export const SeguradosTab: React.FC = () => {
   const [showImportCompaniesWithContacts, setShowImportCompaniesWithContacts] = useState(false);
   const [showImportDocumentAI, setShowImportDocumentAI] = useState(false);
   const [showMergeCompanies, setShowMergeCompanies] = useState(false);
+  const [showDuplicatesReport, setShowDuplicatesReport] = useState(false);
   
   // Filters for Companies (PJ)
   const [stateFilterPJ, setStateFilterPJ] = useState<string>('all');
@@ -949,12 +951,23 @@ export const SeguradosTab: React.FC = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setShowDuplicatesReport(true)}
+              disabled={companies.length < 2}
+              className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 gap-2"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Duplicatas
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setShowMergeCompanies(true)}
               disabled={companies.length < 2}
               className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 gap-2"
             >
               <GitMerge className="w-4 h-4" />
-              Mesclar Duplicadas
+              Mesclar
             </Button>
             
             {selectedCompanyIds.length > 0 && (
@@ -1208,6 +1221,13 @@ export const SeguradosTab: React.FC = () => {
         open={showMergeCompanies}
         companies={companies}
         onOpenChange={setShowMergeCompanies}
+        onSuccess={loadData}
+      />
+
+      <DuplicateCompaniesReportModal
+        open={showDuplicatesReport}
+        companies={companies}
+        onOpenChange={setShowDuplicatesReport}
         onSuccess={loadData}
       />
     </div>
