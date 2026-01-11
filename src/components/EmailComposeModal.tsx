@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { ClientMemory } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import DOMPurify from 'dompurify';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface EmailTemplate {
   id: string;
@@ -488,76 +490,102 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
             </div>
           )}
 
-          {/* AI Assistant Section - Apenas para emails do dia a dia (não cobrança) */}
+          {/* AI Assistant Section - Email de Cobrança com IA */}
           {!collectionContext && (
-            <div className="bg-gradient-to-br from-violet-900/30 to-purple-900/20 border border-violet-500/30 rounded-xl p-4 space-y-3">
+            <div className="bg-gradient-to-br from-violet-900/30 to-purple-900/20 border border-violet-500/30 rounded-xl overflow-hidden">
               <button
                 onClick={() => setShowAIAssistant(!showAIAssistant)}
-                className="w-full flex items-center justify-between text-left"
+                className="w-full flex items-center justify-between text-left p-4 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-violet-400" />
-                  <span className="font-semibold text-white">Assistente de Copywriting</span>
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-white block">Email de Cobrança com IA</span>
+                    <span className="text-xs text-slate-400">Gere emails personalizados com tom adequado</span>
+                  </div>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showAIAssistant ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${showAIAssistant ? 'rotate-180' : ''}`} />
               </button>
               
               {showAIAssistant && (
-                <div className="space-y-3 pt-2">
-                  {/* Email Type Selector */}
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 uppercase tracking-wide mb-1.5 block">
-                      Tipo de Email
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={selectedEmailType}
-                        onChange={(e) => setSelectedEmailType(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white appearance-none focus:ring-1 focus:ring-violet-500 outline-none cursor-pointer"
-                      >
-                        {EMAIL_TYPES.filter(type => type.value !== 'cobranca').map(type => (
-                          <option key={type.value} value={type.value}>
-                            {type.icon} {type.label}
-                          </option>
+                <div className="px-4 pb-4 space-y-4 border-t border-white/10 pt-4">
+                  {/* Email Type Selector with Shadcn Select */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-300 flex items-center gap-2">
+                      <span>Tom da Mensagem</span>
+                    </Label>
+                    <Select value={selectedEmailType} onValueChange={setSelectedEmailType}>
+                      <SelectTrigger className="w-full bg-slate-800/50 border-slate-700 h-auto py-3 hover:bg-slate-800/70 transition-colors">
+                        <SelectValue>
+                          {(() => {
+                            const selected = EMAIL_TYPES.find(t => t.value === selectedEmailType);
+                            return selected ? (
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl">{selected.icon}</span>
+                                <div className="flex flex-col items-start">
+                                  <span className="font-medium text-white">{selected.label}</span>
+                                  <span className="text-xs text-slate-400">{selected.description}</span>
+                                </div>
+                              </div>
+                            ) : 'Selecione o tom';
+                          })()}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        {EMAIL_TYPES.map(type => (
+                          <SelectItem 
+                            key={type.value} 
+                            value={type.value}
+                            className="py-3 cursor-pointer focus:bg-violet-500/20 data-[state=checked]:bg-violet-500/20"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-xl">{type.icon}</span>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-white">{type.label}</span>
+                                <span className="text-xs text-slate-400">{type.description}</span>
+                              </div>
+                            </div>
+                          </SelectItem>
                         ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
-                  {/* Custom Context */}
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 uppercase tracking-wide mb-1.5 block">
-                      Contexto Adicional (opcional)
-                    </label>
-                    <input
-                      type="text"
+                  {/* Custom Context with Textarea */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-300">
+                      Contexto Adicional <span className="text-slate-500">(opcional)</span>
+                    </Label>
+                    <textarea
                       value={customContext}
                       onChange={(e) => setCustomContext(e.target.value)}
-                      placeholder="Ex: Mencionar que ele tem frota própria..."
-                      className="w-full px-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:ring-1 focus:ring-violet-500 outline-none"
+                      placeholder="Ex: Cliente antigo, sempre pagou em dia. Está passando por dificuldades temporárias..."
+                      className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none resize-none transition-all"
+                      rows={2}
                     />
                   </div>
                   
                   {/* Lead Data Preview */}
                   {(getLeadDataPreview().length > 0 || qualificationScore > 0) && (
-                    <div className="bg-slate-800/50 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase">
+                    <div className="bg-slate-800/30 rounded-lg p-3 space-y-2 border border-slate-700/50">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         <User className="w-3.5 h-3.5" />
                         Dados do Lead (detectados)
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {getLeadDataPreview().map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 bg-slate-700/50 px-2 py-1 rounded text-xs">
-                            <span className="text-slate-400">{item.icon}</span>
+                          <div key={idx} className="flex items-center gap-1.5 bg-slate-700/50 px-2.5 py-1.5 rounded-md text-xs border border-slate-600/50">
+                            <span className="text-violet-400">{item.icon}</span>
                             <span className="text-slate-300">{item.value}</span>
                           </div>
                         ))}
                         {qualificationScore > 0 && (
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${
-                            qualificationScore >= 70 ? 'bg-emerald-500/20 text-emerald-400' :
-                            qualificationScore >= 40 ? 'bg-amber-500/20 text-amber-400' :
-                            'bg-slate-700/50 text-slate-400'
+                          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border ${
+                            qualificationScore >= 70 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                            qualificationScore >= 40 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                            'bg-slate-700/50 text-slate-400 border-slate-600/50'
                           }`}>
                             <TrendingUp className="w-3.5 h-3.5" />
                             <span>{qualificationScore}%</span>
@@ -571,17 +599,17 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
                   <Button
                     onClick={handleGenerateWithAI}
                     disabled={generatingAI}
-                    className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
+                    className="w-full h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-medium shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40"
                   >
                     {generatingAI ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Gerando...
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Gerando email com IA...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Gerar Email Personalizado
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Gerar Email com IA
                       </>
                     )}
                   </Button>
