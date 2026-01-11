@@ -1003,7 +1003,58 @@ async function processIncomingMessage(
     .update({ last_message_at: new Date().toISOString() })
     .eq('id', conversation.id);
 
-  // 6. If conversation is handled by Nina, queue for AI processing with debounce delay
+  // 6. Check if conversation should be reactivated for AI (template was sent recently)
+  // This covers cases where a template was sent but conversation wasn't properly set to 'nina'
+  if (conversation.status !== 'nina') {
+    console.log('[Webhook] Conversation not in nina status, checking for recent template...');
+    
+    // Check if there was a template sent recently (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentTemplateMsg } = await supabase
+      .from('messages')
+      .select('id, metadata, created_at')
+      .eq('conversation_id', conversation.id)
+      .eq('from_type', 'nina')
+      .gte('created_at', sevenDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    // Check if any message has is_template = true in metadata
+    const templateMessage = recentTemplateMsg?.find((m: any) => m.metadata?.is_template === true);
+    
+    if (templateMessage) {
+      console.log('[Webhook] Found recent template message, reactivating AI with Omega agent...');
+      
+      // Get Omega agent for handling template responses
+      const { data: omegaAgent } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('slug', 'omega')
+        .maybeSingle();
+      
+      // Reactivate conversation with AI
+      const { error: reactivateError } = await supabase
+        .from('conversations')
+        .update({
+          status: 'nina',
+          is_active: true,
+          current_agent_id: omegaAgent?.id || null
+        })
+        .eq('id', conversation.id);
+      
+      if (!reactivateError) {
+        // Update local conversation object so the queue logic below works
+        conversation.status = 'nina';
+        console.log('[Webhook] ✅ Conversation reactivated with Omega agent for template response');
+      } else {
+        console.error('[Webhook] Error reactivating conversation:', reactivateError);
+      }
+    } else {
+      console.log('[Webhook] No recent template found, keeping conversation in', conversation.status, 'status');
+    }
+  }
+
+  // 7. If conversation is handled by Nina, queue for AI processing with debounce delay
   if (conversation.status === 'nina') {
     // Debounce: schedule processing for 15 seconds in the future
     // This allows multiple rapid messages to be aggregated before AI responds

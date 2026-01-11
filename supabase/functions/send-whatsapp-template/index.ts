@@ -225,11 +225,12 @@ serve(async (req) => {
       // Don't fail the request, message was sent
     }
 
-    // If this is a prospecting template, mark conversation and create/update deal
+    // ALWAYS activate AI agent after sending a template
+    // This ensures when the user replies, the AI will respond
     if (is_prospecting) {
-      console.log('Marking conversation as prospecting...');
+      console.log('Marking conversation as prospecting with Atlas agent...');
       
-      // Get Atlas agent
+      // Get Atlas agent for prospecting
       const { data: atlasAgent } = await supabase
         .from('agents')
         .select('id')
@@ -257,6 +258,7 @@ serve(async (req) => {
           .from('conversations')
           .update({
             status: 'nina',
+            is_active: true,
             current_agent_id: atlasAgent?.id || null,
             metadata: {
               origin: 'prospeccao',
@@ -266,6 +268,8 @@ serve(async (req) => {
             }
           })
           .eq('id', conversation_id);
+        
+        console.log('Conversation activated with Atlas agent (prospecting)');
 
         // Check if deal exists for this contact, if not create one
         const { data: existingDeal } = await supabase
@@ -297,6 +301,39 @@ serve(async (req) => {
             .eq('id', existingDeal.id);
           console.log('Updated deal to Prospecção pipeline');
         }
+      }
+    } else {
+      // For non-prospecting templates (collections, general outreach, etc.)
+      // Activate Omega agent to handle responses
+      console.log('Activating Omega agent for template response handling...');
+      
+      // Get Omega agent (default collection/general handler)
+      const { data: omegaAgent } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('slug', 'omega')
+        .maybeSingle();
+
+      // Update conversation to activate AI with Omega agent
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update({
+          status: 'nina',
+          is_active: true,
+          current_agent_id: omegaAgent?.id || null,
+          metadata: {
+            template_sent: template_name,
+            template_sent_at: new Date().toISOString(),
+            activated_by: 'template_send',
+            agent_slug: 'omega'
+          }
+        })
+        .eq('id', conversation_id);
+      
+      if (updateError) {
+        console.error('Error activating conversation:', updateError);
+      } else {
+        console.log('Conversation activated with Omega agent for template response');
       }
     }
 
