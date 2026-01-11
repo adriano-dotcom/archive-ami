@@ -259,11 +259,7 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
       onSuccess();
     } catch (error: any) {
       console.error('Error updating segurado:', error);
-      if (error.code === '23505') {
-        toast.error('Este telefone já está cadastrado para outro contato');
-      } else {
-        toast.error('Erro ao atualizar segurado');
-      }
+      toast.error('Erro ao atualizar segurado');
     } finally {
       setLoading(false);
     }
