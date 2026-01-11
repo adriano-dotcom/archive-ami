@@ -242,11 +242,7 @@ export const CreateSeguradoPFModal: React.FC<CreateSeguradoPFModalProps> = ({
       onSuccess();
     } catch (error: any) {
       console.error('Error creating segurado PF:', error);
-      if (error.code === '23505') {
-        toast.error('Este telefone já está cadastrado');
-      } else {
-        toast.error('Erro ao cadastrar segurado');
-      }
+      toast.error('Erro ao cadastrar segurado');
     } finally {
       setLoading(false);
     }

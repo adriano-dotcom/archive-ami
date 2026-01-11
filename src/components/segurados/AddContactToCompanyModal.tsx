@@ -78,19 +78,7 @@ export const AddContactToCompanyModal: React.FC<AddContactToCompanyModalProps> =
       const phoneDigits = formData.phone.replace(/\D/g, '');
       const phoneNumber = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`;
 
-      // Check if phone already exists
-      const { data: existing } = await supabase
-        .from('contacts')
-        .select('id, name')
-        .eq('phone_number', phoneNumber)
-        .maybeSingle();
-
-      if (existing) {
-        toast.error(`Telefone já cadastrado para: ${existing.name || 'Contato sem nome'}`);
-        setLoading(false);
-        return;
-      }
-
+      // Telefone duplicado permitido - um segurado pode ter múltiplas empresas
       const { error } = await supabase
         .from('contacts')
         .insert({

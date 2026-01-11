@@ -314,11 +314,7 @@ const CreateContactModal: React.FC<CreateContactModalProps> = ({
       onSuccess();
     } catch (error: any) {
       console.error('Error creating contact:', error);
-      if (error.code === '23505') {
-        toast.error('Este telefone já está cadastrado');
-      } else {
-        toast.error('Erro ao criar contato');
-      }
+      toast.error('Erro ao criar contato');
     } finally {
       setLoading(false);
     }
