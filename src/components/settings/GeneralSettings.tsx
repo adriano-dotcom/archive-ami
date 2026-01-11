@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Volume2, VolumeX, Facebook, MessageSquare, Mail, Pencil, Search } from 'lucide-react';
+import { Bell, Volume2, VolumeX, Facebook, MessageSquare, Mail, Pencil, Search, Receipt } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from '@/utils/notificationSound';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,11 @@ const GeneralSettings: React.FC = () => {
   // Editor modal states
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<FullEmailTemplate | null>(null);
+  
+  // Collection email settings
+  const [collectionEmailFrom, setCollectionEmailFrom] = useState('');
+  const [collectionEmailBcc, setCollectionEmailBcc] = useState('');
+  const [savingCollectionEmail, setSavingCollectionEmail] = useState(false);
 
   useEffect(() => {
     setSoundEnabled(isNotificationSoundEnabled());
@@ -53,7 +59,7 @@ const GeneralSettings: React.FC = () => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('nina_settings')
-      .select('facebook_lead_template, facebook_lead_email_template, google_lead_template, google_lead_email_template, facebook_whatsapp_enabled, facebook_email_enabled, google_whatsapp_enabled, google_email_enabled')
+      .select('facebook_lead_template, facebook_lead_email_template, google_lead_template, google_lead_email_template, facebook_whatsapp_enabled, facebook_email_enabled, google_whatsapp_enabled, google_email_enabled, collection_email_from, collection_email_bcc')
       .single();
     
     if (data?.facebook_lead_template) {
@@ -78,6 +84,14 @@ const GeneralSettings: React.FC = () => {
     setFacebookEmailEnabled(data?.facebook_email_enabled ?? true);
     setGoogleWhatsappEnabled(data?.google_whatsapp_enabled ?? true);
     setGoogleEmailEnabled(data?.google_email_enabled ?? true);
+    
+    // Load collection email settings
+    if (data?.collection_email_from) {
+      setCollectionEmailFrom(data.collection_email_from);
+    }
+    if (data?.collection_email_bcc) {
+      setCollectionEmailBcc((data.collection_email_bcc as string[]).join(', '));
+    }
   };
 
   const fetchTemplates = async () => {
@@ -173,6 +187,32 @@ const GeneralSettings: React.FC = () => {
       toast.error('Erro ao salvar configurações');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveCollectionEmailSettings = async () => {
+    setSavingCollectionEmail(true);
+    try {
+      const bccArray = collectionEmailBcc
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0);
+      
+      const { error } = await supabase
+        .from('nina_settings')
+        .update({
+          collection_email_from: collectionEmailFrom || null,
+          collection_email_bcc: bccArray.length > 0 ? bccArray : null
+        })
+        .not('id', 'is', null);
+      
+      if (error) throw error;
+      toast.success('Configurações de email de cobrança salvas');
+    } catch (error) {
+      console.error('Error saving collection email settings:', error);
+      toast.error('Erro ao salvar configurações');
+    } finally {
+      setSavingCollectionEmail(false);
     }
   };
 
@@ -533,6 +573,59 @@ const GeneralSettings: React.FC = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               {saving ? 'Salvando...' : 'Salvar Configurações'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Configurações de Email de Cobrança */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Receipt className="w-5 h-5 text-amber-400" />
+          Configurações de Email de Cobrança
+        </h3>
+        
+        <div className="space-y-4">
+          {/* Email Remetente */}
+          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+            <Label className="text-sm font-medium text-white">
+              Email Remetente
+            </Label>
+            <p className="text-xs text-slate-400 mt-0.5 mb-2">
+              Formato: Nome Empresa &lt;email@dominio.com&gt;
+            </p>
+            <Input
+              value={collectionEmailFrom}
+              onChange={(e) => setCollectionEmailFrom(e.target.value)}
+              placeholder="Jacometo Seguros <jacometo@jacometo.com.br>"
+              className="bg-slate-900/50 border-slate-700"
+            />
+          </div>
+          
+          {/* Emails BCC */}
+          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+            <Label className="text-sm font-medium text-white">
+              Cópia Oculta (BCC)
+            </Label>
+            <p className="text-xs text-slate-400 mt-0.5 mb-2">
+              Emails que receberão cópia de toda cobrança enviada (separar por vírgula)
+            </p>
+            <Input
+              value={collectionEmailBcc}
+              onChange={(e) => setCollectionEmailBcc(e.target.value)}
+              placeholder="joao.pedro@jacometo.com.br, outro@email.com"
+              className="bg-slate-900/50 border-slate-700"
+            />
+          </div>
+          
+          {/* Botão Salvar */}
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={handleSaveCollectionEmailSettings}
+              disabled={savingCollectionEmail}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {savingCollectionEmail ? 'Salvando...' : 'Salvar Configurações'}
             </Button>
           </div>
         </div>
