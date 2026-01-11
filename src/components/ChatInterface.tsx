@@ -6,7 +6,7 @@ import {
   Smile, Loader2, Mic, MessageSquare, Info, X, Mail, MapPin, 
   Tag, User, Pause, Brain, Plus, Building2, FileText, Save, Pencil, FileType,
   Briefcase, ExternalLink, Inbox, Archive, ArchiveRestore, PhoneCall, Clock, AlertTriangle,
-  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye
+  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -48,6 +48,7 @@ import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
 import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview } from './chat';
 import { EmailComposeModal } from './EmailComposeModal';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface AgentQuestion {
   order: number;
@@ -161,6 +162,25 @@ const ChatInterface: React.FC = () => {
   };
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
+  const queryClient = useQueryClient();
+  
+  // Query for emails sent count
+  const { data: emailsSentCount } = useQuery({
+    queryKey: ['contact-emails-count', activeChat?.contactId],
+    queryFn: async () => {
+      if (!activeChat?.contactId) return 0;
+      
+      const { count, error } = await supabase
+        .from('collection_email_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('contact_id', activeChat.contactId)
+        .eq('status', 'sent');
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!activeChat?.contactId,
+  });
   
   // Nina processing status for typing indicator
   const { isAggregating, isProcessing, agentName } = useNinaProcessingStatus(selectedChatId);
@@ -2042,7 +2062,7 @@ const ChatInterface: React.FC = () => {
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : activeChat.contactEmail ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-cyan-400 font-medium">{activeChat.contactEmail}</span>
                           <button
                             onClick={() => setShowEmailModal(true)}
@@ -2057,6 +2077,17 @@ const ChatInterface: React.FC = () => {
                             <Send className="w-3 h-3" />
                             Enviar
                           </button>
+                          {emailsSentCount !== undefined && emailsSentCount > 0 && (
+                            <span 
+                              className="flex items-center gap-1 px-2 py-0.5 
+                                         bg-emerald-500/20 border border-emerald-500/30 
+                                         rounded-full text-emerald-400 text-xs"
+                              title={`${emailsSentCount} email(s) já enviado(s) para este contato`}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              {emailsSentCount}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-500 italic">Não informado</span>
@@ -2488,6 +2519,7 @@ const ChatInterface: React.FC = () => {
           ).join('\n')}
           onEmailSent={() => {
             toast.success('Email enviado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['contact-emails-count', activeChat?.contactId] });
             setShowEmailModal(false);
           }}
         />
