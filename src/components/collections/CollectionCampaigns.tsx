@@ -11,13 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail } from 'lucide-react';
+import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail, RefreshCw, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 interface CollectionBatch {
   id: string;
@@ -197,6 +199,96 @@ export const CollectionCampaigns: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collection-batches'] });
       toast.success('Campanha pausada');
+    }
+  });
+
+  // Query for failed attempts of selected campaign
+  const { data: failedAttempts } = useQuery({
+    queryKey: ['campaign-failed-attempts', selectedCampaign?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('collection_attempts')
+        .select(`
+          id,
+          contact_id,
+          installment_id,
+          error_message,
+          created_at,
+          contact:contacts(name, phone_number)
+        `)
+        .eq('batch_id', selectedCampaign!.id)
+        .eq('status', 'failed');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCampaign && isDetailsOpen && selectedCampaign.failed_count > 0
+  });
+
+  // Mutation for retrying failed sends
+  const retryFailedMutation = useMutation({
+    mutationFn: async (campaign: CollectionBatch) => {
+      // 1. Fetch failed attempts for this campaign
+      const { data: failedAttemptsData, error } = await supabase
+        .from('collection_attempts')
+        .select('installment_id, contact_id')
+        .eq('batch_id', campaign.id)
+        .eq('status', 'failed');
+
+      if (error) throw error;
+      if (!failedAttemptsData || failedAttemptsData.length === 0) {
+        throw new Error('Nenhuma tentativa com falha encontrada');
+      }
+
+      // 2. Extract unique installment IDs
+      const installmentIds = [...new Set(
+        failedAttemptsData
+          .map(a => a.installment_id)
+          .filter(Boolean)
+      )] as string[];
+
+      // 3. Create retry batch (related to original)
+      const { data: retryBatch, error: batchError } = await supabase
+        .from('collection_batches')
+        .insert({
+          name: `${campaign.name} - Retry`,
+          description: `Reenvio de ${failedAttemptsData.length} falhas do batch original`,
+          channel: campaign.channel,
+          template_name: campaign.template_name,
+          total_count: installmentIds.length,
+          status: 'processing',
+          filters: { parent_batch_id: campaign.id, retry: true }
+        })
+        .select()
+        .single();
+
+      if (batchError) throw batchError;
+
+      // 4. Call edge function for resend
+      const { data, error: sendError } = await supabase.functions.invoke(
+        'send-collection-whatsapp',
+        {
+          body: {
+            batch_id: retryBatch.id,
+            template_name: campaign.template_name,
+            installment_ids: installmentIds,
+            delay_between_ms: 2000
+          }
+        }
+      );
+
+      if (sendError) throw sendError;
+      return { retryBatch, result: data };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['collection-batches'] });
+      toast.success(
+        `Reenvio iniciado! ${data.result?.sent || 0} enviados, ${data.result?.failed || 0} falhas.`
+      );
+      setIsDetailsOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao reenviar: ${error.message}`);
     }
   });
 
@@ -642,6 +734,62 @@ export const CollectionCampaigns: React.FC = () => {
                   <span className="text-sm text-emerald-300">
                     {selectedCampaign.delivered_count} mensagens entregues
                   </span>
+                </div>
+              )}
+
+              {/* Retry Failed Section */}
+              {selectedCampaign.failed_count > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span className="text-sm text-rose-300 flex-1">
+                      {selectedCampaign.failed_count} envios falharam
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (selectedCampaign) {
+                          retryFailedMutation.mutate(selectedCampaign);
+                        }
+                      }}
+                      disabled={retryFailedMutation.isPending}
+                      className="bg-rose-600 hover:bg-rose-700 gap-2"
+                    >
+                      <RefreshCw className={cn(
+                        "w-4 h-4",
+                        retryFailedMutation.isPending && "animate-spin"
+                      )} />
+                      Reenviar Falhas
+                    </Button>
+                  </div>
+                  
+                  {/* Expandable error list */}
+                  {failedAttempts && failedAttempts.length > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors">
+                        <ChevronDown className="w-4 h-4" />
+                        Ver detalhes das falhas ({failedAttempts.length})
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                        {failedAttempts.map((attempt) => {
+                          const contact = Array.isArray(attempt.contact) ? attempt.contact[0] : attempt.contact;
+                          return (
+                            <div 
+                              key={attempt.id} 
+                              className="p-2 rounded bg-slate-800/50 text-xs"
+                            >
+                              <div className="font-medium text-slate-300">
+                                {contact?.name || 'Contato desconhecido'}
+                              </div>
+                              <div className="text-rose-400 mt-1">
+                                {attempt.error_message || 'Erro desconhecido'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
                 </div>
               )}
             </div>
