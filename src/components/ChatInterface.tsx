@@ -2072,7 +2072,7 @@ const ChatInterface: React.FC = () => {
                                        text-cyan-400 text-xs font-medium
                                        hover:from-cyan-500/30 hover:to-blue-500/30 
                                        hover:border-cyan-400/60 transition-all"
-                            title="Enviar email de cobrança"
+                            title="Enviar email"
                           >
                             <Send className="w-3 h-3" />
                             Enviar
