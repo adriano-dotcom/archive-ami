@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Mail } from 'lucide-react';
+import { Mail, Phone, UserCog, Trash2, Plus } from 'lucide-react';
 import { UserPlus, Search, MoreVertical, Loader2, X, Check, ChevronDown, Edit2, Shield, Users, Briefcase, Settings } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
@@ -8,13 +8,25 @@ import { supabase } from '@/integrations/supabase/client';
 import TeamConfigModal from './TeamConfigModal';
 import { toast } from 'sonner';
 
+interface Seller {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  is_active: boolean;
+}
+
 const Team: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teams, setTeams] = useState<TeamType[]>([]);
   const [functions, setFunctions] = useState<TeamFunction[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showSellerForm, setShowSellerForm] = useState(false);
+  const [editingSeller, setEditingSeller] = useState<Seller | null>(null);
+  const [sellerForm, setSellerForm] = useState({ name: '', email: '', phone: '' });
   const [formData, setFormData] = useState({ 
     name: '', 
     email: '', 
@@ -33,14 +45,16 @@ const Team: React.FC = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [membersData, teamsData, functionsData] = await Promise.all([
+      const [membersData, teamsData, functionsData, sellersData] = await Promise.all([
         api.fetchTeam(),
         api.fetchTeams(),
-        api.fetchTeamFunctions()
+        api.fetchTeamFunctions(),
+        api.fetchSellers()
       ]);
       setMembers(membersData);
       setTeams(teamsData);
       setFunctions(functionsData);
+      setSellers(sellersData);
     } catch (error) {
       console.error("Erro ao carregar dados da equipe", error);
     } finally {
@@ -56,8 +70,16 @@ const Team: React.FC = () => {
       })
       .subscribe();
 
+    const sellersChannel = supabase
+      .channel('sellers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sellers' }, () => {
+        loadAllData();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(sellersChannel);
     };
   };
 
@@ -178,12 +200,79 @@ const Team: React.FC = () => {
     }
   };
 
-  // Mock data calculations
+  // Seller handlers
+  const handleCreateSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createSeller({
+        name: sellerForm.name,
+        email: sellerForm.email,
+        phone: sellerForm.phone || null
+      });
+      toast.success('Vendedor criado com sucesso!');
+      setSellerForm({ name: '', email: '', phone: '' });
+      setShowSellerForm(false);
+      await loadAllData();
+    } catch (error) {
+      console.error('Erro ao criar vendedor:', error);
+      toast.error('Erro ao criar vendedor');
+    }
+  };
+
+  const handleUpdateSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSeller) return;
+    try {
+      await api.updateSeller(editingSeller.id, {
+        name: sellerForm.name,
+        email: sellerForm.email,
+        phone: sellerForm.phone || null
+      });
+      toast.success('Vendedor atualizado com sucesso!');
+      setEditingSeller(null);
+      setSellerForm({ name: '', email: '', phone: '' });
+      await loadAllData();
+    } catch (error) {
+      console.error('Erro ao atualizar vendedor:', error);
+      toast.error('Erro ao atualizar vendedor');
+    }
+  };
+
+  const handleDeleteSeller = async (seller: Seller) => {
+    if (!confirm(`Tem certeza que deseja excluir o vendedor "${seller.name}"?`)) return;
+    try {
+      await api.deleteSeller(seller.id);
+      toast.success('Vendedor excluído com sucesso!');
+      await loadAllData();
+    } catch (error) {
+      console.error('Erro ao excluir vendedor:', error);
+      toast.error('Erro ao excluir vendedor');
+    }
+  };
+
+  const startEditSeller = (seller: Seller) => {
+    setEditingSeller(seller);
+    setSellerForm({
+      name: seller.name,
+      email: seller.email,
+      phone: seller.phone || ''
+    });
+    setShowSellerForm(false);
+  };
+
+  const cancelSellerEdit = () => {
+    setEditingSeller(null);
+    setShowSellerForm(false);
+    setSellerForm({ name: '', email: '', phone: '' });
+  };
+
+  // Stats calculations
   const stats = {
     total: members.length,
     admins: members.filter(m => m.role === 'admin').length,
     members: members.filter(m => m.role !== 'admin').length,
-    teams: 3 // Mocked active teams
+    teams: teams.length,
+    sellers: sellers.length
   };
 
   return (
@@ -207,7 +296,7 @@ const Team: React.FC = () => {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
             <div className="text-sm font-medium text-slate-400 mb-2">Total de Usuários</div>
             <div className="text-3xl font-bold text-white">{loading ? '-' : stats.total}</div>
@@ -222,7 +311,11 @@ const Team: React.FC = () => {
         </div>
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
             <div className="text-sm font-medium text-slate-400 mb-2">Times Ativos</div>
-            <div className="text-3xl font-bold text-white">{stats.teams}</div>
+            <div className="text-3xl font-bold text-white">{loading ? '-' : stats.teams}</div>
+        </div>
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div className="text-sm font-medium text-slate-400 mb-2">Vendedores</div>
+            <div className="text-3xl font-bold text-white">{loading ? '-' : stats.sellers}</div>
         </div>
       </div>
 
@@ -378,6 +471,156 @@ const Team: React.FC = () => {
                 </table>
             </div>
         )}
+      </div>
+
+      {/* Sellers Section */}
+      <div className="bg-slate-900/30 border border-slate-800 rounded-xl overflow-hidden shadow-xl mt-8">
+        <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <UserCog className="w-5 h-5 text-cyan-500" />
+              Vendedores
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Gerencie os vendedores responsáveis pelas empresas</p>
+          </div>
+          <Button 
+            onClick={() => {
+              setShowSellerForm(true);
+              setEditingSeller(null);
+              setSellerForm({ name: '', email: '', phone: '' });
+            }}
+            className="bg-cyan-600 hover:bg-cyan-500 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Vendedor
+          </Button>
+        </div>
+
+        {/* Seller Form (Inline) */}
+        {(showSellerForm || editingSeller) && (
+          <div className="p-6 border-b border-slate-800 bg-slate-900/50">
+            <form onSubmit={editingSeller ? handleUpdateSeller : handleCreateSeller} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">Nome</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Nome do vendedor"
+                    value={sellerForm.name}
+                    onChange={(e) => setSellerForm({ ...sellerForm, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">Email</label>
+                  <input
+                    required
+                    type="email"
+                    placeholder="email@empresa.com"
+                    value={sellerForm.email}
+                    onChange={(e) => setSellerForm({ ...sellerForm, email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">Telefone</label>
+                  <input
+                    type="tel"
+                    placeholder="+55 11 99999-9999"
+                    value={sellerForm.phone}
+                    onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button type="button" variant="ghost" onClick={cancelSellerEdit} className="border border-slate-700 hover:bg-slate-800">
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-white text-black hover:bg-slate-200">
+                  {editingSeller ? 'Salvar Alterações' : 'Criar Vendedor'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Sellers Grid */}
+        <div className="p-6">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-cyan-500 mb-3" />
+              <span className="text-sm text-slate-400">Carregando vendedores...</span>
+            </div>
+          ) : sellers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <UserCog className="w-12 h-12 text-slate-600 mb-4" />
+              <p className="text-slate-400 mb-4">Nenhum vendedor cadastrado ainda.</p>
+              <Button 
+                onClick={() => {
+                  setShowSellerForm(true);
+                  setSellerForm({ name: '', email: '', phone: '' });
+                }}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Primeiro Vendedor
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sellers.map((seller) => (
+                <div 
+                  key={seller.id} 
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-600 to-cyan-800 flex items-center justify-center text-lg font-bold text-white uppercase shadow-lg">
+                        {seller.name.substring(0, 2)}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-white">{seller.name}</h4>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${seller.is_active ? 'bg-emerald-900/50 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>
+                          {seller.is_active ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => startEditSeller(seller)}
+                        className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-cyan-400 transition-colors"
+                        title="Editar"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSeller(seller)}
+                        className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Mail className="w-4 h-4 text-slate-500" />
+                      <span className="truncate">{seller.email}</span>
+                    </div>
+                    {seller.phone && (
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Phone className="w-4 h-4 text-slate-500" />
+                        <span>{seller.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Invite Modal */}
