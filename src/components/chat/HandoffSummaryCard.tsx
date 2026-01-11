@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList, CheckCircle2, HelpCircle, Building2, MapPin, Truck, Package, FileCheck, Receipt, DollarSign } from 'lucide-react';
+import { ClipboardList, CheckCircle2, HelpCircle, Building2, MapPin, Truck, Package, FileCheck, Receipt, DollarSign, Mail } from 'lucide-react';
 import { Json } from '@/integrations/supabase/types';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,9 +29,11 @@ interface HandoffSummaryCardProps {
   ninaContext: Json | null;
   agentSlug?: string | null;
   contactId?: string | null;
+  contactEmail?: string | null;
+  onOpenEmailModal?: () => void;
 }
 
-export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaContext, agentSlug, contactId }) => {
+export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaContext, agentSlug, contactId, contactEmail, onOpenEmailModal }) => {
   // Fetch pending installments summary
   const { data: installmentsSummary } = useQuery({
     queryKey: ['contact-installments-summary', contactId],
@@ -173,6 +175,22 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
                 </p>
               </div>
             </div>
+
+            {/* Botão Enviar Email de Cobrança */}
+            {contactEmail && onOpenEmailModal && (
+              <button
+                onClick={onOpenEmailModal}
+                className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 
+                           bg-gradient-to-r from-cyan-500/20 to-blue-500/20 
+                           border border-cyan-500/30 rounded-lg 
+                           text-cyan-400 text-sm font-medium 
+                           hover:from-cyan-500/30 hover:to-blue-500/30 
+                           hover:border-cyan-400/50 transition-all"
+              >
+                <Mail className="w-4 h-4" />
+                Enviar Email de Cobrança
+              </button>
+            )}
           </>
         )}
       </div>

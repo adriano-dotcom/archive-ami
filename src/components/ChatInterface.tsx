@@ -2159,6 +2159,8 @@ const ChatInterface: React.FC = () => {
                   ninaContext={activeChat.ninaContext} 
                   agentSlug={activeChat.agentSlug}
                   contactId={activeChat.contactId}
+                  contactEmail={activeChat.contactEmail}
+                  onOpenEmailModal={() => setShowEmailModal(true)}
                 />
 
                 <div className="h-px bg-slate-800/50 w-full"></div>
