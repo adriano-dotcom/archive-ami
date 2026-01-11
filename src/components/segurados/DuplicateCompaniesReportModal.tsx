@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertTriangle, GitMerge, Building2, Users, FileText, Loader2, RefreshCw, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { MergeCompaniesModal } from './MergeCompaniesModal';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertTriangle, GitMerge, Building2, Users, FileText, Loader2, CheckCircle, ChevronDown, ChevronUp, Check, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Company {
   id: string;
@@ -26,6 +29,11 @@ interface DuplicateGroup {
   companies: Company[];
   similarityScore: number;
   matchField: 'razao_social' | 'nome_fantasia' | 'both';
+}
+
+interface GroupSelection {
+  destinationId: string | null;
+  sourceIds: Set<string>;
 }
 
 interface DuplicateCompaniesReportModalProps {
@@ -52,9 +60,9 @@ const levenshteinDistance = (str1: string, str2: string): number => {
     for (let j = 1; j <= n; j++) {
       const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
       dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,      // deletion
-        dp[i][j - 1] + 1,      // insertion
-        dp[i - 1][j - 1] + cost // substitution
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
       );
     }
   }
@@ -67,10 +75,10 @@ const normalizeString = (str: string): string => {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove accents
-    .replace(/\b(ltda|eireli|me|epp|sa|s\.a\.|s\/a|ltda\.)\b/gi, '') // legal terms
-    .replace(/[^a-z0-9\s]/g, '') // keep only alphanumeric and spaces
-    .replace(/\s+/g, ' ') // normalize spaces
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(ltda|eireli|me|epp|sa|s\.a\.|s\/a|ltda\.)\b/gi, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
@@ -106,8 +114,9 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
 }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [showMergeModal, setShowMergeModal] = useState(false);
-  const [selectedGroupCompanies, setSelectedGroupCompanies] = useState<Company[]>([]);
+  const [groupSelections, setGroupSelections] = useState<Map<string, GroupSelection>>(new Map());
+  const [merging, setMerging] = useState(false);
+  const [confirmMerge, setConfirmMerge] = useState<{ groupId: string; group: DuplicateGroup } | null>(null);
   
   const SIMILARITY_THRESHOLD = 0.80;
 
@@ -125,13 +134,11 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
       for (let j = i + 1; j < companies.length; j++) {
         if (processed.has(companies[j].id)) continue;
         
-        // Compare razao_social
         const simRazao = calculateSimilarity(
           companies[i].razao_social, 
           companies[j].razao_social
         );
         
-        // Compare nome_fantasia if both exist
         let simFantasia = 0;
         if (companies[i].nome_fantasia && companies[j].nome_fantasia) {
           simFantasia = calculateSimilarity(
@@ -162,14 +169,13 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
         processed.add(companies[i].id);
         groups.push({
           id: `group-${i}`,
-          companies: group.sort((a, b) => b.contacts_count - a.contacts_count), // Most contacts first
+          companies: group.sort((a, b) => b.contacts_count - a.contacts_count),
           similarityScore: maxSimilarity,
           matchField
         });
       }
     }
     
-    // Sort by score (highest first)
     return groups.sort((a, b) => b.similarityScore - a.similarityScore);
   }, [companies]);
 
@@ -177,6 +183,20 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
     if (!open || companies.length < 2) return [];
     setAnalyzing(true);
     const groups = findDuplicateGroups();
+    
+    // Initialize selections with first company as destination
+    const initialSelections = new Map<string, GroupSelection>();
+    groups.forEach(group => {
+      initialSelections.set(group.id, {
+        destinationId: group.companies[0].id,
+        sourceIds: new Set(group.companies.slice(1).map(c => c.id))
+      });
+    });
+    setGroupSelections(initialSelections);
+    
+    // Auto-expand first 3 groups
+    setExpandedGroups(new Set(groups.slice(0, 3).map(g => g.id)));
+    
     setAnalyzing(false);
     return groups;
   }, [open, companies, findDuplicateGroups]);
@@ -193,15 +213,107 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
     });
   };
 
-  const handleMergeClick = (groupCompanies: Company[]) => {
-    setSelectedGroupCompanies(groupCompanies);
-    setShowMergeModal(true);
+  const handleDestinationChange = (groupId: string, companyId: string) => {
+    setGroupSelections(prev => {
+      const next = new Map(prev);
+      const current = next.get(groupId) || { destinationId: null, sourceIds: new Set() };
+      
+      // Remove from sources if it was there
+      const newSources = new Set(current.sourceIds);
+      newSources.delete(companyId);
+      
+      // If previous destination exists and is different, add it to sources
+      if (current.destinationId && current.destinationId !== companyId) {
+        newSources.add(current.destinationId);
+      }
+      
+      next.set(groupId, {
+        destinationId: companyId,
+        sourceIds: newSources
+      });
+      return next;
+    });
   };
 
-  const handleMergeSuccess = () => {
-    setShowMergeModal(false);
-    setSelectedGroupCompanies([]);
-    onSuccess();
+  const handleSourceToggle = (groupId: string, companyId: string) => {
+    setGroupSelections(prev => {
+      const next = new Map(prev);
+      const current = next.get(groupId) || { destinationId: null, sourceIds: new Set() };
+      
+      // Can't toggle if this is the destination
+      if (current.destinationId === companyId) return prev;
+      
+      const newSources = new Set(current.sourceIds);
+      if (newSources.has(companyId)) {
+        newSources.delete(companyId);
+      } else {
+        newSources.add(companyId);
+      }
+      
+      next.set(groupId, {
+        ...current,
+        sourceIds: newSources
+      });
+      return next;
+    });
+  };
+
+  const handleMergeClick = (group: DuplicateGroup) => {
+    const selection = groupSelections.get(group.id);
+    if (!selection?.destinationId || selection.sourceIds.size === 0) {
+      toast.error('Selecione a empresa principal e pelo menos uma empresa para mesclar');
+      return;
+    }
+    setConfirmMerge({ groupId: group.id, group });
+  };
+
+  const executeMerge = async () => {
+    if (!confirmMerge) return;
+    
+    const { groupId, group } = confirmMerge;
+    const selection = groupSelections.get(groupId);
+    if (!selection?.destinationId) return;
+    
+    setMerging(true);
+    try {
+      const destinationId = selection.destinationId;
+      const sourceIds = Array.from(selection.sourceIds);
+      
+      for (const sourceId of sourceIds) {
+        // Move contacts
+        const { error: contactsError } = await supabase
+          .from('contacts')
+          .update({ company_id: destinationId })
+          .eq('company_id', sourceId);
+        
+        if (contactsError) throw contactsError;
+        
+        // Move policies
+        const { error: policiesError } = await supabase
+          .from('policies')
+          .update({ company_id: destinationId })
+          .eq('company_id', sourceId);
+        
+        if (policiesError) throw policiesError;
+        
+        // Delete source company
+        const { error: deleteError } = await supabase
+          .from('companies')
+          .delete()
+          .eq('id', sourceId);
+        
+        if (deleteError) throw deleteError;
+      }
+      
+      toast.success(`${sourceIds.length} empresa(s) mesclada(s) com sucesso!`);
+      setConfirmMerge(null);
+      onSuccess();
+    } catch (error) {
+      console.error('Error merging companies:', error);
+      toast.error('Erro ao mesclar empresas');
+    } finally {
+      setMerging(false);
+    }
   };
 
   const getSimilarityColor = (score: number): string => {
@@ -218,6 +330,19 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
     }
   };
 
+  const getSelectionStats = (groupId: string, group: DuplicateGroup) => {
+    const selection = groupSelections.get(groupId);
+    if (!selection) return { sourcesCount: 0, contactsToMove: 0, policiesToMove: 0, destination: null };
+    
+    const sourcesCount = selection.sourceIds.size;
+    const sources = group.companies.filter(c => selection.sourceIds.has(c.id));
+    const contactsToMove = sources.reduce((sum, c) => sum + c.contacts_count, 0);
+    const policiesToMove = sources.reduce((sum, c) => sum + c.policies_count, 0);
+    const destination = group.companies.find(c => c.id === selection.destinationId);
+    
+    return { sourcesCount, contactsToMove, policiesToMove, destination };
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -228,7 +353,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
               Relatório de Duplicatas Potenciais
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Empresas com nomes similares que podem estar duplicadas no sistema
+              Selecione a empresa principal (destino) e marque as duplicatas para mesclar
             </DialogDescription>
           </DialogHeader>
 
@@ -264,12 +389,13 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                   </Button>
                 </div>
 
-                <ScrollArea className="h-[50vh] pr-4">
-                  <div className="space-y-3">
+                <ScrollArea className="h-[55vh] pr-4">
+                  <div className="space-y-4">
                     {duplicateGroups.map((group, index) => {
                       const isExpanded = expandedGroups.has(group.id);
-                      const totalContacts = group.companies.reduce((sum, c) => sum + c.contacts_count, 0);
-                      const totalPolicies = group.companies.reduce((sum, c) => sum + c.policies_count, 0);
+                      const selection = groupSelections.get(group.id);
+                      const { sourcesCount, contactsToMove, policiesToMove, destination } = getSelectionStats(group.id, group);
+                      const canMerge = selection?.destinationId && sourcesCount > 0;
                       
                       return (
                         <Card 
@@ -297,16 +423,6 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                 </span>
                               </div>
                               <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-4 text-xs text-slate-500">
-                                  <span className="flex items-center gap-1">
-                                    <Users className="w-3 h-3" />
-                                    {totalContacts}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <FileText className="w-3 h-3" />
-                                    {totalPolicies}
-                                  </span>
-                                </div>
                                 {isExpanded ? (
                                   <ChevronUp className="w-5 h-5 text-slate-400" />
                                 ) : (
@@ -315,7 +431,6 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                               </div>
                             </div>
                             
-                            {/* Preview of company names */}
                             {!isExpanded && (
                               <div className="mt-2 text-sm text-slate-400 truncate">
                                 {group.companies.map(c => c.razao_social).join(' • ')}
@@ -326,66 +441,132 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                           {/* Expanded Content */}
                           {isExpanded && (
                             <div className="border-t border-slate-700/50">
-                              <div className="p-4 space-y-2">
-                                {group.companies.map((company, idx) => (
-                                  <div 
-                                    key={company.id}
-                                    className={`flex items-center justify-between p-3 rounded-lg ${
-                                      idx === 0 ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-slate-800/50'
-                                    }`}
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <Building2 className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                                        <span className="font-medium text-slate-200 truncate">
-                                          {company.razao_social}
-                                        </span>
-                                        {idx === 0 && (
-                                          <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 text-xs">
-                                            Principal
-                                          </Badge>
+                              {/* Instructions */}
+                              <div className="px-4 pt-3 pb-2">
+                                <p className="text-xs text-slate-500 flex items-center gap-2">
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  Clique na empresa que deseja MANTER como principal
+                                </p>
+                              </div>
+                              
+                              <div className="px-4 pb-4 space-y-2">
+                                {group.companies.map((company) => {
+                                  const isDestination = selection?.destinationId === company.id;
+                                  const isSource = selection?.sourceIds.has(company.id) || false;
+                                  
+                                  return (
+                                    <div 
+                                      key={company.id}
+                                      onClick={() => handleDestinationChange(group.id, company.id)}
+                                      className={`relative flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                                        isDestination 
+                                          ? 'bg-emerald-500/10 border-2 border-emerald-500/50 ring-1 ring-emerald-500/20' 
+                                          : isSource
+                                            ? 'bg-red-500/10 border border-red-500/30'
+                                            : 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-600'
+                                      }`}
+                                    >
+                                      {/* Selection indicator */}
+                                      <div className="flex flex-col items-center gap-2 pt-1">
+                                        {isDestination ? (
+                                          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                                            <Check className="w-3 h-3 text-white" />
+                                          </div>
+                                        ) : (
+                                          <Checkbox
+                                            checked={isSource}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSourceToggle(group.id, company.id);
+                                            }}
+                                            className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                                          />
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-                                        <span>{formatCNPJ(company.cnpj)}</span>
-                                        {company.city && company.state && (
-                                          <span>{company.city}/{company.state}</span>
-                                        )}
-                                        {company.nome_fantasia && (
-                                          <span className="text-slate-600">"{company.nome_fantasia}"</span>
-                                        )}
+                                      
+                                      {/* Company info */}
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <Building2 className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                                          <span className={`font-medium truncate ${isDestination ? 'text-emerald-300' : 'text-slate-200'}`}>
+                                            {company.razao_social}
+                                          </span>
+                                          {isDestination && (
+                                            <Badge className="bg-emerald-500/20 text-emerald-400 text-xs border-0">
+                                              MANTER
+                                            </Badge>
+                                          )}
+                                          {isSource && (
+                                            <Badge className="bg-red-500/20 text-red-400 text-xs border-0 flex items-center gap-1">
+                                              <Trash2 className="w-3 h-3" />
+                                              EXCLUIR
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-500 flex-wrap">
+                                          <span className="font-mono">{formatCNPJ(company.cnpj)}</span>
+                                          {company.city && company.state && (
+                                            <span>{company.city}/{company.state}</span>
+                                          )}
+                                          {company.nome_fantasia && (
+                                            <span className="text-slate-600 italic">"{company.nome_fantasia}"</span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-4 mt-1.5 text-xs">
+                                          <span className="flex items-center gap-1 text-slate-400">
+                                            <Users className="w-3 h-3" />
+                                            {company.contacts_count} contatos
+                                          </span>
+                                          <span className="flex items-center gap-1 text-slate-400">
+                                            <FileText className="w-3 h-3" />
+                                            {company.policies_count} apólices
+                                          </span>
+                                          {company.overdue_value > 0 && (
+                                            <span className="text-red-400">
+                                              {formatCurrency(company.overdue_value)} em aberto
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-slate-400 flex-shrink-0 ml-4">
-                                      <span className="flex items-center gap-1">
-                                        <Users className="w-3 h-3" />
-                                        {company.contacts_count}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <FileText className="w-3 h-3" />
-                                        {company.policies_count}
-                                      </span>
-                                      {company.overdue_value > 0 && (
-                                        <span className="text-red-400">
-                                          {formatCurrency(company.overdue_value)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
 
-                              <div className="p-4 pt-0">
+                              {/* Merge Action */}
+                              <div className="px-4 pb-4">
+                                {canMerge ? (
+                                  <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
+                                    <p className="text-sm text-slate-300">
+                                      <span className="text-amber-400 font-medium">{sourcesCount}</span> empresa(s) serão excluídas.{' '}
+                                      <span className="text-blue-400">{contactsToMove}</span> contatos e{' '}
+                                      <span className="text-blue-400">{policiesToMove}</span> apólices serão movidos para{' '}
+                                      <span className="text-emerald-400 font-medium">{destination?.razao_social.substring(0, 30)}...</span>
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
+                                    <p className="text-sm text-slate-500">
+                                      Marque pelo menos uma empresa para excluir (checkbox vermelho)
+                                    </p>
+                                  </div>
+                                )}
+                                
                                 <Button
                                   size="sm"
+                                  disabled={!canMerge || merging}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleMergeClick(group.companies);
+                                    handleMergeClick(group);
                                   }}
-                                  className="w-full bg-purple-600 hover:bg-purple-700 gap-2"
+                                  className="w-full bg-purple-600 hover:bg-purple-700 gap-2 disabled:opacity-50"
                                 >
-                                  <GitMerge className="w-4 h-4" />
-                                  Mesclar Empresas deste Grupo
+                                  {merging ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <GitMerge className="w-4 h-4" />
+                                  )}
+                                  Mesclar {sourcesCount > 0 ? `${sourcesCount} Empresa(s)` : 'Selecionadas'}
                                 </Button>
                               </div>
                             </div>
@@ -411,13 +592,60 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
         </DialogContent>
       </Dialog>
 
-      {/* Merge Modal */}
-      <MergeCompaniesModal
-        open={showMergeModal}
-        companies={selectedGroupCompanies.length > 0 ? selectedGroupCompanies : companies}
-        onOpenChange={setShowMergeModal}
-        onSuccess={handleMergeSuccess}
-      />
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmMerge} onOpenChange={() => setConfirmMerge(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100 flex items-center gap-2">
+              <GitMerge className="w-5 h-5 text-purple-400" />
+              Confirmar Mesclagem
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              {confirmMerge && (() => {
+                const { sourcesCount, contactsToMove, policiesToMove, destination } = getSelectionStats(confirmMerge.groupId, confirmMerge.group);
+                return (
+                  <div className="space-y-3 mt-2">
+                    <p>
+                      Você está prestes a mesclar <span className="text-amber-400 font-semibold">{sourcesCount}</span> empresa(s).
+                    </p>
+                    <div className="bg-slate-800 rounded-lg p-3 space-y-2 text-sm">
+                      <p>
+                        <span className="text-blue-400">{contactsToMove}</span> contatos e{' '}
+                        <span className="text-blue-400">{policiesToMove}</span> apólices serão movidos.
+                      </p>
+                      <p>
+                        Empresa destino: <span className="text-emerald-400 font-medium">{destination?.razao_social}</span>
+                      </p>
+                    </div>
+                    <p className="text-red-400 text-sm font-medium">
+                      ⚠️ Esta ação não pode ser desfeita!
+                    </p>
+                  </div>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeMerge}
+              disabled={merging}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {merging ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Mesclando...
+                </>
+              ) : (
+                'Confirmar Mesclagem'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
