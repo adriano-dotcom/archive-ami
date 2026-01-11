@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Trash2 } from 'lucide-react';
+import { Building2, FileText, MapPin, Search, Loader2, Users, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface CreateCompanyModalProps {
   open: boolean;
@@ -96,6 +97,9 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingCNPJ, setLoadingCNPJ] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
+  const [cnpjExists, setCnpjExists] = useState(false);
+  const [checkingCnpj, setCheckingCnpj] = useState(false);
+  const [existingCompanyName, setExistingCompanyName] = useState<string | null>(null);
   const numberInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -125,6 +129,9 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     });
     setContacts([]);
     setErrors({});
+    setCnpjExists(false);
+    setExistingCompanyName(null);
+    setCheckingCnpj(false);
   };
 
   const addContact = () => {
@@ -206,12 +213,50 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     }
   };
 
+  const checkCnpjExists = async (cnpj: string) => {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      setCnpjExists(false);
+      setExistingCompanyName(null);
+      return;
+    }
+
+    setCheckingCnpj(true);
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, razao_social, nome_fantasia')
+        .eq('cnpj', digits)
+        .maybeSingle();
+
+      if (data && !error) {
+        setCnpjExists(true);
+        setExistingCompanyName(data.nome_fantasia || data.razao_social);
+      } else {
+        setCnpjExists(false);
+        setExistingCompanyName(null);
+      }
+    } catch {
+      setCnpjExists(false);
+      setExistingCompanyName(null);
+    } finally {
+      setCheckingCnpj(false);
+    }
+  };
+
   const handleCNPJChange = (value: string) => {
     const formatted = formatCNPJ(value);
     setFormData(prev => ({ ...prev, cnpj: formatted }));
     const digits = value.replace(/\D/g, '');
+    
     if (digits.length === 14) {
+      // Verificar duplicata E buscar dados (em paralelo)
+      checkCnpjExists(digits);
       fetchCNPJ(digits);
+    } else {
+      // Limpar estado quando CNPJ incompleto
+      setCnpjExists(false);
+      setExistingCompanyName(null);
     }
   };
 
@@ -226,6 +271,11 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
+    
+    // Bloquear se CNPJ já existe
+    if (cnpjExists) {
+      newErrors.cnpj = 'CNPJ já cadastrado no sistema';
+    }
     
     const cnpjDigits = formData.cnpj.replace(/\D/g, '');
     if (!cnpjDigits) {
@@ -361,13 +411,37 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
                   value={formData.cnpj}
                   onChange={(e) => handleCNPJChange(e.target.value)}
                   placeholder="00.000.000/0000-00"
-                  className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                  className={cn(
+                    "pl-10 bg-slate-950 border-slate-700 text-slate-100",
+                    cnpjExists && "border-red-500 focus:border-red-500 focus-visible:ring-red-500"
+                  )}
                 />
-                {loadingCNPJ && (
+                {(loadingCNPJ || checkingCnpj) && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400 animate-spin" />
                 )}
+                {cnpjExists && !checkingCnpj && !loadingCNPJ && (
+                  <AlertTriangle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400" />
+                )}
               </div>
-              {errors.cnpj && <p className="text-xs text-red-400 mt-1">{errors.cnpj}</p>}
+              
+              {/* Alerta de CNPJ duplicado em tempo real */}
+              {cnpjExists && (
+                <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-400">
+                        CNPJ já cadastrado
+                      </p>
+                      <p className="text-xs text-red-300/80 mt-1">
+                        Empresa existente: <span className="font-medium">{existingCompanyName}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {errors.cnpj && !cnpjExists && <p className="text-xs text-red-400 mt-1">{errors.cnpj}</p>}
             </div>
 
             <div>
@@ -609,7 +683,11 @@ export const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="border-slate-700">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || cnpjExists || checkingCnpj} 
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
             Cadastrar Empresa
           </Button>
