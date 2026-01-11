@@ -1781,6 +1781,7 @@ export type Database = {
           end_date: string | null
           id: string
           insurer: string
+          is_cargo_insurance: boolean | null
           metadata: Json | null
           policy_number: string
           product: string | null
@@ -1797,6 +1798,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           insurer: string
+          is_cargo_insurance?: boolean | null
           metadata?: Json | null
           policy_number: string
           product?: string | null
@@ -1813,6 +1815,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           insurer?: string
+          is_cargo_insurance?: boolean | null
           metadata?: Json | null
           policy_number?: string
           product?: string | null

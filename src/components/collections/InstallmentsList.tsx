@@ -9,7 +9,25 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, Send, Download, RefreshCw, CheckCircle, AlertCircle, Clock, MessageSquare, Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ArrowUpDown, Truck } from 'lucide-react';
+
+// Ramos SUSEP de seguro de transporte/carga
+const CARGO_BRANCHES = ['309', '31', '32', '33', '0309', '031', '032', '033'];
+
+// Produtos de seguro de carga
+const CARGO_PRODUCTS = ['transportador', 'rctr', 'rctr-c', 'rc-dc', 'carga', 'transporte', 'embarcador'];
+
+// Helper to check if a policy is cargo insurance
+const isCargoInsurance = (policy: { branch?: string | null; product?: string | null; is_cargo_insurance?: boolean } | null): boolean => {
+  if (!policy) return false;
+  if (policy.is_cargo_insurance) return true;
+  if (policy.branch && CARGO_BRANCHES.includes(policy.branch)) return true;
+  if (policy.product) {
+    const productLower = policy.product.toLowerCase();
+    return CARGO_PRODUCTS.some(p => productLower.includes(p));
+  }
+  return false;
+};
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
   AlertDialog,
@@ -72,6 +90,7 @@ interface Installment {
     insurer: string;
     branch: string | null;
     product: string | null;
+    is_cargo_insurance?: boolean | null;
     start_date: string | null;
     end_date: string | null;
     total_value: number | null;
@@ -104,6 +123,7 @@ export const InstallmentsList: React.FC = () => {
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   const [insurerFilter, setInsurerFilter] = useState<string>('all');
+  const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -277,14 +297,14 @@ export const InstallmentsList: React.FC = () => {
   });
 
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
         .select(`
           *,
           contact:contacts(id, name, phone_number),
-          policy:policies(id, policy_number, insurer, branch, product, start_date, end_date, total_value, status, company:companies(id, razao_social, nome_fantasia, cnpj))
+          policy:policies(id, policy_number, insurer, branch, product, is_cargo_insurance, start_date, end_date, total_value, status, company:companies(id, razao_social, nome_fantasia, cnpj))
         `)
         .order('days_overdue', { ascending: false });
 
@@ -337,6 +357,11 @@ export const InstallmentsList: React.FC = () => {
         filteredData = filteredData.filter(inst => 
           inst.policy?.insurer?.toUpperCase() === insurerFilter.toUpperCase()
         );
+      }
+      
+      // Filter by cargo insurance only
+      if (cargoOnlyFilter) {
+        filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
       }
       
       // Filter by search locally
@@ -438,6 +463,13 @@ export const InstallmentsList: React.FC = () => {
   // Count of incomplete installments
   const incompleteCount = useMemo(() => {
     return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
+  }, [installments]);
+
+  // Count of cargo insurance installments with ATM at risk (>= 15 days overdue)
+  const atmRiskCount = useMemo(() => {
+    return installments?.filter(inst => 
+      isCargoInsurance(inst.policy) && inst.days_overdue >= 15
+    ).length || 0;
   }, [installments]);
 
   // Count unique contacts among selected installments
@@ -588,6 +620,29 @@ export const InstallmentsList: React.FC = () => {
     return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">Pendente</Badge>;
   };
 
+  // Badge for ATM at risk (cargo insurance >= 15 days overdue)
+  const getAtmRiskBadge = (inst: Installment) => {
+    if (isCargoInsurance(inst.policy) && inst.days_overdue >= 15) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="bg-red-500/30 text-red-400 border-red-500/40 animate-pulse ml-1">
+                <Truck className="w-3 h-3 mr-1" />
+                ATM
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-sm">Seguro de carga com risco de suspensão do ATM</p>
+              <p className="text-xs text-slate-400">Atraso &gt; 15 dias pode bloquear averbações</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return null;
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -720,6 +775,18 @@ export const InstallmentsList: React.FC = () => {
             >
               <Download className="w-4 h-4" />
               Exportar
+            </Button>
+
+            <Button 
+              variant={cargoOnlyFilter ? "default" : "outline"}
+              onClick={() => setCargoOnlyFilter(!cargoOnlyFilter)}
+              className={cargoOnlyFilter 
+                ? "bg-blue-600 hover:bg-blue-700 gap-2" 
+                : "border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
+              }
+            >
+              <Truck className="w-4 h-4" />
+              Só Carga {atmRiskCount > 0 && `(${atmRiskCount} ATM risco)`}
             </Button>
 
             <Button 
@@ -1021,7 +1088,10 @@ export const InstallmentsList: React.FC = () => {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      {getStatusBadge(inst.status, inst.days_overdue)}
+                      <div className="flex items-center justify-center gap-1">
+                        {getStatusBadge(inst.status, inst.days_overdue)}
+                        {getAtmRiskBadge(inst)}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
