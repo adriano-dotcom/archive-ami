@@ -598,7 +598,7 @@ export type Database = {
             foreignKeyName: "companies_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
-            referencedRelation: "team_members"
+            referencedRelation: "sellers"
             referencedColumns: ["id"]
           },
         ]
@@ -1998,6 +1998,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sellers: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       send_queue: {
         Row: {

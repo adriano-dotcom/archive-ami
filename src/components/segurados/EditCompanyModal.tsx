@@ -164,30 +164,30 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
     seller_id: ''
   });
 
-  // Team members for seller selection
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string | null }>>([]);
-  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false);
+  // Sellers for seller selection
+  const [sellers, setSellers] = useState<Array<{ id: string; name: string; email: string | null }>>([]);
+  const [loadingSellers, setLoadingSellers] = useState(false);
 
-  // Load team members on mount
+  // Load sellers on mount
   useEffect(() => {
-    const loadTeamMembers = async () => {
-      setLoadingTeamMembers(true);
+    const loadSellers = async () => {
+      setLoadingSellers(true);
       try {
         const { data, error } = await supabase
-          .from('team_members')
+          .from('sellers')
           .select('id, name, email')
-          .eq('status', 'active')
+          .eq('is_active', true)
           .order('name');
 
         if (error) throw error;
-        setTeamMembers(data || []);
+        setSellers(data || []);
       } catch (error) {
-        console.error('Error loading team members:', error);
+        console.error('Error loading sellers:', error);
       } finally {
-        setLoadingTeamMembers(false);
+        setLoadingSellers(false);
       }
     };
-    loadTeamMembers();
+    loadSellers();
   }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -567,15 +567,15 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                     onValueChange={(value) => setFormData(prev => ({ ...prev, seller_id: value === 'none' ? '' : value }))}
                   >
                     <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
-                      <SelectValue placeholder={loadingTeamMembers ? "Carregando..." : "Selecione um vendedor"} />
+                      <SelectValue placeholder={loadingSellers ? "Carregando..." : "Selecione um vendedor"} />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
                       <SelectItem value="none" className="text-slate-400 focus:bg-slate-800">
                         Nenhum vendedor
                       </SelectItem>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id} className="text-slate-100 focus:bg-slate-800">
-                          {member.name} {member.email ? `(${member.email})` : ''}
+                      {sellers.map((seller) => (
+                        <SelectItem key={seller.id} value={seller.id} className="text-slate-100 focus:bg-slate-800">
+                          {seller.name} {seller.email ? `(${seller.email})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>

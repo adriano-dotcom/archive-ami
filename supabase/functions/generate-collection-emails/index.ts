@@ -345,7 +345,7 @@ serve(async (req) => {
 
     console.log(`Processing ${contactsWithInstallments.length} contacts with email, skipped ${skippedContacts.length}`);
 
-    // Fetch seller info for all companies
+    // Fetch seller info for all companies from sellers table
     const companyIds = [...new Set(contactsWithInstallments.map(c => c.companyId).filter(Boolean))];
     const sellerIds = [...new Set(
       companyIds.map(cid => companiesMap.get(cid)?.seller_id).filter(Boolean)
@@ -354,7 +354,7 @@ serve(async (req) => {
     let sellersMap = new Map<string, { name: string; email: string | null }>();
     if (sellerIds.length > 0) {
       const { data: sellers } = await supabase
-        .from('team_members')
+        .from('sellers')
         .select('id, name, email')
         .in('id', sellerIds);
       

@@ -779,6 +779,76 @@ export const api = {
   },
 
   /**
+   * Fetch sellers
+   */
+  fetchSellers: async () => {
+    const { data, error } = await supabase
+      .from('sellers')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('[API] Error fetching sellers:', error);
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Create seller
+   */
+  createSeller: async (seller: { name: string; email: string; phone?: string }) => {
+    const { data, error } = await supabase
+      .from('sellers')
+      .insert({
+        name: seller.name,
+        email: seller.email,
+        phone: seller.phone || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[API] Error creating seller:', error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  /**
+   * Update seller
+   */
+  updateSeller: async (id: string, updates: Partial<{ name: string; email: string; phone: string; is_active: boolean }>) => {
+    const { error } = await supabase
+      .from('sellers')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) {
+      console.error('[API] Error updating seller:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete seller (soft delete)
+   */
+  deleteSeller: async (id: string) => {
+    const { error } = await supabase
+      .from('sellers')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[API] Error deleting seller:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch appointments from database
    */
   fetchAppointments: async (): Promise<Appointment[]> => {

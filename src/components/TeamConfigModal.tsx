@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Edit2, Trash2, Save, Loader2 } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, Loader2, UserCog, Phone, Mail } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
 import { Team, TeamFunction } from '../types';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface TeamConfigModalProps {
   isOpen: boolean;
@@ -11,15 +12,24 @@ interface TeamConfigModalProps {
   onUpdate: () => void;
 }
 
-type TabType = 'teams' | 'functions';
+interface Seller {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  is_active: boolean;
+}
+
+type TabType = 'teams' | 'functions' | 'sellers';
 
 const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUpdate }) => {
   const [activeTab, setActiveTab] = useState<TabType>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
   const [functions, setFunctions] = useState<TeamFunction[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#3b82f6' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#3b82f6', email: '', phone: '' });
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -32,12 +42,14 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
   const loadData = async () => {
     setLoading(true);
     try {
-      const [teamsData, functionsData] = await Promise.all([
+      const [teamsData, functionsData, sellersData] = await Promise.all([
         api.fetchTeams(),
-        api.fetchTeamFunctions()
+        api.fetchTeamFunctions(),
+        api.fetchSellers()
       ]);
       setTeams(teamsData);
       setFunctions(functionsData);
+      setSellers(sellersData);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -60,9 +72,17 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
       })
       .subscribe();
 
+    const sellersChannel = supabase
+      .channel('sellers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sellers' }, () => {
+        loadData();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(functionsChannel);
+      supabase.removeChannel(sellersChannel);
     };
   };
 
@@ -74,7 +94,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         description: editForm.description,
         color: editForm.color
       });
-      setEditForm({ name: '', description: '', color: '#3b82f6' });
+      resetForm();
       setIsCreating(false);
       onUpdate();
     } catch (error) {
@@ -89,11 +109,32 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         name: editForm.name,
         description: editForm.description
       });
-      setEditForm({ name: '', description: '', color: '#3b82f6' });
+      resetForm();
       setIsCreating(false);
       onUpdate();
     } catch (error) {
       console.error('Error creating function:', error);
+    }
+  };
+
+  const handleCreateSeller = async () => {
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast.error('Nome e email são obrigatórios');
+      return;
+    }
+    try {
+      await api.createSeller({
+        name: editForm.name,
+        email: editForm.email,
+        phone: editForm.phone || undefined
+      });
+      toast.success('Vendedor criado com sucesso!');
+      resetForm();
+      setIsCreating(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error creating seller:', error);
+      toast.error('Erro ao criar vendedor');
     }
   };
 
@@ -105,7 +146,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         color: editForm.color
       });
       setEditingId(null);
-      setEditForm({ name: '', description: '', color: '#3b82f6' });
+      resetForm();
       onUpdate();
     } catch (error) {
       console.error('Error updating team:', error);
@@ -119,10 +160,31 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         description: editForm.description
       });
       setEditingId(null);
-      setEditForm({ name: '', description: '', color: '#3b82f6' });
+      resetForm();
       onUpdate();
     } catch (error) {
       console.error('Error updating function:', error);
+    }
+  };
+
+  const handleUpdateSeller = async (id: string) => {
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast.error('Nome e email são obrigatórios');
+      return;
+    }
+    try {
+      await api.updateSeller(id, {
+        name: editForm.name,
+        email: editForm.email,
+        phone: editForm.phone || undefined
+      });
+      toast.success('Vendedor atualizado!');
+      setEditingId(null);
+      resetForm();
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating seller:', error);
+      toast.error('Erro ao atualizar vendedor');
     }
   };
 
@@ -146,13 +208,42 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
     }
   };
 
-  const startEdit = (item: Team | TeamFunction, type: 'team' | 'function') => {
+  const handleDeleteSeller = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este vendedor?')) return;
+    try {
+      await api.deleteSeller(id);
+      toast.success('Vendedor excluído!');
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting seller:', error);
+      toast.error('Erro ao excluir vendedor');
+    }
+  };
+
+  const resetForm = () => {
+    setEditForm({ name: '', description: '', color: '#3b82f6', email: '', phone: '' });
+  };
+
+  const startEdit = (item: Team | TeamFunction | Seller, type: 'team' | 'function' | 'seller') => {
     setEditingId(item.id);
-    setEditForm({
-      name: item.name,
-      description: item.description || '',
-      color: type === 'team' ? (item as Team).color : '#3b82f6'
-    });
+    if (type === 'seller') {
+      const seller = item as Seller;
+      setEditForm({
+        name: seller.name,
+        email: seller.email,
+        phone: seller.phone || '',
+        description: '',
+        color: '#3b82f6'
+      });
+    } else {
+      setEditForm({
+        name: item.name,
+        description: (item as Team | TeamFunction).description || '',
+        color: type === 'team' ? (item as Team).color : '#3b82f6',
+        email: '',
+        phone: ''
+      });
+    }
   };
 
   if (!isOpen) return null;
@@ -171,7 +262,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         {/* Tabs */}
         <div className="flex border-b border-slate-800">
           <button
-            onClick={() => setActiveTab('teams')}
+            onClick={() => { setActiveTab('teams'); setIsCreating(false); setEditingId(null); resetForm(); }}
             className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
               activeTab === 'teams'
                 ? 'text-white border-b-2 border-cyan-500 bg-slate-800/50'
@@ -181,7 +272,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
             🏢 Times
           </button>
           <button
-            onClick={() => setActiveTab('functions')}
+            onClick={() => { setActiveTab('functions'); setIsCreating(false); setEditingId(null); resetForm(); }}
             className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
               activeTab === 'functions'
                 ? 'text-white border-b-2 border-cyan-500 bg-slate-800/50'
@@ -189,6 +280,16 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
             }`}
           >
             💼 Funções
+          </button>
+          <button
+            onClick={() => { setActiveTab('sellers'); setIsCreating(false); setEditingId(null); resetForm(); }}
+            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'sellers'
+                ? 'text-white border-b-2 border-cyan-500 bg-slate-800/50'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <UserCog className="w-4 h-4 inline mr-1" /> Vendedores
           </button>
         </div>
 
@@ -228,7 +329,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={handleCreateTeam} className="flex-1">Salvar</Button>
-                    <Button onClick={() => setIsCreating(false)} variant="ghost">Cancelar</Button>
+                    <Button onClick={() => { setIsCreating(false); resetForm(); }} variant="ghost">Cancelar</Button>
                   </div>
                 </div>
               ) : (
@@ -271,7 +372,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                           <Save className="w-3 h-3 mr-1" />
                           Salvar
                         </Button>
-                        <Button onClick={() => setEditingId(null)} variant="ghost" size="sm">Cancelar</Button>
+                        <Button onClick={() => { setEditingId(null); resetForm(); }} variant="ghost" size="sm">Cancelar</Button>
                       </div>
                     </div>
                   ) : (
@@ -304,7 +405,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                 </div>
               ))}
             </div>
-          ) : (
+          ) : activeTab === 'functions' ? (
             <div className="space-y-3">
               {/* Create New Function */}
               {isCreating ? (
@@ -325,7 +426,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                   />
                   <div className="flex gap-2">
                     <Button onClick={handleCreateFunction} className="flex-1">Salvar</Button>
-                    <Button onClick={() => setIsCreating(false)} variant="ghost">Cancelar</Button>
+                    <Button onClick={() => { setIsCreating(false); resetForm(); }} variant="ghost">Cancelar</Button>
                   </div>
                 </div>
               ) : (
@@ -360,7 +461,7 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                           <Save className="w-3 h-3 mr-1" />
                           Salvar
                         </Button>
-                        <Button onClick={() => setEditingId(null)} variant="ghost" size="sm">Cancelar</Button>
+                        <Button onClick={() => { setEditingId(null); resetForm(); }} variant="ghost" size="sm">Cancelar</Button>
                       </div>
                     </div>
                   ) : (
@@ -389,6 +490,143 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
                   )}
                 </div>
               ))}
+            </div>
+          ) : (
+            /* Sellers Tab */
+            <div className="space-y-3">
+              {/* Create New Seller */}
+              {isCreating ? (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Nome do vendedor *"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                  />
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="email"
+                      placeholder="Email do vendedor *"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Telefone (opcional)"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleCreateSeller} className="flex-1">Salvar</Button>
+                    <Button onClick={() => { setIsCreating(false); resetForm(); }} variant="ghost">Cancelar</Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="w-full bg-slate-800/30 border border-dashed border-slate-700 rounded-lg p-4 text-slate-400 hover:text-white hover:border-slate-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo Vendedor
+                </button>
+              )}
+
+              {/* Sellers List */}
+              {sellers.length === 0 && !isCreating ? (
+                <div className="text-center py-8 text-slate-500">
+                  <UserCog className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum vendedor cadastrado</p>
+                  <p className="text-xs mt-1">Vendedores são responsáveis pelas empresas e podem ser copiados nos emails de cobrança</p>
+                </div>
+              ) : (
+                sellers.map((seller) => (
+                  <div key={seller.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                    {editingId === seller.id ? (
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          placeholder="Nome *"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                            placeholder="Email *"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            type="text"
+                            value={editForm.phone}
+                            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                            placeholder="Telefone"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => handleUpdateSeller(seller.id)} size="sm">
+                            <Save className="w-3 h-3 mr-1" />
+                            Salvar
+                          </Button>
+                          <Button onClick={() => { setEditingId(null); resetForm(); }} variant="ghost" size="sm">Cancelar</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
+                            <UserCog className="w-5 h-5 text-cyan-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-white">{seller.name}</div>
+                            <div className="flex items-center gap-3 text-xs text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {seller.email}
+                              </span>
+                              {seller.phone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  {seller.phone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => startEdit(seller, 'seller')}
+                            className="p-2 text-slate-400 hover:text-white transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSeller(seller.id)}
+                            className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
