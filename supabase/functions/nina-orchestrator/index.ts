@@ -4159,16 +4159,37 @@ function buildEnhancedPrompt(
   contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE
 
 ### SUSPENSÃO/CANCELAMENTO POR ATRASO (REGRA DOS 15 DIAS)
-- Após **15 dias de atraso** no pagamento de parcela, a seguradora pode iniciar processo de **suspensão** ou **cancelamento** da apólice
-- O prazo exato varia conforme a seguradora (geralmente entre 15 a 30 dias)
-- **Consequências da suspensão:**
-  - Sistema de averbação (ATM) fica bloqueado
-  - Novas cargas NÃO terão cobertura
-  - Sinistros ocorridos durante suspensão NÃO são indenizados
-- **Consequências do cancelamento:**
-  - Apólice encerrada definitivamente
-  - Para reativar, necessário emitir nova apólice (novo processo de análise)
-- ⚠️ SEMPRE enfatize a urgência quando cliente tiver parcelas vencidas há mais de 10 dias
+Em caso de atraso no pagamento da parcela do seguro de carga por período superior a **15 dias**, o contrato de seguro pode sofrer **suspensão automática**, conforme previsto nas condições gerais da apólice.
+
+**Durante a suspensão:**
+- O sistema de averbação de embarques é **BLOQUEADO**
+- Novas viagens NÃO serão averbadas
+- Cargas transportadas durante suspensão NÃO terão cobertura securitária
+- Sinistros ocorridos neste período terão **NEGATIVA DE INDENIZAÇÃO**
+
+**Sistemas afetados pelo bloqueio:**
+- ATM (Averbação de Transporte de Mercadorias)
+- NDD (sistema de averbação)
+- Outros sistemas integrados ao CT-e
+- Qualquer plataforma de averbação conectada à seguradora
+
+**Consequências do cancelamento (após período prolongado):**
+- Apólice encerrada definitivamente
+- Para reativar, necessário emitir nova apólice (novo processo de análise/cotação)
+- Possível perda de condições comerciais anteriores
+
+### FLUXO DE REGULARIZAÇÃO
+
+**Para evitar riscos operacionais:**
+1. Orientar cliente a regularizar IMEDIATAMENTE a parcela em atraso
+2. Após **confirmação do pagamento**, o sistema de averbação é reativado
+3. Cobertura do seguro é restabelecida para novas viagens
+
+**Ofertas de apoio ao cliente:**
+- Consulta de valores em aberto
+- Envio de segunda via de boleto
+- Verificação de status do sistema de averbação
+- Negociação de forma de pagamento (quando aplicável)
 
 ### O QUE É ATM (AVERBAÇÃO DE TRANSPORTE DE MERCADORIAS)
 ATM é o sistema usado para **registrar cada embarque/viagem** dentro de uma apólice de seguro de carga.
@@ -4176,7 +4197,7 @@ ATM é o sistema usado para **registrar cada embarque/viagem** dentro de uma ap�
 **Como funciona:**
 1. A corretora/segurado tem uma **apólice aberta** (flutuante/mensal)
 2. Cada vez que uma carga é transportada, é feita uma **averbação** no sistema
-3. Os dados do transporte são enviados para a seguradora via ATM
+3. Os dados do transporte são enviados para a seguradora via ATM/NDD
 
 **O que é averbado no sistema:**
 - Número da apólice
@@ -4193,13 +4214,22 @@ ATM é o sistema usado para **registrar cada embarque/viagem** dentro de uma ap�
 - Calcular corretamente o prêmio
 - Evitar sinistros sem cobertura por falta de averbação
 
-### ⛔ REGRA CRÍTICA SOBRE AVERBAÇÃO:
-**SEM AVERBAÇÃO NO ATM = RISCO DE NÃO INDENIZAÇÃO EM CASO DE SINISTRO**
+### ⛔ REGRAS CRÍTICAS:
+1. **SEM AVERBAÇÃO = SEM COBERTURA** - Se a carga não estiver averbada no momento do sinistro, pode haver negativa de indenização
+2. **ATRASO > 15 DIAS = RISCO DE BLOQUEIO** - O sistema de averbação pode ser bloqueado automaticamente
+3. **PAGAMENTO CONFIRMADO = REATIVAÇÃO** - O sistema é reativado após compensação do pagamento
 
-Ao falar com cliente sobre ATM:
-- Explique de forma simples: "ATM é o sistema que registra cada viagem da sua carga no seguro"
-- Enfatize: "Se a carga não estiver averbada no momento do sinistro, pode não haver cobertura"
-- Se cliente perguntar se está em dia: "Para verificar o status do ATM, nossos especialistas podem consultar diretamente no sistema"`;
+### ORIENTAÇÕES DE COMUNICAÇÃO:
+Ao falar com cliente sobre atraso:
+- "Em caso de atraso superior a 15 dias, o sistema de averbação pode ser bloqueado automaticamente"
+- "Isso significa que novas viagens não terão cobertura até a regularização"
+- "Para evitar riscos, recomendamos a regularização imediata"
+- "Posso te ajudar com segunda via do boleto ou verificar seus valores em aberto"
+
+Ao falar sobre ATM/Averbação:
+- "ATM é o sistema que registra cada viagem da sua carga no seguro"
+- "Sem averbação no momento do sinistro, pode haver negativa de cobertura"
+- "Nossos especialistas podem verificar o status do seu sistema de averbação"`;
 
   if (contact) {
     contextInfo += `\n\nCONTEXTO DO CLIENTE:`;
