@@ -23,10 +23,13 @@ interface ParsedRow {
 
 interface ProcessedRow {
   data: ParsedRow;
-  duplicateStatus: 'new' | 'duplicate' | 'update_available' | 'checking';
+  duplicateStatus: 'new' | 'duplicate' | 'update_available' | 'checking' | 'error';
   existingInstallmentId?: string;
   existingValue?: number;
   existingStatus?: string;
+  existingDueDate?: string;
+  valueDiff?: number;
+  errorMessage?: string;
   selected: boolean;
 }
 
@@ -75,8 +78,9 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
     const newCount = processedData.filter(r => r.duplicateStatus === 'new').length;
     const duplicateCount = processedData.filter(r => r.duplicateStatus === 'duplicate').length;
     const updateCount = processedData.filter(r => r.duplicateStatus === 'update_available').length;
+    const errorCount = processedData.filter(r => r.duplicateStatus === 'error').length;
     const selectedCount = processedData.filter(r => r.selected).length;
-    return { newCount, duplicateCount, updateCount, selectedCount };
+    return { newCount, duplicateCount, updateCount, errorCount, selectedCount };
   }, [processedData]);
 
   const parseCSV = (text: string): { headers: string[], rows: ParsedRow[] } => {
@@ -161,112 +165,172 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
     return true;
   };
 
-  // Check for duplicates in the database
+  // Helper to parse date from various formats
+  const parseDateString = (dueDateStr: string): string => {
+    if (!dueDateStr) return '';
+    if (dueDateStr.includes('/')) {
+      const parts = dueDateStr.split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return dueDateStr;
+  };
+
+  // Helper to parse value from string
+  const parseValueString = (valueStr: string): number => {
+    return parseFloat(valueStr?.replace(/[^\d,.-]/g, '')?.replace(',', '.') || '0');
+  };
+
+  // Check for duplicates in the database - OPTIMIZED with batch queries
   const checkDuplicates = async (data: ParsedRow[]) => {
     setCheckingDuplicates(true);
-    const results: ProcessedRow[] = [];
+    const startTime = Date.now();
 
-    for (const row of data) {
-      try {
-        const policyNumber = row[columnMapping.policy_number];
-        const insurer = row[columnMapping.insurer] || '';
-        const installmentNumber = parseInt(row[columnMapping.installment]) || 1;
-        
-        // Parse due date
-        const dueDateStr = row[columnMapping.due_date];
-        let dueDate: string = '';
-        
-        if (dueDateStr) {
-          if (dueDateStr.includes('/')) {
-            const parts = dueDateStr.split('/');
-            if (parts.length === 3) {
-              dueDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-            }
-          } else {
-            dueDate = dueDateStr;
+    try {
+      // Step 1: Extract all unique policy numbers from the data
+      const policyNumbers = [...new Set(
+        data
+          .map(row => row[columnMapping.policy_number])
+          .filter(Boolean)
+      )];
+
+      // Step 2: Batch fetch ALL policies at once (instead of N queries)
+      const { data: allPolicies, error: policiesError } = await supabase
+        .from('policies')
+        .select('id, policy_number, contact_id')
+        .in('policy_number', policyNumbers.length > 0 ? policyNumbers : ['__none__']);
+
+      if (policiesError) {
+        console.error('Error fetching policies:', policiesError);
+        throw policiesError;
+      }
+
+      // Create a Map for O(1) lookup: policy_number -> policy
+      const policyMap = new Map(
+        (allPolicies || []).map(p => [p.policy_number, p])
+      );
+
+      // Step 3: Get all policy IDs to fetch installments
+      const policyIds = (allPolicies || []).map(p => p.id);
+
+      // Step 4: Batch fetch ALL installments for these policies at once
+      const { data: allInstallments, error: installmentsError } = await supabase
+        .from('installments')
+        .select('id, policy_id, installment_number, due_date, value, status')
+        .in('policy_id', policyIds.length > 0 ? policyIds : ['00000000-0000-0000-0000-000000000000']);
+
+      if (installmentsError) {
+        console.error('Error fetching installments:', installmentsError);
+        throw installmentsError;
+      }
+
+      // Create a Map for O(1) lookup: "policy_id-installment_number-due_date" -> installment
+      const installmentMap = new Map<string, typeof allInstallments[0]>();
+      for (const inst of allInstallments || []) {
+        const key = `${inst.policy_id}-${inst.installment_number}-${inst.due_date}`;
+        installmentMap.set(key, inst);
+      }
+
+      // Step 5: Process all rows using the maps (no more DB queries needed)
+      const results: ProcessedRow[] = data.map(row => {
+        try {
+          const policyNumber = row[columnMapping.policy_number];
+          const installmentNumber = parseInt(row[columnMapping.installment]) || 1;
+          const dueDate = parseDateString(row[columnMapping.due_date]);
+          const value = parseValueString(row[columnMapping.value]);
+
+          // If no policy number, mark as new
+          if (!policyNumber) {
+            return { data: row, duplicateStatus: 'new' as const, selected: true };
           }
-        }
 
-        // Parse value
-        const value = parseFloat(
-          row[columnMapping.value]?.replace(/[^\d,.-]/g, '')?.replace(',', '.') || '0'
-        );
+          // Look up policy from map
+          const existingPolicy = policyMap.get(policyNumber);
+          if (!existingPolicy) {
+            return { data: row, duplicateStatus: 'new' as const, selected: true };
+          }
 
-        // If no policy number, mark as new
-        if (!policyNumber) {
-          results.push({ data: row, duplicateStatus: 'new', selected: true });
-          continue;
-        }
+          // Look up installment from map
+          const installmentKey = `${existingPolicy.id}-${installmentNumber}-${dueDate}`;
+          const existingInstallment = installmentMap.get(installmentKey);
 
-        // Find existing policy
-        const { data: existingPolicy } = await supabase
-          .from('policies')
-          .select('id')
-          .eq('policy_number', policyNumber)
-          .maybeSingle();
+          if (!existingInstallment) {
+            return { data: row, duplicateStatus: 'new' as const, selected: true };
+          }
 
-        if (!existingPolicy) {
-          results.push({ data: row, duplicateStatus: 'new', selected: true });
-          continue;
-        }
-
-        // Find existing installment
-        const { data: existingInstallment } = await supabase
-          .from('installments')
-          .select('id, value, status, due_date')
-          .eq('policy_id', existingPolicy.id)
-          .eq('installment_number', installmentNumber)
-          .eq('due_date', dueDate)
-          .maybeSingle();
-
-        if (!existingInstallment) {
-          results.push({ data: row, duplicateStatus: 'new', selected: true });
-        } else {
           // Check if values are the same
-          const isSameValue = Math.abs(existingInstallment.value - value) < 0.01;
+          const valueDiff = value - existingInstallment.value;
+          const isSameValue = Math.abs(valueDiff) < 0.01;
           const expectedStatus = new Date(dueDate) < new Date() ? 'overdue' : 'pending';
           const isSameStatus = existingInstallment.status === expectedStatus;
 
           if (isSameValue && isSameStatus) {
             // Exact duplicate - deselect by default
-            results.push({
+            return {
               data: row,
-              duplicateStatus: 'duplicate',
+              duplicateStatus: 'duplicate' as const,
               existingInstallmentId: existingInstallment.id,
               existingValue: existingInstallment.value,
               existingStatus: existingInstallment.status,
+              existingDueDate: existingInstallment.due_date,
               selected: false
-            });
+            };
           } else {
             // Update available - select by default
-            results.push({
+            return {
               data: row,
-              duplicateStatus: 'update_available',
+              duplicateStatus: 'update_available' as const,
               existingInstallmentId: existingInstallment.id,
               existingValue: existingInstallment.value,
               existingStatus: existingInstallment.status,
+              existingDueDate: existingInstallment.due_date,
+              valueDiff: !isSameValue ? valueDiff : undefined,
               selected: true
-            });
+            };
           }
+        } catch (err) {
+          console.error('Error processing row:', err);
+          return { 
+            data: row, 
+            duplicateStatus: 'error' as const, 
+            errorMessage: err instanceof Error ? err.message : 'Erro desconhecido',
+            selected: false 
+          };
         }
-      } catch (err) {
-        console.error('Error checking duplicate:', err);
-        results.push({ data: row, duplicateStatus: 'new', selected: true });
+      });
+
+      setProcessedData(results);
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`Duplicate check completed in ${elapsed}ms for ${data.length} rows`);
+
+      // Show summary toast
+      const newCount = results.filter(r => r.duplicateStatus === 'new').length;
+      const dupCount = results.filter(r => r.duplicateStatus === 'duplicate').length;
+      const updateCount = results.filter(r => r.duplicateStatus === 'update_available').length;
+      const errorCount = results.filter(r => r.duplicateStatus === 'error').length;
+
+      if (dupCount > 0 || updateCount > 0 || errorCount > 0) {
+        toast.info(
+          `Verificação (${elapsed}ms): ${newCount} nova(s), ${dupCount} duplicada(s), ${updateCount} para atualizar${errorCount > 0 ? `, ${errorCount} erro(s)` : ''}`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(`${newCount} parcelas novas prontas para importar (${elapsed}ms)`);
       }
-    }
-    setProcessedData(results);
-    setCheckingDuplicates(false);
-
-    // Show summary toast
-    const newCount = results.filter(r => r.duplicateStatus === 'new').length;
-    const dupCount = results.filter(r => r.duplicateStatus === 'duplicate').length;
-    const updateCount = results.filter(r => r.duplicateStatus === 'update_available').length;
-
-    if (dupCount > 0 || updateCount > 0) {
-      toast.info(
-        `Verificação: ${newCount} nova(s), ${dupCount} duplicada(s), ${updateCount} para atualizar`,
-        { duration: 5000 }
-      );
+    } catch (err) {
+      console.error('Error in batch duplicate check:', err);
+      // Fallback: mark all as new so user can proceed
+      const results = data.map(row => ({ 
+        data: row, 
+        duplicateStatus: 'new' as const, 
+        selected: true 
+      }));
+      setProcessedData(results);
+      toast.error('Erro ao verificar duplicatas. Todas marcadas como novas.');
+    } finally {
+      setCheckingDuplicates(false);
     }
   };
 
@@ -480,19 +544,55 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
     link.click();
   };
 
-  const getDuplicateStatusBadge = (status: ProcessedRow['duplicateStatus']) => {
-    switch (status) {
+  const getDuplicateStatusBadge = (row: ProcessedRow) => {
+    switch (row.duplicateStatus) {
       case 'new':
         return <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30">Nova</Badge>;
       case 'duplicate':
         return <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30">Já importada</Badge>;
       case 'update_available':
-        return <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>;
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>
+            {row.valueDiff !== undefined && (
+              <span className="text-xs text-slate-400">
+                {row.valueDiff > 0 ? '+' : ''}{row.valueDiff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+            )}
+          </div>
+        );
+      case 'error':
+        return (
+          <Badge className="bg-rose-500/20 text-rose-300 border-rose-400/30" title={row.errorMessage}>
+            Erro
+          </Badge>
+        );
       case 'checking':
         return <Badge className="bg-slate-500/20 text-slate-300 border-slate-400/30">Verificando...</Badge>;
       default:
         return null;
     }
+  };
+
+  // Quick selection helpers
+  const selectOnlyNew = () => {
+    setProcessedData(prev => 
+      prev.map(row => ({ 
+        ...row, 
+        selected: row.duplicateStatus === 'new' 
+      }))
+    );
+    toast.success('Apenas parcelas novas selecionadas');
+  };
+
+  const selectNewAndUpdates = () => {
+    setProcessedData(prev => 
+      prev.map(row => ({ 
+        ...row, 
+        selected: row.duplicateStatus === 'new' || row.duplicateStatus === 'update_available' 
+      }))
+    );
+    toast.success('Novas + atualizações selecionadas');
   };
 
   return (
@@ -653,26 +753,62 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Duplicate Summary */}
+            {/* Duplicate Summary Card */}
             {!checkingDuplicates && processedData.length > 0 && (
-              <div className="flex flex-wrap gap-4 mb-4 p-3 bg-slate-800/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30">Nova</Badge>
-                  <span className="text-slate-400">{duplicateSummary.newCount}</span>
+              <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-white/5">
+                <div className="flex flex-wrap items-center gap-4 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30">Nova</Badge>
+                    <span className="text-slate-300 font-medium">{duplicateSummary.newCount}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>
+                    <span className="text-slate-300 font-medium">{duplicateSummary.updateCount}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30">Duplicada</Badge>
+                    <span className="text-slate-300 font-medium">{duplicateSummary.duplicateCount}</span>
+                  </div>
+                  {duplicateSummary.errorCount > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-rose-500/20 text-rose-300 border-rose-400/30">Erro</Badge>
+                      <span className="text-slate-300 font-medium">{duplicateSummary.errorCount}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30">Já importada</Badge>
-                  <span className="text-slate-400">{duplicateSummary.duplicateCount}</span>
+                
+                {/* Quick selection buttons */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={selectOnlyNew}
+                    className="text-xs h-7 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                  >
+                    Apenas novas
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={selectNewAndUpdates}
+                    className="text-xs h-7 border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                  >
+                    Novas + atualizações
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => toggleAllSelection(false)}
+                    className="text-xs h-7 border-white/10 text-slate-400 hover:bg-slate-700/50"
+                  >
+                    Desmarcar tudo
+                  </Button>
+                  {duplicateSummary.duplicateCount > 0 && (
+                    <span className="text-xs text-slate-500 ml-auto self-center">
+                      Duplicatas são desmarcadas automaticamente
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">Atualizar</Badge>
-                  <span className="text-slate-400">{duplicateSummary.updateCount}</span>
-                </div>
-                {duplicateSummary.duplicateCount > 0 && (
-                  <span className="text-sm text-slate-500 ml-auto">
-                    Duplicatas são desmarcadas automaticamente
-                  </span>
-                )}
               </div>
             )}
 
@@ -722,7 +858,7 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
                           />
                         </TableCell>
                         <TableCell>
-                          {getDuplicateStatusBadge(row.duplicateStatus)}
+                          {getDuplicateStatusBadge(row)}
                         </TableCell>
                         <TableCell>{row.data[columnMapping.name]}</TableCell>
                         <TableCell>{row.data[columnMapping.phone]}</TableCell>
