@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, GitMerge, Building2, Users, FileText, Loader2, CheckCircle, ChevronDown, ChevronUp, Check, Trash2 } from 'lucide-react';
+import { AlertTriangle, GitMerge, Building2, Users, FileText, Loader2, CheckCircle, ChevronDown, ChevronUp, Check, Trash2, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -26,9 +26,8 @@ interface Company {
 
 interface DuplicateGroup {
   id: string;
+  cnpj: string;
   companies: Company[];
-  similarityScore: number;
-  matchField: 'razao_social' | 'nome_fantasia' | 'both';
 }
 
 interface GroupSelection {
@@ -43,59 +42,6 @@ interface DuplicateCompaniesReportModalProps {
   onSuccess: () => void;
 }
 
-// Levenshtein distance algorithm
-const levenshteinDistance = (str1: string, str2: string): number => {
-  const m = str1.length;
-  const n = str2.length;
-  
-  if (m === 0) return n;
-  if (n === 0) return m;
-  
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-  
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost
-      );
-    }
-  }
-  
-  return dp[m][n];
-};
-
-// Normalize string for comparison
-const normalizeString = (str: string): string => {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\b(ltda|eireli|me|epp|sa|s\.a\.|s\/a|ltda\.)\b/gi, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
-// Calculate similarity between 0 and 1
-const calculateSimilarity = (str1: string, str2: string): number => {
-  const s1 = normalizeString(str1);
-  const s2 = normalizeString(str2);
-  
-  if (s1 === s2) return 1;
-  if (s1.length === 0 || s2.length === 0) return 0;
-  
-  const distance = levenshteinDistance(s1, s2);
-  const maxLength = Math.max(s1.length, s2.length);
-  
-  return 1 - (distance / maxLength);
-};
-
 const formatCNPJ = (cnpj: string): string => {
   const cleaned = cnpj.replace(/\D/g, '');
   if (cleaned.length !== 14) return cnpj;
@@ -104,6 +50,10 @@ const formatCNPJ = (cnpj: string): string => {
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+const normalizeCNPJ = (cnpj: string): string => {
+  return cnpj.replace(/\D/g, '');
 };
 
 export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportModalProps> = ({
@@ -117,66 +67,37 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
   const [groupSelections, setGroupSelections] = useState<Map<string, GroupSelection>>(new Map());
   const [merging, setMerging] = useState(false);
   const [confirmMerge, setConfirmMerge] = useState<{ groupId: string; group: DuplicateGroup } | null>(null);
-  
-  const SIMILARITY_THRESHOLD = 0.80;
 
   const findDuplicateGroups = useCallback((): DuplicateGroup[] => {
-    const groups: DuplicateGroup[] = [];
-    const processed = new Set<string>();
+    // Agrupar empresas por CNPJ normalizado (apenas dígitos)
+    const cnpjMap = new Map<string, Company[]>();
     
-    for (let i = 0; i < companies.length; i++) {
-      if (processed.has(companies[i].id)) continue;
-      
-      const group: Company[] = [companies[i]];
-      let maxSimilarity = 0;
-      let matchField: 'razao_social' | 'nome_fantasia' | 'both' = 'razao_social';
-      
-      for (let j = i + 1; j < companies.length; j++) {
-        if (processed.has(companies[j].id)) continue;
-        
-        const simRazao = calculateSimilarity(
-          companies[i].razao_social, 
-          companies[j].razao_social
-        );
-        
-        let simFantasia = 0;
-        if (companies[i].nome_fantasia && companies[j].nome_fantasia) {
-          simFantasia = calculateSimilarity(
-            companies[i].nome_fantasia, 
-            companies[j].nome_fantasia
-          );
-        }
-        
-        const similarity = Math.max(simRazao, simFantasia);
-        
-        if (similarity >= SIMILARITY_THRESHOLD) {
-          group.push(companies[j]);
-          processed.add(companies[j].id);
-          if (similarity > maxSimilarity) {
-            maxSimilarity = similarity;
-            if (simRazao >= SIMILARITY_THRESHOLD && simFantasia >= SIMILARITY_THRESHOLD) {
-              matchField = 'both';
-            } else if (simFantasia > simRazao) {
-              matchField = 'nome_fantasia';
-            } else {
-              matchField = 'razao_social';
-            }
-          }
-        }
+    companies.forEach(company => {
+      const normalizedCNPJ = normalizeCNPJ(company.cnpj);
+      if (!cnpjMap.has(normalizedCNPJ)) {
+        cnpjMap.set(normalizedCNPJ, []);
       }
-      
-      if (group.length > 1) {
-        processed.add(companies[i].id);
+      cnpjMap.get(normalizedCNPJ)!.push(company);
+    });
+    
+    // Converter para grupos apenas onde há duplicatas (>1 empresa)
+    const groups: DuplicateGroup[] = [];
+    let groupIndex = 0;
+    
+    cnpjMap.forEach((companiesWithSameCNPJ, cnpj) => {
+      if (companiesWithSameCNPJ.length > 1) {
         groups.push({
-          id: `group-${i}`,
-          companies: group.sort((a, b) => b.contacts_count - a.contacts_count),
-          similarityScore: maxSimilarity,
-          matchField
+          id: `group-${groupIndex++}`,
+          cnpj: cnpj,
+          companies: companiesWithSameCNPJ.sort((a, b) => 
+            b.contacts_count - a.contacts_count
+          )
         });
       }
-    }
+    });
     
-    return groups.sort((a, b) => b.similarityScore - a.similarityScore);
+    // Ordenar por quantidade de empresas duplicadas
+    return groups.sort((a, b) => b.companies.length - a.companies.length);
   }, [companies]);
 
   const duplicateGroups = useMemo(() => {
@@ -316,20 +237,6 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
     }
   };
 
-  const getSimilarityColor = (score: number): string => {
-    if (score >= 0.95) return 'text-red-400 bg-red-500/20';
-    if (score >= 0.90) return 'text-orange-400 bg-orange-500/20';
-    return 'text-amber-400 bg-amber-500/20';
-  };
-
-  const getMatchFieldLabel = (field: 'razao_social' | 'nome_fantasia' | 'both'): string => {
-    switch (field) {
-      case 'razao_social': return 'Razão Social';
-      case 'nome_fantasia': return 'Nome Fantasia';
-      case 'both': return 'Ambos';
-    }
-  };
-
   const getSelectionStats = (groupId: string, group: DuplicateGroup) => {
     const selection = groupSelections.get(groupId);
     if (!selection) return { sourcesCount: 0, contactsToMove: 0, policiesToMove: 0, destination: null };
@@ -349,11 +256,11 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
         <DialogContent className="max-w-4xl max-h-[90vh] bg-slate-900 border-slate-700">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-100">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              Relatório de Duplicatas Potenciais
+              <Copy className="w-5 h-5 text-red-400" />
+              Relatório de CNPJ Duplicados
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Selecione a empresa principal (destino) e marque as duplicatas para mesclar
+              Empresas com o mesmo CNPJ cadastradas múltiplas vezes. Selecione qual manter e quais excluir.
             </DialogDescription>
           </DialogHeader>
 
@@ -366,17 +273,17 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
             ) : duplicateGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <CheckCircle className="w-12 h-12 text-emerald-400" />
-                <p className="text-slate-300 font-medium">Nenhuma duplicata encontrada!</p>
+                <p className="text-slate-300 font-medium">Nenhum CNPJ duplicado encontrado!</p>
                 <p className="text-slate-500 text-sm">
-                  Todas as {companies.length} empresas parecem ser únicas.
+                  Todas as {companies.length} empresas possuem CNPJ único.
                 </p>
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-slate-300">
-                    Encontrados <span className="text-amber-400 font-semibold">{duplicateGroups.length}</span> grupos 
-                    de empresas potencialmente duplicadas
+                    Encontrados <span className="text-red-400 font-semibold">{duplicateGroups.length}</span> CNPJ(s) 
+                    com cadastros duplicados
                   </p>
                   <Button
                     variant="outline"
@@ -412,14 +319,14 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                 <span className="text-slate-500 text-sm font-medium">
                                   #{index + 1}
                                 </span>
-                                <Badge className={`${getSimilarityColor(group.similarityScore)}`}>
-                                  {Math.round(group.similarityScore * 100)}% similar
+                                <Badge className="text-red-400 bg-red-500/20 border-0">
+                                  CNPJ Duplicado
                                 </Badge>
-                                <Badge variant="outline" className="border-slate-600 text-slate-400">
-                                  {getMatchFieldLabel(group.matchField)}
-                                </Badge>
+                                <span className="text-slate-300 font-mono text-sm">
+                                  {formatCNPJ(group.cnpj)}
+                                </span>
                                 <span className="text-slate-400 text-sm">
-                                  {group.companies.length} empresas
+                                  {group.companies.length} cadastros
                                 </span>
                               </div>
                               <div className="flex items-center gap-3">
@@ -504,7 +411,6 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                           )}
                                         </div>
                                         <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-500 flex-wrap">
-                                          <span className="font-mono">{formatCNPJ(company.cnpj)}</span>
                                           {company.city && company.state && (
                                             <span>{company.city}/{company.state}</span>
                                           )}
@@ -538,7 +444,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                 {canMerge ? (
                                   <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
                                     <p className="text-sm text-slate-300">
-                                      <span className="text-amber-400 font-medium">{sourcesCount}</span> empresa(s) serão excluídas.{' '}
+                                      <span className="text-amber-400 font-medium">{sourcesCount}</span> cadastro(s) serão excluídos.{' '}
                                       <span className="text-blue-400">{contactsToMove}</span> contatos e{' '}
                                       <span className="text-blue-400">{policiesToMove}</span> apólices serão movidos para{' '}
                                       <span className="text-emerald-400 font-medium">{destination?.razao_social.substring(0, 30)}...</span>
@@ -547,7 +453,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                 ) : (
                                   <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
                                     <p className="text-sm text-slate-500">
-                                      Marque pelo menos uma empresa para excluir (checkbox vermelho)
+                                      Marque pelo menos um cadastro para excluir (checkbox vermelho)
                                     </p>
                                   </div>
                                 )}
@@ -566,7 +472,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                                   ) : (
                                     <GitMerge className="w-4 h-4" />
                                   )}
-                                  Mesclar {sourcesCount > 0 ? `${sourcesCount} Empresa(s)` : 'Selecionadas'}
+                                  Mesclar {sourcesCount > 0 ? `${sourcesCount} Cadastro(s)` : 'Selecionados'}
                                 </Button>
                               </div>
                             </div>
@@ -606,7 +512,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                 return (
                   <div className="space-y-3 mt-2">
                     <p>
-                      Você está prestes a mesclar <span className="text-amber-400 font-semibold">{sourcesCount}</span> empresa(s).
+                      Você está prestes a excluir <span className="text-amber-400 font-semibold">{sourcesCount}</span> cadastro(s) duplicado(s).
                     </p>
                     <div className="bg-slate-800 rounded-lg p-3 space-y-2 text-sm">
                       <p>
@@ -614,7 +520,7 @@ export const DuplicateCompaniesReportModal: React.FC<DuplicateCompaniesReportMod
                         <span className="text-blue-400">{policiesToMove}</span> apólices serão movidos.
                       </p>
                       <p>
-                        Empresa destino: <span className="text-emerald-400 font-medium">{destination?.razao_social}</span>
+                        Empresa que será mantida: <span className="text-emerald-400 font-medium">{destination?.razao_social}</span>
                       </p>
                     </div>
                     <p className="text-red-400 text-sm font-medium">
