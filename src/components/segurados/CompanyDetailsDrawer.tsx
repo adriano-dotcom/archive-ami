@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -322,28 +322,30 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                             <span className="font-medium text-white">
                               {contact.name || 'Sem nome'}
                             </span>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => handleToggleBillingContact(contact)}
-                                  disabled={togglingBilling === contact.id}
-                                  className="p-0.5 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
-                                >
-                                  {togglingBilling === contact.id ? (
-                                    <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
-                                  ) : contact.is_billing_contact ? (
-                                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                  ) : (
-                                    <StarOff className="w-4 h-4 text-slate-500 hover:text-yellow-400" />
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                {contact.is_billing_contact 
-                                  ? 'Remover como contato de cobrança' 
-                                  : 'Marcar como contato de cobrança'}
-                              </TooltipContent>
-                            </Tooltip>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => handleToggleBillingContact(contact)}
+                                    disabled={togglingBilling === contact.id}
+                                    className="p-0.5 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                                  >
+                                    {togglingBilling === contact.id ? (
+                                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                                    ) : contact.is_billing_contact ? (
+                                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                    ) : (
+                                      <StarOff className="w-4 h-4 text-slate-500 hover:text-yellow-400" />
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {contact.is_billing_contact 
+                                    ? 'Remover como contato de cobrança' 
+                                    : 'Marcar como contato de cobrança'}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                           {contact.role && (
                             <Badge variant="secondary" className="text-xs bg-slate-800">
