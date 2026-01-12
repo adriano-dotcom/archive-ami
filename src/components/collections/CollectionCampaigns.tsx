@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail, RefreshCw, ChevronDown, Phone, Building2, User } from 'lucide-react';
+import { Plus, Send, Play, Pause, Eye, Clock, CheckCircle, XCircle, MessageSquare, Sparkles, Mail, RefreshCw, ChevronDown, Phone, Building2, User, Check, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -213,6 +213,8 @@ export const CollectionCampaigns: React.FC = () => {
           id,
           status,
           sent_at,
+          delivered_at,
+          read_at,
           error_message,
           created_at,
           contact:contacts(name, phone_number),
@@ -784,6 +786,9 @@ export const CollectionCampaigns: React.FC = () => {
                       <SelectItem value="delivered">
                         Entregues ({campaignAttempts?.filter(a => a.status === 'delivered').length || 0})
                       </SelectItem>
+                      <SelectItem value="read">
+                        Lidos ({campaignAttempts?.filter(a => a.status === 'read').length || 0})
+                      </SelectItem>
                       <SelectItem value="failed">
                         Falhas ({campaignAttempts?.filter(a => a.status === 'failed').length || 0})
                       </SelectItem>
@@ -825,16 +830,57 @@ export const CollectionCampaigns: React.FC = () => {
                       const company = Array.isArray(policy) ? policy[0]?.company : policy?.company;
                       const companyName = Array.isArray(company) ? company[0]?.razao_social : company?.razao_social;
                       
-                      const getAttemptStatusBadge = (status: string) => {
+                      const getAttemptStatusBadge = (status: string, attemptData: any) => {
                         switch (status) {
                           case 'sent':
-                            return <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Enviado</Badge>;
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Enviado</Badge>
+                                <Check className="w-3.5 h-3.5 text-slate-400" />
+                              </div>
+                            );
                           case 'delivered':
-                            return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Entregue</Badge>;
+                            return (
+                              <div className="flex flex-col items-end gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Entregue</Badge>
+                                  <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
+                                </div>
+                                {attemptData.delivered_at && (
+                                  <span className="text-[10px] text-slate-500">
+                                    {format(new Date(attemptData.delivered_at), "dd/MM HH:mm", { locale: ptBR })}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          case 'read':
+                            return (
+                              <div className="flex flex-col items-end gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">Lido</Badge>
+                                  <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                </div>
+                                {attemptData.read_at && (
+                                  <span className="text-[10px] text-slate-500">
+                                    {format(new Date(attemptData.read_at), "dd/MM HH:mm", { locale: ptBR })}
+                                  </span>
+                                )}
+                              </div>
+                            );
                           case 'failed':
-                            return <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs">Falha</Badge>;
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs">Falha</Badge>
+                                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                              </div>
+                            );
                           case 'pending':
-                            return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Pendente</Badge>;
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Pendente</Badge>
+                                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              </div>
+                            );
                           default:
                             return <Badge className="text-xs">{status}</Badge>;
                         }
@@ -865,7 +911,7 @@ export const CollectionCampaigns: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex-shrink-0">
-                              {getAttemptStatusBadge(attempt.status)}
+                              {getAttemptStatusBadge(attempt.status, attempt)}
                             </div>
                           </div>
                           {attempt.error_message && (

@@ -417,9 +417,14 @@ serve(async (req) => {
                 ...(newStatus === 'read' && { read_at: new Date().toISOString() })
               };
               
+              // Prepare error message for failed status
+              let errorMessage: string | null = null;
+              
               // Save WhatsApp error details when status is 'failed'
               if (newStatus === 'failed' && status.errors && status.errors.length > 0) {
                 console.log('[Webhook] Message failed with errors:', JSON.stringify(status.errors));
+                
+                errorMessage = status.errors[0]?.title || status.errors[0]?.message || 'Erro de entrega';
                 
                 // Get existing metadata to merge with error info
                 const { data: existingMsg } = await supabase
@@ -439,10 +444,38 @@ serve(async (req) => {
                 };
               }
               
-              await supabase
+              // Update messages table and get the message ID
+              const { data: updatedMessage, error: msgError } = await supabase
                 .from('messages')
                 .update(updateData)
-                .eq('whatsapp_message_id', status.id);
+                .eq('whatsapp_message_id', status.id)
+                .select('id')
+                .maybeSingle();
+              
+              if (msgError) {
+                console.error('[Webhook] Error updating message:', msgError);
+              }
+              
+              // Sync status to collection_attempts table
+              if (updatedMessage?.id) {
+                const attemptUpdate: Record<string, any> = {
+                  status: newStatus,
+                  ...(newStatus === 'delivered' && { delivered_at: new Date().toISOString() }),
+                  ...(newStatus === 'read' && { read_at: new Date().toISOString() }),
+                  ...(newStatus === 'failed' && errorMessage && { error_message: errorMessage })
+                };
+                
+                const { error: attemptError } = await supabase
+                  .from('collection_attempts')
+                  .update(attemptUpdate)
+                  .eq('message_id', updatedMessage.id);
+                
+                if (attemptError) {
+                  console.log('[Webhook] No collection_attempt found for message (this is normal for non-collection messages):', updatedMessage.id);
+                } else {
+                  console.log(`[Webhook] Synced status '${newStatus}' to collection_attempts for message ${updatedMessage.id}`);
+                }
+              }
             }
           }
         }
