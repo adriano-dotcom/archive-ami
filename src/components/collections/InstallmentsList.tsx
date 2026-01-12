@@ -42,6 +42,7 @@ import {
 import { InstallmentHistoryDrawer } from './installments/InstallmentHistoryDrawer';
 import { MarkAsPaidDialog } from './installments/MarkAsPaidDialog';
 import { EmptyState } from './installments/EmptyState';
+import { EditInstallmentModal } from './installments/EditInstallmentModal';
 import { DuplicateInstallmentsModal } from './DuplicateInstallmentsModal';
 
 // Interface for company details drawer
@@ -104,6 +105,7 @@ export const InstallmentsList: React.FC = () => {
   const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<CompanyForDrawer | null>(null);
   const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
   const [selectedInstallmentForHistory, setSelectedInstallmentForHistory] = useState<Installment | null>(null);
+  const [selectedInstallmentForEdit, setSelectedInstallmentForEdit] = useState<Installment | null>(null);
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
   // Use custom hook
@@ -797,6 +799,15 @@ export const InstallmentsList: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="icon" 
+                          className="h-8 w-8 hover:bg-purple-500/20 hover:text-purple-400"
+                          title="Editar parcela"
+                          onClick={() => setSelectedInstallmentForEdit(inst)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
                           className="h-8 w-8 hover:bg-blue-500/20 hover:text-blue-400"
                           title="Ver histórico"
                           onClick={() => setSelectedInstallmentForHistory(inst)}
@@ -896,6 +907,17 @@ export const InstallmentsList: React.FC = () => {
         open={!!selectedInstallmentForHistory}
         onOpenChange={(open) => !open && setSelectedInstallmentForHistory(null)}
         installment={selectedInstallmentForHistory}
+      />
+
+      {/* Edit Installment Modal */}
+      <EditInstallmentModal
+        open={!!selectedInstallmentForEdit}
+        onOpenChange={(open) => !open && setSelectedInstallmentForEdit(null)}
+        installment={selectedInstallmentForEdit}
+        onSuccess={() => {
+          setSelectedInstallmentForEdit(null);
+          refetch();
+        }}
       />
 
       {/* Company Details Drawer */}
