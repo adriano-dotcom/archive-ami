@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Building2, User, Phone, Mail, Star, Plus, Pencil, 
-  MessageCircle, MapPin, FileText, Clock, DollarSign 
+  Building2, User, Phone, Mail, Star, StarOff, Plus, Pencil, 
+  MessageCircle, MapPin, FileText, Clock, DollarSign, Loader2 
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -71,6 +72,7 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
   const [showAddContact, setShowAddContact] = useState(false);
   const [editingContact, setEditingContact] = useState<CompanyContact | null>(null);
   const [emailModalContact, setEmailModalContact] = useState<CompanyContact | null>(null);
+  const [togglingBilling, setTogglingBilling] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && company) {
@@ -116,8 +118,34 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
       toast.error('Este contato não possui email cadastrado');
       return;
     }
-    // Abrir modal de email com contexto de cobrança
     setEmailModalContact(contact);
+  };
+
+  const handleToggleBillingContact = async (contact: CompanyContact) => {
+    setTogglingBilling(contact.id);
+    try {
+      const newValue = !contact.is_billing_contact;
+      
+      const { error } = await supabase
+        .from('contacts')
+        .update({ is_billing_contact: newValue })
+        .eq('id', contact.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setContacts(prev => 
+        prev.map(c => c.id === contact.id ? { ...c, is_billing_contact: newValue } : c)
+      );
+
+      toast.success(newValue ? 'Contato marcado como cobrança' : 'Contato desmarcado como cobrança');
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error toggling billing contact:', error);
+      toast.error('Erro ao atualizar contato');
+    } finally {
+      setTogglingBilling(null);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -294,9 +322,28 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                             <span className="font-medium text-white">
                               {contact.name || 'Sem nome'}
                             </span>
-                            {contact.is_billing_contact && (
-                              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => handleToggleBillingContact(contact)}
+                                  disabled={togglingBilling === contact.id}
+                                  className="p-0.5 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                                >
+                                  {togglingBilling === contact.id ? (
+                                    <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                                  ) : contact.is_billing_contact ? (
+                                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                  ) : (
+                                    <StarOff className="w-4 h-4 text-slate-500 hover:text-yellow-400" />
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {contact.is_billing_contact 
+                                  ? 'Remover como contato de cobrança' 
+                                  : 'Marcar como contato de cobrança'}
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                           {contact.role && (
                             <Badge variant="secondary" className="text-xs bg-slate-800">

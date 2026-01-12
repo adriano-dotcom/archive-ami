@@ -413,12 +413,33 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
         }
 
         if (companyId && company.contacts.length > 0) {
+          // Check if company already has a billing contact
+          const { data: existingBillingContact } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('is_billing_contact', true)
+            .maybeSingle();
+
+          const hasBillingContact = !!existingBillingContact;
+          
           // Insert valid contacts
           const validContacts = company.contacts.filter(c => c.valid);
           
-          for (const contact of validContacts) {
+          // Check if any contact in the list is marked as billing
+          const hasMarkedBillingContact = validContacts.some(c => c.is_billing_contact);
+          
+          for (let contactIdx = 0; contactIdx < validContacts.length; contactIdx++) {
+            const contact = validContacts[contactIdx];
             // Add telefone_pendente tag if phone is pending
             const tags = contact.phone_pending ? ['telefone_pendente'] : null;
+            
+            // Auto-mark first contact as billing if:
+            // 1. Company doesn't have a billing contact
+            // 2. No contact in the import list is marked as billing
+            // 3. This is the first contact
+            const shouldBeBillingContact = contact.is_billing_contact || 
+              (!hasBillingContact && !hasMarkedBillingContact && contactIdx === 0);
             
             const { error: contactError } = await supabase
               .from('contacts')
@@ -428,7 +449,7 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
                 email: contact.email || null,
                 cpf: contact.cpf || null,
                 role: contact.role || null,
-                is_billing_contact: contact.is_billing_contact,
+                is_billing_contact: shouldBeBillingContact,
                 company_id: companyId,
                 tags,
                 lead_source: 'import_cobranca',

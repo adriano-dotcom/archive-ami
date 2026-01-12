@@ -429,9 +429,18 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
                   .from('contacts')
                   .select('id')
                   .eq('company_id', companyId)
+                  .order('created_at', { ascending: true })
                   .limit(1)
                   .maybeSingle();
-                contactId = anyContact?.id || null;
+                
+                if (anyContact) {
+                  contactId = anyContact.id;
+                  // Marcar este contato como billing contact automaticamente
+                  await supabase
+                    .from('contacts')
+                    .update({ is_billing_contact: true })
+                    .eq('id', contactId);
+                }
               }
             }
           } else if (cpfCnpj.length === 11) {
