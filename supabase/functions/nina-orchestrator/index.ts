@@ -305,24 +305,73 @@ const TRANSFER_OFFER_PATTERNS = [
 
 // Keywords para pedido direto de transferência
 const DIRECT_TRANSFER_KEYWORDS = [
+  // Pedidos diretos
   'quero falar com humano',
   'quero um atendente',
   'falar com pessoa',
   'atendente humano',
+  'atendimento humano',
+  'quero falar com gente',
+  'quero falar com corretor',
+  'falar com corretor',
+  
+  // Variações com "um humano"
+  'falar com um humano',
+  'quero falar com um humano',
+  'preciso de um humano',
+  'preciso falar com humano',
+  'preciso de atendimento humano',
+  
+  // "me coloque/coloca para falar"
+  'me coloque para falar',
+  'me coloca pra falar',
+  'me coloca para falar',
+  'coloque para falar com humano',
+  'coloca pra falar com humano',
+  
+  // Pedir para transferir
+  'me transfere',
+  'me transfere para humano',
+  'me transfere pra humano',
+  'me transfira',
+  'me transfira para humano',
+  
+  // Pedir para passar
+  'me passe para humano',
+  'me passa para humano',
+  'me passa pra humano',
+  'passar para atendente',
+  'passar pra alguém',
+  'passar pra alguem',
+  
+  // Conectar
+  'me conecta com humano',
+  'me conecte com humano',
+  'me conecta com atendente',
+  
+  // Falar com alguém/pessoa real
+  'falar com alguém',
+  'falar com alguem',
+  'falar com uma pessoa',
+  'falar com pessoa real',
+  'pessoa de verdade',
+  'quero atendente humano',
+  
+  // Não quero robô/bot
   'não quero falar com robô',
   'nao quero falar com robo',
   'não quero falar com bot',
   'nao quero falar com bot',
-  'me transfere',
-  'passar para atendente',
-  'falar com alguém',
-  'falar com alguem',
-  'quero falar com gente',
-  'atendimento humano',
-  'quero falar com corretor',
-  'falar com corretor',
-  'passar pra alguém',
-  'passar pra alguem'
+  'não quero robô',
+  'nao quero robo',
+  'chega de robô',
+  'chega de robo',
+  
+  // Variações simplificadas
+  'falar com humano',
+  'passa pra humano',
+  'transfere pra humano',
+  'quero humano'
 ];
 
 // Detect direct transfer request
@@ -2596,7 +2645,11 @@ async function processQueueItem(
       const aiSettings = getModelSettings(settings, [], message, conversation.contact, {});
       
       if (onlineAgent) {
-        responseMessage = `Perfeito, ${contactName}! Estou transferindo você para ${onlineAgent.name} que já vai te atender. 🙂`;
+        // Mensagem de despedida elaborada com agente online
+        responseMessage = `Foi um prazer conversar com você, ${contactName}! 😊
+
+Vou te transferir agora para ${onlineAgent.name}, que vai continuar te atendendo.
+Obrigada pela paciência e até a próxima! 🙌`;
         
         // Assign conversation to online agent
         await supabase
@@ -2617,7 +2670,11 @@ async function processQueueItem(
         
         console.log(`[Nina] ✅ Conversa transferida para ${onlineAgent.name} (ID: ${onlineAgent.id})`);
       } else {
-        responseMessage = `${contactName}, nossos atendentes estão ocupados no momento. Mas não se preocupe, um corretor vai te responder assim que possível! ⏳`;
+        // Mensagem de despedida elaborada sem agente online
+        responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+
+Nossos corretores estão atendendo outros clientes no momento, mas um deles vai te responder assim que possível.
+Agradeço sua paciência! 🙏`;
         
         // Mark as human without assignment (for triage)
         await supabase
