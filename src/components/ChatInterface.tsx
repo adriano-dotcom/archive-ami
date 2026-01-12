@@ -29,6 +29,7 @@ import { Button as ShadcnButton } from './ui/button';
 import { useConversations } from '../hooks/useConversations';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import RecordRTC, { StereoAudioRecorder } from 'recordrtc';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { api } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
@@ -138,11 +139,9 @@ const ChatInterface: React.FC = () => {
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recorderRef = useRef<RecordRTC | null>(null);
+  const recordingIntervalRef = useRef<number | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
-  
   // Input refs for keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -727,169 +726,160 @@ const ChatInterface: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Start audio recording
-  const startRecording = async () => {
-    // Clear any existing interval first
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
+  const clearRecordingTimer = () => {
+    if (recordingIntervalRef.current != null) {
+      window.clearInterval(recordingIntervalRef.current);
       recordingIntervalRef.current = null;
     }
-    
+  };
+
+  const stopRecordingStream = () => {
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((t) => t.stop());
+      recordingStreamRef.current = null;
+    }
+  };
+
+  // Start audio recording
+  const startRecording = async () => {
+    if (!windowTimeRemaining.isOpen) return;
+
+    // If a recorder is still around, clean it up
     try {
-      console.log('[Audio] Requesting microphone access...');
+      clearRecordingTimer();
+      stopRecordingStream();
+      recorderRef.current?.destroy();
+      recorderRef.current = null;
+    } catch {
+      // ignore
+    }
+
+    try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('[Audio] Microphone access granted');
       recordingStreamRef.current = stream;
-      
-      // Prefer OGG/Opus for better WhatsApp compatibility
-      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-        ? 'audio/ogg;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm';
-      
-      console.log('[Audio] Using mimeType:', mimeType);
-      
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (e) => {
-        console.log('[Audio] Data available, size:', e.data.size);
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-      
-      mediaRecorder.onerror = (e) => {
-        console.error('[Audio] MediaRecorder error:', e);
-      };
-      
-      // Start recording with timeslice to get data periodically
-      mediaRecorder.start(1000);
-      console.log('[Audio] Recording started');
-      
-      // Set state first
+
+      // RecordRTC handles cross-browser quirks better than raw MediaRecorder
+      const recorder = new RecordRTC(stream, {
+        type: 'audio',
+        mimeType: 'audio/webm;codecs=opus',
+        recorderType: StereoAudioRecorder,
+        numberOfAudioChannels: 1,
+        desiredSampRate: 48000,
+      });
+
+      recorderRef.current = recorder;
+      recorder.startRecording();
+
       setIsRecording(true);
       setRecordingDuration(0);
-      
-      // Start duration timer
-      const intervalId = setInterval(() => {
-        setRecordingDuration(prev => {
-          console.log('[Audio] Timer tick, duration:', prev + 1);
-          return prev + 1;
-        });
+
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
       }, 1000);
-      recordingIntervalRef.current = intervalId;
-      console.log('[Audio] Timer started, intervalId:', intervalId);
-      
     } catch (err) {
-      console.error('[Audio] Error accessing microphone:', err);
-      toast.error('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
+      console.error('[Audio] startRecording failed:', err);
+      toast.error('Não foi possível iniciar a gravação. Verifique as permissões do microfone.');
+      setIsRecording(false);
+      setRecordingDuration(0);
+      clearRecordingTimer();
+      stopRecordingStream();
+      recorderRef.current?.destroy();
+      recorderRef.current = null;
     }
   };
 
   // Stop recording and send audio
   const stopRecordingAndSend = async () => {
-    if (!mediaRecorderRef.current || !isRecording || !activeChat) return;
-    
-    // Clear interval
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-    
+    if (!isRecording || !activeChat || uploadingFile) return;
+
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+
     setIsRecording(false);
-    
-    // Get the audio blob when recording stops
-    const mediaRecorder = mediaRecorderRef.current;
-    const mimeType = mediaRecorder.mimeType;
-    
-    mediaRecorder.onstop = async () => {
-      // Stop all tracks
-      if (recordingStreamRef.current) {
-        recordingStreamRef.current.getTracks().forEach(track => track.stop());
-        recordingStreamRef.current = null;
-      }
-      
-      if (audioChunksRef.current.length === 0) {
-        toast.error('Nenhum áudio gravado');
-        return;
-      }
-      
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-      
-      // Check minimum duration (at least 1 second)
-      if (recordingDuration < 1) {
-        toast.error('Gravação muito curta');
-        setRecordingDuration(0);
-        return;
-      }
-      
-      setUploadingFile(true);
+    clearRecordingTimer();
+
+    // Minimum duration (1s) to avoid empty blobs
+    if (recordingDuration < 1) {
+      toast.error('Gravação muito curta');
+      setRecordingDuration(0);
+      recorder.stopRecording(() => {
+        recorder.destroy();
+        recorderRef.current = null;
+        stopRecordingStream();
+      });
+      return;
+    }
+
+    setUploadingFile(true);
+
+    recorder.stopRecording(async () => {
       try {
-        const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
-        const file = new File([audioBlob], `audio_${Date.now()}.${extension}`, { 
-          type: mimeType 
-        });
-        
-        const operatorName = user?.email 
-          ? teamMembers.find(m => m.email === user.email)?.name || 
-            user.email.split('@')[0]
+        const blob = recorder.getBlob();
+        if (!blob || blob.size === 0) {
+          toast.error('Não foi possível capturar o áudio (blob vazio).');
+          return;
+        }
+
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
+
+        const operatorName = user?.email
+          ? teamMembers.find((m) => m.email === user.email)?.name ||
+            user.email
+              .split('@')[0]
               .split(/[._-]/)
-              .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
               .join(' ')
           : undefined;
-        
+
         await api.sendMediaMessage(activeChat.id, file, operatorName);
         toast.success('Áudio enviado!');
       } catch (err) {
-        console.error('Error sending audio:', err);
+        console.error('[Audio] send failed:', err);
         toast.error('Erro ao enviar áudio');
       } finally {
         setUploadingFile(false);
         setRecordingDuration(0);
+        recorder.destroy();
+        recorderRef.current = null;
+        stopRecordingStream();
       }
-    };
-    
-    mediaRecorder.stop();
+    });
   };
 
   // Cancel recording
   const cancelRecording = () => {
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-    
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-    
-    // Stop all tracks
-    if (recordingStreamRef.current) {
-      recordingStreamRef.current.getTracks().forEach(track => track.stop());
-      recordingStreamRef.current = null;
-    }
-    
+    if (!isRecording) return;
+
     setIsRecording(false);
     setRecordingDuration(0);
+    clearRecordingTimer();
+
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.stopRecording(() => {
+        recorder.destroy();
+        recorderRef.current = null;
+        stopRecordingStream();
+      });
+    } else {
+      stopRecordingStream();
+    }
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
+      clearRecordingTimer();
+      try {
+        recorderRef.current?.destroy();
+      } catch {
+        // ignore
       }
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-      }
-      if (recordingStreamRef.current) {
-        recordingStreamRef.current.getTracks().forEach(track => track.stop());
-      }
+      recorderRef.current = null;
+      stopRecordingStream();
     };
-  }, [isRecording]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
