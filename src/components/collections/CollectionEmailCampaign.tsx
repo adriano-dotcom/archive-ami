@@ -21,7 +21,9 @@ import {
   XCircle,
   AlertTriangle,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Building2,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -42,7 +44,12 @@ interface GeneratedEmail {
   installmentCount: number;
   sellerEmail?: string;
   sellerName?: string;
+  companyId?: string;
+  companyName?: string;
+  isBillingContact?: boolean;
 }
+
+type RecipientMode = 'billing' | 'all' | 'select';
 
 interface CollectionEmailCampaignProps {
   open: boolean;
@@ -64,10 +71,12 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
 }) => {
   const [step, setStep] = useState<Step>('config');
   const [emailTone, setEmailTone] = useState<'friendly' | 'reminder' | 'urgent' | 'final'>('friendly');
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>('billing');
   const [ccSeller, setCcSeller] = useState(true);
   const [generatedEmails, setGeneratedEmails] = useState<GeneratedEmail[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
   const [skippedCount, setSkippedCount] = useState(0);
   const [sendProgress, setSendProgress] = useState(0);
   const [sendResults, setSendResults] = useState<{ sent: number; failed: number; results: any[] }>({ sent: 0, failed: 0, results: [] });
@@ -83,6 +92,7 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
             installmentIds: filters.selectedInstallmentIds
           },
           emailTone,
+          recipientMode,
           batchId
         }
       });
@@ -93,7 +103,15 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
     onSuccess: (data) => {
       if (data.generated && data.generated.length > 0) {
         setGeneratedEmails(data.generated);
-        setSelectedEmails(new Set(data.generated.map((e: GeneratedEmail) => e.contactId)));
+        // For 'select' mode, only pre-select billing contacts; for others, select all
+        if (recipientMode === 'select') {
+          const billingOnly = data.generated
+            .filter((e: GeneratedEmail) => e.isBillingContact)
+            .map((e: GeneratedEmail) => `${e.contactId}-${e.email}`);
+          setSelectedEmails(new Set(billingOnly));
+        } else {
+          setSelectedEmails(new Set(data.generated.map((e: GeneratedEmail) => `${e.contactId}-${e.email}`)));
+        }
         setSkippedCount(data.skipped || 0);
         setStep('preview');
         toast.success(`${data.generated.length} emails gerados com sucesso!`);
@@ -109,7 +127,7 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
 
   const sendEmailsMutation = useMutation({
     mutationFn: async () => {
-      const emailsToSend = generatedEmails.filter(e => selectedEmails.has(e.contactId));
+      const emailsToSend = generatedEmails.filter(e => selectedEmails.has(`${e.contactId}-${e.email}`));
       
       const { data, error } = await supabase.functions.invoke('send-collection-emails', {
         body: {
@@ -139,39 +157,75 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
     setGeneratedEmails([]);
     setSelectedEmails(new Set());
     setExpandedEmails(new Set());
+    setExpandedCompanies(new Set());
     setSendProgress(0);
     setSendResults({ sent: 0, failed: 0, results: [] });
     setCcSeller(true);
+    setRecipientMode('billing');
     onOpenChange(false);
   };
 
-  const toggleEmailSelection = (contactId: string) => {
+  const getEmailKey = (email: GeneratedEmail) => `${email.contactId}-${email.email}`;
+
+  const toggleEmailSelection = (email: GeneratedEmail) => {
+    const key = getEmailKey(email);
     const newSelected = new Set(selectedEmails);
-    if (newSelected.has(contactId)) {
-      newSelected.delete(contactId);
+    if (newSelected.has(key)) {
+      newSelected.delete(key);
     } else {
-      newSelected.add(contactId);
+      newSelected.add(key);
     }
     setSelectedEmails(newSelected);
   };
 
-  const toggleEmailExpanded = (contactId: string) => {
+  const toggleEmailExpanded = (email: GeneratedEmail) => {
+    const key = getEmailKey(email);
     const newExpanded = new Set(expandedEmails);
-    if (newExpanded.has(contactId)) {
-      newExpanded.delete(contactId);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
     } else {
-      newExpanded.add(contactId);
+      newExpanded.add(key);
     }
     setExpandedEmails(newExpanded);
   };
 
+  const toggleCompanyExpanded = (companyId: string) => {
+    const newExpanded = new Set(expandedCompanies);
+    if (newExpanded.has(companyId)) {
+      newExpanded.delete(companyId);
+    } else {
+      newExpanded.add(companyId);
+    }
+    setExpandedCompanies(newExpanded);
+  };
+
   const selectAll = () => {
-    setSelectedEmails(new Set(generatedEmails.map(e => e.contactId)));
+    setSelectedEmails(new Set(generatedEmails.map(e => getEmailKey(e))));
   };
 
   const deselectAll = () => {
     setSelectedEmails(new Set());
   };
+
+  const selectBillingOnly = () => {
+    const billingEmails = generatedEmails
+      .filter(e => e.isBillingContact)
+      .map(e => getEmailKey(e));
+    setSelectedEmails(new Set(billingEmails));
+  };
+
+  // Group emails by company for better visualization
+  const emailsByCompany = generatedEmails.reduce((acc, email) => {
+    const companyKey = email.companyId || 'no-company';
+    if (!acc[companyKey]) {
+      acc[companyKey] = {
+        companyName: email.companyName || 'Sem Empresa',
+        emails: []
+      };
+    }
+    acc[companyKey].emails.push(email);
+    return acc;
+  }, {} as Record<string, { companyName: string; emails: GeneratedEmail[] }>);
 
   const startSending = () => {
     setStep('sending');
@@ -215,6 +269,35 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
         </Select>
       </div>
 
+      <div className="space-y-2">
+        <Label>Destinatários</Label>
+        <Select value={recipientMode} onValueChange={(v: RecipientMode) => setRecipientMode(v)}>
+          <SelectTrigger className="bg-slate-800/50 border-white/10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="billing">
+              <div className="flex flex-col">
+                <span>👤 Contato Principal</span>
+                <span className="text-xs text-slate-400">1 email por empresa (contato de cobrança)</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="all">
+              <div className="flex flex-col">
+                <span>👥 Todos os Contatos</span>
+                <span className="text-xs text-slate-400">Email para todos os contatos com email da empresa</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="select">
+              <div className="flex flex-col">
+                <span>☑️ Selecionar Manualmente</span>
+                <span className="text-xs text-slate-400">Escolher quais contatos receberão o email</span>
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex items-center space-x-2">
         <Checkbox 
           id="ccSeller" 
@@ -241,7 +324,11 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
               </p>
             )}
             <p className="text-xs text-slate-400 mt-2">
-              A IA irá gerar um email personalizado para cada segurado, agrupando todas as parcelas em um único email.
+              {recipientMode === 'billing' 
+                ? 'A IA irá gerar um email por empresa, para o contato principal de cobrança.'
+                : recipientMode === 'all'
+                ? 'A IA irá gerar emails para TODOS os contatos com email de cada empresa.'
+                : 'A IA irá gerar emails para todos os contatos. Você poderá selecionar quais enviar.'}
             </p>
           </div>
         </div>
@@ -284,8 +371,13 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={selectAll}>
-              Selecionar todos
+              Todos
             </Button>
+            {recipientMode === 'select' && (
+              <Button variant="ghost" size="sm" onClick={selectBillingOnly}>
+                Apenas Principais
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={deselectAll}>
               Limpar
             </Button>
@@ -296,70 +388,103 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
         </p>
       </div>
 
-      {/* Email list */}
+      {/* Email list - Grouped by company when multiple contacts */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
-          {generatedEmails.map((email) => (
-            <Collapsible 
-              key={email.contactId}
-              open={expandedEmails.has(email.contactId)}
-              onOpenChange={() => toggleEmailExpanded(email.contactId)}
-            >
-              <div className="rounded-lg border border-white/10 bg-slate-800/30 overflow-hidden">
-                <div className="flex items-center gap-3 p-3">
-                  <Checkbox 
-                    checked={selectedEmails.has(email.contactId)}
-                    onCheckedChange={() => toggleEmailSelection(email.contactId)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium text-slate-200 truncate">{email.contactName}</span>
-                    </div>
-                    <p className="text-sm text-slate-400 truncate">{email.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-amber-400">
-                      R$ {email.totalValue.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {email.installmentCount} parcela(s)
-                    </p>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      {expandedEmails.has(email.contactId) ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent>
-                  <div className="border-t border-white/10 p-4 space-y-3">
-                    <div>
-                      <Label className="text-xs text-slate-500">Assunto</Label>
-                      <p className="text-sm text-slate-300">{email.subject}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-slate-500">Preview</Label>
-                      <div 
-                        className="mt-1 p-3 rounded bg-white text-slate-900 text-sm max-h-[300px] overflow-y-auto"
-                        dangerouslySetInnerHTML={{ 
-                          __html: DOMPurify.sanitize(email.bodyHtml, {
-                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'div', 'span'],
-                            ALLOWED_ATTR: ['href', 'target', 'class', 'style'],
-                            ALLOW_DATA_ATTR: false,
-                            ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):)/i
-                          })
-                        }}
-                      />
-                    </div>
-                  </div>
-                </CollapsibleContent>
+        <div className="p-4 space-y-4">
+          {Object.entries(emailsByCompany).map(([companyId, { companyName, emails }]) => (
+            <div key={companyId} className="rounded-lg border border-white/10 bg-slate-800/20 overflow-hidden">
+              {/* Company header */}
+              <div 
+                className="flex items-center gap-3 p-3 bg-slate-800/50 cursor-pointer"
+                onClick={() => toggleCompanyExpanded(companyId)}
+              >
+                <Building2 className="w-4 h-4 text-blue-400" />
+                <span className="font-medium text-slate-200 flex-1">{companyName}</span>
+                <Badge variant="outline" className="text-xs">
+                  <Users className="w-3 h-3 mr-1" />
+                  {emails.length} contato(s)
+                </Badge>
+                {expandedCompanies.has(companyId) ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
               </div>
-            </Collapsible>
+              
+              {/* Contacts list - always show but can be collapsed */}
+              <div className={expandedCompanies.has(companyId) || emails.length === 1 ? '' : 'hidden'}>
+                {emails.map((email) => {
+                  const emailKey = getEmailKey(email);
+                  return (
+                    <Collapsible 
+                      key={emailKey}
+                      open={expandedEmails.has(emailKey)}
+                      onOpenChange={() => toggleEmailExpanded(email)}
+                    >
+                      <div className="border-t border-white/5">
+                        <div className="flex items-center gap-3 p-3 pl-6">
+                          <Checkbox 
+                            checked={selectedEmails.has(emailKey)}
+                            onCheckedChange={() => toggleEmailSelection(email)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-4 h-4 text-slate-400" />
+                              <span className="font-medium text-slate-200 truncate">{email.contactName}</span>
+                              {email.isBillingContact && (
+                                <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/20 text-blue-300 border-blue-500/30">
+                                  Cobrança
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-400 truncate">{email.email}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-amber-400">
+                              R$ {email.totalValue.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {email.installmentCount} parcela(s)
+                            </p>
+                          </div>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              {expandedEmails.has(emailKey) ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
+                        <CollapsibleContent>
+                          <div className="border-t border-white/10 p-4 ml-6 space-y-3">
+                            <div>
+                              <Label className="text-xs text-slate-500">Assunto</Label>
+                              <p className="text-sm text-slate-300">{email.subject}</p>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-slate-500">Preview</Label>
+                              <div 
+                                className="mt-1 p-3 rounded bg-white text-slate-900 text-sm max-h-[300px] overflow-y-auto"
+                                dangerouslySetInnerHTML={{ 
+                                  __html: DOMPurify.sanitize(email.bodyHtml, {
+                                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'div', 'span'],
+                                    ALLOWED_ATTR: ['href', 'target', 'class', 'style'],
+                                    ALLOW_DATA_ATTR: false,
+                                    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):)/i
+                                  })
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
       </ScrollArea>

@@ -16,6 +16,7 @@ interface GenerateEmailsRequest {
     installmentIds?: string[];
   };
   emailTone: 'friendly' | 'reminder' | 'urgent' | 'final';
+  recipientMode: 'billing' | 'all' | 'select';
 }
 
 interface InstallmentData {
@@ -41,6 +42,7 @@ interface ContactWithInstallments {
   companyId: string | null;
   installments: InstallmentData[];
   totalValue: number;
+  isBillingContact: boolean;
 }
 
 // Format CNPJ: 12345678000199 -> 12.345.678/0001-99
@@ -94,9 +96,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { filters, emailTone, batchId }: GenerateEmailsRequest = await req.json();
+    const { filters, emailTone, batchId, recipientMode = 'billing' }: GenerateEmailsRequest = await req.json();
 
-    console.log("Generating collection emails with filters:", filters, "tone:", emailTone);
+    console.log("Generating collection emails with filters:", filters, "tone:", emailTone, "recipientMode:", recipientMode);
 
     // Build query for overdue installments
     let query = supabase
@@ -293,54 +295,130 @@ serve(async (req) => {
     const contactsWithInstallments: ContactWithInstallments[] = [];
     const skippedContacts: string[] = [];
 
-    for (const contact of contacts || []) {
-      const resolved = await resolveContactEmail(contact);
-      
-      if (!resolved) {
-        console.log(`No email found for contact ${contact.id} (${contact.name || contact.company || 'unknown'})`);
-        skippedContacts.push(contact.id);
-        continue;
+    // For 'all' or 'select' modes, we need to find ALL contacts with email per company
+    // For 'billing' mode, we just use the resolved email (one per company)
+    
+    if (recipientMode === 'billing') {
+      // Original behavior: one email per contact (prioritizing billing contact)
+      for (const contact of contacts || []) {
+        const resolved = await resolveContactEmail(contact);
+        
+        if (!resolved) {
+          console.log(`No email found for contact ${contact.id} (${contact.name || contact.company || 'unknown'})`);
+          skippedContacts.push(contact.id);
+          continue;
+        }
+
+        const contactInstallments = installments.filter(i => i.contact_id === contact.id);
+        const totalValue = contactInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
+
+        // Get company info - PRIORITY: from policies first
+        let company = null;
+        const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
+        if (policyId) {
+          const policy = policies?.find(p => p.id === policyId);
+          if (policy?.company_id) {
+            company = companiesMap.get(policy.company_id);
+          }
+        }
+        if (!company && contact.company_id) {
+          company = companiesMap.get(contact.company_id);
+        }
+
+        const companyName = company?.nome_fantasia || company?.razao_social || contact.company || 'N/A';
+        const companyCnpj = company?.cnpj || contact.cnpj || '';
+
+        contactsWithInstallments.push({
+          contactId: contact.id,
+          contactName: resolved.contactName,
+          email: resolved.email,
+          companyName,
+          companyCnpj,
+          companyId: company?.id || contact.company_id || null,
+          installments: contactInstallments as InstallmentData[],
+          totalValue,
+          isBillingContact: true
+        });
       }
-
-      const contactInstallments = installments.filter(i => i.contact_id === contact.id);
-      const totalValue = contactInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
-
-      // Get company info - PRIORITY: from policies first (correct company for the installments being collected)
-      let company = null;
+    } else {
+      // 'all' or 'select' mode: get ALL contacts with email for each company
+      // First, group installments by company
+      const installmentsByCompany = new Map<string, { installments: InstallmentData[], companyData: any }>();
       
-      // 1. First try to get company from one of the installment's policies
-      const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
-      if (policyId) {
-        const policy = policies?.find(p => p.id === policyId);
-        if (policy?.company_id) {
-          company = companiesMap.get(policy.company_id);
-          console.log(`Resolving company for contact ${contact.id} (${contact.name || 'unnamed'})`);
-          console.log(`  - Using company from policy: ${company?.razao_social || 'not found'} (policy_id: ${policyId})`);
+      for (const contact of contacts || []) {
+        const contactInstallments = installments.filter(i => i.contact_id === contact.id);
+        if (contactInstallments.length === 0) continue;
+        
+        // Get company info from policies first
+        let company = null;
+        const policyId = contactInstallments.find(i => i.policy_id)?.policy_id;
+        if (policyId) {
+          const policy = policies?.find(p => p.id === policyId);
+          if (policy?.company_id) {
+            company = companiesMap.get(policy.company_id);
+          }
+        }
+        if (!company && contact.company_id) {
+          company = companiesMap.get(contact.company_id);
+        }
+        
+        const companyId = company?.id || contact.company_id;
+        if (!companyId) {
+          // No company, skip for multi-contact mode
+          skippedContacts.push(contact.id);
+          continue;
+        }
+        
+        if (!installmentsByCompany.has(companyId)) {
+          installmentsByCompany.set(companyId, {
+            installments: [],
+            companyData: company || { id: companyId, razao_social: contact.company }
+          });
+        }
+        
+        // Merge installments (avoid duplicates by ID)
+        const existing = installmentsByCompany.get(companyId)!;
+        for (const inst of contactInstallments) {
+          if (!existing.installments.some(e => e.id === inst.id)) {
+            existing.installments.push(inst as InstallmentData);
+          }
         }
       }
       
-      // 2. Fallback to contact's company_id only if no policy company found
-      if (!company && contact.company_id) {
-        company = companiesMap.get(contact.company_id);
-        console.log(`Resolving company for contact ${contact.id} (${contact.name || 'unnamed'})`);
-        console.log(`  - Fallback to contact company: ${company?.razao_social || 'not found'} (company_id: ${contact.company_id})`);
+      // Now for each company, fetch ALL contacts with email
+      for (const [companyId, { installments: companyInstallments, companyData }] of installmentsByCompany.entries()) {
+        const { data: allCompanyContacts } = await supabase
+          .from('contacts')
+          .select('id, name, call_name, email, is_billing_contact')
+          .eq('company_id', companyId)
+          .not('email', 'is', null);
+        
+        if (!allCompanyContacts || allCompanyContacts.length === 0) {
+          console.log(`No contacts with email found for company ${companyId}`);
+          continue;
+        }
+        
+        const totalValue = companyInstallments.reduce((sum, i) => sum + (i.value || 0), 0);
+        const companyName = companyData?.nome_fantasia || companyData?.razao_social || 'N/A';
+        const companyCnpj = companyData?.cnpj || '';
+        
+        // Create an entry for each contact with email
+        for (const companyContact of allCompanyContacts) {
+          if (!companyContact.email || !isValidEmail(companyContact.email)) continue;
+          
+          contactsWithInstallments.push({
+            contactId: companyContact.id,
+            contactName: companyContact.call_name || companyContact.name || 'Cliente',
+            email: companyContact.email,
+            companyName,
+            companyCnpj,
+            companyId,
+            installments: companyInstallments,
+            totalValue,
+            isBillingContact: companyContact.is_billing_contact || false
+          });
+        }
       }
-
-      const companyName = company?.nome_fantasia || company?.razao_social || contact.company || 'N/A';
-      const companyCnpj = company?.cnpj || contact.cnpj || '';
-      
-      console.log(`  - Final company: ${companyName} (CNPJ: ${companyCnpj || 'none'})`);
-
-      contactsWithInstallments.push({
-        contactId: contact.id,
-        contactName: resolved.contactName,
-        email: resolved.email,
-        companyName,
-        companyCnpj,
-        companyId: company?.id || contact.company_id || null,
-        installments: contactInstallments as InstallmentData[],
-        totalValue
-      });
     }
 
     console.log(`Processing ${contactsWithInstallments.length} contacts with email, skipped ${skippedContacts.length}`);
@@ -474,7 +552,10 @@ Retorne APENAS um JSON válido no formato:
           totalValue: contactData.totalValue,
           installmentCount: contactData.installments.length,
           sellerEmail,
-          sellerName
+          sellerName,
+          companyId: contactData.companyId,
+          companyName: contactData.companyName,
+          isBillingContact: contactData.isBillingContact
         });
 
       } catch (error: any) {
