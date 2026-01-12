@@ -382,63 +382,129 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
 
       for (const row of dataToImport) {
         try {
-          const phoneNumber = row.data[columnMapping.phone]?.replace(/\D/g, '');
-          if (!phoneNumber) {
-            errorCount++;
-            continue;
-          }
+          // Prioridade: CNPJ/CPF para encontrar empresa/contato
+          const cpfCnpj = row.data[columnMapping.cpf]?.replace(/\D/g, '') || '';
+          const phoneNumber = row.data[columnMapping.phone]?.replace(/\D/g, '') || '';
+          
+          let companyId: string | null = null;
+          let contactId: string | null = null;
 
-          // Create or find contact
-          let contactId: string;
-          const { data: existingContact } = await supabase
-            .from('contacts')
-            .select('id')
-            .eq('phone_number', phoneNumber)
-            .single();
-
-          if (existingContact) {
-            contactId = existingContact.id;
-          } else {
-            const { data: newContact, error: contactError } = await supabase
-              .from('contacts')
-              .insert({
-                phone_number: phoneNumber,
-                name: row.data[columnMapping.name],
-                email: row.data[columnMapping.email] || null
-              })
+          // 1. Se for CNPJ (14 dígitos), buscar ou criar empresa
+          if (cpfCnpj.length === 14) {
+            const { data: existingCompany } = await supabase
+              .from('companies')
               .select('id')
-              .single();
+              .eq('cnpj', cpfCnpj)
+              .maybeSingle();
             
-            if (contactError) throw contactError;
-            contactId = newContact.id;
+            if (existingCompany) {
+              companyId = existingCompany.id;
+            } else {
+              // Criar empresa
+              const { data: newCompany } = await supabase
+                .from('companies')
+                .insert({
+                  cnpj: cpfCnpj,
+                  razao_social: row.data[columnMapping.name] || 'Empresa sem nome'
+                })
+                .select('id')
+                .single();
+              companyId = newCompany?.id || null;
+            }
+            
+            // Buscar contato de cobrança da empresa
+            if (companyId) {
+              const { data: billingContact } = await supabase
+                .from('contacts')
+                .select('id')
+                .eq('company_id', companyId)
+                .eq('is_billing_contact', true)
+                .maybeSingle();
+              
+              contactId = billingContact?.id || null;
+              
+              // Se não tem contato de cobrança, buscar qualquer contato da empresa
+              if (!contactId) {
+                const { data: anyContact } = await supabase
+                  .from('contacts')
+                  .select('id')
+                  .eq('company_id', companyId)
+                  .limit(1)
+                  .maybeSingle();
+                contactId = anyContact?.id || null;
+              }
+            }
+          } else if (cpfCnpj.length === 11) {
+            // 2. CPF - buscar contato existente pelo CPF
+            const { data: existingContactByCpf } = await supabase
+              .from('contacts')
+              .select('id, company_id')
+              .eq('cpf', cpfCnpj)
+              .maybeSingle();
+            
+            if (existingContactByCpf) {
+              contactId = existingContactByCpf.id;
+              companyId = existingContactByCpf.company_id;
+            }
+          } else if (phoneNumber) {
+            // 3. Fallback: buscar por telefone (não criar!)
+            const { data: existingContactByPhone } = await supabase
+              .from('contacts')
+              .select('id, company_id')
+              .eq('phone_number', phoneNumber)
+              .maybeSingle();
+            
+            if (existingContactByPhone) {
+              contactId = existingContactByPhone.id;
+              companyId = existingContactByPhone.company_id;
+            }
           }
+
+          // NÃO CRIAR CONTATO se não existir - apenas prosseguir
+          // A parcela será vinculada apenas à empresa ou ficará sem vínculo
 
           // Create or find policy
           const policyNumber = row.data[columnMapping.policy_number];
-          let policyId: string;
+          if (!policyNumber) {
+            errorCount++;
+            continue;
+          }
+          
+          let policyId: string | null = null;
 
+          // Buscar apólice existente por número + empresa OU contato
           const { data: existingPolicy } = await supabase
             .from('policies')
             .select('id')
             .eq('policy_number', policyNumber)
-            .eq('contact_id', contactId)
-            .single();
+            .or(`company_id.eq.${companyId || 'null'},contact_id.eq.${contactId || 'null'}`)
+            .maybeSingle();
 
           if (existingPolicy) {
             policyId = existingPolicy.id;
+            // Atualizar company_id se estava NULL e agora temos
+            if (companyId) {
+              await supabase
+                .from('policies')
+                .update({ company_id: companyId })
+                .eq('id', policyId)
+                .is('company_id', null);
+            }
           } else {
             const { data: newPolicy, error: policyError } = await supabase
               .from('policies')
               .insert({
-                contact_id: contactId,
                 policy_number: policyNumber,
-                insurer: row.data[columnMapping.insurer]
+                insurer: row.data[columnMapping.insurer] || 'NÃO IDENTIFICADA',
+                company_id: companyId, // ✅ Vinculada à empresa
+                contact_id: contactId || null, // Pode ser null
+                status: 'active'
               })
               .select('id')
               .single();
             
             if (policyError) throw policyError;
-            policyId = newPolicy.id;
+            policyId = newPolicy?.id || null;
           }
 
           // Parse value
@@ -479,12 +545,12 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({ onGoToInstallments }) 
             if (updateError) throw updateError;
             updatedCount++;
           } else {
-            // Create new installment
+            // Create new installment - contact_id é opcional
             const { error: instError } = await supabase
               .from('installments')
               .insert({
                 policy_id: policyId,
-                contact_id: contactId,
+                contact_id: contactId || null, // Pode ser null
                 installment_number: parseInt(row.data[columnMapping.installment]) || 1,
                 value: value,
                 due_date: dueDate,
