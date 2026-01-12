@@ -1461,4 +1461,135 @@ export const api = {
 
     return conversationsWithMessages;
   },
+
+  /**
+   * Send a media message (image, document, audio, video)
+   * 1. Upload file to Supabase Storage
+   * 2. Create message record
+   * 3. Queue for WhatsApp sending
+   */
+  sendMediaMessage: async (
+    conversationId: string, 
+    file: File, 
+    operatorName?: string
+  ): Promise<string> => {
+    console.log(`[API] Sending media message to conversation ${conversationId}`);
+    
+    // Get conversation to find contact_id
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .select('contact_id')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError || !conversation) {
+      console.error('[API] Conversation not found:', convError);
+      throw new Error('Conversation not found');
+    }
+
+    // Determine message type based on file MIME
+    let messageType: 'image' | 'document' | 'audio' | 'video' = 'document';
+    let mediaType = file.type;
+    
+    if (file.type.startsWith('image/')) {
+      messageType = 'image';
+    } else if (file.type.startsWith('audio/')) {
+      messageType = 'audio';
+    } else if (file.type.startsWith('video/')) {
+      messageType = 'video';
+    }
+
+    // Generate unique filename
+    const ext = file.name.split('.').pop() || 'bin';
+    const fileName = `${conversationId}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+
+    console.log(`[API] Uploading file: ${fileName}, type: ${messageType}`);
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('whatsapp-media')
+      .upload(fileName, file, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('[API] Error uploading file:', uploadError);
+      throw new Error('Failed to upload file');
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase
+      .storage
+      .from('whatsapp-media')
+      .getPublicUrl(fileName);
+
+    const mediaUrl = urlData.publicUrl;
+    console.log('[API] File uploaded, URL:', mediaUrl);
+
+    // Build caption with operator name if provided
+    const caption = operatorName ? `[${operatorName}] ${file.name}` : file.name;
+
+    // Create message record with 'processing' status
+    const { data: msgData, error: msgError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        content: caption,
+        type: messageType,
+        from_type: 'human',
+        status: 'processing',
+        media_url: mediaUrl,
+        media_type: mediaType,
+        sent_at: new Date().toISOString(),
+        metadata: operatorName ? { sender_name: operatorName } : {}
+      })
+      .select('id')
+      .single();
+
+    if (msgError || !msgData) {
+      console.error('[API] Error creating message record:', msgError);
+      throw new Error('Failed to create message record');
+    }
+
+    console.log('[API] Message record created:', msgData.id);
+
+    // Queue for sending
+    const { error: sendError } = await supabase
+      .from('send_queue')
+      .insert({
+        conversation_id: conversationId,
+        contact_id: conversation.contact_id,
+        content: caption,
+        media_url: mediaUrl,
+        from_type: 'human',
+        message_type: messageType,
+        priority: 2,
+        message_id: msgData.id
+      });
+
+    if (sendError) {
+      console.error('[API] Error queuing media message:', sendError);
+      throw sendError;
+    }
+
+    console.log('[API] Media message queued for sending');
+
+    // Trigger whatsapp-sender to process the queue immediately
+    try {
+      console.log('[API] Triggering whatsapp-sender...');
+      const { error: triggerError } = await supabase.functions.invoke('whatsapp-sender');
+      
+      if (triggerError) {
+        console.error('[API] Error triggering whatsapp-sender:', triggerError);
+      } else {
+        console.log('[API] whatsapp-sender triggered successfully');
+      }
+    } catch (err) {
+      console.error('[API] Failed to trigger whatsapp-sender:', err);
+    }
+
+    return msgData.id;
+  },
 };
