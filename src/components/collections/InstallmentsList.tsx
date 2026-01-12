@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History
+  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy
 } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
@@ -42,6 +42,7 @@ import {
 import { InstallmentHistoryDrawer } from './installments/InstallmentHistoryDrawer';
 import { MarkAsPaidDialog } from './installments/MarkAsPaidDialog';
 import { EmptyState } from './installments/EmptyState';
+import { DuplicateInstallmentsModal } from './DuplicateInstallmentsModal';
 
 // Interface for company details drawer
 interface CompanyForDrawer {
@@ -103,6 +104,7 @@ export const InstallmentsList: React.FC = () => {
   const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<CompanyForDrawer | null>(null);
   const [loadingCompany, setLoadingCompany] = useState<string | null>(null);
   const [selectedInstallmentForHistory, setSelectedInstallmentForHistory] = useState<Installment | null>(null);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
   // Use custom hook
   const {
@@ -440,6 +442,16 @@ export const InstallmentsList: React.FC = () => {
             >
               <AlertTriangle className="w-4 h-4" />
               Selecionar +30d ({overdue30Count})
+            </Button>
+
+            <Button 
+              variant="outline"
+              onClick={() => setShowDuplicatesModal(true)}
+              className="border-purple-500/30 text-purple-400 hover:bg-purple-500/20 gap-2"
+              disabled={sortedInstallments.length === 0}
+            >
+              <Copy className="w-4 h-4" />
+              Detectar Duplicatas
             </Button>
           </div>
 
@@ -905,6 +917,17 @@ export const InstallmentsList: React.FC = () => {
         onSuccess={() => {
           setSelectedCompanyForEdit(null);
           setSelectedCompanyForDrawer(null);
+          refetch();
+        }}
+      />
+
+      {/* Duplicate Installments Modal */}
+      <DuplicateInstallmentsModal
+        open={showDuplicatesModal}
+        installments={sortedInstallments}
+        onOpenChange={setShowDuplicatesModal}
+        onSuccess={() => {
+          setShowDuplicatesModal(false);
           refetch();
         }}
       />
