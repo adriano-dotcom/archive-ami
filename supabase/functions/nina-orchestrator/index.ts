@@ -40,6 +40,18 @@ interface InstallmentsData {
   insurers: string[];
 }
 
+// Interface para contexto do template de cobrança enviado
+interface CollectionTemplateContext {
+  templateName: string;
+  sentAt: string;
+  policyNumber?: string;
+  value?: string;
+  dueDate?: string;
+  contactName?: string;
+  companyName?: string;
+  messageContent?: string;
+}
+
 // Keywords que indicam consulta de parcelas/débitos pendentes (para cobrança)
 const COLLECTION_QUERY_KEYWORDS = [
   'parcelas em aberto', 'parcela em aberto',
@@ -73,6 +85,112 @@ function isInsurerQuery(messageContent: string): boolean {
 function isCollectionQuery(messageContent: string): boolean {
   const content = messageContent.toLowerCase();
   return COLLECTION_QUERY_KEYWORDS.some(keyword => content.includes(keyword)) || isInsurerQuery(content);
+}
+
+// Function to fetch collection template context (template de cobrança enviado recentemente)
+async function fetchCollectionTemplateContext(
+  supabase: any,
+  conversationId: string
+): Promise<CollectionTemplateContext | null> {
+  try {
+    // Buscar mensagens de template nas últimas 24h
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: templateMessages } = await supabase
+      .from('messages')
+      .select('content, metadata, sent_at')
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'nina')
+      .gte('sent_at', oneDayAgo)
+      .not('metadata', 'is', null)
+      .order('sent_at', { ascending: false })
+      .limit(10);
+    
+    if (!templateMessages || templateMessages.length === 0) {
+      console.log('[Nina] No recent template messages found');
+      return null;
+    }
+    
+    // Encontrar o template de cobrança mais recente
+    const collectionTemplate = templateMessages.find((m: any) => {
+      const metadata = m.metadata;
+      if (!metadata?.is_template) return false;
+      
+      const templateName = (metadata.template_name || '').toLowerCase();
+      return templateName.includes('cobranca') || 
+             templateName.includes('pessoa_fisica') ||
+             templateName.includes('collection') ||
+             templateName.includes('pagamento') ||
+             templateName.includes('parcela') ||
+             templateName.includes('boleto') ||
+             templateName.includes('vencimento');
+    });
+    
+    if (!collectionTemplate) {
+      console.log('[Nina] No collection template found in recent messages');
+      return null;
+    }
+    
+    const metadata = collectionTemplate.metadata;
+    const variables = metadata.variables || [];
+    const headerVars = metadata.header_variables || [];
+    
+    console.log('[Nina] 📋 Collection template found:', {
+      templateName: metadata.template_name,
+      variables: variables,
+      headerVars: headerVars,
+      sentAt: collectionTemplate.sent_at
+    });
+    
+    // Parsear as variáveis baseado na estrutura típica:
+    // Header: nome do contato
+    // Body: [0]=nome_ou_empresa, [1]=apolice, [2]=valor, [3]=vencimento OU
+    //       [0]=apolice, [1]=valor, [2]=vencimento (depende do template)
+    let policyNumber: string | undefined;
+    let value: string | undefined;
+    let dueDate: string | undefined;
+    let contactName: string | undefined;
+    let companyName: string | undefined;
+    
+    // Header geralmente é o nome do contato
+    contactName = headerVars[0] || undefined;
+    
+    // Detectar padrão das variáveis do body
+    if (variables.length >= 3) {
+      // Verificar se primeira variável parece ser apólice (numérico)
+      const firstVar = String(variables[0] || '');
+      if (/^\d+$/.test(firstVar.replace(/[\s.-]/g, ''))) {
+        // Padrão: [apólice, valor, vencimento]
+        policyNumber = variables[0];
+        value = variables[1];
+        dueDate = variables[2];
+      } else {
+        // Padrão: [nome/empresa, apólice, valor, vencimento] ou similar
+        companyName = variables[0];
+        policyNumber = variables[1];
+        value = variables[2];
+        dueDate = variables[3];
+      }
+    } else if (variables.length === 2) {
+      // Padrão simplificado: [valor, vencimento]
+      value = variables[0];
+      dueDate = variables[1];
+    }
+    
+    return {
+      templateName: metadata.template_name,
+      sentAt: collectionTemplate.sent_at,
+      policyNumber: policyNumber,
+      value: value,
+      dueDate: dueDate,
+      contactName: contactName,
+      companyName: companyName,
+      messageContent: collectionTemplate.content
+    };
+  } catch (error) {
+    console.error('[Nina] Error fetching collection template context:', error);
+    return null;
+  }
 }
 
 // Function to fetch and sum pending installments for a contact
@@ -3794,6 +3912,18 @@ Agradeço pela compreensão! 🙏`;
     installmentsData = await fetchContactInstallments(supabase, conversation.contact_id);
   }
   
+  // ===== FETCH COLLECTION TEMPLATE CONTEXT =====
+  // Buscar contexto do template de cobrança enviado para manter continuidade
+  let collectionContext: CollectionTemplateContext | null = null;
+  
+  // Buscar se agente é omega (cobrança) OU se é uma query financeira OU sempre buscar para ter contexto
+  if (agent?.slug === 'omega' || isFinancialQuery || true) { // Sempre buscar para ter contexto
+    collectionContext = await fetchCollectionTemplateContext(supabase, conversation.id);
+    if (collectionContext) {
+      console.log('[Nina] 📋 Collection template context found:', collectionContext.templateName);
+    }
+  }
+  
   const enhancedSystemPrompt = buildEnhancedPrompt(
     systemPrompt, 
     conversation.contact, 
@@ -3802,7 +3932,8 @@ Agradeço pela compreensão! 🙏`;
     conversation.nina_context,
     recentUserMsgs,
     recentCallLogs,
-    installmentsData
+    installmentsData,
+    collectionContext
   );
 
   // Process template variables
@@ -4386,7 +4517,8 @@ function buildEnhancedPrompt(
   ninaContext?: any,
   recentUserMessages?: string[],
   recentCallLogs?: any[],
-  installmentsData?: InstallmentsData | null
+  installmentsData?: InstallmentsData | null,
+  collectionContext?: CollectionTemplateContext | null
 ): string {
   let contextInfo = '';
 
@@ -4570,6 +4702,66 @@ ${contact.notes}
     } else {
       contextInfo += `\n\n(${installmentsData.count} parcelas no total - mostrando resumo)`;
     }
+  }
+
+  // ===== CONTEXTO DO TEMPLATE DE COBRANÇA ENVIADO =====
+  if (collectionContext) {
+    const sentDate = new Date(collectionContext.sentAt).toLocaleString('pt-BR', { 
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    contextInfo += `\n\n## 📩 TEMPLATE DE COBRANÇA ENVIADO (CONTEXTO ATIVO)
+
+### Você INICIOU esta conversa enviando uma mensagem de cobrança:
+- **Template usado:** ${collectionContext.templateName}
+- **Enviado em:** ${sentDate}`;
+
+    if (collectionContext.policyNumber) {
+      contextInfo += `\n- **Apólice mencionada:** ${collectionContext.policyNumber}`;
+    }
+    if (collectionContext.value) {
+      contextInfo += `\n- **Valor informado:** ${collectionContext.value}`;
+    }
+    if (collectionContext.dueDate) {
+      contextInfo += `\n- **Vencimento informado:** ${collectionContext.dueDate}`;
+    }
+    if (collectionContext.contactName) {
+      contextInfo += `\n- **Nome usado no template:** ${collectionContext.contactName}`;
+    }
+    if (collectionContext.companyName) {
+      contextInfo += `\n- **Empresa mencionada:** ${collectionContext.companyName}`;
+    }
+    
+    if (collectionContext.messageContent) {
+      // Mostrar trecho da mensagem enviada para referência
+      const msgPreview = collectionContext.messageContent.length > 200 
+        ? collectionContext.messageContent.substring(0, 200) + '...' 
+        : collectionContext.messageContent;
+      contextInfo += `\n\n**Mensagem enviada (referência):**
+"${msgPreview}"`;
+    }
+
+    contextInfo += `
+
+### ⚠️ CONTEXTO CRÍTICO PARA SUA RESPOSTA:
+1. O cliente está RESPONDENDO à mensagem de cobrança que você enviou
+2. Use as informações acima como referência (apólice, valor, vencimento)
+3. NÃO pergunte "em que posso ajudar?" - você já sabe o motivo do contato
+4. Seja direto: confirme se o cliente deseja regularizar a parcela
+5. Ofereça opções: enviar 2ª via do boleto, informar dados PIX, verificar outras pendências
+
+### Exemplos de respostas adequadas ao contexto:
+- Se cliente disse "Boa tarde": "Boa tarde! ${collectionContext.contactName || 'Tudo bem'}? Vi que você recebeu a informação sobre a parcela${collectionContext.policyNumber ? ` da apólice ${collectionContext.policyNumber}` : ''}${collectionContext.value ? ` de ${collectionContext.value}` : ''}. Posso te ajudar com a regularização?"
+- Se cliente fez pergunta: Responda contextualizando que é sobre a cobrança enviada
+- Se cliente quer pagar: "Ótimo! Posso te enviar a 2ª via do boleto ou prefere pagar via PIX?"
+- Se cliente disse que já pagou: "Deixa eu verificar aqui. Qual foi a data do pagamento?"`;
+
+    console.log('[Nina] 📋 Collection template context injected into prompt');
   }
 
   // ===== QUALIFICATION ANSWERS - CRITICAL ANTI-REPETITION =====
