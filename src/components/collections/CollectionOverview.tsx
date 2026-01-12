@@ -2,9 +2,15 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Users, DollarSign, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Users, DollarSign, Clock, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+
+interface InsurerData {
+  name: string;
+  count: number;
+  value: number;
+}
 
 interface CollectionSummary {
   total_debtors: number;
@@ -55,6 +61,38 @@ export const CollectionOverview: React.FC = () => {
     }
   });
 
+  const { data: insurerData, isLoading: loadingInsurers } = useQuery({
+    queryKey: ['collection-by-insurer'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('installments')
+        .select(`
+          value,
+          days_overdue,
+          policy:policies(insurer)
+        `)
+        .in('status', ['overdue', 'pending', 'negotiating'])
+        .gt('days_overdue', 0);
+      
+      if (error) throw error;
+      
+      // Group by insurer
+      const grouped = (data || []).reduce((acc: Record<string, { count: number; value: number }>, item: any) => {
+        const insurer = item.policy?.insurer || 'N/A';
+        if (!acc[insurer]) {
+          acc[insurer] = { count: 0, value: 0 };
+        }
+        acc[insurer].count++;
+        acc[insurer].value += item.value || 0;
+        return acc;
+      }, {});
+      
+      return Object.entries(grouped)
+        .map(([name, data]) => ({ name, ...data } as InsurerData))
+        .sort((a, b) => b.value - a.value);
+    }
+  });
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -94,7 +132,7 @@ export const CollectionOverview: React.FC = () => {
   return (
     <div className="space-y-6 pb-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-gradient-to-br from-rose-500/10 to-rose-600/5 border-rose-500/20">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -154,6 +192,23 @@ export const CollectionOverview: React.FC = () => {
               </div>
               <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
                 <Clock className="w-6 h-6 text-orange-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-300/80">Seguradoras</p>
+                <p className="text-2xl font-bold text-purple-400">
+                  {loadingInsurers ? '-' : (insurerData?.length || 0)}
+                </p>
+                <p className="text-xs text-slate-500">com parcelas em atraso</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-purple-400" />
               </div>
             </div>
           </CardContent>
@@ -239,6 +294,51 @@ export const CollectionOverview: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Insurers Ranking */}
+      <Card className="bg-slate-900/50 border-white/5">
+        <CardHeader>
+          <CardTitle className="text-lg text-slate-200 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-purple-400" />
+            Inadimplência por Seguradora
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingInsurers ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : insurerData && insurerData.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {insurerData.slice(0, 6).map((insurer, idx) => (
+                <div 
+                  key={insurer.name}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-white/5 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-400 text-xs flex items-center justify-center font-bold">
+                      {idx + 1}
+                    </span>
+                    <span className="text-slate-200 text-sm font-medium truncate max-w-[120px]" title={insurer.name}>
+                      {insurer.name}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-amber-400 text-sm">{formatCurrency(insurer.value)}</p>
+                    <p className="text-xs text-slate-500">{insurer.count} parcelas</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500">
+              Nenhuma seguradora com inadimplência
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recent Overdue List */}
       <Card className="bg-slate-900/50 border-white/5">
