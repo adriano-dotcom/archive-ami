@@ -70,6 +70,13 @@ function getFirstName(fullName: string | null): string {
   return fullName.split(' ')[0];
 }
 
+// Count expected params from template text
+function countExpectedParams(text?: string | null): number {
+  if (!text) return 0;
+  const matches = [...text.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])).filter((n) => Number.isFinite(n));
+  return matches.length ? Math.max(...matches) : 0;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -281,19 +288,52 @@ serve(async (req) => {
           companyName = company.nome_fantasia || company.razao_social;
         }
 
+        // Fetch template to determine expected body variables
+        const { data: templateInfo } = await supabase
+          .from('whatsapp_templates')
+          .select('components')
+          .eq('name', template_name)
+          .eq('language', language)
+          .eq('status', 'APPROVED')
+          .single();
+
+        const tplBody = templateInfo?.components?.find((c: any) => c.type === 'BODY');
+        const expectedBodyVars = countExpectedParams(tplBody?.text);
+
+        console.log(`Template ${template_name} expects ${expectedBodyVars} body variables`);
+
         // Map template variables with CONSOLIDATED data:
         // Header {{1}} = First name
-        // Body {{1}} = Company/Contact name
-        // Body {{2}} = FIRST policy number (oldest installment)
-        // Body {{3}} = TOTAL value (sum of all installments)
-        // Body {{4}} = OLDEST due date
         const headerVariables = [getFirstName(contact.name)];
-        const bodyVariables = [
-          companyName,
-          firstPolicyNumber || 'N/A',
-          formatCurrency(totalValue),      // SOMA dos valores
-          formatDate(oldestDueDate)         // Data MAIS ANTIGA
-        ];
+        
+        // Body variables - DYNAMIC based on template:
+        // If 3 vars (pessoa física): apólice, valor, vencimento
+        // If 4 vars (pessoa jurídica): empresa, apólice, valor, vencimento
+        let bodyVariables: string[];
+
+        if (expectedBodyVars === 3) {
+          // Template pessoa física: apenas apólice, valor, vencimento
+          bodyVariables = [
+            firstPolicyNumber || 'N/A',     // {{1}} - Apólice
+            formatCurrency(totalValue),      // {{2}} - Valor
+            formatDate(oldestDueDate)        // {{3}} - Vencimento
+          ];
+          console.log(`Using PF format (3 vars): ${bodyVariables.join(', ')}`);
+        } else if (expectedBodyVars === 4) {
+          // Template empresa: empresa, apólice, valor, vencimento
+          bodyVariables = [
+            companyName,                     // {{1}} - Empresa
+            firstPolicyNumber || 'N/A',      // {{2}} - Apólice
+            formatCurrency(totalValue),      // {{3}} - Valor
+            formatDate(oldestDueDate)        // {{4}} - Vencimento
+          ];
+          console.log(`Using PJ format (4 vars): ${bodyVariables.join(', ')}`);
+        } else {
+          // Fallback: try to match expected count
+          const allVars = [companyName, firstPolicyNumber || 'N/A', formatCurrency(totalValue), formatDate(oldestDueDate)];
+          bodyVariables = allVars.slice(0, Math.max(expectedBodyVars, 1));
+          console.log(`Using fallback format (${expectedBodyVars} vars): ${bodyVariables.join(', ')}`);
+        }
 
         console.log(`Sending consolidated message to ${contact.phone_number}: ${installmentCount} installments, value=${formatCurrency(totalValue)}`);
 

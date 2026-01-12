@@ -391,10 +391,9 @@ export const SendCollectionTemplateModal: React.FC<SendCollectionTemplateModalPr
               </p>
               <ul className="text-sm text-slate-400 space-y-1">
                 <li>• <span className="text-white">Header {`{{1}}`}</span> → Primeiro nome do contato</li>
-                <li>• <span className="text-white">Body {`{{1}}`}</span> → Nome da empresa/segurado</li>
-                <li>• <span className="text-white">Body {`{{2}}`}</span> → <span className="text-amber-300">Primeira apólice</span> (parcela mais antiga)</li>
-                <li>• <span className="text-white">Body {`{{3}}`}</span> → <span className="text-amber-300">Valor TOTAL</span> (soma das parcelas)</li>
-                <li>• <span className="text-white">Body {`{{4}}`}</span> → <span className="text-amber-300">Data mais ANTIGA</span></li>
+                <li className="text-xs text-slate-500 italic">O body se ajusta automaticamente ao template:</li>
+                <li>• <span className="text-blue-300">Templates PF (3 vars):</span> Apólice, Valor, Vencimento</li>
+                <li>• <span className="text-purple-300">Templates PJ (4 vars):</span> Empresa, Apólice, Valor, Vencimento</li>
               </ul>
             </div>
           )}
