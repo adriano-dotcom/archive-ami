@@ -456,8 +456,13 @@ ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
   
   <!-- FOOTER -->
   <div style="background:#f3f4f6;padding:20px;text-align:center;">
-    <p style="margin:0;font-size:12px;color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</p>
-    <p style="margin:4px 0 0 0;font-size:11px;color:#9ca3af;">Este é um email automático. Não responda diretamente.</p>
+    <p style="margin:0;font-size:13px;color:#374151;">Atenciosamente,</p>
+    <p style="margin:4px 0 0 0;font-size:14px;color:#1e3a5f;font-weight:600;">João Pedro</p>
+    <p style="margin:4px 0 0 0;font-size:12px;color:#374151;">
+      WhatsApp: <a href="https://wa.me/5543991562099" style="color:#25d366;text-decoration:none;">+55 43 99156-2099</a>
+    </p>
+    <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</p>
+    <p style="margin:4px 0 0 0;font-size:11px;color:#9ca3af;">À disposição para esclarecimento</p>
   </div>
 </div>
 ` : '';

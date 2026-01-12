@@ -1434,7 +1434,13 @@ function getDefaultRenewalEmail(
           <p style="margin: 10px 0 0;"><strong>🌐 Site:</strong> jacometoseguros.com.br</p>
         </div>
         <p>Responda este email ou envie uma mensagem no WhatsApp - fazemos uma proposta sem compromisso!</p>
-        <p style="margin-top: 30px;">Atenciosamente,<br><strong>Equipe Jacometo Seguros</strong></p>
+        <p style="margin-top: 30px;">
+          Atenciosamente,<br>
+          <strong>João Pedro</strong><br>
+          WhatsApp: <a href="https://wa.me/5543991562099" style="color:#25d366;">+55 43 99156-2099</a><br><br>
+          <span style="color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</span><br>
+          <span style="font-size:12px;color:#9ca3af;">À disposição para esclarecimento</span>
+        </p>
       </div>
     `
   };
