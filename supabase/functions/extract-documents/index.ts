@@ -140,9 +140,22 @@ EXEMPLOS DE DETECÇÃO:
 
 SEGURADORAS CONHECIDAS E SEUS FORMATOS:
 
-1. AKAD Digital: 
-   - Campos: PRODUTO, N° APOLICE, SEGURADO, CPF/CNPJ, VALOR DA PARCELA, DIAS EM ATRASO, SITUAÇÃO
-   - Arquivo geralmente tem "AkadDigital" ou "Inadimplentes" no nome
+1. AKAD Digital (DOIS FORMATOS):
+   a) Formato Portal: PRODUTO, N° APOLICE, SEGURADO, CPF/CNPJ, VALOR DA PARCELA, DIAS EM ATRASO, SITUAÇÃO
+      - Arquivo geralmente tem "AkadDigital" ou "Inadimplentes" no nome
+   b) Formato GESTAO_DE_INADIMPLENTES (IMPORTANTE - sem coluna APOLICE):
+      - Campos: RECIBO, PARCELA, VENCIMENTO, CPF_CNPJ, NOME_DO_SEGURADO, RAMO, DT_FIM_COBERTURA, DT_PREV_CANCELAMENTO, PREMIO_LIQ_ATUAL, COMISSAO
+      - NAO TEM COLUNA APOLICE - OBRIGATORIO usar RECIBO como policy_number
+      - MAPEAMENTO CRITICO:
+        * RECIBO -> policy_number (NUNCA usar receipt_number para este campo!)
+        * PARCELA -> installment_number  
+        * VENCIMENTO -> due_date (formato DD/MM/YYYY -> YYYY-MM-DD)
+        * CPF_CNPJ -> insured_document (remover caracteres ="")
+        * NOME_DO_SEGURADO -> insured_name
+        * PREMIO_LIQ_ATUAL -> value (remover R$ e converter virgula para ponto)
+        * DT_PREV_CANCELAMENTO -> cancellation_date
+        * RAMO -> branch
+        * insurer: "AKAD"
 
 2. Allianz:
    - Campos: RECIBO, APOLICE, SEGURADO, CPF_CNPJ, PREMIO_TOTAL, VENCIMENTO, DT_PREV_CANC, POL_SUSEP
@@ -306,8 +319,21 @@ function detectInsuranceReport(fileName: string, textContent?: string, mimeType?
   if (lowerName.includes('gerararquivoservlet') || lowerName.includes('allianz')) {
     return { isInsurance: true, insurer: 'ALLIANZ' };
   }
-  // Tokio Marine
-  if (lowerName.includes('gestao_de_inadimplentes') || lowerName.includes('tokio') || lowerName.includes('tokiomarine')) {
+  // Tokio Marine vs AKAD - both can use "gestao_de_inadimplentes" filename
+  // AKAD format has RECIBO as first column, TOKIO has different structure
+  if (lowerName.includes('gestao_de_inadimplentes')) {
+    // Check content to differentiate: AKAD has "recibo;parcela" pattern
+    if (normalizedContent.includes('recibo;parcela') || 
+        normalizedContent.includes('recibo,parcela') ||
+        normalizedContent.includes('recibo\tparcela') ||
+        (normalizedContent.includes('recibo') && normalizedContent.includes('premio_liq_atual'))) {
+      console.log('[DETECTION] AKAD format detected in gestao_de_inadimplentes file');
+      return { isInsurance: true, insurer: 'AKAD' };
+    }
+    // Default to TOKIO MARINE for gestao_de_inadimplentes
+    return { isInsurance: true, insurer: 'TOKIO MARINE' };
+  }
+  if (lowerName.includes('tokio') || lowerName.includes('tokiomarine')) {
     return { isInsurance: true, insurer: 'TOKIO MARINE' };
   }
   // Sompo
@@ -627,11 +653,17 @@ serve(async (req) => {
             installment.insurer = allResults.insurer_detected || detection.insurer || 'NÃO IDENTIFICADA';
           }
 
-          // Validate required fields - skip entries with invalid data
+// Validate required fields - skip entries with invalid data
           if (!installment.policy_number) {
-            console.log('WARN: Skipping installment without policy_number');
-            skippedCount++;
-            continue;
+            // Fallback: use receipt_number as policy_number (common in AKAD format)
+            if (installment.receipt_number) {
+              console.log('INFO: Using receipt_number as policy_number for AKAD format:', installment.receipt_number);
+              installment.policy_number = installment.receipt_number;
+            } else {
+              console.log('WARN: Skipping installment without policy_number');
+              skippedCount++;
+              continue;
+            }
           }
           if (!installment.insured_name) {
             console.log('WARN: Skipping installment without insured_name: ' + installment.policy_number);
