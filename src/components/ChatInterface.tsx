@@ -867,7 +867,7 @@ const ChatInterface: React.FC = () => {
     };
   }, [isRecording]);
 
-
+  const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
     // Extract display name from user email
     const userName = user?.email ? 
