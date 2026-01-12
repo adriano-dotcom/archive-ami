@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -345,7 +346,14 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
                       <Label className="text-xs text-slate-500">Preview</Label>
                       <div 
                         className="mt-1 p-3 rounded bg-white text-slate-900 text-sm max-h-[300px] overflow-y-auto"
-                        dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
+                        dangerouslySetInnerHTML={{ 
+                          __html: DOMPurify.sanitize(email.bodyHtml, {
+                            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'div', 'span'],
+                            ALLOWED_ATTR: ['href', 'target', 'class', 'style'],
+                            ALLOW_DATA_ATTR: false,
+                            ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):)/i
+                          })
+                        }}
                       />
                     </div>
                   </div>
