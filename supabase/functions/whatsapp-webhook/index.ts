@@ -1115,7 +1115,38 @@ async function processIncomingMessage(
       console.error('[Webhook] Error queuing for Nina:', ninaQueueError);
     } else {
       console.log('[Webhook] Message queued for Nina processing (scheduled for:', scheduledFor, ')');
-      // Cron job (process-nina-queue) é responsável por disparar o nina-orchestrator
+      
+      // Disparar o orquestrador após o delay de debounce em background
+      const triggerOrchestrator = async () => {
+        // Aguardar o tempo de debounce + 1s de margem
+        await new Promise(resolve => setTimeout(resolve, DEBOUNCE_DELAY_MS + 1000));
+        
+        try {
+          const orchestratorUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nina-orchestrator`;
+          console.log('[Webhook] Triggering nina-orchestrator after debounce...');
+          
+          const response = await fetch(orchestratorUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+          });
+          
+          if (response.ok) {
+            console.log('[Webhook] ✅ Nina orchestrator triggered successfully');
+          } else {
+            console.error('[Webhook] ❌ Nina orchestrator returned:', response.status, await response.text());
+          }
+        } catch (e) {
+          console.error('[Webhook] ❌ Error triggering nina-orchestrator:', e);
+        }
+      };
+      
+      // Executar em background sem bloquear a resposta do webhook
+      // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+      (globalThis as any).EdgeRuntime?.waitUntil?.(triggerOrchestrator()) || triggerOrchestrator();
     }
   }
 }
