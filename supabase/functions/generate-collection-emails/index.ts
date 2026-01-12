@@ -439,11 +439,16 @@ serve(async (req) => {
       sellersMap = new Map((sellers || []).map(s => [s.id, { name: s.name, email: s.email }]));
     }
 
-    // Generate emails using AI
+    // Generate emails using AI with parallel batch processing
     const generatedEmails: any[] = [];
     const errors: any[] = [];
 
-    for (const contactData of contactsWithInstallments) {
+    // Helper function to process a single contact
+    const generateEmailForContact = async (contactData: ContactWithInstallments): Promise<{
+      success: boolean;
+      email?: any;
+      error?: { contactId: string; error: string };
+    }> => {
       try {
         const installmentsTable = contactData.installments.map(i => {
           const insurer = Array.isArray(i.policies) ? i.policies[0]?.insurer : (i.policies as any)?.insurer;
@@ -506,8 +511,7 @@ Retorne APENAS um JSON válido no formato:
         if (!aiResponse.ok) {
           const errorText = await aiResponse.text();
           console.error(`AI error for contact ${contactData.contactId}:`, errorText);
-          errors.push({ contactId: contactData.contactId, error: "Erro na geração do email" });
-          continue;
+          return { success: false, error: { contactId: contactData.contactId, error: "Erro na geração do email" } };
         }
 
         const aiData = await aiResponse.json();
@@ -516,7 +520,6 @@ Retorne APENAS um JSON válido no formato:
         // Parse the JSON from AI response
         let emailData;
         try {
-          // Try to extract JSON from the response
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             emailData = JSON.parse(jsonMatch[0]);
@@ -525,8 +528,7 @@ Retorne APENAS um JSON válido no formato:
           }
         } catch (parseError) {
           console.error(`Parse error for contact ${contactData.contactId}:`, parseError);
-          errors.push({ contactId: contactData.contactId, error: "Erro ao processar resposta da IA" });
-          continue;
+          return { success: false, error: { contactId: contactData.contactId, error: "Erro ao processar resposta da IA" } };
         }
 
         // Get seller info for this contact's company
@@ -543,31 +545,59 @@ Retorne APENAS um JSON válido no formato:
           }
         }
 
-        generatedEmails.push({
-          contactId: contactData.contactId,
-          contactName: contactData.contactName,
-          email: contactData.email,
-          subject: emailData.subject,
-          bodyHtml: emailData.body_html,
-          installments: contactData.installments.map(i => ({
-            id: i.id,
-            value: i.value,
-            dueDate: i.due_date,
-            daysOverdue: i.days_overdue
-          })),
-          totalValue: contactData.totalValue,
-          installmentCount: contactData.installments.length,
-          sellerEmail,
-          sellerName,
-          companyId: contactData.companyId,
-          companyName: contactData.companyName,
-          isBillingContact: contactData.isBillingContact
-        });
-
+        return {
+          success: true,
+          email: {
+            contactId: contactData.contactId,
+            contactName: contactData.contactName,
+            email: contactData.email,
+            subject: emailData.subject,
+            bodyHtml: emailData.body_html,
+            installments: contactData.installments.map(i => ({
+              id: i.id,
+              value: i.value,
+              dueDate: i.due_date,
+              daysOverdue: i.days_overdue
+            })),
+            totalValue: contactData.totalValue,
+            installmentCount: contactData.installments.length,
+            sellerEmail,
+            sellerName,
+            companyId: contactData.companyId,
+            companyName: contactData.companyName,
+            isBillingContact: contactData.isBillingContact
+          }
+        };
       } catch (error: any) {
         console.error(`Error generating email for contact ${contactData.contactId}:`, error);
-        errors.push({ contactId: contactData.contactId, error: error?.message || 'Unknown error' });
+        return { success: false, error: { contactId: contactData.contactId, error: error?.message || 'Unknown error' } };
       }
+    };
+
+    // Process in parallel batches of 8
+    const BATCH_SIZE = 8;
+    const totalContacts = contactsWithInstallments.length;
+    
+    console.log(`Starting parallel batch processing: ${totalContacts} contacts in batches of ${BATCH_SIZE}`);
+    
+    for (let i = 0; i < totalContacts; i += BATCH_SIZE) {
+      const batch = contactsWithInstallments.slice(i, i + BATCH_SIZE);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(totalContacts / BATCH_SIZE);
+      
+      console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} contacts)`);
+      
+      const batchResults = await Promise.all(batch.map(generateEmailForContact));
+      
+      for (const result of batchResults) {
+        if (result.success && result.email) {
+          generatedEmails.push(result.email);
+        } else if (result.error) {
+          errors.push(result.error);
+        }
+      }
+      
+      console.log(`Batch ${batchNumber} complete. Total generated so far: ${generatedEmails.length}`);
     }
 
     console.log(`Generated ${generatedEmails.length} emails, ${errors.length} errors, ${skippedContacts.length} skipped`);
