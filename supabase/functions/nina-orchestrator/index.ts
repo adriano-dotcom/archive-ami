@@ -2644,6 +2644,73 @@ async function processQueueItem(
       // Get AI settings for metadata
       const aiSettings = getModelSettings(settings, [], message, conversation.contact, {});
       
+      // Check business hours
+      const businessHoursStart = settings?.business_hours_start || '09:00:00';
+      const businessHoursEnd = settings?.business_hours_end || '18:00:00';
+      const businessDays = settings?.business_days || [1, 2, 3, 4, 5]; // Mon-Fri
+      const timezone = settings?.timezone || 'America/Sao_Paulo';
+      
+      // Get current time in the configured timezone
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: timezone,
+        weekday: 'long'
+      });
+      
+      const currentTimeStr = formatter.format(now);
+      const currentDayOfWeek = new Date(now.toLocaleString('en-US', { timeZone: timezone })).getDay();
+      
+      // Parse times to compare
+      const [startHour, startMin] = businessHoursStart.split(':').map(Number);
+      const [endHour, endMin] = businessHoursEnd.split(':').map(Number);
+      const [currentHour, currentMin] = currentTimeStr.split(':').map(Number);
+      
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+      const currentMinutes = currentHour * 60 + currentMin;
+      
+      const isBusinessDay = businessDays.includes(currentDayOfWeek);
+      const isWithinHours = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+      const isWithinBusinessHours = isBusinessDay && isWithinHours;
+      
+      console.log(`[Nina] 🕐 Business hours check: day=${currentDayOfWeek}, time=${currentTimeStr}, isBusinessDay=${isBusinessDay}, isWithinHours=${isWithinHours}`);
+      
+      // Calculate next business time
+      const getNextBusinessTime = (): { dayName: string; time: string } => {
+        const daysOfWeek = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+        
+        // If within business day but after hours, next is tomorrow (or next business day)
+        // If weekend or non-business day, find next business day
+        let daysToAdd = 1;
+        let nextDay = (currentDayOfWeek + daysToAdd) % 7;
+        
+        while (!businessDays.includes(nextDay)) {
+          daysToAdd++;
+          nextDay = (currentDayOfWeek + daysToAdd) % 7;
+          if (daysToAdd > 7) break; // Safety
+        }
+        
+        // If we're on a business day but before hours, it's today
+        if (isBusinessDay && currentMinutes < startMinutes) {
+          return {
+            dayName: 'hoje',
+            time: `${startHour.toString().padStart(2, '0')}h`
+          };
+        }
+        
+        return {
+          dayName: daysToAdd === 1 ? 'amanhã' : daysOfWeek[nextDay],
+          time: `${startHour.toString().padStart(2, '0')}h`
+        };
+      };
+      
       if (onlineAgent) {
         // Mensagem de despedida elaborada com agente online
         responseMessage = `Foi um prazer conversar com você, ${contactName}! 😊
@@ -2669,11 +2736,11 @@ Obrigada pela paciência e até a próxima! 🙌`;
           .eq('id', conversation.id);
         
         console.log(`[Nina] ✅ Conversa transferida para ${onlineAgent.name} (ID: ${onlineAgent.id})`);
-      } else {
-        // Mensagem de despedida elaborada sem agente online
+      } else if (isWithinBusinessHours) {
+        // Dentro do horário comercial, mas sem agente online
         responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
 
-Nossos corretores estão atendendo outros clientes no momento, mas um deles vai te responder assim que possível.
+Nossos corretores estão atendendo outros clientes no momento, mas um deles vai te responder em breve.
 Agradeço sua paciência! 🙏`;
         
         // Mark as human without assignment (for triage)
@@ -2685,12 +2752,50 @@ Agradeço sua paciência! 🙏`;
               ...ninaContext,
               transferred_at: new Date().toISOString(),
               transfer_reason: isDirectRequest ? 'direct_request' : 'user_confirmation',
-              no_agent_available: true
+              no_agent_available: true,
+              within_business_hours: true
             }
           })
           .eq('id', conversation.id);
         
-        console.log(`[Nina] ⚠️ Nenhum agente online - conversa marcada como human para triagem`);
+        console.log(`[Nina] ⚠️ Dentro do horário comercial, nenhum agente online - conversa marcada como human para triagem`);
+      } else {
+        // Fora do horário comercial
+        const nextBusiness = getNextBusinessTime();
+        const currentDayName = dayFormatter.format(now).toLowerCase();
+        const isWeekend = currentDayOfWeek === 0 || currentDayOfWeek === 6;
+        
+        if (isWeekend) {
+          responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+
+Hoje é ${currentDayName} e nosso time está curtindo o merecido descanso. 🏖️
+Um corretor vai te responder na segunda-feira a partir das 09h.
+Tenha um ótimo fim de semana! 🙌`;
+        } else {
+          responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+
+Nosso horário de atendimento é de segunda a sexta, das ${startHour}h às ${endHour}h.
+Um corretor vai te responder ${nextBusiness.dayName} a partir das ${nextBusiness.time}.
+Agradeço pela compreensão! 🙏`;
+        }
+        
+        // Mark as human without assignment (for triage)
+        await supabase
+          .from('conversations')
+          .update({
+            status: 'human',
+            nina_context: {
+              ...ninaContext,
+              transferred_at: new Date().toISOString(),
+              transfer_reason: isDirectRequest ? 'direct_request' : 'user_confirmation',
+              no_agent_available: true,
+              within_business_hours: false,
+              next_business_time: `${nextBusiness.dayName} às ${nextBusiness.time}`
+            }
+          })
+          .eq('id', conversation.id);
+        
+        console.log(`[Nina] ⚠️ Fora do horário comercial - próximo atendimento: ${nextBusiness.dayName} às ${nextBusiness.time}`);
       }
       
       // Queue the transfer confirmation message
