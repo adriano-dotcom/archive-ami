@@ -729,8 +729,16 @@ const ChatInterface: React.FC = () => {
 
   // Start audio recording
   const startRecording = async () => {
+    // Clear any existing interval first
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    
     try {
+      console.log('[Audio] Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[Audio] Microphone access granted');
       recordingStreamRef.current = stream;
       
       // Prefer OGG/Opus for better WhatsApp compatibility
@@ -740,27 +748,43 @@ const ChatInterface: React.FC = () => {
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
       
+      console.log('[Audio] Using mimeType:', mimeType);
+      
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (e) => {
+        console.log('[Audio] Data available, size:', e.data.size);
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
       
-      mediaRecorder.start();
+      mediaRecorder.onerror = (e) => {
+        console.error('[Audio] MediaRecorder error:', e);
+      };
+      
+      // Start recording with timeslice to get data periodically
+      mediaRecorder.start(1000);
+      console.log('[Audio] Recording started');
+      
+      // Set state first
       setIsRecording(true);
       setRecordingDuration(0);
       
-      // Duration timer
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
+      // Start duration timer
+      const intervalId = setInterval(() => {
+        setRecordingDuration(prev => {
+          console.log('[Audio] Timer tick, duration:', prev + 1);
+          return prev + 1;
+        });
       }, 1000);
+      recordingIntervalRef.current = intervalId;
+      console.log('[Audio] Timer started, intervalId:', intervalId);
       
     } catch (err) {
-      console.error('Error accessing microphone:', err);
+      console.error('[Audio] Error accessing microphone:', err);
       toast.error('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
     }
   };
