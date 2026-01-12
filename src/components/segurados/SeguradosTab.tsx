@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,44 +26,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
 import { KNOWN_INSURERS } from '@/constants/insurers';
-interface Company {
-  id: string;
-  cnpj: string;
-  razao_social: string;
-  nome_fantasia: string | null;
-  city: string | null;
-  state: string | null;
-  contacts_count: number;
-  billing_contacts_count: number;
-  policies_count: number;
-  overdue_value: number;
-  max_days_overdue: number;
-  seller_id: string | null;
-  seller_name: string | null;
-}
-
-interface SeguradoPF {
-  id: string;
-  name: string | null;
-  phone_number: string;
-  email: string | null;
-  cpf: string | null;
-  city: string | null;
-  state: string | null;
-  lead_source?: string | null;
-  policies_count: number;
-  insurers: string[];
-  overdue_value: number;
-  max_days_overdue: number;
-}
+import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
 
 export const SeguradosTab: React.FC = () => {
   const navigate = useNavigate();
   const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf'>('pj');
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [seguradosPF, setSeguradosPF] = useState<SeguradoPF[]>([]);
+  
+  // Use optimized data hook with caching
+  const { data, isLoading: loading, refetch } = useSeguradosData();
+  const invalidateSegurados = useInvalidateSeguradosData();
+  
+  // Extract data from hook
+  const companies = data?.companies || [];
+  const seguradosPF = data?.seguradosPF || [];
+  
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
   const [showImportCompanies, setShowImportCompanies] = useState(false);
@@ -173,185 +150,11 @@ export const SeguradosTab: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const loadCompanies = async () => {
-    try {
-      // Fetch companies with aggregated data
-      const { data: companiesData, error } = await supabase
-        .from('companies')
-        .select(`
-          id,
-          cnpj,
-          razao_social,
-          nome_fantasia,
-          city,
-          state,
-          seller_id,
-          sellers!companies_seller_id_fkey (
-            name
-          )
-        `)
-        .order('razao_social');
-
-      if (error) throw error;
-
-      // For each company, get counts and overdue data
-      const enrichedCompanies = await Promise.all(
-        (companiesData || []).map(async (company) => {
-          // Get contacts count
-          const { count: contactsCount } = await supabase
-            .from('contacts')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id);
-
-          // Get billing contacts count
-          const { count: billingCount } = await supabase
-            .from('contacts')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id)
-            .eq('is_billing_contact', true);
-
-          // Get policies count
-          const { count: policiesCount } = await supabase
-            .from('policies')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id);
-
-          // Get overdue installments data
-          const { data: installments } = await supabase
-            .from('installments')
-            .select('value, days_overdue, policy_id')
-            .in('status', ['overdue', 'pending'])
-            .gt('days_overdue', 0);
-
-          // Filter installments by company policies
-          const { data: companyPolicies } = await supabase
-            .from('policies')
-            .select('id')
-            .eq('company_id', company.id);
-
-          const policyIds = new Set((companyPolicies || []).map(p => p.id));
-          const companyInstallments = (installments || []).filter(i => policyIds.has(i.policy_id));
-
-          const overdueValue = companyInstallments.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-          const maxDaysOverdue = Math.max(0, ...companyInstallments.map(i => i.days_overdue || 0));
-
-          return {
-            ...company,
-            contacts_count: contactsCount || 0,
-            billing_contacts_count: billingCount || 0,
-            policies_count: policiesCount || 0,
-            overdue_value: overdueValue,
-            max_days_overdue: maxDaysOverdue,
-            seller_name: (company as any).sellers?.name || null
-          };
-        })
-      );
-
-      setCompanies(enrichedCompanies);
-    } catch (error) {
-      console.error('Error loading companies:', error);
-      toast.error('Erro ao carregar empresas');
-    }
-  };
-
-  // Helper para detectar se nome parece ser de empresa
-  const isCompanyName = (name: string | null): boolean => {
-    if (!name) return false;
-    const upperName = name.toUpperCase();
-    const companyIndicators = ['LTDA', 'S/A', 'S.A.', ' SA ', ' ME', 'EIRELI', 'EPP', 'TRANSPORTES', 'TRANSPORTE', 'LOGISTICA', 'LOGÍSTICA', 'COMERCIO', 'COMÉRCIO', 'INDUSTRIA', 'INDÚSTRIA', 'SERVICOS', 'SERVIÇOS', 'DISTRIBUIDORA', 'ATACADO', 'METALURGICA', 'METALÚRGICA', 'CONSTRUTORA', 'ENGENHARIA', 'LOCADORA', 'AGROPECUARIA', 'AGROPECUÁRIA', 'SUCATAO', 'SUCATÃO', 'METAIS'];
-    return companyIndicators.some(ind => upperName.includes(ind));
-  };
-
-  const loadSeguradosPF = async () => {
-    try {
-      // Fetch contacts that are NOT linked to companies but have policies
-      // Get contacts without company: those with policies OR imported from cobrança
-      const { data: contacts, error } = await supabase
-        .from('contacts')
-        .select(`
-          id,
-          name,
-          phone_number,
-          email,
-          cpf,
-          city,
-          state,
-          lead_source
-        `)
-        .is('company_id', null)
-        .order('name');
-
-      if (error) throw error;
-
-      // For each contact, check if they have policies or are from cobrança import
-      const enrichedSegurados = await Promise.all(
-        (contacts || []).map(async (contact) => {
-          // FILTRO PREVENTIVO: Excluir contatos cujo nome parece ser de empresa
-          if (isCompanyName(contact.name)) {
-            console.log(`Excluindo contato com nome de empresa da lista PF: ${contact.name}`);
-            return null;
-          }
-
-          // Get policies for this contact
-          const { data: policies, error: policiesError } = await supabase
-            .from('policies')
-            .select('id, insurer')
-            .eq('contact_id', contact.id);
-
-          const hasPolicies = !policiesError && policies && policies.length > 0;
-          const isCobrancaImport = contact.lead_source === 'import_cobranca';
-
-          // Skip contacts without policies AND not from cobrança import
-          if (!hasPolicies && !isCobrancaImport) {
-            return null;
-          }
-
-          const policyIds = hasPolicies ? policies.map(p => p.id) : [];
-          const insurers = hasPolicies ? [...new Set(policies.map(p => p.insurer))] : [];
-
-          // Get overdue installments if has policies
-          let overdueValue = 0;
-          let maxDaysOverdue = 0;
-
-          if (policyIds.length > 0) {
-            const { data: installments } = await supabase
-              .from('installments')
-              .select('value, days_overdue')
-              .in('policy_id', policyIds)
-              .in('status', ['overdue', 'pending'])
-              .gt('days_overdue', 0);
-
-            overdueValue = (installments || []).reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-            maxDaysOverdue = Math.max(0, ...(installments || []).map(i => i.days_overdue || 0));
-          }
-
-          return {
-            ...contact,
-            policies_count: hasPolicies ? policies.length : 0,
-            insurers,
-            overdue_value: overdueValue,
-            max_days_overdue: maxDaysOverdue
-          };
-        })
-      );
-
-      // Filter out null values
-      setSeguradosPF(enrichedSegurados.filter((s) => s !== null) as SeguradoPF[]);
-    } catch (error) {
-      console.error('Error loading segurados PF:', error);
-      toast.error('Erro ao carregar segurados PF');
-    }
-  };
-
+  // Refresh data - uses React Query's refetch with cache invalidation
   const loadData = async () => {
-    setLoading(true);
-    await Promise.all([loadCompanies(), loadSeguradosPF()]);
-    setLoading(false);
+    invalidateSegurados();
+    await refetch();
   };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const handleOpenConversation = async (contactId: string) => {
     try {
