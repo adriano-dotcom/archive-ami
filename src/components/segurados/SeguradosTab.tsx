@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge, AlertTriangle } from 'lucide-react';
+import { Building2, User, Search, RefreshCw, Plus, Upload, Download, ChevronDown, Sparkles, Trash2, X, Filter, GitMerge, AlertTriangle, CheckSquare } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,9 +27,11 @@ import { api } from '@/services/api';
 import { toast } from 'sonner';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export const SeguradosTab: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
   const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf'>('pj');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -788,21 +790,39 @@ export const SeguradosTab: React.FC = () => {
               Mesclar
             </Button>
             
+            {/* Admin bulk actions */}
+            {isAdmin && (
+              <>
+                <div className="h-4 w-px bg-slate-700" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedCompanyIds(filteredCompanies.map(c => c.id))}
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  Selecionar Todos ({filteredCompanies.length})
+                </Button>
+              </>
+            )}
+            
             {selectedCompanyIds.length > 0 && (
               <>
                 <div className="h-4 w-px bg-slate-700" />
                 <span className="text-sm text-blue-400 font-medium">
                   {selectedCompanyIds.length} selecionada(s)
                 </span>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setShowBulkDeleteConfirm(true)}
-                  className="gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Excluir ({selectedCompanyIds.length})
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    className="gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Excluir ({selectedCompanyIds.length})
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -831,20 +851,37 @@ export const SeguradosTab: React.FC = () => {
 
         <TabsContent value="pf" className="mt-4 space-y-3">
           {/* Bulk Actions Bar - Segurados PF */}
+          {/* Admin bulk actions - Segurados PF */}
+          {isAdmin && (
+            <div className="flex items-center gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedSeguradoIds(filteredSeguradosPF.map(s => s.id))}
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+              >
+                <CheckSquare className="w-4 h-4" />
+                Selecionar Todos ({filteredSeguradosPF.length})
+              </Button>
+            </div>
+          )}
+          
           {selectedSeguradoIds.length > 0 && (
             <div className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
               <span className="text-sm text-emerald-400 font-medium">
                 {selectedSeguradoIds.length} selecionado(s)
               </span>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setShowBulkDeleteSeguradosConfirm(true)}
-                className="gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir ({selectedSeguradoIds.length})
-              </Button>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowBulkDeleteSeguradosConfirm(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir ({selectedSeguradoIds.length})
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
