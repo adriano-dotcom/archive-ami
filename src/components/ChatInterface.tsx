@@ -131,6 +131,10 @@ const ChatInterface: React.FC = () => {
   // PDF preview state
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
   
+  // File upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  
   // Input refs for keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -586,6 +590,40 @@ const ChatInterface: React.FC = () => {
       toast.error('Erro ao reabrir atendimento');
     } finally {
       setIsReopeningConversation(false);
+    }
+  };
+
+  // Handle file selection for attachment upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChat) return;
+    
+    // Validate file size (max 16MB for WhatsApp)
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 16MB para WhatsApp.');
+      e.target.value = '';
+      return;
+    }
+    
+    setUploadingFile(true);
+    try {
+      const operatorName = user?.email 
+        ? teamMembers.find(m => m.email === user.email)?.name 
+        : undefined;
+      
+      await api.sendMediaMessage(
+        activeChat.id, 
+        file, 
+        operatorName
+      );
+      toast.success('Anexo enviado!');
+    } catch (err) {
+      console.error('Erro ao enviar anexo:', err);
+      toast.error('Erro ao enviar anexo');
+    } finally {
+      setUploadingFile(false);
+      // Reset input to allow selecting same file again
+      e.target.value = '';
     }
   };
 
@@ -1861,14 +1899,35 @@ const ChatInterface: React.FC = () => {
               )}
               
               <form onSubmit={handleSendMessage} className="flex items-end gap-2 md:gap-3 max-w-4xl mx-auto">
+                {/* Hidden file input for attachments */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                
                 <div className={`flex items-center ${isMobile ? 'gap-0.5' : 'gap-1'}`}>
                   {!isMobile && (
                     <>
                       <Button type="button" variant="ghost" size="icon" className="text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors" disabled={!windowTimeRemaining.isOpen}>
                         <Smile className="w-5 h-5" />
                       </Button>
-                      <Button type="button" variant="ghost" size="icon" className="text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors" disabled={!windowTimeRemaining.isOpen}>
-                        <Paperclip className="w-5 h-5" />
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors" 
+                        disabled={!windowTimeRemaining.isOpen || uploadingFile}
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Enviar anexo"
+                      >
+                        {uploadingFile ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Paperclip className="w-5 h-5" />
+                        )}
                       </Button>
                     </>
                   )}
