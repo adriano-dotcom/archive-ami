@@ -1714,30 +1714,20 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
             }
           }
           
-          // 2. DEPOIS: Criar contato já vinculado à empresa
-          if (!contactId) {
-            // Sempre criar com telefone pendente - telefones do arquivo são da corretora
-            const phoneNumber = docClean ? `PENDENTE_${docClean}` : `PENDENTE_${Date.now()}`;
-            
-            const { data: newContact } = await supabase
+          // 2. NÃO CRIAR CONTATO - apenas buscar existente pelo CNPJ/CPF
+          // Os contatos já existem no banco, não criar novos na importação de parcelas
+          if (!contactId && docClean) {
+            // Buscar contato existente pelo documento (CNPJ ou CPF)
+            const { data: existingContactByDoc } = await supabase
               .from('contacts')
-              .upsert({
-                phone_number: phoneNumber,
-                name: inst.insured_name,
-                email: inst.insured_email || null,
-                cpf: docClean.length === 11 ? docClean : null,
-                cnpj: docClean.length === 14 ? docClean : null,
-                company_id: companyId, // ✅ VINCULAR À EMPRESA
-                is_billing_contact: true,
-                lead_source: 'import_cobranca',
-                tags: ['telefone_pendente']
-              }, { onConflict: 'phone_number' })
               .select('id')
-              .single();
+              .or(`cpf.eq.${docClean},cnpj.eq.${docClean}`)
+              .maybeSingle();
             
-            if (newContact) {
-              contactId = newContact.id;
-              // Se o contato já existia (upsert), atualizar o company_id
+            if (existingContactByDoc) {
+              contactId = existingContactByDoc.id;
+              console.log('INFO: Contato existente encontrado pelo documento:', docClean, '-> id:', contactId);
+              // Vincular à empresa se ainda não estiver
               if (companyId) {
                 await supabase
                   .from('contacts')
@@ -1745,8 +1735,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                   .eq('id', contactId)
                   .is('company_id', null);
               }
+            } else {
+              console.log('INFO: Nenhum contato encontrado para documento:', docClean, '- prosseguindo sem contact_id');
             }
-          } else if (companyId) {
+          } else if (contactId && companyId) {
             // Contato já existia, vincular à empresa se ainda não estiver
             await supabase
               .from('contacts')
@@ -1754,6 +1746,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               .eq('id', contactId)
               .is('company_id', null);
           }
+          // Se não encontrou contato, contactId será null - isso é OK, a parcela será vinculada apenas à empresa
           
           // Find or create policy
           let policyId = policyIdMap.get(inst.policy_number);
