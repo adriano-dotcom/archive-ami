@@ -201,14 +201,25 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
         } else if (headerLower === 'nome' && !autoMapping['contact_name']) {
           // Fallback: if there's just "nome" and no contact_name mapped yet
         }
-        if (headerLower.includes('telefone') || headerLower.includes('whatsapp') || headerLower.includes('celular')) {
+        // Prioritize "telefone do contato" or "telefone contato", ignore "telefone da empresa"
+        if (headerLower.includes('telefone') && headerLower.includes('contato')) {
+          autoMapping['contact_phone'] = index.toString();
+        } else if ((headerLower.includes('telefone') || headerLower.includes('whatsapp') || headerLower.includes('celular')) 
+                   && !headerLower.includes('empresa') && !autoMapping['contact_phone']) {
           autoMapping['contact_phone'] = index.toString();
         }
         if (headerLower.includes('email') && headerLower.includes('contato')) autoMapping['contact_email'] = index.toString();
         if (headerLower === 'email' && !autoMapping['contact_email']) autoMapping['contact_email'] = index.toString();
         if (headerLower.includes('cargo') || headerLower.includes('funcao')) autoMapping['contact_role'] = index.toString();
-        if (headerLower.includes('cobranca') || headerLower.includes('billing')) autoMapping['contact_is_billing'] = index.toString();
+        // Recognize "contato principal" as billing contact
+        if (headerLower.includes('cobranca') || headerLower.includes('billing') || headerLower.includes('principal')) {
+          autoMapping['contact_is_billing'] = index.toString();
+        }
         if (headerLower === 'cpf' || headerLower.includes('cpf_contato')) autoMapping['contact_cpf'] = index.toString();
+        // Map address/street
+        if ((headerLower.includes('endereco') || headerLower.includes('logradouro')) && !autoMapping['street']) {
+          autoMapping['street'] = index.toString();
+        }
       });
       
       setColumnMapping(autoMapping);
