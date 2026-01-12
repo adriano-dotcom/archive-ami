@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Sidebar from './components/Sidebar';
@@ -8,6 +8,7 @@ import { UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
+import { usePrefetchSeguradosData } from './hooks/useSeguradosData';
 
 // Lazy load route components for code splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -37,6 +38,17 @@ const DefaultRedirect: React.FC = () => {
 
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
+  // Prefetch segurados data on app load for instant navigation
+  const prefetchSegurados = usePrefetchSeguradosData();
+  
+  useEffect(() => {
+    // Prefetch in background after a short delay to prioritize initial render
+    const timer = setTimeout(() => {
+      prefetchSegurados();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [prefetchSegurados]);
+  
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-slate-950 text-slate-50 overflow-hidden">
       {/* Background Ambient Glows */}
