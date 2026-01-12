@@ -477,7 +477,13 @@ REGRAS:
 6. Inclua chamada para ação clara para regularização
 7. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
 8. SEM emojis
-9. Assinatura: Jacometo Seguros - Equipe de Cobrança
+9. Assinatura:
+   Atenciosamente,
+   João Pedro
+   WhatsApp: +55 43 99156-2099
+   
+   Jacometo Seguros - Equipe de Cobrança
+   À disposição para esclarecimento
 
 Retorne APENAS um JSON válido no formato:
 {"subject": "assunto do email", "body_html": "HTML completo do email"}`;
