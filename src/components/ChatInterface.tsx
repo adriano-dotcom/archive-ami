@@ -6,7 +6,7 @@ import {
   Smile, Loader2, Mic, MessageSquare, Info, X, Mail, MapPin, 
   Tag, User, Pause, Brain, Plus, Building2, FileText, Save, Pencil, FileType,
   Briefcase, ExternalLink, Inbox, Archive, ArchiveRestore, PhoneCall, Clock, AlertTriangle,
-  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2
+  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2, Square
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -134,6 +134,14 @@ const ChatInterface: React.FC = () => {
   // File upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
   
   // Input refs for keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -712,7 +720,154 @@ const ChatInterface: React.FC = () => {
     await sendMessage(activeChat.id, content, operatorName);
   };
 
-  const handleStatusChange = async (status: ConversationStatus) => {
+  // Format duration for audio recording
+  const formatRecordingDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Start audio recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      
+      // Prefer OGG/Opus for better WhatsApp compatibility
+      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // Duration timer
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      toast.error('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
+    }
+  };
+
+  // Stop recording and send audio
+  const stopRecordingAndSend = async () => {
+    if (!mediaRecorderRef.current || !isRecording || !activeChat) return;
+    
+    // Clear interval
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    
+    setIsRecording(false);
+    
+    // Get the audio blob when recording stops
+    const mediaRecorder = mediaRecorderRef.current;
+    const mimeType = mediaRecorder.mimeType;
+    
+    mediaRecorder.onstop = async () => {
+      // Stop all tracks
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach(track => track.stop());
+        recordingStreamRef.current = null;
+      }
+      
+      if (audioChunksRef.current.length === 0) {
+        toast.error('Nenhum áudio gravado');
+        return;
+      }
+      
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+      
+      // Check minimum duration (at least 1 second)
+      if (recordingDuration < 1) {
+        toast.error('Gravação muito curta');
+        setRecordingDuration(0);
+        return;
+      }
+      
+      setUploadingFile(true);
+      try {
+        const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([audioBlob], `audio_${Date.now()}.${extension}`, { 
+          type: mimeType 
+        });
+        
+        const operatorName = user?.email 
+          ? teamMembers.find(m => m.email === user.email)?.name || 
+            user.email.split('@')[0]
+              .split(/[._-]/)
+              .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+              .join(' ')
+          : undefined;
+        
+        await api.sendMediaMessage(activeChat.id, file, operatorName);
+        toast.success('Áudio enviado!');
+      } catch (err) {
+        console.error('Error sending audio:', err);
+        toast.error('Erro ao enviar áudio');
+      } finally {
+        setUploadingFile(false);
+        setRecordingDuration(0);
+      }
+    };
+    
+    mediaRecorder.stop();
+  };
+
+  // Cancel recording
+  const cancelRecording = () => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Stop all tracks
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(track => track.stop());
+      recordingStreamRef.current = null;
+    }
+    
+    setIsRecording(false);
+    setRecordingDuration(0);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isRecording]);
+
+
     if (!activeChat) return;
     // Extract display name from user email
     const userName = user?.email ? 
@@ -1993,12 +2148,57 @@ const ChatInterface: React.FC = () => {
                   />
                 </div>
 
-                {inputText.trim() && windowTimeRemaining.isOpen ? (
+                {/* Recording UI */}
+                {isRecording ? (
+                  <div className="flex items-center gap-2">
+                    {/* Cancel button */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full"
+                      onClick={cancelRecording}
+                      title="Cancelar gravação"
+                    >
+                      <X className="w-5 h-5" />
+                    </Button>
+                    
+                    {/* Recording indicator and timer */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 rounded-full border border-red-500/30">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-red-400 font-mono text-sm min-w-[40px]">
+                        {formatRecordingDuration(recordingDuration)}
+                      </span>
+                    </div>
+                    
+                    {/* Stop and send button */}
+                    <Button
+                      type="button"
+                      className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 bg-green-600 hover:bg-green-500 shadow-lg shadow-green-500/20 hover:scale-105 active:scale-95 transition-all`}
+                      onClick={stopRecordingAndSend}
+                      disabled={uploadingFile}
+                      title="Parar e enviar"
+                    >
+                      {uploadingFile ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </Button>
+                  </div>
+                ) : inputText.trim() && windowTimeRemaining.isOpen ? (
                   <Button type="submit" className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 shadow-lg shadow-cyan-500/20 hover:scale-105 active:scale-95 transition-all`}>
                     <Send className="w-5 h-5 ml-0.5" />
                   </Button>
                 ) : (
-                  <Button type="button" variant="secondary" className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700`} disabled={!windowTimeRemaining.isOpen}>
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700 transition-colors`} 
+                    disabled={!windowTimeRemaining.isOpen || uploadingFile}
+                    onClick={startRecording}
+                    title="Gravar áudio"
+                  >
                     <Mic className="w-5 h-5" />
                   </Button>
                 )}
