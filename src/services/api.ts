@@ -1325,12 +1325,45 @@ export const api = {
 
   /**
    * Get existing conversation for a contact or create a new one
+   * Searches by contact_id AND by normalized phone number to avoid duplicates
    * @param contactId - The contact ID to find or create conversation for
    * @returns The conversation ID (existing or newly created)
    */
   getOrCreateConversation: async (contactId: string): Promise<string> => {
-    // First, try to find an existing active conversation
-    const { data: existingConv, error: findError } = await supabase
+    // First, get the contact's phone number to search by normalized number
+    const { data: contact, error: contactError } = await supabase
+      .from('contacts')
+      .select('phone_number, whatsapp_id')
+      .eq('id', contactId)
+      .single();
+
+    if (contactError) {
+      console.error('[API] Error fetching contact:', contactError);
+      throw contactError;
+    }
+
+    // Normalize phone number and create variations (with/without 9th digit)
+    const phoneDigits = contact?.phone_number?.replace(/\D/g, '') || '';
+    const whatsappDigits = contact?.whatsapp_id?.replace(/\D/g, '') || '';
+    
+    const phoneVariations = new Set<string>();
+    [phoneDigits, whatsappDigits].filter(Boolean).forEach(digits => {
+      phoneVariations.add(digits);
+      // If 13 digits (55 + DDD + 9 + 8 digits), create version without 9th digit
+      if (digits.length === 13) {
+        phoneVariations.add(digits.slice(0, 4) + digits.slice(5));
+      }
+      // If 12 digits (55 + DDD + 8 digits old format), create version with 9th digit
+      else if (digits.length === 12) {
+        phoneVariations.add(digits.slice(0, 4) + '9' + digits.slice(4));
+      }
+    });
+
+    const phoneVariationsArray = Array.from(phoneVariations).filter(Boolean);
+    console.log('[API] Searching for conversations with phone variations:', phoneVariationsArray);
+
+    // First, try to find an existing active conversation by contact_id
+    const { data: existingByContact, error: findError } = await supabase
       .from('conversations')
       .select('id')
       .eq('contact_id', contactId)
@@ -1340,17 +1373,52 @@ export const api = {
       .maybeSingle();
 
     if (findError) {
-      console.error('[API] Error finding conversation:', findError);
-      throw findError;
+      console.error('[API] Error finding conversation by contact:', findError);
     }
 
-    // If conversation exists, return its ID
-    if (existingConv) {
-      console.log('[API] Found existing conversation:', existingConv.id);
-      return existingConv.id;
+    if (existingByContact) {
+      console.log('[API] Found existing conversation by contact_id:', existingByContact.id);
+      return existingByContact.id;
     }
 
-    // Create a new conversation
+    // If not found by contact_id, search by phone number variations
+    if (phoneVariationsArray.length > 0) {
+      // Get all contacts with matching phone numbers
+      const { data: matchingContacts, error: matchError } = await supabase
+        .from('contacts')
+        .select('id, phone_number, whatsapp_id')
+        .or(phoneVariationsArray.map(p => `phone_number.eq.${p},whatsapp_id.eq.${p}`).join(','));
+
+      if (matchError) {
+        console.error('[API] Error finding contacts by phone:', matchError);
+      }
+
+      if (matchingContacts && matchingContacts.length > 0) {
+        const matchingContactIds = matchingContacts.map(c => c.id);
+        console.log('[API] Found matching contacts by phone:', matchingContactIds);
+
+        // Search for active conversations for these contacts
+        const { data: existingByPhone, error: phoneError } = await supabase
+          .from('conversations')
+          .select('id, contact_id')
+          .in('contact_id', matchingContactIds)
+          .eq('is_active', true)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (phoneError) {
+          console.error('[API] Error finding conversation by phone:', phoneError);
+        }
+
+        if (existingByPhone) {
+          console.log('[API] Found existing conversation by phone number:', existingByPhone.id, 'for contact:', existingByPhone.contact_id);
+          return existingByPhone.id;
+        }
+      }
+    }
+
+    // Create a new conversation if none found
     const { data: newConv, error: createError } = await supabase
       .from('conversations')
       .insert({
