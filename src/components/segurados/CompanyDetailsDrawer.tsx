@@ -133,6 +133,35 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
 
       if (error) throw error;
 
+      // Se marcou como contato de cobrança, atualizar parcelas da empresa
+      if (newValue && company) {
+        // Buscar todas as policies da empresa
+        const { data: policies, error: policiesError } = await supabase
+          .from('policies')
+          .select('id')
+          .eq('company_id', company.id);
+        
+        if (policiesError) {
+          console.error('Error fetching policies:', policiesError);
+        } else if (policies && policies.length > 0) {
+          const policyIds = policies.map(p => p.id);
+          
+          // Atualizar contact_id de todas as parcelas dessas policies
+          const { data: updated, error: installmentsError } = await supabase
+            .from('installments')
+            .update({ contact_id: contact.id })
+            .in('policy_id', policyIds)
+            .select('id');
+          
+          if (installmentsError) {
+            console.error('Error updating installments:', installmentsError);
+            toast.error('Erro ao atualizar parcelas');
+          } else if (updated && updated.length > 0) {
+            toast.success(`${updated.length} parcelas atualizadas para ${contact.name || 'contato'}`);
+          }
+        }
+      }
+
       // Update local state
       setContacts(prev => 
         prev.map(c => c.id === contact.id ? { ...c, is_billing_contact: newValue } : c)
