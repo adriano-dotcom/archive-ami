@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy
+  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle
 } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
@@ -94,6 +94,7 @@ export const InstallmentsList: React.FC = () => {
   const [insurerFilter, setInsurerFilter] = useState<string>('all');
   const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
+  const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -140,6 +141,7 @@ export const InstallmentsList: React.FC = () => {
     insurerFilter,
     cargoOnlyFilter,
     emailSentFilter,
+    whatsappSentFilter,
   });
 
   // Pending mark as paid value
@@ -418,6 +420,27 @@ export const InstallmentsList: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-slate-400" />
                     Sem email enviado
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={whatsappSentFilter} onValueChange={setWhatsappSentFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Status WhatsApp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos (WhatsApp)</SelectItem>
+                <SelectItem value="sent">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-green-400" />
+                    Com WhatsApp enviado
+                  </div>
+                </SelectItem>
+                <SelectItem value="not-sent">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-slate-400" />
+                    Sem WhatsApp enviado
                   </div>
                 </SelectItem>
               </SelectContent>

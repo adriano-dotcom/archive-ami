@@ -76,10 +76,11 @@ interface UseInstallmentsOptions {
   insurerFilter: string;
   cargoOnlyFilter: boolean;
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
+  whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -132,7 +133,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -239,11 +240,28 @@ export function useInstallments(options: UseInstallmentsOptions) {
     return installments;
   }, [installments, emailSentFilter, attemptCounts]);
 
+  // Apply WhatsApp sent filter
+  const filteredByWhatsApp = useMemo(() => {
+    if (!filteredByEmail || whatsappSentFilter === 'all' || !attemptCounts) {
+      return filteredByEmail;
+    }
+    
+    const { whatsappCounts } = attemptCounts;
+    
+    if (whatsappSentFilter === 'sent') {
+      return filteredByEmail.filter(inst => whatsappCounts[inst.id] > 0);
+    } else if (whatsappSentFilter === 'not-sent') {
+      return filteredByEmail.filter(inst => !whatsappCounts[inst.id]);
+    }
+    
+    return filteredByEmail;
+  }, [filteredByEmail, whatsappSentFilter, attemptCounts]);
+
   // Sort installments
   const sortedInstallments = useMemo(() => {
-    if (!filteredByEmail || filteredByEmail.length === 0) return [];
+    if (!filteredByWhatsApp || filteredByWhatsApp.length === 0) return [];
     
-    return [...filteredByEmail].sort((a, b) => {
+    return [...filteredByWhatsApp].sort((a, b) => {
       let valA: string | number;
       let valB: string | number;
       
@@ -292,7 +310,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredByEmail, sortColumn, sortDirection]);
+  }, [filteredByWhatsApp, sortColumn, sortDirection]);
 
   // Computed values
   const selectedTotal = useMemo(() => {
