@@ -6,7 +6,7 @@ import {
   Smile, Loader2, Mic, MessageSquare, Info, X, Mail, MapPin, 
   Tag, User, Pause, Brain, Plus, Building2, FileText, Save, Pencil, FileType,
   Briefcase, ExternalLink, Inbox, Archive, ArchiveRestore, PhoneCall, Clock, AlertTriangle,
-  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2, Square
+  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2, Square, UserX
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -1024,6 +1024,11 @@ const ChatInterface: React.FC = () => {
     if (!currentUserTeamMemberId) return 0;
     return conversations.filter(c => c.assignedUserId === currentUserTeamMemberId).length;
   }, [conversations, currentUserTeamMemberId]);
+  
+  // Count of orphan conversations (no assigned user, not closed)
+  const orphanConversationsCount = useMemo(() => {
+    return conversations.filter(c => !c.assignedUserId && c.status !== 'closed').length;
+  }, [conversations]);
 
   const filteredConversations = conversations
     .filter(chat => {
@@ -1042,9 +1047,11 @@ const ChatInterface: React.FC = () => {
         if (chat.status !== selectedStatusFilter) return false;
       }
       
-      // Owner filter - "Minhas conversas" or specific owner
+      // Owner filter - "Minhas conversas", órfãs, or specific owner
       if (showOnlyMyConversations) {
         if (chat.assignedUserId !== currentUserTeamMemberId) return false;
+      } else if (selectedOwnerFilter === 'orphan') {
+        if (chat.assignedUserId !== null) return false;
       } else if (selectedOwnerFilter && chat.assignedUserId !== selectedOwnerFilter) {
         return false;
       }
@@ -1449,6 +1456,20 @@ const ChatInterface: React.FC = () => {
                 <span className={`text-[10px] ${showOnlyMyConversations ? 'text-white/80' : 'opacity-60'}`}>({myConversationsCount})</span>
               </button>
               
+              {/* Conversas órfãs - sem atribuição */}
+              <button
+                onClick={() => { setSelectedOwnerFilter('orphan'); setShowOnlyMyConversations(false); }}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                  selectedOwnerFilter === 'orphan'
+                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg shadow-orange-500/40 scale-[1.02] border-transparent'
+                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                }`}
+              >
+                <UserX className="w-4 h-4" />
+                Órfãs
+                <span className={`text-[10px] ${selectedOwnerFilter === 'orphan' ? 'text-white/80' : 'opacity-60'}`}>({orphanConversationsCount})</span>
+              </button>
+              
               {/* Lista de team members */}
               {availableOwners.map((owner, index) => {
                 // Cores rotativas para owners
@@ -1461,6 +1482,12 @@ const ChatInterface: React.FC = () => {
                 const style = ownerGradients[index % ownerGradients.length];
                 const isActive = !showOnlyMyConversations && selectedOwnerFilter === owner.id;
                 
+                // Format name: first name + last name initial (or full if short)
+                const nameParts = owner.name.split(' ');
+                const displayName = nameParts.length > 2 
+                  ? `${nameParts[0]} ${nameParts[nameParts.length - 1]}`
+                  : owner.name;
+                
                 return (
                   <button
                     key={owner.id}
@@ -1472,7 +1499,7 @@ const ChatInterface: React.FC = () => {
                     }`}
                   >
                     <User className="w-4 h-4" />
-                    {owner.name.split(' ')[0]}
+                    {displayName}
                     <span className={`text-[10px] ${isActive ? 'text-white/80' : 'opacity-60'}`}>({owner.count})</span>
                   </button>
                 );
