@@ -636,6 +636,7 @@ export type Database = {
           pipedrive_person_id: string | null
           profile_picture_url: string | null
           role: string | null
+          seller_id: string | null
           state: string | null
           street: string | null
           tags: string[] | null
@@ -679,6 +680,7 @@ export type Database = {
           pipedrive_person_id?: string | null
           profile_picture_url?: string | null
           role?: string | null
+          seller_id?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
@@ -722,6 +724,7 @@ export type Database = {
           pipedrive_person_id?: string | null
           profile_picture_url?: string | null
           role?: string | null
+          seller_id?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
@@ -739,6 +742,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
             referencedColumns: ["id"]
           },
         ]

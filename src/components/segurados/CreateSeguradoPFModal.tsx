@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { User, Phone, Mail, MapPin, Search, Loader2, FileText, CreditCard } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, Phone, Mail, MapPin, Search, Loader2, FileText, CreditCard, UserCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+
+interface Seller {
+  id: string;
+  name: string;
+}
 
 interface CreateSeguradoPFModalProps {
   open: boolean;
@@ -105,6 +110,7 @@ export const CreateSeguradoPFModal: React.FC<CreateSeguradoPFModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
   const numberInputRef = useRef<HTMLInputElement>(null);
+  const [sellers, setSellers] = useState<Seller[]>([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -118,15 +124,29 @@ export const CreateSeguradoPFModal: React.FC<CreateSeguradoPFModalProps> = ({
     neighborhood: '',
     city: '',
     state: '',
-    notes: ''
+    notes: '',
+    seller_id: ''
   });
+
+  // Fetch sellers on mount
+  useEffect(() => {
+    const fetchSellers = async () => {
+      const { data } = await supabase
+        .from('sellers')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setSellers(data || []);
+    };
+    fetchSellers();
+  }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const resetForm = () => {
     setFormData({
       name: '', cpf: '', phone: '', email: '', cep: '', street: '',
-      number: '', complement: '', neighborhood: '', city: '', state: '', notes: ''
+      number: '', complement: '', neighborhood: '', city: '', state: '', notes: '', seller_id: ''
     });
     setErrors({});
   };
@@ -230,6 +250,7 @@ export const CreateSeguradoPFModal: React.FC<CreateSeguradoPFModalProps> = ({
         city: formData.city.trim() || null,
         state: formData.state || null,
         notes: formData.notes.trim() || null,
+        seller_id: formData.seller_id || null,
         lead_source: 'inbound',
         lead_status: 'customer'
       });
@@ -324,6 +345,25 @@ export const CreateSeguradoPFModal: React.FC<CreateSeguradoPFModalProps> = ({
                   />
                 </div>
                 {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-slate-300">Vendedor</Label>
+              <div className="relative">
+                <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
+                <Select value={formData.seller_id} onValueChange={(value) => setFormData(prev => ({ ...prev, seller_id: value }))}>
+                  <SelectTrigger className="pl-10 bg-slate-950 border-slate-700 text-slate-100">
+                    <SelectValue placeholder="Selecione um vendedor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {sellers.map((seller) => (
+                      <SelectItem key={seller.id} value={seller.id} className="text-slate-100 focus:bg-slate-800">
+                        {seller.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
