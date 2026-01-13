@@ -93,6 +93,7 @@ export const InstallmentsList: React.FC = () => {
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   const [insurerFilter, setInsurerFilter] = useState<string>('all');
   const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
+  const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -138,6 +139,7 @@ export const InstallmentsList: React.FC = () => {
     dataQualityFilter,
     insurerFilter,
     cargoOnlyFilter,
+    emailSentFilter,
   });
 
   // Pending mark as paid value
@@ -397,6 +399,27 @@ export const InstallmentsList: React.FC = () => {
                 <SelectItem value="incomplete">⚠️ Dados incompletos</SelectItem>
                 <SelectItem value="no-policy">Sem apólice</SelectItem>
                 <SelectItem value="no-contact">Sem contato</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={emailSentFilter} onValueChange={setEmailSentFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Status Email" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos (Email)</SelectItem>
+                <SelectItem value="sent">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-green-400" />
+                    Com email enviado
+                  </div>
+                </SelectItem>
+                <SelectItem value="not-sent">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                    Sem email enviado
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
 

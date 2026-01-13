@@ -75,10 +75,11 @@ interface UseInstallmentsOptions {
   dataQualityFilter: string;
   insurerFilter: string;
   cargoOnlyFilter: boolean;
+  emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -131,7 +132,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -218,14 +219,31 @@ export function useInstallments(options: UseInstallmentsOptions) {
       }
       
       return filteredData;
-    }
+    },
   });
+
+  // Apply email sent filter (needs attemptCounts which is fetched separately)
+  const filteredByEmail = useMemo(() => {
+    if (!installments || emailSentFilter === 'all' || !attemptCounts) {
+      return installments || [];
+    }
+    
+    const { emailCounts } = attemptCounts;
+    
+    if (emailSentFilter === 'sent') {
+      return installments.filter(inst => emailCounts[inst.id] > 0);
+    } else if (emailSentFilter === 'not-sent') {
+      return installments.filter(inst => !emailCounts[inst.id]);
+    }
+    
+    return installments;
+  }, [installments, emailSentFilter, attemptCounts]);
 
   // Sort installments
   const sortedInstallments = useMemo(() => {
-    if (!installments) return [];
+    if (!filteredByEmail || filteredByEmail.length === 0) return [];
     
-    return [...installments].sort((a, b) => {
+    return [...filteredByEmail].sort((a, b) => {
       let valA: string | number;
       let valB: string | number;
       
@@ -274,7 +292,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [installments, sortColumn, sortDirection]);
+  }, [filteredByEmail, sortColumn, sortDirection]);
 
   // Computed values
   const selectedTotal = useMemo(() => {
