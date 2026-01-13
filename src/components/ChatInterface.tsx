@@ -2781,13 +2781,28 @@ const ChatInterface: React.FC = () => {
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none"
                 >
                   <option value="">Selecione um motivo...</option>
-                  <option value="Lead desqualificado">Lead desqualificado</option>
-                  <option value="Fora do perfil">Fora do perfil</option>
-                  <option value="Não tem interesse">Não tem interesse</option>
-                  <option value="Número errado/inválido">Número errado/inválido</option>
-                  <option value="Já tem corretor">Já tem corretor</option>
-                  <option value="Sem resposta">Sem resposta</option>
-                  <option value="Enviado ao Pipedrive">Enviado ao Pipedrive</option>
+                  
+                  <optgroup label="Vendas">
+                    <option value="Lead desqualificado">Lead desqualificado</option>
+                    <option value="Fora do perfil">Fora do perfil</option>
+                    <option value="Não tem interesse">Não tem interesse</option>
+                    <option value="Número errado/inválido">Número errado/inválido</option>
+                    <option value="Já tem corretor">Já tem corretor</option>
+                    <option value="Sem resposta">Sem resposta</option>
+                    <option value="Enviado ao Pipedrive">Enviado ao Pipedrive</option>
+                  </optgroup>
+                  
+                  <optgroup label="Cobrança">
+                    <option value="Pagamento realizado">Pagamento realizado</option>
+                    <option value="Acordo firmado">Acordo firmado</option>
+                    <option value="Boleto reenviado">Boleto reenviado</option>
+                    <option value="Prazo renegociado">Prazo renegociado</option>
+                    <option value="Inadimplência - Sem retorno">Inadimplência - Sem retorno</option>
+                    <option value="Inadimplência - Recusa">Inadimplência - Recusa</option>
+                    <option value="Cobrança judicial">Cobrança judicial</option>
+                    <option value="Baixa por insolvência">Baixa por insolvência</option>
+                  </optgroup>
+                  
                   <option value="Outro">Outro</option>
                 </select>
               </div>
