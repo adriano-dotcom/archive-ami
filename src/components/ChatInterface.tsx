@@ -89,6 +89,7 @@ const ChatInterface: React.FC = () => {
   
   // Owner filter state
   const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
+  const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
   
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -883,10 +884,11 @@ const ChatInterface: React.FC = () => {
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
-    // Extract display name from user email
-    const userName = user?.email ? 
-      user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 
-      undefined;
+    // Use full name from team_members when available, fallback to email-derived name
+    const userName = user?.email 
+      ? teamMembers.find(m => m.email === user.email)?.name ||
+        user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)
+      : undefined;
     await updateStatus(activeChat.id, status, user?.id, userName);
   };
 
@@ -989,27 +991,39 @@ const ChatInterface: React.FC = () => {
     };
   }, [conversations, filterAgents]);
 
-  // Calculate available owners for filter
+  // Calculate available owners for filter - include all team members and count assigned conversations
   const availableOwners = useMemo(() => {
-    let baseConversations = conversations;
-    
-    if (selectedStatusFilter) {
-      baseConversations = baseConversations.filter(c => c.status === selectedStatusFilter);
-    }
-    
-    const ownersMap = new Map<string, { id: string; name: string; count: number }>();
-    baseConversations.forEach(c => {
-      if (c.assignedUserId && c.assignedUserName) {
-        const existing = ownersMap.get(c.assignedUserId);
-        if (existing) {
-          existing.count++;
-        } else {
-          ownersMap.set(c.assignedUserId, { id: c.assignedUserId, name: c.assignedUserName, count: 1 });
-        }
+    // Build a map with counts from conversations
+    const ownersMap = new Map<string, number>();
+    conversations.forEach(c => {
+      if (c.assignedUserId) {
+        ownersMap.set(c.assignedUserId, (ownersMap.get(c.assignedUserId) || 0) + 1);
       }
     });
-    return Array.from(ownersMap.values());
-  }, [conversations, selectedStatusFilter]);
+    
+    // Return all team members with their conversation counts
+    return teamMembers
+      .filter(m => m.is_active !== false)
+      .map(m => ({
+        id: m.id,
+        name: m.name || m.email?.split('@')[0] || 'Sem nome',
+        email: m.email,
+        count: ownersMap.get(m.id) || 0
+      }));
+  }, [conversations, teamMembers]);
+  
+  // Get current user's team member ID for "Minhas conversas" filter
+  const currentUserTeamMemberId = useMemo(() => {
+    if (!user?.email) return null;
+    const member = teamMembers.find(m => m.email === user.email);
+    return member?.id || null;
+  }, [user?.email, teamMembers]);
+  
+  // Count of user's assigned conversations
+  const myConversationsCount = useMemo(() => {
+    if (!currentUserTeamMemberId) return 0;
+    return conversations.filter(c => c.assignedUserId === currentUserTeamMemberId).length;
+  }, [conversations, currentUserTeamMemberId]);
 
   const filteredConversations = conversations
     .filter(chat => {
@@ -1028,8 +1042,10 @@ const ChatInterface: React.FC = () => {
         if (chat.status !== selectedStatusFilter) return false;
       }
       
-      // Owner filter
-      if (selectedOwnerFilter && chat.assignedUserId !== selectedOwnerFilter) {
+      // Owner filter - "Minhas conversas" or specific owner
+      if (showOnlyMyConversations) {
+        if (chat.assignedUserId !== currentUserTeamMemberId) return false;
+      } else if (selectedOwnerFilter && chat.assignedUserId !== selectedOwnerFilter) {
         return false;
       }
       
@@ -1404,19 +1420,36 @@ const ChatInterface: React.FC = () => {
           )}
           
           {/* Owner Filter Pills - iOS 26 Style */}
-          {!viewingArchived && availableOwners.length > 0 && (
+          {!viewingArchived && teamMembers.length > 0 && (
             <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
+              {/* Todos */}
               <button
-                onClick={() => setSelectedOwnerFilter(null)}
+                onClick={() => { setSelectedOwnerFilter(null); setShowOnlyMyConversations(false); }}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                  selectedOwnerFilter === null
+                  !showOnlyMyConversations && selectedOwnerFilter === null
                     ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-lg shadow-slate-500/30 scale-[1.02] border-transparent'
                     : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
                 }`}
               >
                 <UserCheck className="w-4 h-4" />
-                Todos
+                Atendente
               </button>
+              
+              {/* Minhas conversas */}
+              <button
+                onClick={() => { setShowOnlyMyConversations(true); setSelectedOwnerFilter(null); }}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                  showOnlyMyConversations
+                    ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/40 scale-[1.02] border-transparent'
+                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                }`}
+              >
+                <UserCheck className="w-4 h-4" />
+                Minhas
+                <span className={`text-[10px] ${showOnlyMyConversations ? 'text-white/80' : 'opacity-60'}`}>({myConversationsCount})</span>
+              </button>
+              
+              {/* Lista de team members */}
               {availableOwners.map((owner, index) => {
                 // Cores rotativas para owners
                 const ownerGradients = [
@@ -1426,12 +1459,12 @@ const ChatInterface: React.FC = () => {
                   { gradient: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/40' },
                 ];
                 const style = ownerGradients[index % ownerGradients.length];
-                const isActive = selectedOwnerFilter === owner.id;
+                const isActive = !showOnlyMyConversations && selectedOwnerFilter === owner.id;
                 
                 return (
                   <button
                     key={owner.id}
-                    onClick={() => setSelectedOwnerFilter(owner.id)}
+                    onClick={() => { setSelectedOwnerFilter(owner.id); setShowOnlyMyConversations(false); }}
                     className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                       isActive
                         ? `bg-gradient-to-r ${style.gradient} text-white shadow-lg ${style.shadow} scale-[1.02] border-transparent`
