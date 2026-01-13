@@ -89,26 +89,40 @@ const ContactRow = memo(({
   getStatusLabel: (status: string) => string;
   getChatStatusBadge: (contact: ExtendedContact) => React.ReactNode;
 }) => {
+  // Column widths matching header - using grid layout for virtualization
+  const colWidths = {
+    checkbox: '48px',
+    name: '200px',
+    status: '130px',
+    created: '100px',
+    chat: '90px',
+    channels: '170px',
+    cnpj: '140px',
+    lastInteraction: '120px',
+    actions: '150px'
+  };
+
   return (
-    <tr 
+    <div 
       style={style}
-      className={`hover:bg-slate-800/40 transition-colors group border-b border-slate-800/50 ${isSelected ? 'bg-cyan-500/5' : ''}`}
+      className={`hover:bg-slate-800/40 transition-colors group border-b border-slate-800/50 flex items-center ${isSelected ? 'bg-cyan-500/5' : ''}`}
     >
       {/* Checkbox */}
-      <td className="px-4 py-4 w-12">
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.checkbox }}>
         <Checkbox
           checked={isSelected}
           onCheckedChange={toggleSelection}
           className="border-slate-600 data-[state=checked]:bg-cyan-600 data-[state=checked]:border-cyan-600"
         />
-      </td>
-      <td className="px-4 py-4 min-w-[200px]">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold text-cyan-400 shadow-inner flex-shrink-0">
+      </div>
+      {/* Nome */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.name }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-cyan-400 shadow-inner flex-shrink-0">
             {contact.name.substring(0, 2).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate">{contact.name}</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate text-sm">{contact.name}</div>
             {contact.company ? (
               <div className="flex items-center gap-1 text-xs text-slate-500">
                 <Building2 className="w-3 h-3 flex-shrink-0" />
@@ -119,13 +133,14 @@ const ContactRow = memo(({
             )}
           </div>
         </div>
-      </td>
-      <td className="px-4 py-4 min-w-[140px]">
+      </div>
+      {/* Status */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.status }}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={`px-2.5 py-1 rounded-md text-xs font-semibold border inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(contact.status)}`}>
-              {getStatusLabel(contact.status)}
-              <ChevronDown className="w-3 h-3" />
+            <button className={`px-2 py-1 rounded-md text-xs font-semibold border inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(contact.status)}`}>
+              <span className="truncate max-w-[80px]">{getStatusLabel(contact.status)}</span>
+              <ChevronDown className="w-3 h-3 flex-shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-slate-900 border-slate-700 min-w-[160px]">
@@ -142,9 +157,9 @@ const ContactRow = memo(({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      </td>
-      {/* Data Criação Cell */}
-      <td className="px-4 py-4 min-w-[90px]">
+      </div>
+      {/* Data Criação */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.created }}>
         {contact.created_at ? (
           <span className="text-slate-400 text-xs">
             {new Date(contact.created_at).toLocaleDateString('pt-BR')}
@@ -152,17 +167,18 @@ const ContactRow = memo(({
         ) : (
           <span className="text-slate-600 text-xs">-</span>
         )}
-      </td>
-      {/* Chat Status Cell */}
-      <td className="px-4 py-4 min-w-[90px]">
+      </div>
+      {/* Chat Status */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.chat }}>
         {getChatStatusBadge(contact)}
-      </td>
-      <td className="px-4 py-4 min-w-[180px]">
+      </div>
+      {/* Canais */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.channels }}>
         <div className="flex flex-col gap-1">
           {contact.email && (
             <div className="flex items-center gap-2 text-slate-400 text-xs">
               <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate max-w-[150px]">{contact.email}</span>
+              <span className="truncate max-w-[120px]">{contact.email}</span>
             </div>
           )}
           <div className="flex items-center gap-2 text-slate-400 text-xs">
@@ -170,59 +186,62 @@ const ContactRow = memo(({
             {displayPhoneInternational(contact.phone)}
           </div>
         </div>
-      </td>
-      <td className="px-4 py-4 min-w-[130px]">
+      </div>
+      {/* CNPJ */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.cnpj }}>
         {contact.cnpj ? (
-          <span className="text-slate-400 text-xs font-mono">{contact.cnpj}</span>
+          <span className="text-slate-400 text-xs font-mono truncate block">{contact.cnpj}</span>
         ) : (
           <span className="text-slate-600 text-xs">-</span>
         )}
-      </td>
-      <td className="px-4 py-4 min-w-[120px]">
-        <span className="text-slate-400">{contact.lastContact}</span>
+      </div>
+      {/* Última Interação */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.lastInteraction }}>
+        <span className="text-slate-400 text-xs">{contact.lastContact}</span>
         <div className="text-[10px] text-slate-600">via WhatsApp</div>
-      </td>
-      <td className="px-4 py-4 text-right min-w-[160px]">
-        <div className="flex items-center justify-end gap-2">
+      </div>
+      {/* Ações */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.actions }}>
+        <div className="flex items-center gap-1">
           <Button 
             size="sm" 
             variant="ghost" 
-            className="h-8 w-8 p-0 rounded-lg hover:bg-slate-800 hover:text-cyan-400" 
+            className="h-7 w-7 p-0 rounded-lg hover:bg-slate-800 hover:text-cyan-400" 
             title="Ver Detalhes"
             onClick={() => handleViewDetails(contact)}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5" />
           </Button>
           <Button 
             size="sm" 
             variant="ghost" 
-            className="h-8 w-8 p-0 rounded-lg hover:bg-slate-800 hover:text-cyan-400" 
+            className="h-7 w-7 p-0 rounded-lg hover:bg-slate-800 hover:text-cyan-400" 
             title="Editar"
             onClick={() => handleEditContact(contact)}
           >
-            <Edit className="w-4 h-4" />
+            <Edit className="w-3.5 h-3.5" />
           </Button>
           <Button 
             size="sm" 
             variant="default" 
-            className="h-8 w-8 p-0 rounded-lg shadow-none bg-cyan-600 hover:bg-cyan-700" 
+            className="h-7 w-7 p-0 rounded-lg shadow-none bg-cyan-600 hover:bg-cyan-700" 
             title="Iniciar Conversa"
             onClick={() => handleConverse(contact.id)}
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-3.5 h-3.5" />
           </Button>
           <Button 
             size="sm" 
             variant="ghost" 
-            className="h-8 w-8 p-0 rounded-lg hover:bg-red-500/20 hover:text-red-400" 
+            className="h-7 w-7 p-0 rounded-lg hover:bg-red-500/20 hover:text-red-400" 
             title="Excluir"
             onClick={() => handleDeleteClick(contact)}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 });
 
@@ -354,254 +373,257 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
         className="overflow-auto"
         style={{ height: 'calc(100vh - 350px)', minHeight: '400px' }}
       >
-        <table className="w-full text-sm text-left" style={{ tableLayout: 'fixed' }}>
-          <thead className="bg-slate-900/95 text-slate-400 border-b border-slate-800 font-medium text-xs uppercase tracking-wider sticky top-0 z-20">
-            <tr>
-              {/* Checkbox Master */}
-              <th className="px-4 py-4 w-12">
-                <button 
-                  onClick={toggleAllContacts}
-                  className="flex items-center justify-center w-5 h-5 rounded border border-slate-600 hover:border-cyan-500 transition-colors"
-                >
-                  {allSelected ? (
-                    <CheckSquare className="w-4 h-4 text-cyan-400" />
-                  ) : someSelected ? (
-                    <Minus className="w-4 h-4 text-cyan-400" />
-                  ) : (
-                    <Square className="w-4 h-4 text-slate-500" />
-                  )}
-                </button>
-              </th>
-              <th className="px-4 py-4 min-w-[200px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      Nome
-                      <ChevronDown className="w-3 h-3" />
-                      {letterFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+        {/* Using div-based grid layout for proper virtualization alignment */}
+        <div className="w-full text-sm text-left min-w-[1148px]">
+          {/* Header */}
+          <div className="bg-slate-900/95 text-slate-400 border-b border-slate-800 font-medium text-xs uppercase tracking-wider sticky top-0 z-20 flex items-center">
+            {/* Checkbox Master */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '48px' }}>
+              <button 
+                onClick={toggleAllContacts}
+                className="flex items-center justify-center w-5 h-5 rounded border border-slate-600 hover:border-cyan-500 transition-colors"
+              >
+                {allSelected ? (
+                  <CheckSquare className="w-4 h-4 text-cyan-400" />
+                ) : someSelected ? (
+                  <Minus className="w-4 h-4 text-cyan-400" />
+                ) : (
+                  <Square className="w-4 h-4 text-slate-500" />
+                )}
+              </button>
+            </div>
+            {/* Nome */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '200px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    Nome
+                    <ChevronDown className="w-3 h-3" />
+                    {letterFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-64 p-3">
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setLetterFilter('all')}
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        letterFilter === 'all' 
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      Todos os contatos
                     </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-64 p-3">
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-9 gap-1">
+                      {alphabet.map(letter => (
+                        <button
+                          key={letter}
+                          onClick={() => setLetterFilter(letter)}
+                          className={`w-6 h-6 flex items-center justify-center rounded text-xs font-medium transition-colors ${
+                            letterFilter === letter
+                              ? 'bg-cyan-500 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Status */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '130px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    Status
+                    <ChevronDown className="w-3 h-3" />
+                    {selectedStatuses.length > 0 && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-48 p-2">
+                  <div className="space-y-1">
+                    {statusOptions.map(option => (
                       <button
-                        onClick={() => setLetterFilter('all')}
-                        className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                          letterFilter === 'all' 
-                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
+                        key={option.value}
+                        onClick={() => toggleStatusFilter(option.value)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${selectedStatuses.includes(option.value) ? 'bg-slate-800' : ''}`}
                       >
-                        Todos os contatos
+                        <span className={`px-2 py-0.5 rounded border ${option.color}`}>
+                          {option.label}
+                        </span>
+                        {selectedStatuses.includes(option.value) && <span className="text-cyan-400">✓</span>}
                       </button>
-                      <div className="grid grid-cols-9 gap-1">
-                        {alphabet.map(letter => (
-                          <button
-                            key={letter}
-                            onClick={() => setLetterFilter(letter)}
-                            className={`w-6 h-6 flex items-center justify-center rounded text-xs font-medium transition-colors ${
-                              letterFilter === letter
-                                ? 'bg-cyan-500 text-white'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-                            }`}
-                          >
-                            {letter}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Status Header with Filter */}
-              <th className="px-4 py-4 min-w-[140px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      Status
-                      <ChevronDown className="w-3 h-3" />
-                      {selectedStatuses.length > 0 && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-48 p-2">
-                    <div className="space-y-1">
-                      {statusOptions.map(option => (
-                        <button
-                          key={option.value}
-                          onClick={() => toggleStatusFilter(option.value)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${selectedStatuses.includes(option.value) ? 'bg-slate-800' : ''}`}
-                        >
-                          <span className={`px-2 py-0.5 rounded border ${option.color}`}>
-                            {option.label}
-                          </span>
-                          {selectedStatuses.includes(option.value) && <span className="text-cyan-400">✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Data Criação Header with Filter */}
-              {/* Data Criação Header with Filter */}
-              <th className="px-4 py-4 min-w-[90px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      <CalendarDays className="w-3 h-3" />
-                      Criado em
-                      <ChevronDown className="w-3 h-3" />
-                      {createdDateFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
-                    <div className="space-y-1">
-                      {[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'today', label: 'Hoje' },
-                        { value: 'yesterday', label: 'Ontem' },
-                        { value: 'week', label: 'Última semana' },
-                        { value: 'month', label: 'Último mês' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setCreatedDateFilter(opt.value as CreatedDateFilter)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${createdDateFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          {opt.label}
-                          {createdDateFilter === opt.value && <span>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Chat Status Header with Filter */}
-              <th className="px-4 py-4 min-w-[90px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      <MessageSquare className="w-3 h-3" />
-                      Chat
-                      <ChevronDown className="w-3 h-3" />
-                      {chatStatusFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-44 p-2">
-                    <div className="space-y-1">
-                      {[
-                        { value: 'all', label: 'Todos', color: '' },
-                        { value: 'active', label: '🟢 Ativo no chat', color: 'text-green-400' },
-                        { value: 'archived', label: '⬜ Arquivado', color: 'text-slate-400' },
-                        { value: 'none', label: 'Sem conversa', color: 'text-slate-500' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setChatStatusFilter(opt.value as ChatStatusFilter)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${chatStatusFilter === opt.value ? 'bg-slate-800 text-cyan-400' : opt.color || 'text-slate-300'}`}
-                        >
-                          {opt.label}
-                          {chatStatusFilter === opt.value && <span className="text-cyan-400">✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Canais Header with Filter */}
-              <th className="px-4 py-4 min-w-[180px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      Canais
-                      <ChevronDown className="w-3 h-3" />
-                      {channelFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
-                    <div className="space-y-1">
-                      {[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'email', label: 'Só Email' },
-                        { value: 'phone', label: 'Só Telefone' },
-                        { value: 'both', label: 'Ambos' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setChannelFilter(opt.value as ChannelFilter)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${channelFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          {opt.label}
-                          {channelFilter === opt.value && <span>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* CNPJ Header with Filter */}
-              <th className="px-4 py-4 min-w-[130px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      CNPJ
-                      <ChevronDown className="w-3 h-3" />
-                      {cnpjFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
-                    <div className="space-y-1">
-                      {[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'with', label: 'Com CNPJ' },
-                        { value: 'without', label: 'Sem CNPJ' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setCnpjFilter(opt.value as CnpjFilter)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${cnpjFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          {opt.label}
-                          {cnpjFilter === opt.value && <span>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              {/* Última Interação Header with Filter */}
-              <th className="px-4 py-4 min-w-[120px]">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
-                      Última Interação
-                      <ChevronDown className="w-3 h-3" />
-                      {dateFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
-                    <div className="space-y-1">
-                      {[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'today', label: 'Hoje' },
-                        { value: 'week', label: 'Última semana' },
-                        { value: 'month', label: 'Último mês' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setDateFilter(opt.value as DateFilter)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${dateFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
-                        >
-                          {opt.label}
-                          {dateFilter === opt.value && <span>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </th>
-              <th className="px-4 py-4 text-right min-w-[160px]">Ações</th>
-            </tr>
-          </thead>
-          <tbody
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Criado em */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '100px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    <CalendarDays className="w-3 h-3" />
+                    Criado
+                    <ChevronDown className="w-3 h-3" />
+                    {createdDateFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
+                  <div className="space-y-1">
+                    {[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'today', label: 'Hoje' },
+                      { value: 'yesterday', label: 'Ontem' },
+                      { value: 'week', label: 'Última semana' },
+                      { value: 'month', label: 'Último mês' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setCreatedDateFilter(opt.value as CreatedDateFilter)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${createdDateFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
+                      >
+                        {opt.label}
+                        {createdDateFilter === opt.value && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Chat */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '90px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    <MessageSquare className="w-3 h-3" />
+                    Chat
+                    <ChevronDown className="w-3 h-3" />
+                    {chatStatusFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-44 p-2">
+                  <div className="space-y-1">
+                    {[
+                      { value: 'all', label: 'Todos', color: '' },
+                      { value: 'active', label: '🟢 Ativo no chat', color: 'text-green-400' },
+                      { value: 'archived', label: '⬜ Arquivado', color: 'text-slate-400' },
+                      { value: 'none', label: 'Sem conversa', color: 'text-slate-500' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setChatStatusFilter(opt.value as ChatStatusFilter)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${chatStatusFilter === opt.value ? 'bg-slate-800 text-cyan-400' : opt.color || 'text-slate-300'}`}
+                      >
+                        {opt.label}
+                        {chatStatusFilter === opt.value && <span className="text-cyan-400">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Canais */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '170px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    Canais
+                    <ChevronDown className="w-3 h-3" />
+                    {channelFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
+                  <div className="space-y-1">
+                    {[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'email', label: 'Só Email' },
+                      { value: 'phone', label: 'Só Telefone' },
+                      { value: 'both', label: 'Ambos' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setChannelFilter(opt.value as ChannelFilter)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${channelFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
+                      >
+                        {opt.label}
+                        {channelFilter === opt.value && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* CNPJ */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '140px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    CNPJ
+                    <ChevronDown className="w-3 h-3" />
+                    {cnpjFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
+                  <div className="space-y-1">
+                    {[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'with', label: 'Com CNPJ' },
+                      { value: 'without', label: 'Sem CNPJ' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setCnpjFilter(opt.value as CnpjFilter)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${cnpjFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
+                      >
+                        {opt.label}
+                        {cnpjFilter === opt.value && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Última Interação */}
+            <div className="px-4 py-4 flex-shrink-0" style={{ width: '120px' }}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:text-cyan-400 transition-colors">
+                    Interação
+                    <ChevronDown className="w-3 h-3" />
+                    {dateFilter !== 'all' && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="bg-slate-900 border-slate-700 w-40 p-2">
+                  <div className="space-y-1">
+                    {[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'today', label: 'Hoje' },
+                      { value: 'week', label: 'Última semana' },
+                      { value: 'month', label: 'Último mês' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setDateFilter(opt.value as DateFilter)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-slate-800 transition-colors ${dateFilter === opt.value ? 'bg-slate-800 text-cyan-400' : 'text-slate-300'}`}
+                      >
+                        {opt.label}
+                        {dateFilter === opt.value && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Ações */}
+            <div className="px-4 py-4 flex-shrink-0 text-right" style={{ width: '150px' }}>Ações</div>
+          </div>
+          
+          {/* Body - Virtualized rows */}
+          <div
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
               width: '100%',
@@ -635,8 +657,8 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                 />
               );
             })}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
       
       {/* Load More Indicator */}
