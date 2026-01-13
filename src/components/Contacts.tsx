@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive } from 'lucide-react';
-import { VirtualizedContactsTable } from './contacts';
+import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive, Copy } from 'lucide-react';
+import { VirtualizedContactsTable, DuplicateContactsReportModal } from './contacts';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useContactsInfinite, useCampaigns, ContactLight } from '@/hooks/useContacts';
 import { Button } from './ui/button';
@@ -76,6 +76,7 @@ const Contacts: React.FC = () => {
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkSendTemplateOpen, setIsBulkSendTemplateOpen] = useState(false);
+  const [isDuplicateContactsModalOpen, setIsDuplicateContactsModalOpen] = useState(false);
   
   const { isAdmin } = useUserRole();
   
@@ -449,6 +450,14 @@ const Contacts: React.FC = () => {
         <div className="flex gap-3">
           <Button
             variant="outline"
+            onClick={() => setIsDuplicateContactsModalOpen(true)}
+            className="border-amber-700/50 text-amber-400 hover:bg-amber-900/20 hover:text-amber-300"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Duplicados
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setIsImportModalOpen(true)}
             className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
           >
@@ -779,6 +788,15 @@ const Contacts: React.FC = () => {
         contacts={contacts.filter(c => selectedContactIds.has(c.id)) as any}
         onComplete={() => {
           setSelectedContactIds(new Set());
+          invalidateContacts();
+        }}
+      />
+
+      {/* Duplicate Contacts Report Modal */}
+      <DuplicateContactsReportModal
+        open={isDuplicateContactsModalOpen}
+        onOpenChange={setIsDuplicateContactsModalOpen}
+        onSuccess={() => {
           invalidateContacts();
         }}
       />
