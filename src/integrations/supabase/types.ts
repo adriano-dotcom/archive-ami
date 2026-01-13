@@ -2541,6 +2541,7 @@ export type Database = {
       }
     }
     Functions: {
+      auth_email: { Args: never; Returns: string }
       claim_message_processing_batch: {
         Args: { p_limit?: number }
         Returns: {
