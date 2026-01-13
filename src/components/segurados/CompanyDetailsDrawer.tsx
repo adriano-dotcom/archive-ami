@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   Building2, User, Phone, Mail, Star, StarOff, Plus, Pencil, 
-  MessageCircle, MapPin, FileText, Clock, DollarSign, Loader2 
+  MessageCircle, MapPin, FileText, Clock, DollarSign, Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -67,16 +69,20 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
   onRefresh
 }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [contacts, setContacts] = useState<CompanyContact[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [editingContact, setEditingContact] = useState<CompanyContact | null>(null);
   const [emailModalContact, setEmailModalContact] = useState<CompanyContact | null>(null);
   const [togglingBilling, setTogglingBilling] = useState<string | null>(null);
+  const [installmentsWithoutContact, setInstallmentsWithoutContact] = useState<number>(0);
+  const [syncingInstallments, setSyncingInstallments] = useState(false);
 
   useEffect(() => {
     if (open && company) {
       loadContacts();
+      loadInstallmentsWithoutContact();
     }
   }, [open, company?.id]);
 
@@ -99,6 +105,94 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
       toast.error('Erro ao carregar contatos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInstallmentsWithoutContact = async () => {
+    if (!company) return;
+    
+    try {
+      // Buscar policies da empresa
+      const { data: policies, error: policiesError } = await supabase
+        .from('policies')
+        .select('id')
+        .eq('company_id', company.id);
+      
+      if (policiesError || !policies || policies.length === 0) {
+        setInstallmentsWithoutContact(0);
+        return;
+      }
+
+      const policyIds = policies.map(p => p.id);
+      
+      // Contar parcelas sem contato
+      const { count, error: countError } = await supabase
+        .from('installments')
+        .select('id', { count: 'exact', head: true })
+        .in('policy_id', policyIds)
+        .is('contact_id', null);
+      
+      if (countError) {
+        console.error('Error counting installments:', countError);
+        return;
+      }
+      
+      setInstallmentsWithoutContact(count || 0);
+    } catch (error) {
+      console.error('Error loading installments without contact:', error);
+    }
+  };
+
+  const handleSyncInstallments = async () => {
+    if (!company) return;
+    
+    // Encontrar contato de cobrança
+    const billingContact = contacts.find(c => c.is_billing_contact);
+    if (!billingContact) {
+      toast.error('Nenhum contato de cobrança definido');
+      return;
+    }
+
+    setSyncingInstallments(true);
+    try {
+      // Buscar policies da empresa
+      const { data: policies, error: policiesError } = await supabase
+        .from('policies')
+        .select('id')
+        .eq('company_id', company.id);
+      
+      if (policiesError || !policies || policies.length === 0) {
+        toast.info('Nenhuma apólice encontrada');
+        return;
+      }
+
+      const policyIds = policies.map(p => p.id);
+      
+      // Atualizar apenas parcelas sem contato
+      const { data: updated, error: updateError } = await supabase
+        .from('installments')
+        .update({ contact_id: billingContact.id })
+        .in('policy_id', policyIds)
+        .is('contact_id', null)
+        .select('id');
+      
+      if (updateError) throw updateError;
+      
+      const count = updated?.length || 0;
+      if (count > 0) {
+        toast.success(`${count} parcelas sincronizadas com ${billingContact.name || 'contato'}`);
+        setInstallmentsWithoutContact(0);
+        // Invalidar cache de parcelas para refletir na tela /collections
+        queryClient.invalidateQueries({ queryKey: ['installments'] });
+        onRefresh?.();
+      } else {
+        toast.info('Nenhuma parcela para sincronizar');
+      }
+    } catch (error) {
+      console.error('Error syncing installments:', error);
+      toast.error('Erro ao sincronizar parcelas');
+    } finally {
+      setSyncingInstallments(false);
     }
   };
 
@@ -158,6 +252,9 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
             toast.error('Erro ao atualizar parcelas');
           } else if (updated && updated.length > 0) {
             toast.success(`${updated.length} parcelas atualizadas para ${contact.name || 'contato'}`);
+            setInstallmentsWithoutContact(0);
+            // Invalidar cache de parcelas para refletir na tela /collections
+            queryClient.invalidateQueries({ queryKey: ['installments'] });
           }
         }
       }
@@ -318,6 +415,35 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                     Novo
                   </Button>
                 </div>
+
+                {/* Botão de sincronização */}
+                {installmentsWithoutContact > 0 && contacts.some(c => c.is_billing_contact) && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm text-amber-400 font-medium">
+                          {installmentsWithoutContact} parcela{installmentsWithoutContact > 1 ? 's' : ''} sem contato vinculado
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Clique para vincular ao contato de cobrança
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleSyncInstallments}
+                        disabled={syncingInstallments}
+                        className="gap-2 bg-amber-500 hover:bg-amber-600 text-black"
+                      >
+                        {syncingInstallments ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        Sincronizar
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {loading ? (
                   <div className="space-y-3">
