@@ -43,6 +43,7 @@ import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
+import { KNOWN_INSURERS } from '@/constants/insurers';
 
 interface ExtractedCompany {
   id: string;
@@ -175,6 +176,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [hasPendingData, setHasPendingData] = useState(false);
   const [auditLogId, setAuditLogId] = useState<string | null>(null);
+  const [forcedInsurer, setForcedInsurer] = useState<string | null>(null);
   const sessionIdRef = useRef<string>(`session_${Date.now()}`);
 
   // Check if any file is large and auto-enable sequential mode
@@ -308,6 +310,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
     setImportProgress({ current: 0, total: 0 });
     setSequentialMode(false);
     setAuditLogId(null);
+    setForcedInsurer(null);
     sessionIdRef.current = `session_${Date.now()}`;
   };
 
@@ -1281,7 +1284,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         ...inst,
         id: `installment-${i}-${Date.now()}`,
         selected: true,
-        matchStatus: 'new' as const
+        matchStatus: 'new' as const,
+        // Apply forced insurer if set
+        insurer: forcedInsurer || inst.insurer
       }));
 
       // Check if Excel files were uploaded but no installments extracted
@@ -1335,7 +1340,10 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       setContacts(extractedContacts);
       setInstallments(extractedInstallments);
       
-      if (data.insurer_detected) {
+      // Set insurer detected - forced insurer takes precedence
+      if (forcedInsurer) {
+        setInsurerDetected(forcedInsurer);
+      } else if (data.insurer_detected) {
         setInsurerDetected(data.insurer_detected);
       }
       
@@ -1834,7 +1842,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 endorsement: inst.endorsement,
                 cancellation_date: inst.cancellation_date,
                 commission: inst.commission,
-                source: inst.source
+                source: inst.source,
+                import_session_id: sessionIdRef.current,
+                import_timestamp: new Date().toISOString()
               }
             };
             
@@ -2260,6 +2270,34 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                       </Button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Force Insurer Selector */}
+              {files.length > 0 && (
+                <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Forçar seguradora para este relatório (opcional)
+                  </label>
+                  <Select value={forcedInsurer || 'auto'} onValueChange={(v) => setForcedInsurer(v === 'auto' ? null : v)}>
+                    <SelectTrigger className="w-full bg-slate-800/50 border-white/10">
+                      <SelectValue placeholder="Detectar automaticamente (IA)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-400" />
+                          Detectar automaticamente (IA)
+                        </div>
+                      </SelectItem>
+                      {KNOWN_INSURERS.filter(i => i !== 'NÃO IDENTIFICADA').map(insurer => (
+                        <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Se selecionado, todas as parcelas usarão esta seguradora
+                  </p>
                 </div>
               )}
 
