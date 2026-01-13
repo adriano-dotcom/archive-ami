@@ -25,6 +25,11 @@ export interface Installment {
   due_date: string;
   status: string;
   days_overdue: number;
+  metadata?: {
+    import_session_id?: string;
+    import_timestamp?: string;
+    [key: string]: any;
+  } | null;
   contact: {
     id: string;
     name: string;
@@ -77,10 +82,11 @@ interface UseInstallmentsOptions {
   cargoOnlyFilter: boolean;
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
   whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
+  importSessionFilter: string; // 'all' | session_id
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -133,7 +139,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -257,11 +263,23 @@ export function useInstallments(options: UseInstallmentsOptions) {
     return filteredByEmail;
   }, [filteredByEmail, whatsappSentFilter, attemptCounts]);
 
+  // Apply import session filter
+  const filteredByImportSession = useMemo(() => {
+    if (!filteredByWhatsApp || importSessionFilter === 'all') {
+      return filteredByWhatsApp;
+    }
+    
+    return filteredByWhatsApp.filter(inst => {
+      const metadata = inst.metadata as { import_session_id?: string } | null;
+      return metadata?.import_session_id === importSessionFilter;
+    });
+  }, [filteredByWhatsApp, importSessionFilter]);
+
   // Sort installments
   const sortedInstallments = useMemo(() => {
-    if (!filteredByWhatsApp || filteredByWhatsApp.length === 0) return [];
+    if (!filteredByImportSession || filteredByImportSession.length === 0) return [];
     
-    return [...filteredByWhatsApp].sort((a, b) => {
+    return [...filteredByImportSession].sort((a, b) => {
       let valA: string | number;
       let valB: string | number;
       
@@ -310,7 +328,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredByWhatsApp, sortColumn, sortDirection]);
+  }, [filteredByImportSession, sortColumn, sortDirection]);
 
   // Computed values
   const selectedTotal = useMemo(() => {

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle
+  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock
 } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
@@ -44,6 +45,14 @@ import { MarkAsPaidDialog } from './installments/MarkAsPaidDialog';
 import { EmptyState } from './installments/EmptyState';
 import { EditInstallmentModal } from './installments/EditInstallmentModal';
 import { DuplicateInstallmentsModal } from './DuplicateInstallmentsModal';
+
+// Interface for recent import
+interface RecentImport {
+  session_id: string;
+  file_names: string[];
+  created_at: string;
+  imported_installments: number;
+}
 
 // Interface for company details drawer
 interface CompanyForDrawer {
@@ -95,6 +104,7 @@ export const InstallmentsList: React.FC = () => {
   const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
+  const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -109,6 +119,23 @@ export const InstallmentsList: React.FC = () => {
   const [selectedInstallmentForHistory, setSelectedInstallmentForHistory] = useState<Installment | null>(null);
   const [selectedInstallmentForEdit, setSelectedInstallmentForEdit] = useState<Installment | null>(null);
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+
+  // Fetch recent imports for filter
+  const { data: recentImports } = useQuery({
+    queryKey: ['recent-imports'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('import_audit_logs')
+        .select('session_id, file_names, created_at, imported_installments')
+        .eq('status', 'completed')
+        .gt('imported_installments', 0)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      return data as RecentImport[];
+    }
+  });
 
   // Use custom hook
   const {
@@ -142,6 +169,7 @@ export const InstallmentsList: React.FC = () => {
     cargoOnlyFilter,
     emailSentFilter,
     whatsappSentFilter,
+    importSessionFilter,
   });
 
   // Pending mark as paid value
@@ -445,6 +473,42 @@ export const InstallmentsList: React.FC = () => {
                 </SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Import session filter */}
+            {recentImports && recentImports.length > 0 && (
+              <Select value={importSessionFilter} onValueChange={setImportSessionFilter}>
+                <SelectTrigger className="w-[200px] bg-slate-800/50 border-white/10">
+                  <SelectValue placeholder="Importação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-slate-400" />
+                      Todas Importações
+                    </div>
+                  </SelectItem>
+                  {recentImports.map((imp) => {
+                    const firstFileName = imp.file_names?.[0] || 'Arquivo';
+                    const shortName = firstFileName.length > 20 
+                      ? firstFileName.substring(0, 20) + '...' 
+                      : firstFileName;
+                    const dateFormatted = format(new Date(imp.created_at), 'dd/MM HH:mm', { locale: ptBR });
+                    
+                    return (
+                      <SelectItem key={imp.session_id} value={imp.session_id}>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <span className="truncate max-w-[130px]">{shortName}</span>
+                          <span className="text-xs text-slate-500">
+                            {dateFormatted} ({imp.imported_installments})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
 
             {incompleteCount > 0 && dataQualityFilter === 'all' && (
               <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
