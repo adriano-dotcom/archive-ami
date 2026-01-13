@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -330,13 +330,24 @@ export function useInstallments(options: UseInstallmentsOptions) {
     });
   }, [filteredByImportSession, sortColumn, sortDirection]);
 
-  // Computed values
+  // Clean up selection when visible data changes
+  useEffect(() => {
+    if (sortedInstallments && selectedIds.length > 0) {
+      const visibleIds = new Set(sortedInstallments.map(i => i.id));
+      const validIds = selectedIds.filter(id => visibleIds.has(id));
+      if (validIds.length !== selectedIds.length) {
+        setSelectedIds(validIds);
+      }
+    }
+  }, [sortedInstallments]);
+
+  // Computed values - use sortedInstallments (visible data) for accurate counts
   const selectedTotal = useMemo(() => {
-    if (!installments || selectedIds.length === 0) return 0;
-    return installments
+    if (!sortedInstallments || selectedIds.length === 0) return 0;
+    return sortedInstallments
       .filter(inst => selectedIds.includes(inst.id))
       .reduce((sum, inst) => sum + (inst.value || 0), 0);
-  }, [installments, selectedIds]);
+  }, [sortedInstallments, selectedIds]);
 
   const overdue30Count = useMemo(() => {
     return installments?.filter(inst => inst.days_overdue > 30).length || 0;
@@ -353,13 +364,13 @@ export function useInstallments(options: UseInstallmentsOptions) {
   }, [installments]);
 
   const uniqueContactsCount = useMemo(() => {
-    if (!installments || selectedIds.length === 0) return 0;
-    const selectedInstallments = installments.filter(inst => selectedIds.includes(inst.id));
+    if (!sortedInstallments || selectedIds.length === 0) return 0;
+    const selectedInstallments = sortedInstallments.filter(inst => selectedIds.includes(inst.id));
     const uniquePhones = new Set(
       selectedInstallments.map(inst => inst.contact?.phone_number).filter(Boolean)
     );
     return uniquePhones.size;
-  }, [installments, selectedIds]);
+  }, [sortedInstallments, selectedIds]);
 
   // Mutations
   const markAsPaidMutation = useMutation({
@@ -512,17 +523,17 @@ export function useInstallments(options: UseInstallmentsOptions) {
   };
 
   const toggleSelectAll = () => {
-    if (installments && selectedIds.length === installments.length) {
+    if (sortedInstallments && selectedIds.length === sortedInstallments.length) {
       setSelectedIds([]);
-    } else if (installments) {
-      setSelectedIds(installments.map(i => i.id));
+    } else if (sortedInstallments) {
+      setSelectedIds(sortedInstallments.map(i => i.id));
     }
   };
 
   const selectOverdue30Plus = () => {
-    if (!installments) return;
+    if (!sortedInstallments) return;
     
-    const overdue30 = installments.filter(inst => inst.days_overdue > 30);
+    const overdue30 = sortedInstallments.filter(inst => inst.days_overdue > 30);
     const overdue30Ids = overdue30.map(i => i.id);
     
     const allSelected = overdue30Ids.length > 0 && overdue30Ids.every(id => selectedIds.includes(id));
