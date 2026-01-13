@@ -1109,6 +1109,17 @@ const ChatInterface: React.FC = () => {
     onShowHelp: () => setShowShortcutsHelp(prev => !prev),
   }, !showCallModal && !showTemplateModal && !showShortcutsHelp);
 
+  // Badge separado para mostrar o atendente responsável
+  const renderAssigneeBadge = (assignedUserName?: string | null) => {
+    if (!assignedUserName) return null;
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border backdrop-blur-sm flex items-center gap-1 bg-gradient-to-r from-blue-500/25 to-indigo-500/25 border-blue-500/40 shadow-lg shadow-blue-500/15">
+        <User className="w-3 h-3 text-blue-400" />
+        <span className="text-blue-400">{assignedUserName}</span>
+      </span>
+    );
+  };
+
   const renderStatusBadge = (status: ConversationStatus, operatorName?: string | null) => {
     // iOS 18 style status badges with gradients and glow
     const config: Record<string, { label: string; icon: typeof Sparkles; gradient: string; iconColor: string; borderColor: string; glow?: string }> = {
@@ -1121,7 +1132,7 @@ const ChatInterface: React.FC = () => {
         glow: 'shadow-lg shadow-violet-500/15'
       },
       human: { 
-        label: operatorName || 'Humano', 
+        label: 'Humano', 
         icon: UserCheck, 
         gradient: 'bg-gradient-to-r from-emerald-500/25 to-teal-500/25',
         iconColor: 'text-emerald-400',
@@ -1640,6 +1651,7 @@ const ChatInterface: React.FC = () => {
                     {/* Status badges and tags with glassmorphism */}
                     <div className="flex items-center mt-2 gap-1.5 flex-wrap">
                       {renderStatusBadge(chat.status, chat.assignedUserName)}
+                      {renderAssigneeBadge(chat.assignedUserName)}
                       <LeadScoreBadge clientMemory={chat.clientMemory} compact />
                       <WaitingTimeBadge 
                         lastMessageAt={chat.lastMessageAt} 
@@ -1710,6 +1722,7 @@ const ChatInterface: React.FC = () => {
                           <h2 className={`${isMobile ? 'text-sm' : 'text-sm'} font-bold text-slate-100 flex items-center gap-2 flex-wrap`}>
                             <span className="truncate max-w-[120px] md:max-w-none">{activeChat.contactName}</span>
                             {!isMobile && renderStatusBadge(activeChat.status, activeChat.assignedUserName)}
+                            {!isMobile && renderAssigneeBadge(activeChat.assignedUserName)}
                             {/* Agent Selector Dropdown */}
                             {!isMobile && (
                               <DropdownMenu>
