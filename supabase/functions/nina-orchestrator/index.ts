@@ -3887,6 +3887,12 @@ Agradeço pela compreensão! 🙏`;
     .slice(-8)
     .map((m: any) => m.content);
   
+  // ===== EXTRACT RECENT AGENT MESSAGES FOR ANTI-REPETITION =====
+  const recentAgentMsgs = (recentMessages || [])
+    .filter((m: any) => m.from_type === 'nina' && m.content)
+    .slice(-3)
+    .map((m: any) => m.content);
+  
   // ===== FETCH RECENT CALL LOGS WITH TRANSCRIPTIONS FOR RETURNING LEADS =====
   let recentCallLogs: any[] = [];
   try {
@@ -3937,6 +3943,7 @@ Agradeço pela compreensão! 🙏`;
     agent,
     conversation.nina_context,
     recentUserMsgs,
+    recentAgentMsgs,
     recentCallLogs,
     installmentsData,
     collectionContext
@@ -4522,6 +4529,7 @@ function buildEnhancedPrompt(
   agent?: Agent | null,
   ninaContext?: any,
   recentUserMessages?: string[],
+  recentAgentMessages?: string[],
   recentCallLogs?: any[],
   installmentsData?: InstallmentsData | null,
   collectionContext?: CollectionTemplateContext | null
@@ -4830,20 +4838,14 @@ ${contact.notes}
     }
   }
 
-  // ===== VERIFICAR ÚLTIMAS MENSAGENS DO AGENTE (ANTI-REPETIÇÃO) =====
-  if (recentMessages && recentMessages.length > 0) {
-    const recentAgentMessages = recentMessages
-      .filter((m: any) => m.from_type === 'nina' && m.content)
-      .slice(-3)
-      .map((m: any) => m.content);
-    
-    if (recentAgentMessages.length > 0) {
-      contextInfo += `\n\n## ⚠️ SUAS ÚLTIMAS MENSAGENS (NÃO REPITA!):`;
-      for (const msg of recentAgentMessages) {
-        contextInfo += `\n- "${msg.substring(0, 150)}${msg.length > 150 ? '...' : ''}"`;
-      }
-      contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias!`;
+  // ===== ÚLTIMAS MENSAGENS DO AGENTE (ANTI-REPETIÇÃO) =====
+  if (recentAgentMessages && recentAgentMessages.length > 0) {
+    contextInfo += `\n\n## ⚠️ SUAS ÚLTIMAS MENSAGENS (NÃO REPITA!):`;
+    for (const msg of recentAgentMessages) {
+      const truncated = msg.length > 150 ? msg.substring(0, 150) + '...' : msg;
+      contextInfo += `\n- "${truncated}"`;
     }
+    contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias similares!`;
   }
 
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
