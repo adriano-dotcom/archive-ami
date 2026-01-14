@@ -82,6 +82,16 @@ interface CollectionEmailMetrics {
   byDay: { date: string; sent: number; failed: number }[];
 }
 
+interface CollectionWhatsAppMetrics {
+  totalSent: number;
+  delivered: number;
+  failed: number;
+  byTemplate: { template: string; count: number }[];
+  byDay: { date: string; sent: number; failed: number }[];
+}
+
+const COST_PER_MESSAGE = 0.41; // R$ por mensagem
+
 const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<StatMetric[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -93,6 +103,7 @@ const Dashboard: React.FC = () => {
   const [sellerCallData, setSellerCallData] = useState<SellerCallData[]>([]);
   const [dailyCallData, setDailyCallData] = useState<DailyCallData[]>([]);
   const [collectionEmailMetrics, setCollectionEmailMetrics] = useState<CollectionEmailMetrics | null>(null);
+  const [collectionWhatsAppMetrics, setCollectionWhatsAppMetrics] = useState<CollectionWhatsAppMetrics | null>(null);
 
   const fetchSystemMetrics = async () => {
     try {
@@ -240,6 +251,60 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchCollectionWhatsAppMetrics = async () => {
+    try {
+      const days = periodDays[period];
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: attempts } = await supabase
+        .from('collection_attempts')
+        .select('id, status, sent_at, template_name')
+        .eq('channel', 'whatsapp')
+        .gte('sent_at', startDate);
+
+      if (!attempts || attempts.length === 0) {
+        setCollectionWhatsAppMetrics(null);
+        return;
+      }
+
+      const totalSent = attempts.length;
+      const delivered = attempts.filter(a => a.status === 'delivered' || a.status === 'sent').length;
+      const failed = attempts.filter(a => a.status === 'failed').length;
+
+      // Group by template
+      const byTemplateMap: Record<string, number> = {};
+      attempts.forEach(a => {
+        const template = a.template_name || 'Sem nome';
+        byTemplateMap[template] = (byTemplateMap[template] || 0) + 1;
+      });
+      const byTemplate = Object.entries(byTemplateMap)
+        .map(([template, count]) => ({ template, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Group by day
+      const byDayMap: Record<string, { sent: number; failed: number }> = {};
+      attempts.forEach(a => {
+        if (!a.sent_at) return;
+        const date = new Date(a.sent_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        if (!byDayMap[date]) byDayMap[date] = { sent: 0, failed: 0 };
+        if (a.status === 'failed') byDayMap[date].failed++;
+        else byDayMap[date].sent++;
+      });
+
+      const byDay = Object.entries(byDayMap)
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => {
+          const [dayA, monthA] = a.date.split('/').map(Number);
+          const [dayB, monthB] = b.date.split('/').map(Number);
+          return monthA !== monthB ? monthA - monthB : dayA - dayB;
+        });
+
+      setCollectionWhatsAppMetrics({ totalSent, delivered, failed, byTemplate, byDay });
+    } catch (error) {
+      console.error('Erro ao carregar métricas de WhatsApp de cobrança:', error);
+    }
+  };
+
   const fetchCallMetrics = async () => {
     try {
       const days = periodDays[period];
@@ -354,7 +419,8 @@ const Dashboard: React.FC = () => {
           fetchSystemMetrics(),
           fetchLeadsEvolution(),
           fetchCallMetrics(),
-          fetchCollectionEmailMetrics()
+          fetchCollectionEmailMetrics(),
+          fetchCollectionWhatsAppMetrics()
         ]);
         setMetrics(metricsData);
         setChartData(chartDataResponse);
@@ -798,6 +864,9 @@ const Dashboard: React.FC = () => {
                 <span className="text-xs text-slate-400">Total Enviados</span>
               </div>
               <p className="text-2xl font-bold text-white">{collectionEmailMetrics.totalSent}</p>
+              <p className="text-sm font-medium text-blue-400 mt-1">
+                R$ {(collectionEmailMetrics.totalSent * COST_PER_MESSAGE).toFixed(2).replace('.', ',')}
+              </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -858,6 +927,113 @@ const Dashboard: React.FC = () => {
                       labelStyle={{ color: '#94a3b8', marginBottom: '8px' }}
                     />
                     <Bar dataKey="sent" name="Enviados" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="failed" name="Falhas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* WhatsApp de Cobrança Section */}
+      {collectionWhatsAppMetrics && collectionWhatsAppMetrics.totalSent > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-green-700/50 to-transparent"></div>
+            <h3 className="text-lg font-semibold text-slate-300 flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-green-400" />
+              WhatsApp de Cobrança
+            </h3>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-green-700/50 to-transparent"></div>
+          </div>
+
+          {/* WhatsApp KPI Cards */}
+          <div className="grid gap-4 grid-cols-3">
+            <div className="rounded-xl border border-green-500/20 bg-gradient-to-br from-green-500/10 to-green-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Send className="w-4 h-4 text-green-400" />
+                <span className="text-xs text-slate-400">Total Enviados</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.totalSent}</p>
+              <p className="text-sm font-medium text-green-400 mt-1">
+                R$ {(collectionWhatsAppMetrics.totalSent * COST_PER_MESSAGE).toFixed(2).replace('.', ',')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs text-slate-400">Entregues</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.delivered}</p>
+              <p className="text-xs text-emerald-400/80 mt-1">
+                {collectionWhatsAppMetrics.totalSent > 0 
+                  ? Math.round((collectionWhatsAppMetrics.delivered / collectionWhatsAppMetrics.totalSent) * 100)
+                  : 0}% taxa
+              </p>
+            </div>
+            <div className="rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs text-slate-400">Falhas</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.failed}</p>
+            </div>
+          </div>
+
+          {/* Templates Mais Usados */}
+          {collectionWhatsAppMetrics.byTemplate.length > 0 && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+              <h4 className="text-sm font-medium text-green-400 uppercase tracking-wider mb-4">Templates Mais Usados</h4>
+              <div className="space-y-2">
+                {collectionWhatsAppMetrics.byTemplate.slice(0, 5).map((t, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                    <span className="text-sm text-slate-300 truncate">{t.template}</span>
+                    <span className="text-sm font-medium text-green-400">{t.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Daily WhatsApp Chart */}
+          {collectionWhatsAppMetrics.byDay.length > 1 && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+              <h4 className="text-sm font-medium text-green-400 uppercase tracking-wider mb-4">WhatsApp por Dia</h4>
+              <div className="flex items-center gap-4 text-xs mb-4">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                  Enviados
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500"></span>
+                  Falhas
+                </span>
+              </div>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={collectionWhatsAppMetrics.byDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tickMargin={10} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }}
+                      labelStyle={{ color: '#94a3b8', marginBottom: '8px' }}
+                    />
+                    <Bar dataKey="sent" name="Enviados" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="failed" name="Falhas" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
