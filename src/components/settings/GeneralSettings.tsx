@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Volume2, VolumeX, Receipt } from 'lucide-react';
+import { Bell, Volume2, VolumeX, Receipt, DollarSign } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,10 @@ const GeneralSettings: React.FC = () => {
   const [collectionEmailBcc, setCollectionEmailBcc] = useState('');
   const [savingCollectionEmail, setSavingCollectionEmail] = useState(false);
 
+  // Message cost settings
+  const [messageCostPerUnit, setMessageCostPerUnit] = useState<string>('0,41');
+  const [savingMessageCost, setSavingMessageCost] = useState(false);
+
   useEffect(() => {
     setSoundEnabled(isNotificationSoundEnabled());
     fetchSettings();
@@ -24,8 +28,8 @@ const GeneralSettings: React.FC = () => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('nina_settings')
-      .select('collection_email_from, collection_email_bcc')
-      .single();
+      .select('collection_email_from, collection_email_bcc, message_cost_per_unit')
+      .maybeSingle();
     
     // Load collection email settings
     if (data?.collection_email_from) {
@@ -33,6 +37,10 @@ const GeneralSettings: React.FC = () => {
     }
     if (data?.collection_email_bcc) {
       setCollectionEmailBcc((data.collection_email_bcc as string[]).join(', '));
+    }
+    // Load message cost
+    if (data?.message_cost_per_unit !== null && data?.message_cost_per_unit !== undefined) {
+      setMessageCostPerUnit(String(data.message_cost_per_unit).replace('.', ','));
     }
   };
 
@@ -77,6 +85,31 @@ const GeneralSettings: React.FC = () => {
       toast.error('Erro ao salvar configurações');
     } finally {
       setSavingCollectionEmail(false);
+    }
+  };
+
+  const handleSaveMessageCost = async () => {
+    setSavingMessageCost(true);
+    try {
+      const cost = parseFloat(messageCostPerUnit.replace(',', '.'));
+      if (isNaN(cost) || cost < 0) {
+        toast.error('Valor inválido');
+        setSavingMessageCost(false);
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('nina_settings')
+        .update({ message_cost_per_unit: cost })
+        .not('id', 'is', null);
+      
+      if (error) throw error;
+      toast.success('Custo por mensagem salvo');
+    } catch (error) {
+      console.error('Error saving message cost:', error);
+      toast.error('Erro ao salvar custo');
+    } finally {
+      setSavingMessageCost(false);
     }
   };
 
@@ -170,6 +203,45 @@ const GeneralSettings: React.FC = () => {
               className="bg-orange-600 hover:bg-orange-700"
             >
               {savingCollectionEmail ? 'Salvando...' : 'Salvar Configurações de Cobrança'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Custo de Mensagens */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <DollarSign className="w-5 h-5 text-green-400" />
+          Custo de Mensagens
+        </h3>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+            <Label className="text-sm font-medium text-white mb-2 block">
+              Custo por Mensagem (R$)
+            </Label>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">R$</span>
+              <Input
+                type="text"
+                placeholder="0,41"
+                value={messageCostPerUnit}
+                onChange={(e) => setMessageCostPerUnit(e.target.value)}
+                className="bg-slate-900/50 border-slate-700 w-32"
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Valor usado para calcular custos no Dashboard (WhatsApp e Email)
+            </p>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={handleSaveMessageCost}
+              disabled={savingMessageCost}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {savingMessageCost ? 'Salvando...' : 'Salvar Custo'}
             </Button>
           </div>
         </div>

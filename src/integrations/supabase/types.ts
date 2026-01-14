@@ -1642,6 +1642,7 @@ export type Database = {
           id: string
           is_active: boolean
           message_breaking_enabled: boolean
+          message_cost_per_unit: number | null
           openai_api_key: string | null
           openai_assistant_id: string
           openai_key_in_vault: boolean | null
@@ -1699,6 +1700,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           message_breaking_enabled?: boolean
+          message_cost_per_unit?: number | null
           openai_api_key?: string | null
           openai_assistant_id?: string
           openai_key_in_vault?: boolean | null
@@ -1756,6 +1758,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           message_breaking_enabled?: boolean
+          message_cost_per_unit?: number | null
           openai_api_key?: string | null
           openai_assistant_id?: string
           openai_key_in_vault?: boolean | null

@@ -90,8 +90,6 @@ interface CollectionWhatsAppMetrics {
   byDay: { date: string; sent: number; failed: number }[];
 }
 
-const COST_PER_MESSAGE = 0.41; // R$ por mensagem
-
 const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<StatMetric[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -104,6 +102,7 @@ const Dashboard: React.FC = () => {
   const [dailyCallData, setDailyCallData] = useState<DailyCallData[]>([]);
   const [collectionEmailMetrics, setCollectionEmailMetrics] = useState<CollectionEmailMetrics | null>(null);
   const [collectionWhatsAppMetrics, setCollectionWhatsAppMetrics] = useState<CollectionWhatsAppMetrics | null>(null);
+  const [costPerMessage, setCostPerMessage] = useState<number>(0.41);
 
   const fetchSystemMetrics = async () => {
     try {
@@ -408,6 +407,17 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchMessageCost = async () => {
+    const { data } = await supabase
+      .from('nina_settings')
+      .select('message_cost_per_unit')
+      .maybeSingle();
+    
+    if (data?.message_cost_per_unit !== null && data?.message_cost_per_unit !== undefined) {
+      setCostPerMessage(Number(data.message_cost_per_unit));
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -420,7 +430,8 @@ const Dashboard: React.FC = () => {
           fetchLeadsEvolution(),
           fetchCallMetrics(),
           fetchCollectionEmailMetrics(),
-          fetchCollectionWhatsAppMetrics()
+          fetchCollectionWhatsAppMetrics(),
+          fetchMessageCost()
         ]);
         setMetrics(metricsData);
         setChartData(chartDataResponse);
@@ -865,7 +876,7 @@ const Dashboard: React.FC = () => {
               </div>
               <p className="text-2xl font-bold text-white">{collectionEmailMetrics.totalSent}</p>
               <p className="text-sm font-medium text-blue-400 mt-1">
-                R$ {(collectionEmailMetrics.totalSent * COST_PER_MESSAGE).toFixed(2).replace('.', ',')}
+                R$ {(collectionEmailMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
               </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
@@ -957,7 +968,7 @@ const Dashboard: React.FC = () => {
               </div>
               <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.totalSent}</p>
               <p className="text-sm font-medium text-green-400 mt-1">
-                R$ {(collectionWhatsAppMetrics.totalSent * COST_PER_MESSAGE).toFixed(2).replace('.', ',')}
+                R$ {(collectionWhatsAppMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
               </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
