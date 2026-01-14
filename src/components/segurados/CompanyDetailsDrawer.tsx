@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { 
   Building2, User, Phone, Mail, Star, StarOff, Plus, Pencil, 
   MessageCircle, MapPin, FileText, Clock, DollarSign, Loader2,
-  RefreshCw
+  RefreshCw, History
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -19,6 +20,7 @@ import { AddContactToCompanyModal } from './AddContactToCompanyModal';
 import { EditSeguradoPFModal } from './EditSeguradoPFModal';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { EmailComposeModal } from '@/components/EmailComposeModal';
+import { ContactCollectionHistory } from '@/components/contacts/ContactCollectionHistory';
 
 interface Company {
   id: string;
@@ -556,6 +558,32 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Histórico de Cobranças da Empresa */}
+              {contacts.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Histórico de Cobranças
+                  </h3>
+                  <div className="bg-slate-900/50 rounded-lg p-4">
+                    {/* Show history for billing contact first, or first contact if no billing */}
+                    {(() => {
+                      const billingContact = contacts.find(c => c.is_billing_contact);
+                      const targetContact = billingContact || contacts[0];
+                      return (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-3">
+                            Cobranças enviadas para: <span className="text-slate-300">{targetContact.name || 'Contato'}</span>
+                            {billingContact && <Badge className="ml-2 bg-yellow-500/20 text-yellow-400 text-xs">Cobrança</Badge>}
+                          </p>
+                          <ContactCollectionHistory contactId={targetContact.id} maxHeight="300px" />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </SheetContent>

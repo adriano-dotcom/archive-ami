@@ -116,7 +116,7 @@ serve(async (req) => {
           console.error("Error logging email:", logError);
         }
 
-        // Create collection attempts for each installment
+        // Create collection attempts for each installment - include installment data for history
         for (const installment of emailData.installments) {
           await supabase
             .from('collection_attempts')
@@ -127,7 +127,20 @@ serve(async (req) => {
               channel: 'email',
               status: 'sent',
               sent_at: new Date().toISOString(),
-              message_content: emailData.subject
+              message_content: emailData.subject,
+              metadata: {
+                // Preserve installment data for history even after deletion
+                installment_data: {
+                  value: installment.value,
+                  due_date: installment.dueDate,
+                  days_overdue: installment.daysOverdue
+                },
+                contact_name: emailData.contactName,
+                email_to: emailData.email,
+                total_value: emailData.totalValue,
+                installments_count: emailData.installments.length,
+                seller_name: emailData.sellerName || null
+              }
             });
         }
 

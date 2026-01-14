@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Phone, Mail, MapPin, Search, Loader2, FileText, CreditCard, UserCheck } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Search, Loader2, FileText, CreditCard, UserCheck, History } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,10 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { ContactCollectionHistory } from '@/components/contacts/ContactCollectionHistory';
 
 interface Seller {
   id: string;
@@ -305,198 +307,220 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
           </div>
         ) : (
           <>
-            <div className="space-y-6 py-4">
-              {/* Dados Pessoais */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <User className="w-4 h-4" /> Dados Pessoais
-                </h3>
-                
-                <div>
-                  <Label className="text-slate-300">Nome *</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Nome completo"
-                      className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
-                </div>
+            <Tabs defaultValue="dados" className="w-full">
+              <TabsList className="w-full bg-slate-800 mb-4">
+                <TabsTrigger value="dados" className="flex-1 data-[state=active]:bg-slate-700">
+                  <User className="w-4 h-4 mr-2" />
+                  Dados
+                </TabsTrigger>
+                <TabsTrigger value="historico" className="flex-1 data-[state=active]:bg-slate-700">
+                  <History className="w-4 h-4 mr-2" />
+                  Cobranças
+                </TabsTrigger>
+              </TabsList>
 
-                <div>
-                  <Label className="text-slate-300">CPF</Label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <Input
-                      value={formData.cpf}
-                      onChange={(e) => handleCPFChange(e.target.value)}
-                      placeholder="000.000.000-00"
-                      maxLength={14}
-                      className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  {errors.cpf && <p className="text-xs text-red-400 mt-1">{errors.cpf}</p>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <TabsContent value="dados" className="space-y-6">
+                {/* Dados Pessoais */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <User className="w-4 h-4" /> Dados Pessoais
+                  </h3>
+                  
                   <div>
-                    <Label className="text-slate-300">WhatsApp *</Label>
+                    <Label className="text-slate-300">Nome *</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
-                      <PhoneInput
-                        value={formData.phone}
-                        onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
-                        placeholder="+55 43 99999-9999"
-                        className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
-                      />
-                    </div>
-                    {errors.phone && <p className="text-xs text-red-400 mt-1">{errors.phone}</p>}
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="email@exemplo.com"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Nome completo"
                         className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
                       />
                     </div>
-                    {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
+                    {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-300">CPF</Label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <Input
+                        value={formData.cpf}
+                        onChange={(e) => handleCPFChange(e.target.value)}
+                        placeholder="000.000.000-00"
+                        maxLength={14}
+                        className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                      />
+                    </div>
+                    {errors.cpf && <p className="text-xs text-red-400 mt-1">{errors.cpf}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">WhatsApp *</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
+                        <PhoneInput
+                          value={formData.phone}
+                          onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
+                          placeholder="+55 43 99999-9999"
+                          className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                        />
+                      </div>
+                      {errors.phone && <p className="text-xs text-red-400 mt-1">{errors.phone}</p>}
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="email@exemplo.com"
+                          className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                        />
+                      </div>
+                      {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-300">Vendedor</Label>
+                    <div className="relative">
+                      <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
+                      <Select value={formData.seller_id} onValueChange={(value) => setFormData(prev => ({ ...prev, seller_id: value }))}>
+                        <SelectTrigger className="pl-10 bg-slate-950 border-slate-700 text-slate-100">
+                          <SelectValue placeholder="Selecione um vendedor" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          {sellers.map((seller) => (
+                            <SelectItem key={seller.id} value={seller.id} className="text-slate-100 focus:bg-slate-800">
+                              {seller.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-slate-300">Vendedor</Label>
-                  <div className="relative">
-                    <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
-                    <Select value={formData.seller_id} onValueChange={(value) => setFormData(prev => ({ ...prev, seller_id: value }))}>
-                      <SelectTrigger className="pl-10 bg-slate-950 border-slate-700 text-slate-100">
-                        <SelectValue placeholder="Selecione um vendedor" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        {sellers.map((seller) => (
-                          <SelectItem key={seller.id} value={seller.id} className="text-slate-100 focus:bg-slate-800">
-                            {seller.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {/* Endereço */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <MapPin className="w-4 h-4" /> Endereço
+                  </h3>
+
+                  <div>
+                    <Label className="text-slate-300">CEP</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <Input
+                        value={formData.cep}
+                        onChange={(e) => handleCEPChange(e.target.value)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                      />
+                      {loadingCEP && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 animate-spin" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Endereço */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <MapPin className="w-4 h-4" /> Endereço
-                </h3>
-
-                <div>
-                  <Label className="text-slate-300">CEP</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <div>
+                    <Label className="text-slate-300">Logradouro</Label>
                     <Input
-                      value={formData.cep}
-                      onChange={(e) => handleCEPChange(e.target.value)}
-                      placeholder="00000-000"
-                      maxLength={9}
-                      className="pl-10 bg-slate-950 border-slate-700 text-slate-100"
+                      value={formData.street}
+                      onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
+                      placeholder="Rua, Avenida, etc."
+                      className="bg-slate-950 border-slate-700 text-slate-100"
                     />
-                    {loadingCEP && (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 animate-spin" />
-                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Número</Label>
+                      <Input
+                        ref={numberInputRef}
+                        value={formData.number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
+                        placeholder="Nº"
+                        className="bg-slate-950 border-slate-700 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Complemento</Label>
+                      <Input
+                        value={formData.complement}
+                        onChange={(e) => setFormData(prev => ({ ...prev, complement: e.target.value }))}
+                        placeholder="Apto, Casa"
+                        className="bg-slate-950 border-slate-700 text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-300">Bairro</Label>
+                    <Input
+                      value={formData.neighborhood}
+                      onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                      placeholder="Bairro"
+                      className="bg-slate-950 border-slate-700 text-slate-100"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Cidade</Label>
+                      <Input
+                        value={formData.city}
+                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="Cidade"
+                        className="bg-slate-950 border-slate-700 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Estado</Label>
+                      <Select value={formData.state} onValueChange={(value) => setFormData(prev => ({ ...prev, state: value }))}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          {ESTADOS_BR.map((estado) => (
+                            <SelectItem key={estado.uf} value={estado.uf} className="text-slate-100 focus:bg-slate-800">
+                              {estado.uf} - {estado.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-slate-300">Logradouro</Label>
-                  <Input
-                    value={formData.street}
-                    onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
-                    placeholder="Rua, Avenida, etc."
-                    className="bg-slate-950 border-slate-700 text-slate-100"
+                {/* Notas */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Notas
+                  </h3>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Observações sobre o segurado..."
+                    className="bg-slate-950 border-slate-700 text-slate-100 min-h-[80px]"
                   />
                 </div>
+              </TabsContent>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-300">Número</Label>
-                    <Input
-                      ref={numberInputRef}
-                      value={formData.number}
-                      onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
-                      placeholder="Nº"
-                      className="bg-slate-950 border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Complemento</Label>
-                    <Input
-                      value={formData.complement}
-                      onChange={(e) => setFormData(prev => ({ ...prev, complement: e.target.value }))}
-                      placeholder="Apto, Casa"
-                      className="bg-slate-950 border-slate-700 text-slate-100"
-                    />
-                  </div>
+              <TabsContent value="historico">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <History className="w-4 h-4" /> Histórico de Cobranças
+                  </h3>
+                  <ContactCollectionHistory contactId={segurado.id} maxHeight="350px" />
                 </div>
-
-                <div>
-                  <Label className="text-slate-300">Bairro</Label>
-                  <Input
-                    value={formData.neighborhood}
-                    onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
-                    placeholder="Bairro"
-                    className="bg-slate-950 border-slate-700 text-slate-100"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-300">Cidade</Label>
-                    <Input
-                      value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      placeholder="Cidade"
-                      className="bg-slate-950 border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Estado</Label>
-                    <Select value={formData.state} onValueChange={(value) => setFormData(prev => ({ ...prev, state: value }))}>
-                      <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        {ESTADOS_BR.map((estado) => (
-                          <SelectItem key={estado.uf} value={estado.uf} className="text-slate-100 focus:bg-slate-800">
-                            {estado.uf} - {estado.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notas */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> Notas
-                </h3>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Observações sobre o segurado..."
-                  className="bg-slate-950 border-slate-700 text-slate-100 min-h-[80px]"
-                />
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} className="border-slate-700">
