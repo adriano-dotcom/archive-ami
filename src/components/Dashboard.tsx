@@ -613,39 +613,6 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Secondary Chart */}
-        <div className="col-span-3 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg flex flex-col">
-           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-white">Conversões</h3>
-            <p className="text-sm text-slate-400">Reuniões, vendas e ações concluídas</p>
-          </div>
-          
-          <div className="flex-1 flex flex-col justify-center space-y-5">
-            {chartData.slice(0, 5).map((day, i) => (
-              <div key={i} className="group">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-300">{day.name}</span>
-                    <span className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{day.sales} conv.</span>
-                </div>
-                <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-cyan-600 to-teal-500 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-1000 ease-out group-hover:shadow-[0_0_15px_rgba(6,182,212,0.6)]" 
-                    style={{ width: `${Math.min((day.sales / Math.max(...chartData.map(d => d.sales), 1)) * 100, 100)}%` }} 
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-6 pt-4 border-t border-slate-800">
-             <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Total no período</span>
-                <span className="text-emerald-400 font-bold">
-                  {chartData.reduce((sum, d) => sum + d.sales, 0)} conversões
-                </span>
-             </div>
-          </div>
-        </div>
       </div>
 
 
