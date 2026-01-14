@@ -597,6 +597,11 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
+                        {contact.phone_number?.startsWith('PENDENTE_') && (
+                          <Badge variant="outline" className="text-xs text-amber-400 border-amber-400/50 bg-amber-500/10 mt-1">
+                            Sem telefone
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>

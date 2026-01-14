@@ -257,6 +257,25 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
       const cpfDigits = formData.cpf.replace(/\D/g, '') || null;
       const cepDigits = formData.cep.replace(/\D/g, '') || null;
 
+      // Verificar se o telefone já existe em outro contato (se não for placeholder)
+      if (!phoneDigits.startsWith('PENDENTE_')) {
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id, name, email')
+          .eq('phone_number', phoneDigits)
+          .neq('id', segurado.id)
+          .maybeSingle();
+
+        if (existingContact) {
+          toast.error(
+            `Este telefone já está cadastrado para "${existingContact.name || 'outro contato'}". Considere mesclar os contatos ou usar um telefone diferente.`,
+            { duration: 6000 }
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('contacts')
         .update({
@@ -276,7 +295,20 @@ export const EditSeguradoPFModal: React.FC<EditSeguradoPFModalProps> = ({
         })
         .eq('id', segurado.id);
 
-      if (error) throw error;
+      if (error) {
+        // Detectar erro de constraint unique
+        if (error.code === '23505') {
+          if (error.message?.includes('phone_number')) {
+            toast.error('Este telefone já está cadastrado em outro contato.');
+          } else if (error.message?.includes('cpf')) {
+            toast.error('Este CPF já está cadastrado em outro contato.');
+          } else {
+            toast.error('Dados duplicados encontrados. Verifique telefone e CPF.');
+          }
+          return;
+        }
+        throw error;
+      }
 
       toast.success('Segurado atualizado com sucesso!');
       onOpenChange(false);
