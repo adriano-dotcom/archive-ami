@@ -83,10 +83,11 @@ interface UseInstallmentsOptions {
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
   whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
   importSessionFilter: string; // 'all' | session_id
+  collectedThisWeekFilter: string; // 'all' | 'collected' | 'not-collected'
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -97,13 +98,23 @@ export function useInstallments(options: UseInstallmentsOptions) {
     previousStatuses: Map<string, { status: string; paid_at: string | null }> 
   } | null>(null);
 
-  // Fetch attempt counts
+  // Calculate start of week (Sunday)
+  const startOfWeek = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const start = new Date(now);
+    start.setDate(now.getDate() - dayOfWeek);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, []);
+
+  // Fetch attempt counts with "this week" data
   const { data: attemptCounts } = useQuery({
     queryKey: ['installment-attempt-counts'],
     queryFn: async () => {
       const { data: whatsappData, error: whatsappError } = await supabase
         .from('collection_attempts')
-        .select('installment_id')
+        .select('installment_id, sent_at')
         .eq('channel', 'whatsapp')
         .eq('status', 'sent');
 
@@ -111,29 +122,37 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
       const { data: emailData, error: emailError } = await supabase
         .from('collection_email_logs')
-        .select('installments_included')
+        .select('installments_included, sent_at')
         .eq('status', 'sent');
 
       if (emailError) throw emailError;
 
       const whatsappCounts: Record<string, number> = {};
+      const whatsappThisWeek: Record<string, boolean> = {};
       whatsappData?.forEach(row => {
         if (row.installment_id) {
           whatsappCounts[row.installment_id] = (whatsappCounts[row.installment_id] || 0) + 1;
+          if (row.sent_at && new Date(row.sent_at) >= startOfWeek) {
+            whatsappThisWeek[row.installment_id] = true;
+          }
         }
       });
 
       const emailCounts: Record<string, number> = {};
+      const emailThisWeek: Record<string, boolean> = {};
       emailData?.forEach(log => {
         const installments = log.installments_included as Array<{ id: string }> | null;
         installments?.forEach(inst => {
           if (inst.id) {
             emailCounts[inst.id] = (emailCounts[inst.id] || 0) + 1;
+            if (log.sent_at && new Date(log.sent_at) >= startOfWeek) {
+              emailThisWeek[inst.id] = true;
+            }
           }
         });
       });
 
-      return { whatsappCounts, emailCounts };
+      return { whatsappCounts, emailCounts, whatsappThisWeek, emailThisWeek };
     }
   });
 
@@ -275,11 +294,32 @@ export function useInstallments(options: UseInstallmentsOptions) {
     });
   }, [filteredByWhatsApp, importSessionFilter]);
 
+  // Apply "collected this week" filter
+  const filteredByCollectedThisWeek = useMemo(() => {
+    if (!filteredByImportSession || collectedThisWeekFilter === 'all' || !attemptCounts) {
+      return filteredByImportSession;
+    }
+    
+    const { whatsappThisWeek, emailThisWeek } = attemptCounts;
+    
+    if (collectedThisWeekFilter === 'collected') {
+      return filteredByImportSession.filter(inst => 
+        whatsappThisWeek[inst.id] || emailThisWeek[inst.id]
+      );
+    } else if (collectedThisWeekFilter === 'not-collected') {
+      return filteredByImportSession.filter(inst => 
+        !whatsappThisWeek[inst.id] && !emailThisWeek[inst.id]
+      );
+    }
+    
+    return filteredByImportSession;
+  }, [filteredByImportSession, collectedThisWeekFilter, attemptCounts]);
+
   // Sort installments
   const sortedInstallments = useMemo(() => {
-    if (!filteredByImportSession || filteredByImportSession.length === 0) return [];
+    if (!filteredByCollectedThisWeek || filteredByCollectedThisWeek.length === 0) return [];
     
-    return [...filteredByImportSession].sort((a, b) => {
+    return [...filteredByCollectedThisWeek].sort((a, b) => {
       let valA: string | number;
       let valB: string | number;
       

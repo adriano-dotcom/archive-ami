@@ -105,6 +105,7 @@ export const InstallmentsList: React.FC = () => {
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
   const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
+  const [collectedThisWeekFilter, setCollectedThisWeekFilter] = useState<string>('all');
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -170,6 +171,7 @@ export const InstallmentsList: React.FC = () => {
     emailSentFilter,
     whatsappSentFilter,
     importSessionFilter,
+    collectedThisWeekFilter,
   });
 
   // Pending mark as paid value
@@ -469,6 +471,28 @@ export const InstallmentsList: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <MessageCircle className="w-4 h-4 text-slate-400" />
                     Sem WhatsApp enviado
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Collected this week filter */}
+            <Select value={collectedThisWeekFilter} onValueChange={setCollectedThisWeekFilter}>
+              <SelectTrigger className="w-[200px] bg-slate-800/50 border-white/10">
+                <SelectValue placeholder="Cobrança Semana" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos (Semana)</SelectItem>
+                <SelectItem value="collected">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-green-400" />
+                    Já cobrado esta semana
+                  </div>
+                </SelectItem>
+                <SelectItem value="not-collected">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    Não cobrado esta semana
                   </div>
                 </SelectItem>
               </SelectContent>
