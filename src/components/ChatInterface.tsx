@@ -48,6 +48,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
 import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview } from './chat';
+import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -97,6 +98,7 @@ const ChatInterface: React.FC = () => {
   const [editEmail, setEditEmail] = useState('');
   const [editCnpj, setEditCnpj] = useState('');
   const [editCompany, setEditCompany] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [isLookingUpCnpj, setIsLookingUpCnpj] = useState(false);
   
@@ -493,9 +495,10 @@ const ChatInterface: React.FC = () => {
       setEditEmail(activeChat.contactEmail || '');
       setEditCnpj(activeChat.contactCnpj || '');
       setEditCompany(activeChat.contactCompany || '');
+      setEditPhone(activeChat.contactPhone || '');
       setIsEditingContact(false);
     }
-  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCnpj, activeChat?.contactCompany]);
+  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCnpj, activeChat?.contactCompany, activeChat?.contactPhone]);
 
   // Deal/pipeline logic removed - system now focused on collections and claims
 
@@ -943,6 +946,7 @@ const ChatInterface: React.FC = () => {
     try {
       await api.updateContact(activeChat.contactId, {
         name: editName.trim() || null,
+        phone_number: editPhone.replace(/\D/g, '') || undefined,
         email: editEmail.trim() || null,
         cnpj: editCnpj.replace(/\D/g, '') || null,
         company: editCompany.trim() || null
@@ -2380,14 +2384,23 @@ const ChatInterface: React.FC = () => {
                     </button>
                   </div>
                   
-                  {/* Phone (always read-only) */}
+                  {/* Phone */}
                   <div className="flex items-center gap-3 text-sm">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
                       <Phone className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col flex-1">
                       <span className="text-xs text-slate-500">Telefone</span>
-                      <span className="text-slate-200 font-medium">{activeChat.contactPhone}</span>
+                      {isEditingContact ? (
+                        <PhoneInput
+                          value={editPhone}
+                          onChange={setEditPhone}
+                          placeholder="+55 (00) 00000-0000"
+                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
+                        />
+                      ) : (
+                        <span className="text-slate-200 font-medium">{activeChat.contactPhone}</span>
+                      )}
                     </div>
                   </div>
 
