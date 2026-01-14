@@ -540,6 +540,67 @@ const Dashboard: React.FC = () => {
         ))}
       </div>
 
+      {/* WhatsApp Template Cost Card */}
+      {collectionWhatsAppMetrics && collectionWhatsAppMetrics.totalSent > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-slate-900 p-6 shadow-xl">
+          {/* Decorative background */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <MessageCircle className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">WhatsApp Templates</h3>
+                  <p className="text-xs text-green-400/80">Custo Meta Business</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-green-400">
+                  R$ {(collectionWhatsAppMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
+                </p>
+                <p className="text-xs text-slate-400">custo total</p>
+              </div>
+            </div>
+            
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="text-center p-3 rounded-lg bg-slate-800/50">
+                <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.totalSent}</p>
+                <p className="text-xs text-slate-400">Enviados</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-slate-800/50">
+                <p className="text-2xl font-bold text-emerald-400">{collectionWhatsAppMetrics.delivered}</p>
+                <p className="text-xs text-slate-400">Entregues</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-slate-800/50">
+                <p className="text-2xl font-bold text-white">
+                  {collectionWhatsAppMetrics.totalSent > 0 
+                    ? Math.round((collectionWhatsAppMetrics.delivered / collectionWhatsAppMetrics.totalSent) * 100)
+                    : 0}%
+                </p>
+                <p className="text-xs text-slate-400">Taxa Entrega</p>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700/50">
+              <span className="text-xs text-slate-500">
+                Custo unitário: R$ {costPerMessage.toFixed(2).replace('.', ',')}
+              </span>
+              {collectionWhatsAppMetrics.failed > 0 && (
+                <span className="text-xs text-rose-400">
+                  {collectionWhatsAppMetrics.failed} falha(s)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Charts Section */}
       <div className="grid gap-6 md:grid-cols-7">
         {/* Main Chart */}
