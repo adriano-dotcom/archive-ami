@@ -87,7 +87,7 @@ interface CollectionWhatsAppMetrics {
   delivered: number;
   failed: number;
   byTemplate: { template: string; count: number }[];
-  byDay: { date: string; sent: number; failed: number }[];
+  byDay: { date: string; sent: number; failed: number; cost: number }[];
 }
 
 const Dashboard: React.FC = () => {
@@ -280,14 +280,18 @@ const Dashboard: React.FC = () => {
         .map(([template, count]) => ({ template, count }))
         .sort((a, b) => b.count - a.count);
 
-      // Group by day
-      const byDayMap: Record<string, { sent: number; failed: number }> = {};
+      // Group by day with cost calculation
+      const byDayMap: Record<string, { sent: number; failed: number; cost: number }> = {};
       attempts.forEach(a => {
         if (!a.sent_at) return;
         const date = new Date(a.sent_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        if (!byDayMap[date]) byDayMap[date] = { sent: 0, failed: 0 };
-        if (a.status === 'failed') byDayMap[date].failed++;
-        else byDayMap[date].sent++;
+        if (!byDayMap[date]) byDayMap[date] = { sent: 0, failed: 0, cost: 0 };
+        if (a.status === 'failed') {
+          byDayMap[date].failed++;
+        } else {
+          byDayMap[date].sent++;
+          byDayMap[date].cost += costPerMessage;
+        }
       });
 
       const byDay = Object.entries(byDayMap)
@@ -1044,6 +1048,71 @@ const Dashboard: React.FC = () => {
                     <Bar dataKey="sent" name="Enviados" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="failed" name="Falhas" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Cost Evolution Chart */}
+          {collectionWhatsAppMetrics.byDay.length > 1 && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-medium text-green-400 uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Evolução de Custos WhatsApp Template
+                </h4>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400">Total no Período</p>
+                  <p className="text-lg font-bold text-green-400">
+                    R$ {(collectionWhatsAppMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
+                  </p>
+                </div>
+              </div>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={collectionWhatsAppMetrics.byDay} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tickMargin={10} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                      tickFormatter={(value) => `R$${value.toFixed(0)}`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [`R$ ${value.toFixed(2).replace('.', ',')}`, 'Custo']}
+                      contentStyle={{ 
+                        backgroundColor: '#0f172a', 
+                        borderRadius: '12px', 
+                        border: '1px solid #1e293b', 
+                        color: '#f8fafc',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
+                      }}
+                      labelStyle={{ color: '#94a3b8' }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="cost" 
+                      stroke="#22c55e" 
+                      strokeWidth={2}
+                      fill="url(#costGradient)" 
+                      name="Custo"
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
