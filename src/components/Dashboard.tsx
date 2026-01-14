@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, ArrowUpRight, Bot, Phone, Briefcase, Layers, Zap, MessageCircle, Clock, PhoneCall, PhoneOff, PhoneMissed, Timer } from 'lucide-react';
+import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, ArrowUpRight, Bot, Phone, Briefcase, Layers, Zap, MessageCircle, Clock, PhoneCall, PhoneOff, PhoneMissed, Timer, Mail, Send, CheckCircle, XCircle } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar } from 'recharts';
 import { StatMetric } from '../types';
 import { api } from '../services/api';
@@ -75,6 +75,13 @@ interface DailyCallData {
   completed: number;
 }
 
+interface CollectionEmailMetrics {
+  totalSent: number;
+  successful: number;
+  failed: number;
+  byDay: { date: string; sent: number; failed: number }[];
+}
+
 const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<StatMetric[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -85,6 +92,7 @@ const Dashboard: React.FC = () => {
   const [callMetrics, setCallMetrics] = useState<CallMetrics | null>(null);
   const [sellerCallData, setSellerCallData] = useState<SellerCallData[]>([]);
   const [dailyCallData, setDailyCallData] = useState<DailyCallData[]>([]);
+  const [collectionEmailMetrics, setCollectionEmailMetrics] = useState<CollectionEmailMetrics | null>(null);
 
   const fetchSystemMetrics = async () => {
     try {
@@ -186,6 +194,49 @@ const Dashboard: React.FC = () => {
       setLeadsEvolutionData(chartData);
     } catch (error) {
       console.error('Erro ao carregar evolução de leads:', error);
+    }
+  };
+
+  const fetchCollectionEmailMetrics = async () => {
+    try {
+      const days = periodDays[period];
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: emailLogs } = await supabase
+        .from('collection_email_logs')
+        .select('id, status, sent_at')
+        .gte('sent_at', startDate);
+
+      if (!emailLogs || emailLogs.length === 0) {
+        setCollectionEmailMetrics(null);
+        return;
+      }
+
+      const totalSent = emailLogs.length;
+      const successful = emailLogs.filter(e => e.status === 'sent').length;
+      const failed = emailLogs.filter(e => e.status === 'failed').length;
+
+      // Group by day for chart
+      const byDay: Record<string, { sent: number; failed: number }> = {};
+      emailLogs.forEach(log => {
+        if (!log.sent_at) return;
+        const date = new Date(log.sent_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        if (!byDay[date]) byDay[date] = { sent: 0, failed: 0 };
+        if (log.status === 'sent') byDay[date].sent++;
+        else if (log.status === 'failed') byDay[date].failed++;
+      });
+
+      const chartData = Object.entries(byDay)
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => {
+          const [dayA, monthA] = a.date.split('/').map(Number);
+          const [dayB, monthB] = b.date.split('/').map(Number);
+          return monthA !== monthB ? monthA - monthB : dayA - dayB;
+        });
+
+      setCollectionEmailMetrics({ totalSent, successful, failed, byDay: chartData });
+    } catch (error) {
+      console.error('Erro ao carregar métricas de emails de cobrança:', error);
     }
   };
 
@@ -302,7 +353,8 @@ const Dashboard: React.FC = () => {
           api.fetchChartData(days),
           fetchSystemMetrics(),
           fetchLeadsEvolution(),
-          fetchCallMetrics()
+          fetchCallMetrics(),
+          fetchCollectionEmailMetrics()
         ]);
         setMetrics(metricsData);
         setChartData(chartDataResponse);
@@ -723,6 +775,95 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Collection Emails Section */}
+      {collectionEmailMetrics && collectionEmailMetrics.totalSent > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-700/50 to-transparent"></div>
+            <h3 className="text-lg font-semibold text-slate-300 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-blue-400" />
+              Emails de Cobrança
+            </h3>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-700/50 to-transparent"></div>
+          </div>
+
+          {/* Email KPI Cards */}
+          <div className="grid gap-4 grid-cols-3">
+            <div className="rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Send className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-slate-400">Total Enviados</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionEmailMetrics.totalSent}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs text-slate-400">Sucesso</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionEmailMetrics.successful}</p>
+              <p className="text-xs text-emerald-400/80 mt-1">
+                {collectionEmailMetrics.totalSent > 0 
+                  ? Math.round((collectionEmailMetrics.successful / collectionEmailMetrics.totalSent) * 100)
+                  : 0}% taxa
+              </p>
+            </div>
+            <div className="rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs text-slate-400">Falhas</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{collectionEmailMetrics.failed}</p>
+            </div>
+          </div>
+
+          {/* Daily Email Chart */}
+          {collectionEmailMetrics.byDay.length > 1 && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+              <h4 className="text-sm font-medium text-blue-400 uppercase tracking-wider mb-4">Emails por Dia</h4>
+              <div className="flex items-center gap-4 text-xs mb-4">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                  Enviados
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500"></span>
+                  Falhas
+                </span>
+              </div>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={collectionEmailMetrics.byDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tickMargin={10} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      fontSize={12} 
+                      stroke="#64748b"
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }}
+                      labelStyle={{ color: '#94a3b8', marginBottom: '8px' }}
+                    />
+                    <Bar dataKey="sent" name="Enviados" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="failed" name="Falhas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
