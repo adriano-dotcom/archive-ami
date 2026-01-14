@@ -432,6 +432,16 @@ export function useConversations() {
     }
   }, []);
 
+  // Update conversation tags locally (for optimistic updates)
+  const updateConversationTags = useCallback((conversationId: string, tags: string[]) => {
+    setConversations(prev => prev.map(conv => {
+      if (conv.id === conversationId) {
+        return { ...conv, tags };
+      }
+      return conv;
+    }));
+  }, []);
+
   return {
     conversations,
     loading,
@@ -443,6 +453,7 @@ export function useConversations() {
     archiveConversation,
     unarchiveConversation,
     fetchArchivedConversations,
-    refetch: fetchConversations
+    refetch: fetchConversations,
+    updateConversationTags
   };
 }
