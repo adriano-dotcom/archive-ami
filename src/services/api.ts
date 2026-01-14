@@ -144,12 +144,6 @@ export const api = {
           trendUp: messagesPeriod >= messagesPrev
         },
         {
-          label: 'Conversões',
-          value: conversionsPeriod.toString(),
-          trend: calculateTrend(conversionsPeriod, conversionsPrev),
-          trendUp: conversionsPeriod >= conversionsPrev
-        },
-        {
           label: 'Tempo Médio',
           value: formatResponseTime(avgResponseMs),
           trend: '-',
@@ -167,7 +161,6 @@ export const api = {
       // Return fallback metrics
       return [
         { label: 'Atendimentos', value: '0', trend: '0%', trendUp: true },
-        { label: 'Conversões', value: '0', trend: '0%', trendUp: true },
         { label: 'Tempo Médio', value: '0s', trend: '-', trendUp: true },
         { label: 'Novos Leads', value: '0', trend: '0%', trendUp: true }
       ];
