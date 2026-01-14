@@ -4,8 +4,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { 
   Building2, User, Phone, Mail, Star, StarOff, Plus, Pencil, 
   MessageCircle, MapPin, FileText, Clock, DollarSign, Loader2,
-  RefreshCw, History
+  RefreshCw, History, Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +90,8 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
   const [togglingBilling, setTogglingBilling] = useState<string | null>(null);
   const [installmentsWithoutContact, setInstallmentsWithoutContact] = useState<number>(0);
   const [syncingInstallments, setSyncingInstallments] = useState(false);
+  const [deletingContact, setDeletingContact] = useState<CompanyContact | null>(null);
+  const [loadingDelete, setLoadingDelete] = useState(false);
 
   useEffect(() => {
     if (open && company) {
@@ -273,6 +285,30 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
       toast.error('Erro ao atualizar contato');
     } finally {
       setTogglingBilling(null);
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    if (!deletingContact || !company) return;
+    
+    setLoadingDelete(true);
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', deletingContact.id);
+
+      if (error) throw error;
+
+      toast.success('Contato excluído com sucesso!');
+      setDeletingContact(null);
+      loadContacts();
+      onRefresh?.();
+    } catch (error: any) {
+      console.error('Error deleting contact:', error);
+      toast.error('Erro ao excluir contato');
+    } finally {
+      setLoadingDelete(false);
     }
   };
 
@@ -552,6 +588,14 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
                           >
                             <Pencil className="w-3 h-3" />
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setDeletingContact(contact)}
+                            className="gap-1 h-7 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -641,6 +685,35 @@ export const CompanyDetailsDrawer: React.FC<CompanyDetailsDrawerProps> = ({
           }}
         />
       )}
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={!!deletingContact} onOpenChange={(open) => !open && setDeletingContact(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Contato</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir o contato{' '}
+              <span className="font-semibold text-slate-300">
+                {deletingContact?.name || deletingContact?.phone_number}
+              </span>
+              ? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteContact}
+              disabled={loadingDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {loadingDelete ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
