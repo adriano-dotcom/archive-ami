@@ -231,7 +231,7 @@ const GeneralSettings: React.FC = () => {
               />
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Valor usado para calcular custos no Dashboard (WhatsApp e Email)
+              Custo por mensagem WhatsApp Template (cobrado pela Meta)
             </p>
           </div>
 
