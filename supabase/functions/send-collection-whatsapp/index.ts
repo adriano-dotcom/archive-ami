@@ -362,7 +362,9 @@ serve(async (req) => {
 
         if (sendResult.success) {
           // Log attempt for EACH installment in the group (for tracking)
+          // Include full installment data in metadata so history is preserved even after deletion
           for (const inst of contactInstallments) {
+            const instPolicy = getFirst(inst.policy);
             await supabase.from('collection_attempts').insert({
               batch_id,
               contact_id: contact.id,
@@ -377,7 +379,18 @@ serve(async (req) => {
                 consolidated: true,
                 installments_count: installmentCount,
                 total_value: totalValue,
-                oldest_due_date: oldestDueDate
+                oldest_due_date: oldestDueDate,
+                // Preserve installment data for history
+                installment_data: {
+                  installment_number: inst.installment_number,
+                  value: inst.value,
+                  due_date: inst.due_date,
+                  days_overdue: inst.days_overdue,
+                  policy_number: instPolicy?.policy_number || null,
+                  insurer: instPolicy?.insurer || null
+                },
+                contact_name: contact.name,
+                company_name: companyName
               }
             });
           }
@@ -398,7 +411,8 @@ serve(async (req) => {
       } catch (error) {
         console.error(`Failed to send to contact ${contactId}:`, error);
         
-        // Log failed attempt for first installment
+        const firstPolicy = getFirst(firstInstallment.policy);
+        // Log failed attempt for first installment - include installment data for history
         await supabase.from('collection_attempts').insert({
           batch_id,
           contact_id: contactId,
@@ -410,7 +424,17 @@ serve(async (req) => {
           metadata: {
             consolidated: true,
             installments_count: installmentCount,
-            total_value: totalValue
+            total_value: totalValue,
+            // Preserve installment data for history
+            installment_data: {
+              installment_number: firstInstallment.installment_number,
+              value: firstInstallment.value,
+              due_date: firstInstallment.due_date,
+              days_overdue: firstInstallment.days_overdue,
+              policy_number: firstPolicy?.policy_number || null,
+              insurer: firstPolicy?.insurer || null
+            },
+            contact_name: contact.name
           }
         });
 
