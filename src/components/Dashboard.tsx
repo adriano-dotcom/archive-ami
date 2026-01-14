@@ -405,14 +405,12 @@ const Dashboard: React.FC = () => {
   }, [period]);
 
   const getIcon = (label: string) => {
-    if (label.includes('Conversões')) return <DollarSign className="h-5 w-5 text-emerald-400" />;
     if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-cyan-400" />;
     if (label.includes('Leads')) return <Users className="h-5 w-5 text-violet-400" />;
     return <Activity className="h-5 w-5 text-orange-400" />;
   };
 
   const getGradient = (label: string) => {
-    if (label.includes('Conversões')) return 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/20';
     if (label.includes('Atendimentos')) return 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/20';
     if (label.includes('Leads')) return 'from-violet-500/20 to-violet-500/5 border-violet-500/20';
     return 'from-orange-500/20 to-orange-500/5 border-orange-500/20';
