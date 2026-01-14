@@ -262,7 +262,13 @@ const Dashboard: React.FC = () => {
         .gte('sent_at', startDate);
 
       if (!attempts || attempts.length === 0) {
-        setCollectionWhatsAppMetrics(null);
+        setCollectionWhatsAppMetrics({
+          totalSent: 0,
+          delivered: 0,
+          failed: 0,
+          byTemplate: [],
+          byDay: []
+        });
         return;
       }
 
@@ -541,7 +547,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* WhatsApp Template Cost Card */}
-      {collectionWhatsAppMetrics && collectionWhatsAppMetrics.totalSent > 0 && (
+      {collectionWhatsAppMetrics && (
         <div className="relative overflow-hidden rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-slate-900 p-6 shadow-xl">
           {/* Decorative background */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl"></div>
