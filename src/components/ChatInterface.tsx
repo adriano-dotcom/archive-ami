@@ -1658,6 +1658,13 @@ const ChatInterface: React.FC = () => {
                         lastMessageFromUser={chat.lastMessageFromUser} 
                         compact 
                       />
+                      {/* Collection Template Badge */}
+                      {chat.hasCollectionTemplate && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 backdrop-blur-sm text-amber-400 border border-amber-400/30 text-[10px] rounded-full font-semibold flex items-center gap-1 shrink-0 shadow-lg shadow-amber-500/10">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          Cobrança
+                        </span>
+                      )}
                       {/* Tags with glass effect */}
                       {chat.tags.slice(0, 1).map(tag => (
                         <span key={tag} className="px-2 py-0.5 bg-slate-700/40 backdrop-blur-sm border border-white/10 text-slate-300 text-[10px] rounded-lg font-medium hover:bg-slate-600/40 transition-all">
