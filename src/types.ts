@@ -254,6 +254,9 @@ export interface UIConversation {
   whatsappWindowStart: string | null;
   isWhatsAppWindowOpen: boolean;
   windowHoursRemaining: number | null;
+  // Collection template indicator
+  hasCollectionTemplate: boolean;
+  collectionTemplateName: string | null;
 }
 
 export interface UIMessage {
@@ -293,7 +296,17 @@ export function transformDBToUIConversation(
   const windowEndTime = windowStart ? new Date(windowStart.getTime() + 24 * 60 * 60 * 1000) : null;
   const isWindowOpen = windowStart !== null && windowEndTime !== null && now < windowEndTime;
   const msRemaining = isWindowOpen && windowEndTime ? windowEndTime.getTime() - now.getTime() : null;
-  const hoursRemaining = msRemaining !== null ? Math.max(0, msRemaining / (1000 * 60 * 60)) : null;
+  const hoursRemaining = msRemaining !== null ? Math.max(0, msRemaining / (1000 * 60 / 60)) : null;
+
+  // Check if last outbound message was a collection template
+  const lastOutboundMsg = [...sortedMessages]
+    .reverse()
+    .find(m => m.from_type === 'nina' || m.from_type === 'human');
+  
+  const templateName = (lastOutboundMsg?.metadata as Record<string, any>)?.template_name as string | undefined;
+  const isTemplate = (lastOutboundMsg?.metadata as Record<string, any>)?.is_template === true;
+  const isCollectionTemplate = isTemplate && templateName && 
+    (templateName.toLowerCase().includes('cobranca') || templateName.toLowerCase().includes('cobrança'));
 
   return {
     id: conv.id,
@@ -325,7 +338,10 @@ export function transformDBToUIConversation(
     // WhatsApp 24h window
     whatsappWindowStart: conv.whatsapp_window_start || null,
     isWhatsAppWindowOpen: isWindowOpen,
-    windowHoursRemaining: hoursRemaining
+    windowHoursRemaining: hoursRemaining,
+    // Collection template
+    hasCollectionTemplate: isCollectionTemplate || false,
+    collectionTemplateName: isCollectionTemplate ? templateName : null
   };
 }
 
