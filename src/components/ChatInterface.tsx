@@ -59,7 +59,7 @@ interface AgentQuestion {
 const ChatInterface: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, fetchArchivedConversations, refetch } = useConversations();
+  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, fetchArchivedConversations, refetch, updateConversationTags } = useConversations();
   const { user } = useAuth();
   const { sdrName, companyName } = useCompanySettings();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -671,11 +671,16 @@ const ChatInterface: React.FC = () => {
       ? currentTags.filter(t => t !== tagKey)
       : [...currentTags, tagKey];
     
+    // Optimistic update - update UI immediately
+    updateConversationTags(activeChat.id, newTags);
+    
     try {
       await api.updateContactTags(activeChat.contactId, newTags);
       toast.success('Tag atualizada');
     } catch (error) {
       console.error('Error updating tag:', error);
+      // Revert on error
+      updateConversationTags(activeChat.id, currentTags);
       toast.error('Erro ao atualizar tag');
     }
   };
