@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, ArrowUpRight, Bot, Phone, Briefcase, Layers, Zap, MessageCircle, Clock, PhoneCall, PhoneOff, PhoneMissed, Timer, Mail, Send, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, ArrowUpRight, Bot, Phone, Briefcase, Layers, Zap, MessageCircle, Clock, PhoneCall, PhoneOff, PhoneMissed, Timer, Mail, Send, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar } from 'recharts';
 import { StatMetric } from '../types';
 import { api } from '../services/api';
@@ -96,6 +96,7 @@ const Dashboard: React.FC = () => {
   const [collectionEmailMetrics, setCollectionEmailMetrics] = useState<CollectionEmailMetrics | null>(null);
   const [collectionWhatsAppMetrics, setCollectionWhatsAppMetrics] = useState<CollectionWhatsAppMetrics | null>(null);
   const [costPerMessage, setCostPerMessage] = useState<number>(0.41);
+  const [overdueMetrics, setOverdueMetrics] = useState<{ total: number; value: number } | null>(null);
 
   const fetchSystemMetrics = async () => {
     try {
@@ -378,6 +379,24 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchOverdueMetrics = async () => {
+    try {
+      const { count, data } = await supabase
+        .from('installments')
+        .select('value', { count: 'exact' })
+        .in('status', ['overdue', 'pending'])
+        .gt('days_overdue', 0);
+      
+      const totalValue = data?.reduce((sum, i) => sum + (i.value || 0), 0) || 0;
+      setOverdueMetrics({
+        total: count || 0,
+        value: totalValue
+      });
+    } catch (error) {
+      console.error('Erro ao carregar métricas de parcelas:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -390,7 +409,8 @@ const Dashboard: React.FC = () => {
           fetchCallMetrics(),
           fetchCollectionEmailMetrics(),
           fetchCollectionWhatsAppMetrics(),
-          fetchMessageCost()
+          fetchMessageCost(),
+          fetchOverdueMetrics()
         ]);
         setMetrics(metricsData);
         setChartData(chartDataResponse);
@@ -491,6 +511,26 @@ const Dashboard: React.FC = () => {
             <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/5 blur-2xl rounded-full group-hover:bg-white/10 transition-all"></div>
           </div>
         ))}
+        
+        {/* Card Parcelas Vencidas */}
+        {overdueMetrics && (
+          <div className="relative overflow-hidden rounded-2xl border bg-slate-900/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-slate-900 group from-amber-500/20 to-amber-500/5 border-amber-500/20">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div className="text-sm font-medium text-slate-400">Parcelas Vencidas</div>
+              <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 group-hover:border-slate-600 transition-colors">
+                <AlertTriangle className="h-5 w-5 text-amber-400" />
+              </div>
+            </div>
+            <div className="flex items-end justify-between">
+              <div className="text-3xl font-bold text-white tracking-tight">{overdueMetrics.total}</div>
+              <div className="text-xs text-amber-400/80 font-medium bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
+                R$ {overdueMetrics.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+            {/* Decorative Glow */}
+            <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-amber-500/5 blur-2xl rounded-full group-hover:bg-amber-500/10 transition-all"></div>
+          </div>
+        )}
       </div>
 
       {/* WhatsApp Template Cost Card */}
