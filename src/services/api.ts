@@ -971,7 +971,7 @@ export const api = {
       .from('conversations')
       .select(`
         *,
-        contact:contacts(*),
+        contact:contacts(*, linked_company:companies(id, razao_social, nome_fantasia, cnpj)),
         agent:agents(id, name, slug),
         whatsapp_window_start
       `)
@@ -988,7 +988,7 @@ export const api = {
         .from('conversations')
         .select(`
           *,
-          contact:contacts(*),
+          contact:contacts(*, linked_company:companies(id, razao_social, nome_fantasia, cnpj)),
           agent:agents(id, name, slug),
           whatsapp_window_start
         `)
