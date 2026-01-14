@@ -875,9 +875,6 @@ const Dashboard: React.FC = () => {
                 <span className="text-xs text-slate-400">Total Enviados</span>
               </div>
               <p className="text-2xl font-bold text-white">{collectionEmailMetrics.totalSent}</p>
-              <p className="text-sm font-medium text-blue-400 mt-1">
-                R$ {(collectionEmailMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
-              </p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
