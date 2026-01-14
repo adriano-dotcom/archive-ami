@@ -51,6 +51,22 @@ export default function Auth() {
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
+  // Function to accept pending invite after auth
+  const acceptInvite = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('accept-invite');
+      if (error) {
+        console.error('Error accepting invite:', error);
+        return;
+      }
+      if (data?.accepted) {
+        console.log('Invite accepted:', data);
+      }
+    } catch (err) {
+      console.error('Failed to accept invite:', err);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -64,8 +80,9 @@ export default function Auth() {
       email: email.trim(),
       password
     });
-    setIsLoading(false);
+    
     if (error) {
+      setIsLoading(false);
       if (error.message.includes("Invalid login credentials")) {
         toast.error("Email ou senha incorretos");
       } else if (error.message.includes("Email not confirmed")) {
@@ -75,6 +92,10 @@ export default function Auth() {
       }
       return;
     }
+    
+    // Accept invite after successful login
+    await acceptInvite();
+    setIsLoading(false);
     toast.success("Login realizado com sucesso!");
   };
   const handleSignUp = async (e: React.FormEvent) => {
@@ -90,6 +111,7 @@ export default function Auth() {
     setIsLoading(true);
     const redirectUrl = `${window.location.origin}/`;
     const {
+      data,
       error
     } = await supabase.auth.signUp({
       email: email.trim(),
@@ -98,8 +120,9 @@ export default function Auth() {
         emailRedirectTo: redirectUrl
       }
     });
-    setIsLoading(false);
+    
     if (error) {
+      setIsLoading(false);
       if (error.message.includes("already registered")) {
         toast.error("Este email já está registrado. Tente fazer login.");
       } else {
@@ -107,6 +130,13 @@ export default function Auth() {
       }
       return;
     }
+    
+    // If user was auto-confirmed (no email verification needed), accept invite
+    if (data?.user && data?.session) {
+      await acceptInvite();
+    }
+    
+    setIsLoading(false);
     toast.success("Conta criada! Verifique seu email para confirmar.");
   };
   return <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-3 sm:p-4">

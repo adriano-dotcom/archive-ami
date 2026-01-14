@@ -296,7 +296,7 @@ export function transformDBToUIConversation(
   const windowEndTime = windowStart ? new Date(windowStart.getTime() + 24 * 60 * 60 * 1000) : null;
   const isWindowOpen = windowStart !== null && windowEndTime !== null && now < windowEndTime;
   const msRemaining = isWindowOpen && windowEndTime ? windowEndTime.getTime() - now.getTime() : null;
-  const hoursRemaining = msRemaining !== null ? Math.max(0, msRemaining / (1000 * 60 / 60)) : null;
+  const hoursRemaining = msRemaining !== null ? Math.max(0, msRemaining / (1000 * 60 * 60)) : null;
 
   // Check if last outbound message was a collection template
   const lastOutboundMsg = [...sortedMessages]
