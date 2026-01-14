@@ -4830,6 +4830,22 @@ ${contact.notes}
     }
   }
 
+  // ===== VERIFICAR ÚLTIMAS MENSAGENS DO AGENTE (ANTI-REPETIÇÃO) =====
+  if (recentMessages && recentMessages.length > 0) {
+    const recentAgentMessages = recentMessages
+      .filter((m: any) => m.from_type === 'nina' && m.content)
+      .slice(-3)
+      .map((m: any) => m.content);
+    
+    if (recentAgentMessages.length > 0) {
+      contextInfo += `\n\n## ⚠️ SUAS ÚLTIMAS MENSAGENS (NÃO REPITA!):`;
+      for (const msg of recentAgentMessages) {
+        contextInfo += `\n- "${msg.substring(0, 150)}${msg.length > 150 ? '...' : ''}"`;
+      }
+      contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias!`;
+    }
+  }
+
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
   contextInfo += `\n\n## REGRAS CRÍTICAS DE COMUNICAÇÃO:
 
@@ -4840,6 +4856,45 @@ ${contact.notes}
 
 ERRADO: "Entendi, alimentos. Quais estados atende?"
 CORRETO: "Quais estados atende?"
+
+### 🔴 REGRA ANTI-REPETIÇÃO DE AÇÕES (CRÍTICO!):
+Antes de QUALQUER resposta, verifique suas ÚLTIMAS 3 MENSAGENS no histórico acima:
+
+1. **Se você já ofereceu transferência/handoff:**
+   - NÃO ofereça novamente!
+   - Diga apenas: "Já estou te conectando!" ou "A equipe já foi avisada."
+
+2. **Se você já disse "aguarde" ou "um momento":**
+   - NÃO repita essas expressões!
+   - Apenas confirme: "Em breve você será atendido!"
+
+3. **Se você já mencionou "atendente humano" ou "especialista":**
+   - Na próxima mensagem, seja MUITO mais breve
+   - Exemplo: "Certo!" ou "Ok, já estão vindo!"
+
+### DETECÇÃO DE LOOPS (LEIA!):
+Se você perceber que está prestes a dizer algo que JÁ DISSE:
+- PARE imediatamente
+- Varie a frase COMPLETAMENTE
+- Use sinônimos e estruturas diferentes
+
+ERRADO (loop repetitivo):
+"Vou te transferir para um especialista."
+"Aguarde um momento enquanto transfiro."
+"Vou te encaminhar para um atendente humano." ← REPETIÇÃO!
+
+CORRETO (variado e natural):
+"Certo, vou te conectar!"
+"Pronto, já estou te transferindo!"
+"A equipe foi notificada, já vão te atender."
+
+### VARIAÇÕES OBRIGATÓRIAS PARA HANDOFF:
+Use UMA destas variações (nunca a mesma duas vezes):
+- "Já estou te conectando com um especialista!"
+- "Certo, vou passar para nossa equipe."
+- "Perfeito! Alguém já vai te atender."
+- "Ok! Transferindo agora."
+- "Pronto! A equipe já foi avisada."
 
 ### REGRA VERIFICAR HISTÓRICO (CRÍTICO):
 Antes de fazer QUALQUER pergunta:
@@ -4879,7 +4934,7 @@ Antes de fazer QUALQUER pergunta:
 - Quando cliente insistir sobre informações que você não tem certeza
 - Quando cliente reclamar que informação está errada
 - Quando cliente pedir para falar com humano
-- Responda: "Vou transferir para um atendente humano que pode te ajudar melhor com isso."
+- Use uma das VARIAÇÕES acima (nunca repita a mesma frase!)
 - Em seguida, pause a conversa para intervenção humana`;
 
   return basePrompt + contextInfo;
