@@ -12,7 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock
+  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock,
+  AlertOctagon
 } from 'lucide-react';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 import {
@@ -106,6 +107,7 @@ export const InstallmentsList: React.FC = () => {
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
   const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
   const [collectedThisWeekFilter, setCollectedThisWeekFilter] = useState<string>('all');
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -160,6 +162,7 @@ export const InstallmentsList: React.FC = () => {
     deleteMutation,
     updateInsurerMutation,
     bulkUpdateInsurerMutation,
+    clearAllMutation,
     refetch,
   } = useInstallments({
     search,
@@ -589,6 +592,51 @@ export const InstallmentsList: React.FC = () => {
               <Copy className="w-4 h-4" />
               Detectar Duplicatas
             </Button>
+
+            <AlertDialog open={showClearAllConfirm} onOpenChange={setShowClearAllConfirm}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/20 gap-2"
+                  disabled={sortedInstallments.length === 0}
+                >
+                  <AlertOctagon className="w-4 h-4" />
+                  Limpar Todas
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertOctagon className="w-5 h-5 text-red-500" />
+                    Limpar Todas as Parcelas Pendentes
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <span className="block">
+                      Esta ação irá excluir <strong>TODAS</strong> as parcelas pendentes, vencidas e em negociação do sistema.
+                    </span>
+                    <span className="block text-amber-400 font-medium">
+                      Total de parcelas que serão excluídas: {sortedInstallments.length}
+                    </span>
+                    <span className="block text-red-400 font-medium">
+                      ⚠️ Esta ação NÃO pode ser desfeita!
+                    </span>
+                    <span className="block text-slate-500 text-xs">
+                      O histórico de cobranças anteriores será mantido nos logs.
+                    </span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => clearAllMutation.mutate()}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={clearAllMutation.isPending}
+                  >
+                    {clearAllMutation.isPending ? 'Excluindo...' : 'Sim, Limpar Tudo'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* Selected Actions */}

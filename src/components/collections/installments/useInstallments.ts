@@ -546,6 +546,37 @@ export function useInstallments(options: UseInstallmentsOptions) {
     }
   });
 
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      // First count how many will be deleted
+      const { count, error: countError } = await supabase
+        .from('installments')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['pending', 'overdue', 'negotiating']);
+      
+      if (countError) throw countError;
+      
+      // Delete all pending/overdue installments
+      const { error } = await supabase
+        .from('installments')
+        .delete()
+        .in('status', ['pending', 'overdue', 'negotiating']);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['collection-summary'] });
+      setSelectedIds([]);
+      toast.success(`${count} parcela(s) excluída(s) com sucesso`);
+    },
+    onError: (error: any) => {
+      console.error('Error clearing installments:', error);
+      toast.error('Erro ao limpar parcelas');
+    }
+  });
+
   // Actions
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -616,6 +647,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
     deleteMutation,
     updateInsurerMutation,
     bulkUpdateInsurerMutation,
+    clearAllMutation,
     
     // Other
     refetch,

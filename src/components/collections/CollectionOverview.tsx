@@ -2,9 +2,10 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Users, DollarSign, Clock, Building2 } from 'lucide-react';
+import { AlertTriangle, Users, DollarSign, Clock, Building2, Mail, MessageCircle, Send, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 
 interface InsurerData {
   name: string;
@@ -90,6 +91,57 @@ export const CollectionOverview: React.FC = () => {
       return Object.entries(grouped)
         .map(([name, data]) => ({ name, ...data } as InsurerData))
         .sort((a, b) => b.value - a.value);
+    }
+  });
+
+  // Fetch collection campaign metrics
+  const { data: campaignMetrics, isLoading: loadingMetrics } = useQuery({
+    queryKey: ['collection-campaign-metrics'],
+    queryFn: async () => {
+      // Get WhatsApp attempts
+      const { data: whatsappAttempts, error: waError } = await supabase
+        .from('collection_attempts')
+        .select('id, status, sent_at')
+        .eq('channel', 'whatsapp');
+      
+      if (waError) throw waError;
+
+      // Get Email logs
+      const { data: emailLogs, error: emailError } = await supabase
+        .from('collection_email_logs')
+        .select('id, status, sent_at');
+      
+      if (emailError) throw emailError;
+
+      // Get recent batches
+      const { data: recentBatches, error: batchError } = await supabase
+        .from('collection_batches')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (batchError) throw batchError;
+
+      const whatsappSent = whatsappAttempts?.filter(a => a.status === 'sent').length || 0;
+      const whatsappFailed = whatsappAttempts?.filter(a => a.status === 'failed').length || 0;
+      const emailSent = emailLogs?.filter(e => e.status === 'sent').length || 0;
+      const emailFailed = emailLogs?.filter(e => e.status === 'failed').length || 0;
+
+      // Get today's count
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const whatsappToday = whatsappAttempts?.filter(a => 
+        a.sent_at && new Date(a.sent_at) >= today
+      ).length || 0;
+      const emailToday = emailLogs?.filter(e => 
+        e.sent_at && new Date(e.sent_at) >= today
+      ).length || 0;
+
+      return {
+        whatsapp: { sent: whatsappSent, failed: whatsappFailed, today: whatsappToday },
+        email: { sent: emailSent, failed: emailFailed, today: emailToday },
+        recentBatches: recentBatches || []
+      };
     }
   });
 
@@ -209,6 +261,88 @@ export const CollectionOverview: React.FC = () => {
               </div>
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
                 <Building2 className="w-6 h-6 text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Campaign Metrics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-300/80">WhatsApp Enviados</p>
+                <p className="text-2xl font-bold text-green-400">
+                  {loadingMetrics ? '-' : campaignMetrics?.whatsapp.sent || 0}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {loadingMetrics ? '-' : `+${campaignMetrics?.whatsapp.today || 0} hoje`}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-300/80">Emails Enviados</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  {loadingMetrics ? '-' : campaignMetrics?.email.sent || 0}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {loadingMetrics ? '-' : `+${campaignMetrics?.email.today || 0} hoje`}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <Mail className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-slate-500/10 to-slate-600/5 border-slate-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-300/80">Total Comunicações</p>
+                <p className="text-2xl font-bold text-slate-300">
+                  {loadingMetrics ? '-' : (campaignMetrics?.whatsapp.sent || 0) + (campaignMetrics?.email.sent || 0)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">WhatsApp + Email</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-slate-500/20 flex items-center justify-center">
+                <Send className="w-6 h-6 text-slate-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-emerald-300/80">Taxa de Sucesso</p>
+                <p className="text-2xl font-bold text-emerald-400">
+                  {loadingMetrics ? '-' : (() => {
+                    const total = (campaignMetrics?.whatsapp.sent || 0) + (campaignMetrics?.email.sent || 0);
+                    const failed = (campaignMetrics?.whatsapp.failed || 0) + (campaignMetrics?.email.failed || 0);
+                    const totalAttempts = total + failed;
+                    return totalAttempts > 0 ? `${Math.round((total / totalAttempts) * 100)}%` : '100%';
+                  })()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {loadingMetrics ? '-' : `${(campaignMetrics?.whatsapp.failed || 0) + (campaignMetrics?.email.failed || 0)} falhas`}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               </div>
             </div>
           </CardContent>

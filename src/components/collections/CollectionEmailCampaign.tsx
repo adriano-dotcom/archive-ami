@@ -129,16 +129,43 @@ export const CollectionEmailCampaign: React.FC<CollectionEmailCampaignProps> = (
     mutationFn: async () => {
       const emailsToSend = generatedEmails.filter(e => selectedEmails.has(`${e.contactId}-${e.email}`));
       
+      // Create batch entry BEFORE sending emails
+      const { data: batch, error: batchError } = await supabase
+        .from('collection_batches')
+        .insert({
+          name: `Email Cobrança - ${new Date().toLocaleString('pt-BR', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}`,
+          channel: 'email',
+          status: 'processing',
+          total_count: emailsToSend.length,
+          filters: filters,
+          template_variables: { tone: emailTone, recipientMode, ccSeller }
+        })
+        .select()
+        .single();
+      
+      if (batchError) {
+        console.error('Error creating batch:', batchError);
+        // Continue without batch if creation fails
+      }
+      
+      const emailBatchId = batch?.id || batchId;
+      
       const { data, error } = await supabase.functions.invoke('send-collection-emails', {
         body: {
-          batchId,
+          batchId: emailBatchId,
           emails: emailsToSend,
           ccSeller
         }
       });
 
       if (error) throw error;
-      return data;
+      return { ...data, batchId: emailBatchId };
     },
     onSuccess: (data) => {
       setSendResults(data);
