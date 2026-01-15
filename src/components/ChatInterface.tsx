@@ -93,7 +93,7 @@ const ChatInterface: React.FC = () => {
   const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
   
   // Collection status filter state
-  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<CollectionStatus | null>(null);
+  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'aguardando' | 'responded' | null>(null);
   
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -1044,10 +1044,18 @@ const ChatInterface: React.FC = () => {
 
   // Collection status counts for filter pills
   const collectionCounts = useMemo(() => ({
-    sent: conversations.filter(c => c.collectionStatus === 'sent').length,
+    // Cobranca: template de cobrança + sendo atendido por agente (Omega, sem humano)
+    cobranca: conversations.filter(c => 
+      c.hasCollectionTemplate && c.status === 'nina'
+    ).length,
+    // Aguardando: template enviado mas não respondeu (sent ou no_response)
+    aguardando: conversations.filter(c => 
+      c.hasCollectionTemplate && (c.collectionStatus === 'sent' || c.collectionStatus === 'no_response')
+    ).length,
+    // Respondeu: template enviado e cliente respondeu
     responded: conversations.filter(c => c.collectionStatus === 'responded').length,
-    no_response: conversations.filter(c => c.collectionStatus === 'no_response').length,
-    total: conversations.filter(c => c.collectionStatus !== 'none').length,
+    // Total com qualquer template de cobrança
+    total: conversations.filter(c => c.hasCollectionTemplate).length,
   }), [conversations]);
 
   const filteredConversations = conversations
@@ -1078,7 +1086,15 @@ const ChatInterface: React.FC = () => {
       
       // Collection status filter
       if (selectedCollectionFilter) {
-        if (chat.collectionStatus !== selectedCollectionFilter) return false;
+        if (selectedCollectionFilter === 'cobranca') {
+          // Cobrança: tem template de cobrança + atendido por agente (não humano)
+          if (!chat.hasCollectionTemplate || chat.status !== 'nina') return false;
+        } else if (selectedCollectionFilter === 'aguardando') {
+          // Aguardando: template enviado mas sem resposta (sent ou no_response)
+          if (!chat.hasCollectionTemplate || chat.collectionStatus === 'responded' || chat.collectionStatus === 'none') return false;
+        } else if (selectedCollectionFilter === 'responded') {
+          if (chat.collectionStatus !== 'responded') return false;
+        }
       }
       
       // Text search filter
@@ -1546,7 +1562,7 @@ const ChatInterface: React.FC = () => {
           {/* Collection Status Filter Pills - iOS 26 Style */}
           {!viewingArchived && collectionCounts.total > 0 && (
             <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
-              {/* Todos (cobrança) */}
+              {/* Todos com cobrança */}
               <button
                 onClick={() => setSelectedCollectionFilter(null)}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
@@ -1560,19 +1576,35 @@ const ChatInterface: React.FC = () => {
                 <span className={`text-[10px] ${!selectedCollectionFilter ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.total})</span>
               </button>
               
-              {/* Aguardando */}
-              {collectionCounts.sent > 0 && (
+              {/* Atendidos por Omega (sem humano) */}
+              {collectionCounts.cobranca > 0 && (
                 <button
-                  onClick={() => setSelectedCollectionFilter('sent')}
+                  onClick={() => setSelectedCollectionFilter('cobranca')}
                   className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                    selectedCollectionFilter === 'sent'
+                    selectedCollectionFilter === 'cobranca'
+                      ? 'bg-gradient-to-r from-purple-400 to-violet-500 text-white shadow-lg shadow-purple-500/40 scale-[1.02] border-transparent'
+                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  }`}
+                >
+                  <Bot className="w-4 h-4" />
+                  Omega
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'cobranca' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.cobranca})</span>
+                </button>
+              )}
+              
+              {/* Aguardando resposta */}
+              {collectionCounts.aguardando > 0 && (
+                <button
+                  onClick={() => setSelectedCollectionFilter('aguardando')}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                    selectedCollectionFilter === 'aguardando'
                       ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/40 scale-[1.02] border-transparent'
                       : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
                   }`}
                 >
                   <Clock className="w-4 h-4" />
                   Aguardando
-                  <span className={`text-[10px] ${selectedCollectionFilter === 'sent' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.sent})</span>
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'aguardando' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.aguardando})</span>
                 </button>
               )}
               
@@ -1589,22 +1621,6 @@ const ChatInterface: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4" />
                   Respondeu
                   <span className={`text-[10px] ${selectedCollectionFilter === 'responded' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.responded})</span>
-                </button>
-              )}
-              
-              {/* Sem Resposta */}
-              {collectionCounts.no_response > 0 && (
-                <button
-                  onClick={() => setSelectedCollectionFilter('no_response')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                    selectedCollectionFilter === 'no_response'
-                      ? 'bg-gradient-to-r from-red-400 to-rose-500 text-white shadow-lg shadow-red-500/40 scale-[1.02] border-transparent animate-pulse'
-                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
-                  }`}
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  Sem Resposta
-                  <span className={`text-[10px] ${selectedCollectionFilter === 'no_response' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.no_response})</span>
                 </button>
               )}
             </div>
