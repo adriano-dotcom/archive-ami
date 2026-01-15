@@ -93,7 +93,7 @@ const ChatInterface: React.FC = () => {
   const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
   
   // Collection status filter state
-  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'omega' | null>(null);
+  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'omega' | 'semResposta' | null>(null);
   
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -1052,6 +1052,10 @@ const ChatInterface: React.FC = () => {
     omega: conversations.filter(c => 
       c.status === 'nina' && c.collectionStatus === 'responded'
     ).length,
+    // Sem Resposta: template enviado há mais de 24h sem resposta
+    semResposta: conversations.filter(c => 
+      c.collectionStatus === 'no_response'
+    ).length,
     // Total com qualquer template de cobrança
     total: conversations.filter(c => c.hasCollectionTemplate).length,
   }), [conversations]);
@@ -1090,6 +1094,9 @@ const ChatInterface: React.FC = () => {
         } else if (selectedCollectionFilter === 'omega') {
           // Omega: cliente respondeu E agente está interagindo
           if (chat.status !== 'nina' || chat.collectionStatus !== 'responded') return false;
+        } else if (selectedCollectionFilter === 'semResposta') {
+          // Sem Resposta: template enviado há +24h sem resposta
+          if (chat.collectionStatus !== 'no_response') return false;
         }
       }
       
@@ -1585,6 +1592,22 @@ const ChatInterface: React.FC = () => {
                   <Bot className="w-4 h-4" />
                   Omega
                   <span className={`text-[10px] ${selectedCollectionFilter === 'omega' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.omega})</span>
+                </button>
+              )}
+              
+              {/* Sem Resposta: template enviado há +24h sem resposta */}
+              {collectionCounts.semResposta > 0 && (
+                <button
+                  onClick={() => setSelectedCollectionFilter(selectedCollectionFilter === 'semResposta' ? null : 'semResposta')}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                    selectedCollectionFilter === 'semResposta'
+                      ? 'bg-gradient-to-r from-red-400 to-rose-500 text-white shadow-lg shadow-red-500/40 scale-[1.02] border-transparent'
+                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  Sem Resposta
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'semResposta' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.semResposta})</span>
                 </button>
               )}
             </div>
