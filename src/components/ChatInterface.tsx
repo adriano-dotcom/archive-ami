@@ -93,7 +93,7 @@ const ChatInterface: React.FC = () => {
   const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
   
   // Collection status filter state
-  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'aguardando' | 'responded' | null>(null);
+  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'omega' | 'aguardando' | 'responded' | null>(null);
   
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -1044,13 +1044,13 @@ const ChatInterface: React.FC = () => {
 
   // Collection status counts for filter pills
   const collectionCounts = useMemo(() => ({
-    // Cobranca: template de cobrança + sendo atendido por agente (Omega, sem humano)
-    cobranca: conversations.filter(c => 
-      c.hasCollectionTemplate && c.status === 'nina'
-    ).length,
-    // Aguardando: template enviado mas não respondeu (sent ou no_response)
+    // Omega: sendo atendido por agente (qualquer lead com status nina)
+    omega: conversations.filter(c => c.status === 'nina').length,
+    // Aguardando: template enviado, não respondeu, E não está com agente
     aguardando: conversations.filter(c => 
-      c.hasCollectionTemplate && (c.collectionStatus === 'sent' || c.collectionStatus === 'no_response')
+      c.hasCollectionTemplate && 
+      (c.collectionStatus === 'sent' || c.collectionStatus === 'no_response') &&
+      c.status !== 'nina'
     ).length,
     // Respondeu: template enviado e cliente respondeu
     responded: conversations.filter(c => c.collectionStatus === 'responded').length,
@@ -1086,12 +1086,15 @@ const ChatInterface: React.FC = () => {
       
       // Collection status filter
       if (selectedCollectionFilter) {
-        if (selectedCollectionFilter === 'cobranca') {
-          // Cobrança: tem template de cobrança + atendido por agente (não humano)
-          if (!chat.hasCollectionTemplate || chat.status !== 'nina') return false;
+        if (selectedCollectionFilter === 'omega') {
+          // Omega: apenas leads com status nina (atendidos pelo agente)
+          if (chat.status !== 'nina') return false;
         } else if (selectedCollectionFilter === 'aguardando') {
-          // Aguardando: template enviado mas sem resposta (sent ou no_response)
-          if (!chat.hasCollectionTemplate || chat.collectionStatus === 'responded' || chat.collectionStatus === 'none') return false;
+          // Aguardando: template enviado, não respondeu, E não está com agente
+          if (!chat.hasCollectionTemplate || 
+              chat.collectionStatus === 'responded' || 
+              chat.collectionStatus === 'none' ||
+              chat.status === 'nina') return false;
         } else if (selectedCollectionFilter === 'responded') {
           if (chat.collectionStatus !== 'responded') return false;
         }
@@ -1577,18 +1580,18 @@ const ChatInterface: React.FC = () => {
               </button>
               
               {/* Atendidos por Omega (sem humano) */}
-              {collectionCounts.cobranca > 0 && (
+              {collectionCounts.omega > 0 && (
                 <button
-                  onClick={() => setSelectedCollectionFilter('cobranca')}
+                  onClick={() => setSelectedCollectionFilter('omega')}
                   className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
-                    selectedCollectionFilter === 'cobranca'
+                    selectedCollectionFilter === 'omega'
                       ? 'bg-gradient-to-r from-purple-400 to-violet-500 text-white shadow-lg shadow-purple-500/40 scale-[1.02] border-transparent'
                       : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
                   }`}
                 >
                   <Bot className="w-4 h-4" />
                   Omega
-                  <span className={`text-[10px] ${selectedCollectionFilter === 'cobranca' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.cobranca})</span>
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'omega' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.omega})</span>
                 </button>
               )}
               
