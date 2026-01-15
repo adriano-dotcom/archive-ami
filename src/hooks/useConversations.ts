@@ -7,10 +7,49 @@ import {
   DBMessage,
   transformDBToUIMessage,
   MessageDirection,
-  MessageType
+  MessageType,
+  CollectionStatus
 } from '@/types';
 import { toast } from 'sonner';
 import { playNotificationSound, playQualifiedLeadSound } from '@/utils/notificationSound';
+
+// Helper function to calculate collection status from messages
+function calculateCollectionStatus(
+  conv: UIConversation, 
+  messages: UIMessage[], 
+  newMessage?: UIMessage
+): { status: CollectionStatus; sentAt: string | null } {
+  // If already has a collection template, check for response
+  if (conv.hasCollectionTemplate && conv.collectionSentAt) {
+    const templateSentTime = new Date(conv.collectionSentAt).getTime();
+    
+    // Check if new message is from user after template
+    if (newMessage?.fromType === 'user') {
+      const newMsgTime = new Date(newMessage.sentAt).getTime();
+      if (newMsgTime > templateSentTime) {
+        return { status: 'responded', sentAt: conv.collectionSentAt };
+      }
+    }
+    
+    // Check all user messages after template
+    const hasUserResponse = messages.some(
+      m => m.fromType === 'user' && new Date(m.sentAt).getTime() > templateSentTime
+    );
+    
+    if (hasUserResponse) {
+      return { status: 'responded', sentAt: conv.collectionSentAt };
+    }
+    
+    // Check hours since sent
+    const hoursSinceSent = (Date.now() - templateSentTime) / (1000 * 60 * 60);
+    return { 
+      status: hoursSinceSent > 24 ? 'no_response' : 'sent', 
+      sentAt: conv.collectionSentAt 
+    };
+  }
+  
+  return { status: conv.collectionStatus, sentAt: conv.collectionSentAt };
+}
 
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
@@ -85,13 +124,21 @@ export function useConversations() {
 
                 // Normal flow for truly new messages (from contacts, Nina, etc)
                 console.log('[Realtime] Adding new message');
+                
+                // Recalculate collection status based on new message
+                const newMessages = [...conv.messages, uiMessage];
+                const collectionStatus = calculateCollectionStatus(conv, newMessages, uiMessage);
+                
                 return {
                   ...conv,
-                  messages: [...conv.messages, uiMessage],
+                  messages: newMessages,
                   lastMessage: newMessage.content || '',
                   lastMessageTime: 'Agora',
                   lastMessageAt: newMessage.sent_at,
                   lastMessageFromUser: newMessage.from_type === 'user',
+                  // Update collection status if relevant
+                  collectionStatus: collectionStatus.status,
+                  collectionSentAt: collectionStatus.sentAt,
                   // Increment unread if it's from user and play notification
                   unreadCount: newMessage.from_type === 'user' 
                     ? (playNotificationSound(), conv.unreadCount + 1)

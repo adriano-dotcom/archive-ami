@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
 } from './ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
-import { MessageDirection, MessageType, UIConversation, UIMessage, ConversationStatus, TagDefinition } from '../types';
+import { MessageDirection, MessageType, UIConversation, UIMessage, ConversationStatus, TagDefinition, CollectionStatus } from '../types';
 import { Button } from './Button';
 import { Button as ShadcnButton } from './ui/button';
 import { useConversations } from '../hooks/useConversations';
@@ -91,6 +91,9 @@ const ChatInterface: React.FC = () => {
   // Owner filter state
   const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
   const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
+  
+  // Collection status filter state
+  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<CollectionStatus | null>(null);
   
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -1039,6 +1042,14 @@ const ChatInterface: React.FC = () => {
     return conversations.filter(c => !c.assignedUserId && c.status !== 'closed').length;
   }, [conversations]);
 
+  // Collection status counts for filter pills
+  const collectionCounts = useMemo(() => ({
+    sent: conversations.filter(c => c.collectionStatus === 'sent').length,
+    responded: conversations.filter(c => c.collectionStatus === 'responded').length,
+    no_response: conversations.filter(c => c.collectionStatus === 'no_response').length,
+    total: conversations.filter(c => c.collectionStatus !== 'none').length,
+  }), [conversations]);
+
   const filteredConversations = conversations
     .filter(chat => {
       // Hide closed conversations by default (unless toggle is on)
@@ -1063,6 +1074,11 @@ const ChatInterface: React.FC = () => {
         if (chat.assignedUserId !== null) return false;
       } else if (selectedOwnerFilter && chat.assignedUserId !== selectedOwnerFilter) {
         return false;
+      }
+      
+      // Collection status filter
+      if (selectedCollectionFilter) {
+        if (chat.collectionStatus !== selectedCollectionFilter) return false;
       }
       
       // Text search filter
@@ -1527,6 +1543,73 @@ const ChatInterface: React.FC = () => {
             </div>
           )}
           
+          {/* Collection Status Filter Pills - iOS 26 Style */}
+          {!viewingArchived && collectionCounts.total > 0 && (
+            <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
+              {/* Todos (cobrança) */}
+              <button
+                onClick={() => setSelectedCollectionFilter(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                  !selectedCollectionFilter
+                    ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-lg shadow-slate-500/30 scale-[1.02] border-transparent'
+                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Cobrança
+                <span className={`text-[10px] ${!selectedCollectionFilter ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.total})</span>
+              </button>
+              
+              {/* Aguardando */}
+              {collectionCounts.sent > 0 && (
+                <button
+                  onClick={() => setSelectedCollectionFilter('sent')}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                    selectedCollectionFilter === 'sent'
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/40 scale-[1.02] border-transparent'
+                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  Aguardando
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'sent' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.sent})</span>
+                </button>
+              )}
+              
+              {/* Respondeu */}
+              {collectionCounts.responded > 0 && (
+                <button
+                  onClick={() => setSelectedCollectionFilter('responded')}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                    selectedCollectionFilter === 'responded'
+                      ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg shadow-emerald-500/40 scale-[1.02] border-transparent'
+                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Respondeu
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'responded' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.responded})</span>
+                </button>
+              )}
+              
+              {/* Sem Resposta */}
+              {collectionCounts.no_response > 0 && (
+                <button
+                  onClick={() => setSelectedCollectionFilter('no_response')}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                    selectedCollectionFilter === 'no_response'
+                      ? 'bg-gradient-to-r from-red-400 to-rose-500 text-white shadow-lg shadow-red-500/40 scale-[1.02] border-transparent animate-pulse'
+                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  Sem Resposta
+                  <span className={`text-[10px] ${selectedCollectionFilter === 'no_response' ? 'text-white/80' : 'opacity-60'}`}>({collectionCounts.no_response})</span>
+                </button>
+              )}
+            </div>
+          )}
+          
           {/* Search and closed filter */}
           <div className="flex items-center gap-2">
             <div className="relative group flex-1">
@@ -1667,11 +1750,23 @@ const ChatInterface: React.FC = () => {
                         lastMessageFromUser={chat.lastMessageFromUser} 
                         compact 
                       />
-                      {/* Collection Template Badge */}
-                      {chat.hasCollectionTemplate && (
+                      {/* Collection Status Badge - Dynamic based on status */}
+                      {chat.collectionStatus === 'sent' && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 backdrop-blur-sm text-amber-400 border border-amber-400/30 text-[10px] rounded-full font-semibold flex items-center gap-1 shrink-0 shadow-lg shadow-amber-500/10">
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          Cobrança
+                          <Clock className="w-2.5 h-2.5" />
+                          Aguardando
+                        </span>
+                      )}
+                      {chat.collectionStatus === 'responded' && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-emerald-500/20 to-green-500/20 backdrop-blur-sm text-emerald-400 border border-emerald-400/30 text-[10px] rounded-full font-semibold flex items-center gap-1 shrink-0 shadow-lg shadow-emerald-500/10">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          Respondeu
+                        </span>
+                      )}
+                      {chat.collectionStatus === 'no_response' && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-red-500/20 to-rose-500/20 backdrop-blur-sm text-red-400 border border-red-400/30 text-[10px] rounded-full font-semibold flex items-center gap-1 shrink-0 shadow-lg shadow-red-500/10 animate-pulse">
+                          <AlertCircle className="w-2.5 h-2.5" />
+                          Sem Resposta
                         </span>
                       )}
                       {/* Tags with glass effect */}

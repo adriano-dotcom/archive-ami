@@ -223,6 +223,8 @@ export interface DBMessage {
 }
 
 // ============= Transformed Types for UI =============
+export type CollectionStatus = 'none' | 'sent' | 'responded' | 'no_response';
+
 export interface UIConversation {
   id: string;
   contactId: string;
@@ -257,6 +259,9 @@ export interface UIConversation {
   // Collection template indicator
   hasCollectionTemplate: boolean;
   collectionTemplateName: string | null;
+  // Collection status for lead tracking
+  collectionStatus: CollectionStatus;
+  collectionSentAt: string | null;
 }
 
 export interface UIMessage {
@@ -308,6 +313,27 @@ export function transformDBToUIConversation(
   const isCollectionTemplate = isTemplate && templateName && 
     (templateName.toLowerCase().includes('cobranca') || templateName.toLowerCase().includes('cobrança'));
 
+  // Calculate collection status
+  let collectionStatus: CollectionStatus = 'none';
+  let collectionSentAt: string | null = null;
+
+  if (isCollectionTemplate && lastOutboundMsg) {
+    collectionSentAt = lastOutboundMsg.sent_at;
+    const templateSentTime = new Date(lastOutboundMsg.sent_at).getTime();
+    
+    // Find last user message after template was sent
+    const lastUserMessageAfterTemplate = [...sortedMessages]
+      .reverse()
+      .find(m => m.from_type === 'user' && new Date(m.sent_at).getTime() > templateSentTime);
+    
+    if (lastUserMessageAfterTemplate) {
+      collectionStatus = 'responded';
+    } else {
+      const hoursSinceSent = (Date.now() - templateSentTime) / (1000 * 60 * 60);
+      collectionStatus = hoursSinceSent > 24 ? 'no_response' : 'sent';
+    }
+  }
+
   return {
     id: conv.id,
     contactId: conv.contact_id,
@@ -342,7 +368,10 @@ export function transformDBToUIConversation(
     windowHoursRemaining: hoursRemaining,
     // Collection template
     hasCollectionTemplate: isCollectionTemplate || false,
-    collectionTemplateName: isCollectionTemplate ? templateName : null
+    collectionTemplateName: isCollectionTemplate ? templateName : null,
+    // Collection status for lead tracking
+    collectionStatus,
+    collectionSentAt
   };
 }
 
