@@ -35,9 +35,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const roleDisplay = role === 'admin' ? 'Administrador' : role === 'manager' ? 'Gerente' : 'Atendente';
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovable.app') || 'https://app.jacometo.com.br';
+    
+    // Use origin header or fallback to published URL
+    const origin = req.headers.get('origin') || 'https://archive-ami.lovable.app';
+    const authUrl = `${origin}/auth`;
 
-    console.log(`Sending invite email to: ${email}, role: ${role}, inviter: ${inviter_name}`);
+    console.log(`Sending invite email to: ${email}, role: ${role}, inviter: ${inviter_name}, authUrl: ${authUrl}`);
 
     const emailResponse = await resend.emails.send({
       from: "Jacometo CRM <onboarding@resend.dev>",
@@ -78,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </p>
               </div>
               
-              <a href="https://preview--sdr-adri.lovable.app/auth" 
+              <a href="${authUrl}" 
                  style="display: block; background: linear-gradient(135deg, #0ea5e9, #22d3ee); color: #0f172a; text-align: center; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
                 Criar Minha Conta
               </a>
