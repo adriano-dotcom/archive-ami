@@ -739,6 +739,7 @@ const Contacts: React.FC = () => {
             hasNextPage={hasNextPage || false}
             fetchNextPage={fetchNextPage}
             totalCount={totalCount}
+            onOpenDuplicatesModal={() => setIsDuplicateContactsModalOpen(true)}
           />
         </TabsContent>
 

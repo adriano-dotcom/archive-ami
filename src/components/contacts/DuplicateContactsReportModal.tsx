@@ -11,6 +11,7 @@ import { AlertTriangle, GitMerge, Building2, Users, MessageSquare, Loader2, Chec
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
+import { normalizePhone, getPhoneVariants, getCanonicalPhone } from '@/utils/duplicateDetection';
 
 interface ContactForDuplicate {
   id: string;
@@ -42,53 +43,6 @@ interface DuplicateContactsReportModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
-
-/**
- * Normaliza o telefone para apenas dígitos
- */
-const normalizePhone = (phone: string | null | undefined): string => {
-  return phone?.replace(/\D/g, '') || '';
-};
-
-/**
- * Cria variações do número (com/sem 9º dígito) para agrupamento
- */
-const getPhoneVariations = (phone: string): Set<string> => {
-  const digits = normalizePhone(phone);
-  const variations = new Set<string>();
-  
-  if (!digits) return variations;
-  
-  variations.add(digits);
-  
-  // Se 13 dígitos (55 + DDD + 9 + 8 dígitos), criar versão sem o 9º dígito
-  if (digits.length === 13) {
-    variations.add(digits.slice(0, 4) + digits.slice(5));
-  }
-  // Se 12 dígitos (55 + DDD + 8 dígitos formato antigo), criar versão com 9º dígito
-  else if (digits.length === 12) {
-    variations.add(digits.slice(0, 4) + '9' + digits.slice(4));
-  }
-  // Sem código do país
-  else if (digits.length === 11) {
-    variations.add('55' + digits);
-    variations.add(digits.slice(0, 2) + digits.slice(3)); // sem 9
-  }
-  else if (digits.length === 10) {
-    variations.add('55' + digits.slice(0, 2) + '9' + digits.slice(2)); // com 9
-    variations.add('55' + digits);
-  }
-  
-  return variations;
-};
-
-/**
- * Gera uma chave canônica para o número (menor variação ordenada)
- */
-const getCanonicalPhone = (phone: string): string => {
-  const variations = getPhoneVariations(phone);
-  return Array.from(variations).sort()[0] || normalizePhone(phone);
-};
 
 export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModalProps> = ({
   open,
