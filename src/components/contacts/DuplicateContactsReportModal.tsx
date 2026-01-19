@@ -42,12 +42,14 @@ interface DuplicateContactsReportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  focusGroupKey?: string;
 }
 
 export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModalProps> = ({
   open,
   onOpenChange,
-  onSuccess
+  onSuccess,
+  focusGroupKey
 }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [contacts, setContacts] = useState<ContactForDuplicate[]>([]);
@@ -146,7 +148,8 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
       // Usar a chave canônica para agrupar
       const canonicalPhone = getCanonicalPhone(phoneDigits || whatsappDigits);
       
-      if (!canonicalPhone) return;
+      // Ignorar telefones muito curtos (dados inválidos)
+      if (!canonicalPhone || canonicalPhone.length < 10) return;
       
       if (!phoneMap.has(canonicalPhone)) {
         phoneMap.set(canonicalPhone, []);
@@ -183,7 +186,12 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
   const duplicateGroups = useMemo(() => {
     if (!open || contacts.length < 2) return [];
     
-    const groups = findDuplicateGroups();
+    let groups = findDuplicateGroups();
+    
+    // Se houver focusGroupKey, filtrar apenas esse grupo
+    if (focusGroupKey) {
+      groups = groups.filter(g => g.normalizedPhone === focusGroupKey);
+    }
     
     // Initialize selections with first contact as destination
     const initialSelections = new Map<string, GroupSelection>();
@@ -195,11 +203,15 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
     });
     setGroupSelections(initialSelections);
     
-    // Auto-expand first 3 groups
-    setExpandedGroups(new Set(groups.slice(0, 3).map(g => g.id)));
+    // Auto-expand groups (all if focused, first 3 otherwise)
+    if (focusGroupKey) {
+      setExpandedGroups(new Set(groups.map(g => g.id)));
+    } else {
+      setExpandedGroups(new Set(groups.slice(0, 3).map(g => g.id)));
+    }
     
     return groups;
-  }, [contacts, findDuplicateGroups, open]);
+  }, [contacts, findDuplicateGroups, open, focusGroupKey]);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -522,10 +534,16 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-100">
               <Copy className="w-5 h-5 text-amber-400" />
-              Relatório de Telefones Duplicados
+              {focusGroupKey 
+                ? `Mesclar Duplicados: ${formatPhoneDisplay(focusGroupKey)}`
+                : 'Relatório de Telefones Duplicados'
+              }
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Contatos com o mesmo número de telefone cadastrados múltiplas vezes. Selecione qual manter e quais excluir.
+              {focusGroupKey 
+                ? 'Selecione qual contato manter (MANTER) e quais excluir (marcar checkbox).'
+                : 'Contatos com o mesmo número de telefone cadastrados múltiplas vezes. Selecione qual manter e quais excluir.'
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -538,9 +556,17 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
             ) : duplicateGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <CheckCircle className="w-12 h-12 text-emerald-400" />
-                <p className="text-slate-300 font-medium">Nenhum telefone duplicado encontrado!</p>
+                <p className="text-slate-300 font-medium">
+                  {focusGroupKey 
+                    ? 'Este contato não possui duplicatas!'
+                    : 'Nenhum telefone duplicado encontrado!'
+                  }
+                </p>
                 <p className="text-slate-500 text-sm">
-                  Todos os {contacts.length} contatos possuem telefone único.
+                  {focusGroupKey 
+                    ? 'O telefone pode ter sido mesclado ou não há mais duplicatas.'
+                    : `Todos os ${contacts.length} contatos possuem telefone único.`
+                  }
                 </p>
               </div>
             ) : (
@@ -567,30 +593,41 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
 
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-slate-300">
-                    Encontrados <span className="text-amber-400 font-semibold">{duplicateGroups.length}</span> telefone(s) 
-                    com cadastros duplicados
+                    {focusGroupKey ? (
+                      <>
+                        <span className="text-amber-400 font-semibold">{duplicateGroups[0]?.contacts.length || 0}</span> contato(s) 
+                        com este telefone
+                      </>
+                    ) : (
+                      <>
+                        Encontrados <span className="text-amber-400 font-semibold">{duplicateGroups.length}</span> telefone(s) 
+                        com cadastros duplicados
+                      </>
+                    )}
                   </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpandedGroups(new Set(duplicateGroups.map(g => g.id)))}
-                      className="gap-2 border-slate-600 text-slate-300"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                      Expandir Todos
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setConfirmAutoMerge(true)}
-                      disabled={merging}
-                      className="gap-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
-                      variant="outline"
-                    >
-                      <Zap className="w-4 h-4" />
-                      Mesclar Todos ({duplicateGroups.length})
-                    </Button>
-                  </div>
+                  {!focusGroupKey && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedGroups(new Set(duplicateGroups.map(g => g.id)))}
+                        className="gap-2 border-slate-600 text-slate-300"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                        Expandir Todos
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setConfirmAutoMerge(true)}
+                        disabled={merging}
+                        className="gap-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
+                        variant="outline"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Mesclar Todos ({duplicateGroups.length})
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <ScrollArea className="h-[55vh] pr-4">

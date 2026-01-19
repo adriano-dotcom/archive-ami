@@ -77,6 +77,7 @@ const Contacts: React.FC = () => {
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkSendTemplateOpen, setIsBulkSendTemplateOpen] = useState(false);
   const [isDuplicateContactsModalOpen, setIsDuplicateContactsModalOpen] = useState(false);
+  const [duplicatesFocus, setDuplicatesFocus] = useState<{ groupKey: string; contactId: string } | null>(null);
   
   const { isAdmin } = useUserRole();
   
@@ -739,7 +740,10 @@ const Contacts: React.FC = () => {
             hasNextPage={hasNextPage || false}
             fetchNextPage={fetchNextPage}
             totalCount={totalCount}
-            onOpenDuplicatesModal={() => setIsDuplicateContactsModalOpen(true)}
+            onOpenDuplicatesModal={(focus) => {
+              setDuplicatesFocus(focus);
+              setIsDuplicateContactsModalOpen(true);
+            }}
           />
         </TabsContent>
 
@@ -856,10 +860,14 @@ const Contacts: React.FC = () => {
       {/* Duplicate Contacts Report Modal */}
       <DuplicateContactsReportModal
         open={isDuplicateContactsModalOpen}
-        onOpenChange={setIsDuplicateContactsModalOpen}
+        onOpenChange={(open) => {
+          setIsDuplicateContactsModalOpen(open);
+          if (!open) setDuplicatesFocus(null);
+        }}
         onSuccess={() => {
           invalidateContacts();
         }}
+        focusGroupKey={duplicatesFocus?.groupKey}
       />
 
     </div>
