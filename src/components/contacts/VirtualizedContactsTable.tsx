@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useEffect, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
   Loader2, MessageSquare, Mail, Phone, Building2, Eye, Edit, Trash2, 
-  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive 
+  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive, Copy
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { ContactLight } from '@/hooks/useContacts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 // Alias para compatibilidade
 type ExtendedContact = ContactLight;
@@ -122,7 +123,26 @@ const ContactRow = memo(({
             {contact.name.substring(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate text-sm">{contact.name}</div>
+            <div className="flex items-center gap-2">
+              <div className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate text-sm">{contact.name}</div>
+              {contact.duplicateInfo?.isDuplicate && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-0.5 cursor-help flex-shrink-0">
+                        <Copy className="w-2.5 h-2.5" />
+                        {contact.duplicateInfo.duplicateCount}x
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-slate-900 border-amber-500/30 text-amber-200">
+                      <p className="text-xs">
+                        {contact.duplicateInfo.duplicateCount} contatos com mesmo telefone
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             {contact.company ? (
               <div className="flex items-center gap-1 text-xs text-slate-500">
                 <Building2 className="w-3 h-3 flex-shrink-0" />
