@@ -2,6 +2,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
+import { detectDuplicates, DuplicateInfo } from '@/utils/duplicateDetection';
 
 const PAGE_SIZE = 50;
 
@@ -40,6 +41,8 @@ export interface ContactLight {
   insurers?: string[];
   overdueValue?: number;
   maxDaysOverdue?: number;
+  // Duplicate detection info
+  duplicateInfo?: DuplicateInfo;
 }
 
 // Formatadores
@@ -118,7 +121,7 @@ const fetchContactsPage = async (page: number): Promise<{
 };
 
 // Função para enriquecer contatos com dados relacionais
-const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<ContactLight[]> => {
+const enrichContactsWithRelations = async (contacts: ContactLight[], allLoadedContacts: ContactLight[] = []): Promise<ContactLight[]> => {
   if (contacts.length === 0) return contacts;
 
   const contactIds = contacts.map(c => c.id);
@@ -163,6 +166,14 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
     overdueByContact.set(inst.contact_id, existing);
   });
 
+  // Detect duplicates across all loaded contacts
+  const allContactsForDuplicates = [...allLoadedContacts, ...contacts.filter(c => !allLoadedContacts.some(ac => ac.id === c.id))];
+  const duplicateMap = detectDuplicates(allContactsForDuplicates.map(c => ({
+    id: c.id,
+    phone: c.phone,
+    whatsapp_id: c.whatsapp_id
+  })));
+
   // Enriquecer contatos
   return contacts.map(contact => {
     const conversation = conversationsByContact.get(contact.id);
@@ -177,6 +188,7 @@ const enrichContactsWithRelations = async (contacts: ContactLight[]): Promise<Co
       insurers: policyData ? Array.from(policyData.insurers) : [],
       overdueValue: overdueData?.totalValue || 0,
       maxDaysOverdue: overdueData?.maxDays || 0,
+      duplicateInfo: duplicateMap.get(contact.id),
     };
   });
 };
@@ -195,9 +207,11 @@ export const useContactsInfinite = () => {
     refetch
   } = useInfiniteQuery({
     queryKey: ['contacts-infinite'],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryFn: async ({ pageParam = 0, queryKey, meta }) => {
       const page = await fetchContactsPage(pageParam);
-      const enriched = await enrichContactsWithRelations(page.contacts);
+      // Get all previously loaded contacts for duplicate detection across pages
+      const allPreviousContacts: ContactLight[] = [];
+      const enriched = await enrichContactsWithRelations(page.contacts, allPreviousContacts);
       return { ...page, contacts: enriched };
     },
     initialPageParam: 0,

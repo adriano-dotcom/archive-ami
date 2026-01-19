@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive, Copy } from 'lucide-react';
+import { Search, Filter, UserPlus, MessageSquare, Loader2, Mail, Phone, Upload, Building2, Eye, Edit, Trash2, ChevronDown, X, CheckSquare, Square, Minus, AlertTriangle, Send, Tag, User, CalendarDays, Archive, Copy, GitMerge } from 'lucide-react';
 import { VirtualizedContactsTable, DuplicateContactsReportModal } from './contacts';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useContactsInfinite, useCampaigns, ContactLight } from '@/hooks/useContacts';
@@ -90,6 +90,7 @@ const Contacts: React.FC = () => {
   
   const [createdDateFilter, setCreatedDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month'>('all');
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'archived' | 'none'>('all');
+  const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
 
   // IntersectionObserver callback para scroll infinito
   const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
@@ -318,8 +319,18 @@ const Contacts: React.FC = () => {
       });
     }
     
+    // Filtrar apenas duplicatas se ativado
+    if (showOnlyDuplicates) {
+      filtered = filtered.filter(c => c.duplicateInfo?.isDuplicate === true);
+    }
+    
     return filtered;
   };
+  
+  // Calculate duplicates count
+  const duplicatesCount = useMemo(() => {
+    return inboundContacts.filter(c => c.duplicateInfo?.isDuplicate === true).length;
+  }, [inboundContacts]);
   
   // Bulk selection functions
   const toggleContactSelection = (contactId: string) => {
@@ -382,9 +393,10 @@ const Contacts: React.FC = () => {
     setVerticalFilter('all');
     setCreatedDateFilter('all');
     setChatStatusFilter('all');
+    setShowOnlyDuplicates(false);
   };
   
-  const hasActiveFilters = selectedStatuses.length > 0 || cnpjFilter !== 'all' || channelFilter !== 'all' || dateFilter !== 'all' || letterFilter !== 'all' || campaignFilter !== 'all' || verticalFilter !== 'all' || createdDateFilter !== 'all' || chatStatusFilter !== 'all';
+  const hasActiveFilters = selectedStatuses.length > 0 || cnpjFilter !== 'all' || channelFilter !== 'all' || dateFilter !== 'all' || letterFilter !== 'all' || campaignFilter !== 'all' || verticalFilter !== 'all' || createdDateFilter !== 'all' || chatStatusFilter !== 'all' || showOnlyDuplicates;
   
   const getChatStatusBadge = (contact: ExtendedContact) => {
     if (contact.conversationActive === null || contact.conversationActive === undefined) {
@@ -471,6 +483,38 @@ const Contacts: React.FC = () => {
         </div>
       </div>
 
+      {/* Duplicate Alert Banner */}
+      {duplicatesCount > 0 && activeTab === 'inbound' && !showOnlyDuplicates && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <span className="text-amber-200 text-sm">
+              <strong>{duplicatesCount}</strong> contato{duplicatesCount > 1 ? 's' : ''} com telefone duplicado detectado{duplicatesCount > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOnlyDuplicates(true)}
+              className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs"
+            >
+              <Copy className="w-3.5 h-3.5 mr-1.5" />
+              Ver Duplicados
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDuplicateContactsModalOpen(true)}
+              className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs"
+            >
+              <GitMerge className="w-3.5 h-3.5 mr-1.5" />
+              Mesclar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Tabs Inbound/Segurados */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'inbound' | 'segurados')} className="mb-6">
         <TabsList className="bg-slate-900/50 border border-slate-800 p-1">
@@ -491,6 +535,22 @@ const Contacts: React.FC = () => {
             Segurados
           </TabsTrigger>
         </TabsList>
+
+        {/* Duplicate Filter Active Indicator */}
+        {showOnlyDuplicates && (
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-flex items-center gap-1.5">
+              <Copy className="w-3.5 h-3.5" />
+              Mostrando apenas duplicados ({duplicatesCount})
+              <button 
+                onClick={() => setShowOnlyDuplicates(false)}
+                className="ml-1 hover:text-amber-100"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+        )}
 
         {/* Bulk Actions Bar */}
         {selectedContactIds.size > 0 && (
