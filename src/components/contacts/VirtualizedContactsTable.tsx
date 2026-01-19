@@ -58,8 +58,8 @@ interface VirtualizedContactsTableProps {
   hasNextPage: boolean;
   fetchNextPage: () => void;
   totalCount: number;
-  // Duplicate modal callback
-  onOpenDuplicatesModal?: () => void;
+  // Duplicate modal callback with focus context
+  onOpenDuplicatesModal?: (focus: { groupKey: string; contactId: string }) => void;
 }
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -92,7 +92,7 @@ const ContactRow = memo(({
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
   getChatStatusBadge: (contact: ExtendedContact) => React.ReactNode;
-  onOpenDuplicatesModal?: () => void;
+  onOpenDuplicatesModal?: (focus: { groupKey: string; contactId: string }) => void;
 }) => {
   // Column widths matching header - using grid layout for virtualization
   const colWidths = {
@@ -136,7 +136,9 @@ const ContactRow = memo(({
                       <span 
                         onClick={(e) => {
                           e.stopPropagation();
-                          onOpenDuplicatesModal?.();
+                          if (contact.duplicateInfo?.groupKey) {
+                            onOpenDuplicatesModal?.({ groupKey: contact.duplicateInfo.groupKey, contactId: contact.id });
+                          }
                         }}
                         className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-0.5 cursor-pointer flex-shrink-0 hover:bg-amber-500/20 transition-colors"
                       >
