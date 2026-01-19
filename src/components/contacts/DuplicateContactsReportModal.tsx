@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, GitMerge, Building2, Users, MessageSquare, Loader2, CheckCircle, ChevronDown, ChevronUp, Check, Trash2, Copy, Phone } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { AlertTriangle, GitMerge, Building2, Users, MessageSquare, Loader2, CheckCircle, ChevronDown, ChevronUp, Check, Trash2, Copy, Phone, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
@@ -100,6 +101,8 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
   const [groupSelections, setGroupSelections] = useState<Map<string, GroupSelection>>(new Map());
   const [merging, setMerging] = useState(false);
   const [confirmMerge, setConfirmMerge] = useState<{ groupId: string; group: DuplicateContactGroup } | null>(null);
+  const [confirmAutoMerge, setConfirmAutoMerge] = useState(false);
+  const [autoMergeProgress, setAutoMergeProgress] = useState({ current: 0, total: 0, mergedCount: 0, deletedCount: 0 });
 
   // Buscar contatos quando modal abre
   React.useEffect(() => {
@@ -425,6 +428,139 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
     return displayPhoneInternational(phone);
   };
 
+  /**
+   * Mescla automaticamente todos os grupos de duplicatas
+   * Mantém o contato com mais conversas; em caso de empate, o mais antigo
+   */
+  const executeAutoMergeAll = async () => {
+    setMerging(true);
+    setConfirmAutoMerge(false);
+    
+    let mergedCount = 0;
+    let deletedCount = 0;
+    const total = duplicateGroups.length;
+    
+    try {
+      for (let i = 0; i < duplicateGroups.length; i++) {
+        const group = duplicateGroups[i];
+        
+        // Atualizar progresso
+        setAutoMergeProgress({ current: i + 1, total, mergedCount, deletedCount });
+        
+        // Ordenar: mais conversas primeiro, depois mais antigo
+        const sorted = [...group.contacts].sort((a, b) => {
+          // Prioridade 1: mais conversas
+          if (b.conversations_count !== a.conversations_count) {
+            return b.conversations_count - a.conversations_count;
+          }
+          // Prioridade 2: com empresa vinculada
+          if (b.company_id && !a.company_id) return 1;
+          if (a.company_id && !b.company_id) return -1;
+          // Prioridade 3: mais antigo
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        
+        const destination = sorted[0];
+        const sources = sorted.slice(1);
+        
+        // Buscar whatsapp_id de algum source para atualizar o destination se necessário
+        const sourcesWithWhatsapp = sources.filter(c => c.whatsapp_id);
+        
+        for (const source of sources) {
+          // Mover conversas
+          await supabase
+            .from('conversations')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Mover políticas
+          await supabase
+            .from('policies')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Mover parcelas
+          await supabase
+            .from('installments')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Mover call_logs
+          await supabase
+            .from('call_logs')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Mover appointments
+          await supabase
+            .from('appointments')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Mover collection_attempts
+          await supabase
+            .from('collection_attempts')
+            .update({ contact_id: destination.id })
+            .eq('contact_id', source.id);
+          
+          // Deletar contato source
+          await supabase
+            .from('contacts')
+            .delete()
+            .eq('id', source.id);
+          
+          deletedCount++;
+        }
+        
+        // Atualizar whatsapp_id do destination se algum source tinha
+        if (sourcesWithWhatsapp.length > 0 && !destination.whatsapp_id) {
+          await supabase
+            .from('contacts')
+            .update({ whatsapp_id: sourcesWithWhatsapp[0].whatsapp_id })
+            .eq('id', destination.id);
+        }
+        
+        mergedCount++;
+        setAutoMergeProgress({ current: i + 1, total, mergedCount, deletedCount });
+      }
+      
+      toast.success(`${mergedCount} grupo(s) mesclado(s)! ${deletedCount} contato(s) excluído(s).`);
+      
+      // Atualizar lista
+      await fetchContacts();
+      onSuccess();
+    } catch (error) {
+      console.error('Error auto-merging contacts:', error);
+      toast.error('Erro ao mesclar contatos automaticamente');
+    } finally {
+      setMerging(false);
+      setAutoMergeProgress({ current: 0, total: 0, mergedCount: 0, deletedCount: 0 });
+    }
+  };
+
+  // Calcular estatísticas totais para auto-merge
+  const autoMergeStats = useMemo(() => {
+    let totalToDelete = 0;
+    let totalConversationsToMove = 0;
+    let totalPoliciesToMove = 0;
+    
+    duplicateGroups.forEach(group => {
+      const sorted = [...group.contacts].sort((a, b) => {
+        if (b.conversations_count !== a.conversations_count) {
+          return b.conversations_count - a.conversations_count;
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+      
+      const sources = sorted.slice(1);
+      totalToDelete += sources.length;
+      totalConversationsToMove += sources.reduce((sum, c) => sum + c.conversations_count, 0);
+      totalPoliciesToMove += sources.reduce((sum, c) => sum + c.policies_count, 0);
+    });
+    
+    return { totalToDelete, totalConversationsToMove, totalPoliciesToMove };
+  }, [duplicateGroups]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -455,20 +591,52 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
               </div>
             ) : (
               <>
+                {/* Progress indicator during auto-merge */}
+                {merging && autoMergeProgress.total > 0 && (
+                  <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                      <span className="text-sm text-slate-300">
+                        Mesclando grupo {autoMergeProgress.current} de {autoMergeProgress.total}...
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(autoMergeProgress.current / autoMergeProgress.total) * 100} 
+                      className="h-2 bg-slate-700"
+                    />
+                    <div className="flex gap-4 mt-2 text-xs text-slate-400">
+                      <span>✓ {autoMergeProgress.mergedCount} grupos mesclados</span>
+                      <span>🗑️ {autoMergeProgress.deletedCount} contatos excluídos</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-slate-300">
                     Encontrados <span className="text-amber-400 font-semibold">{duplicateGroups.length}</span> telefone(s) 
                     com cadastros duplicados
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setExpandedGroups(new Set(duplicateGroups.map(g => g.id)))}
-                    className="gap-2 border-slate-600 text-slate-300"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                    Expandir Todos
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExpandedGroups(new Set(duplicateGroups.map(g => g.id)))}
+                      className="gap-2 border-slate-600 text-slate-300"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      Expandir Todos
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setConfirmAutoMerge(true)}
+                      disabled={merging}
+                      className="gap-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
+                      variant="outline"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Mesclar Todos ({duplicateGroups.length})
+                    </Button>
+                  </div>
                 </div>
 
                 <ScrollArea className="h-[55vh] pr-4">
@@ -719,6 +887,66 @@ export const DuplicateContactsReportModal: React.FC<DuplicateContactsReportModal
                   Confirmar Mesclagem
                 </>
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Auto Merge All Dialog */}
+      <AlertDialog open={confirmAutoMerge} onOpenChange={setConfirmAutoMerge}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-slate-100">
+              <Zap className="w-5 h-5 text-emerald-400" />
+              Mesclar Todos Automaticamente
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-slate-400 space-y-3">
+                <p>
+                  Esta ação irá mesclar <strong className="text-amber-400">{duplicateGroups.length}</strong> grupos de contatos duplicados.
+                </p>
+                
+                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 space-y-2">
+                  <p className="text-sm">
+                    <span className="text-emerald-400 font-medium">✓ Critério de seleção:</span> Para cada grupo, será mantido o contato com <strong className="text-emerald-300">mais conversas</strong>.
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    Em caso de empate: preferência para contatos com empresa vinculada ou mais antigos.
+                  </p>
+                </div>
+                
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 space-y-1">
+                  <p className="text-sm">
+                    <span className="text-red-400 font-medium">⚠️ Serão excluídos:</span> <strong className="text-red-300">{autoMergeStats.totalToDelete}</strong> contatos duplicados
+                  </p>
+                  {autoMergeStats.totalConversationsToMove > 0 && (
+                    <p className="text-xs text-slate-400">
+                      • {autoMergeStats.totalConversationsToMove} conversa(s) serão transferidas
+                    </p>
+                  )}
+                  {autoMergeStats.totalPoliciesToMove > 0 && (
+                    <p className="text-xs text-slate-400">
+                      • {autoMergeStats.totalPoliciesToMove} apólice(s) serão transferidas
+                    </p>
+                  )}
+                </div>
+                
+                <p className="text-red-400 font-medium text-sm">
+                  Esta ação NÃO pode ser desfeita!
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-600 text-slate-300">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeAutoMergeAll}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Mesclar {duplicateGroups.length} Grupos
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
