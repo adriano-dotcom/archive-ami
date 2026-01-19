@@ -179,14 +179,47 @@ serve(async (req) => {
     console.log('WhatsApp API response:', waData);
 
     // Extract wa_id from response and update contact for future matching
+    // CRITICAL: Always update whatsapp_id to ensure responses go to the correct conversation
     const recipientWaId = waData.contacts?.[0]?.wa_id;
     if (recipientWaId) {
       console.log('Updating contact whatsapp_id:', recipientWaId);
-      await supabase
+      
+      // Always update the whatsapp_id for this contact (overwrite if different)
+      const { error: updateError } = await supabase
         .from('contacts')
         .update({ whatsapp_id: recipientWaId })
-        .eq('id', contact_id)
-        .is('whatsapp_id', null); // Only update if not already set
+        .eq('id', contact_id);
+      
+      if (updateError) {
+        console.error('Error updating whatsapp_id:', updateError);
+      }
+      
+      // Check for other contacts with the same whatsapp_id (potential duplicates)
+      const { data: duplicateContacts } = await supabase
+        .from('contacts')
+        .select('id, name, phone_number')
+        .eq('whatsapp_id', recipientWaId)
+        .neq('id', contact_id);
+      
+      if (duplicateContacts && duplicateContacts.length > 0) {
+        console.warn(`[Template] Found ${duplicateContacts.length} other contacts with same whatsapp_id:`, 
+          duplicateContacts.map((c: any) => `${c.name} (${c.phone_number})`));
+        
+        // Mark duplicates for review by adding metadata
+        for (const dup of duplicateContacts) {
+          await supabase
+            .from('contacts')
+            .update({ 
+              metadata: { 
+                potential_duplicate_of: contact_id,
+                duplicate_detected_at: new Date().toISOString(),
+                duplicate_reason: 'same_whatsapp_id'
+              }
+            })
+            .eq('id', dup.id)
+            .is('metadata', null); // Only set if metadata is null to avoid overwriting
+        }
+      }
     }
 
     // Get template body text for message content

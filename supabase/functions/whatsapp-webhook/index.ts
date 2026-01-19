@@ -71,13 +71,15 @@ function normalizePhone(phone: string): string {
 }
 
 // Generate phone variants for flexible search (Brazilian mobile numbers)
+// This is critical to match contacts when WhatsApp returns a different format than stored
 function getPhoneVariants(phone: string): string[] {
   const normalized = normalizePhone(phone);
-  const variants: string[] = [normalized];
+  const variants = new Set<string>();
+  variants.add(normalized);
   
   // Only process if it looks like a Brazilian number (55 + DDD + number)
   if (!normalized.startsWith('55') || normalized.length < 12) {
-    return variants;
+    return Array.from(variants);
   }
   
   const ddd = normalized.substring(2, 4);
@@ -86,43 +88,78 @@ function getPhoneVariants(phone: string): string[] {
   // If 9 digits after DDD (new mobile format with 9), also try without the 9
   if (rest.length === 9 && rest.startsWith('9')) {
     const withoutNine = '55' + ddd + rest.substring(1);
-    variants.push(withoutNine);
+    variants.add(withoutNine);
+    // Also add without country code
+    variants.add(ddd + rest);
+    variants.add(ddd + rest.substring(1));
   }
   
   // If 8 digits after DDD (old format or landline), also try with 9 prefix
   if (rest.length === 8) {
     const withNine = '55' + ddd + '9' + rest;
-    variants.push(withNine);
+    variants.add(withNine);
+    // Also add without country code
+    variants.add(ddd + rest);
+    variants.add(ddd + '9' + rest);
   }
   
-  console.log('[Webhook] Phone variants for', phone, ':', variants);
-  return variants;
+  console.log('[Webhook] Phone variants for', phone, ':', Array.from(variants));
+  return Array.from(variants);
 }
 
 // Find contact by phone OR whatsapp_id with flexible matching
+// IMPORTANT: This function handles the case where WhatsApp returns a different phone format
+// than what's stored in the database (e.g., 554399145000 vs 5543999145000)
 async function findContactByPhone(supabase: any, phoneNumber: string): Promise<any | null> {
+  const variants = getPhoneVariants(phoneNumber);
+  
   // First, try to find by whatsapp_id (most reliable - doesn't change with phone format)
-  const { data: contactByWaId, error: waIdError } = await supabase
+  // Search across ALL variants to handle format differences
+  const { data: contactsByWaId, error: waIdError } = await supabase
     .from('contacts')
-    .select('*')
-    .eq('whatsapp_id', phoneNumber)
-    .maybeSingle();
+    .select('*, conversations:conversations(id, is_active, updated_at, status)')
+    .in('whatsapp_id', variants);
   
   if (waIdError) {
     console.error('[Webhook] Error searching contacts by whatsapp_id:', waIdError);
   }
   
-  if (contactByWaId) {
-    console.log('[Webhook] Found existing contact by whatsapp_id:', contactByWaId.id);
-    return contactByWaId;
+  if (contactsByWaId && contactsByWaId.length > 0) {
+    // If multiple contacts found, prioritize the one with most recent active conversation
+    if (contactsByWaId.length > 1) {
+      console.log(`[Webhook] Found ${contactsByWaId.length} contacts by whatsapp_id variants, selecting best match`);
+      
+      // Sort: active conversations first, then by most recent update
+      contactsByWaId.sort((a: any, b: any) => {
+        const aActiveConv = a.conversations?.find((c: any) => c.is_active);
+        const bActiveConv = b.conversations?.find((c: any) => c.is_active);
+        
+        // Prioritize contacts with active conversations
+        if (aActiveConv && !bActiveConv) return -1;
+        if (!aActiveConv && bActiveConv) return 1;
+        
+        // Both have active or both don't - compare by most recent conversation
+        const aLatest = a.conversations?.reduce((max: any, c: any) => 
+          !max || new Date(c.updated_at) > new Date(max.updated_at) ? c : max, null);
+        const bLatest = b.conversations?.reduce((max: any, c: any) => 
+          !max || new Date(c.updated_at) > new Date(max.updated_at) ? c : max, null);
+        
+        if (aLatest && bLatest) {
+          return new Date(bLatest.updated_at).getTime() - new Date(aLatest.updated_at).getTime();
+        }
+        return aLatest ? -1 : bLatest ? 1 : 0;
+      });
+    }
+    
+    const contact = contactsByWaId[0];
+    console.log('[Webhook] Found existing contact by whatsapp_id:', contact.id, 'name:', contact.name);
+    return contact;
   }
   
   // Then try by phone variants (for backwards compatibility)
-  const variants = getPhoneVariants(phoneNumber);
-  
   const { data: contacts, error } = await supabase
     .from('contacts')
-    .select('*')
+    .select('*, conversations:conversations(id, is_active, updated_at, status)')
     .in('phone_number', variants);
   
   if (error) {
@@ -131,8 +168,31 @@ async function findContactByPhone(supabase: any, phoneNumber: string): Promise<a
   }
   
   if (contacts && contacts.length > 0) {
+    // If multiple contacts found, prioritize the one with most recent active conversation
+    if (contacts.length > 1) {
+      console.log(`[Webhook] Found ${contacts.length} contacts by phone variants, selecting best match`);
+      
+      contacts.sort((a: any, b: any) => {
+        const aActiveConv = a.conversations?.find((c: any) => c.is_active);
+        const bActiveConv = b.conversations?.find((c: any) => c.is_active);
+        
+        if (aActiveConv && !bActiveConv) return -1;
+        if (!aActiveConv && bActiveConv) return 1;
+        
+        const aLatest = a.conversations?.reduce((max: any, c: any) => 
+          !max || new Date(c.updated_at) > new Date(max.updated_at) ? c : max, null);
+        const bLatest = b.conversations?.reduce((max: any, c: any) => 
+          !max || new Date(c.updated_at) > new Date(max.updated_at) ? c : max, null);
+        
+        if (aLatest && bLatest) {
+          return new Date(bLatest.updated_at).getTime() - new Date(aLatest.updated_at).getTime();
+        }
+        return aLatest ? -1 : bLatest ? 1 : 0;
+      });
+    }
+    
     const contact = contacts[0];
-    console.log('[Webhook] Found existing contact with phone variant:', contact.phone_number);
+    console.log('[Webhook] Found existing contact with phone variant:', contact.phone_number, 'name:', contact.name);
     
     // Update whatsapp_id if not set (for older contacts)
     if (!contact.whatsapp_id && phoneNumber) {
