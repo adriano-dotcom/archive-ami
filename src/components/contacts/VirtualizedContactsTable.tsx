@@ -58,6 +58,8 @@ interface VirtualizedContactsTableProps {
   hasNextPage: boolean;
   fetchNextPage: () => void;
   totalCount: number;
+  // Duplicate modal callback
+  onOpenDuplicatesModal?: () => void;
 }
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -75,7 +77,8 @@ const ContactRow = memo(({
   handleConverse,
   getStatusColor,
   getStatusLabel,
-  getChatStatusBadge
+  getChatStatusBadge,
+  onOpenDuplicatesModal
 }: {
   contact: ExtendedContact;
   isSelected: boolean;
@@ -89,6 +92,7 @@ const ContactRow = memo(({
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
   getChatStatusBadge: (contact: ExtendedContact) => React.ReactNode;
+  onOpenDuplicatesModal?: () => void;
 }) => {
   // Column widths matching header - using grid layout for virtualization
   const colWidths = {
@@ -129,14 +133,20 @@ const ContactRow = memo(({
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-0.5 cursor-help flex-shrink-0">
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDuplicatesModal?.();
+                        }}
+                        className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center gap-0.5 cursor-pointer flex-shrink-0 hover:bg-amber-500/20 transition-colors"
+                      >
                         <Copy className="w-2.5 h-2.5" />
                         {contact.duplicateInfo.duplicateCount}x
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-slate-900 border-amber-500/30 text-amber-200">
                       <p className="text-xs">
-                        {contact.duplicateInfo.duplicateCount} contatos com mesmo telefone
+                        {contact.duplicateInfo.duplicateCount} contatos com mesmo telefone - clique para mesclar
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -295,7 +305,8 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
   isFetchingNextPage,
   hasNextPage,
   fetchNextPage,
-  totalCount
+  totalCount,
+  onOpenDuplicatesModal
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
   
@@ -674,6 +685,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                   getStatusColor={getStatusColor}
                   getStatusLabel={getStatusLabel}
                   getChatStatusBadge={getChatStatusBadge}
+                  onOpenDuplicatesModal={onOpenDuplicatesModal}
                 />
               );
             })}
