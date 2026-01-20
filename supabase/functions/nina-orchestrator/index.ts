@@ -3162,13 +3162,18 @@ Agradeço pela compreensão! 🙏`;
     }
   }
 
-  // Get recent messages for context (last 20)
+  // Get recent messages for context
+  // Omega (collection agent) uses 40 messages for better negotiation context, others use 20
+  const messageLimit = agent?.slug === 'omega' ? 40 : 20;
+  
   const { data: recentMessages } = await supabase
     .from('messages')
     .select('*')
     .eq('conversation_id', conversation.id)
     .order('sent_at', { ascending: false })
-    .limit(20);
+    .limit(messageLimit);
+  
+  console.log(`[Nina] 📝 Loaded ${recentMessages?.length || 0}/${messageLimit} messages for context (agent: ${agent?.slug || 'default'})`);
 
   // Build conversation history for AI
   const conversationHistory = (recentMessages || [])
