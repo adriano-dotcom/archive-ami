@@ -1706,7 +1706,7 @@ const ChatInterface: React.FC = () => {
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className={`flex-1 overflow-y-auto custom-scrollbar ${bulkSelectMode && selectedConversations.size > 0 ? 'pb-24' : ''}`}>
           {filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
               <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
@@ -1877,9 +1877,9 @@ const ChatInterface: React.FC = () => {
           )}
         </div>
         
-        {/* Floating bulk action bar */}
+        {/* Floating bulk action bar - positioned outside scroll container */}
         {bulkSelectMode && selectedConversations.size > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl p-4 shadow-2xl flex items-center justify-between z-30">
+          <div className="shrink-0 mx-4 mb-4 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl p-4 shadow-2xl flex items-center justify-between z-30">
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-900 text-sm font-bold px-3 py-1 rounded-full shadow-lg shadow-cyan-500/30">
                 {selectedConversations.size}
