@@ -1,123 +1,180 @@
 
+# Correção: Importação SOMPO - Datas e Parcelas
 
-# Correção: Barra Flutuante de Arquivamento em Lote
+## Diagnóstico Detalhado
 
-## Diagnóstico
+Analisei o PDF original da SOMPO e os dados no banco. Encontrei **2 problemas críticos**:
 
-Após análise do código, identifiquei que a implementação está **correta estruturalmente**, mas há uma questão de visibilidade:
+### Problema 1: Data Vencimento com 1 Dia a Menos
 
-### O que encontrei:
+| Esperado (PDF) | Importado (Banco) |
+|----------------|-------------------|
+| 28/01/2026 | 2026-01-27 |
+| 08/01/2026 | 2026-01-08 ✓ |
+| 25/01/2026 | 2026-01-25 ✓ |
 
-| Elemento | Status | Local |
-|----------|--------|-------|
-| Estado `bulkSelectMode` | Implementado | Linha 100 |
-| Estado `selectedConversations` | Implementado | Linha 101 |
-| Botão "Selecionar" | Implementado | Linhas 1454-1470 |
-| Checkboxes nas conversas | Implementado | Linhas 1751-1763 |
-| Barra flutuante | Implementado | Linhas 1880-1911 |
-| Botão "Arquivar" | Implementado | Linhas 1901-1908 |
-| Função `handleBulkArchive` | Implementado | Linhas 1128-1146 |
+A data 28/01/2026 foi convertida para 27/01/2026. Isso ocorre quando:
+- O código usa `new Date("2026-01-28")` sem timezone explícito
+- JavaScript interpreta como UTC meia-noite
+- No Brasil (UTC-3), isso retrocede para 27/01 às 21h
 
-### Possíveis causas do problema:
+### Problema 2: Parcela Faltando (TORRES TRANSPORTES)
 
-1. **Condição de visibilidade**: A barra só aparece quando:
-   - `bulkSelectMode === true` E
-   - `selectedConversations.size > 0`
+| Endosso | Data Vencimento | Status |
+|---------|-----------------|--------|
+| 115427 | 28/01/2026 | ✓ Importado |
+| 104546 | 08/01/2026 | ✓ Importado |
+| 109004 | 08/01/2026 | ❌ **Não importado** |
 
-2. **Posicionamento**: A barra usa `absolute bottom-4` mas está dentro do container flex que pode ter scroll
+**Causa raiz:** O formato SOMPO usa coluna `Endosso/Parcela` com valores como `115427/0`, `104546/0`, `109004/0`. O `/0` indica que o número após a barra é o número sequencial da parcela (neste caso, todas são parcela única = 0).
+
+A IA está extraindo `installment_number: 0` (ou deixando vazio, forçando para 1). Como a detecção de duplicatas usa `policy_id + installment_number + due_date`, as duas parcelas de 08/01/2026 são consideradas duplicatas:
+
+```text
+5400054098 + 1 + 2026-01-08 → 1ª parcela importada
+5400054098 + 1 + 2026-01-08 → 2ª parcela IGNORADA (duplicata)
+```
+
+---
+
+## Estrutura Real do Relatório SOMPO
+
+```text
+| Apólice    | Endosso/Parcela | Nome Segurado | Valor | Data Vencimento |
+|------------|-----------------|---------------|-------|-----------------|
+| 5400054098 | 115427/0        | TORRES...     | 536,90| 28/01/2026      |
+| 5400054098 | 104546/0        | TORRES...     | 536,90| 08/01/2026      |
+| 5400054098 | 109004/0        | TORRES...     | 536,90| 08/01/2026      |
+```
+
+A coluna **Endosso/Parcela** contém:
+- `115427/0` → Endosso 115427, Parcela 0 (única)
+- `104546/0` → Endosso 104546, Parcela 0 (única)
+- `109004/0` → Endosso 109004, Parcela 0 (única)
+
+**Cada linha é uma parcela diferente**, mesmo com o mesmo valor de "parcela" (0).
 
 ---
 
 ## Solução
 
-O problema é que a barra flutuante está posicionada dentro do container do sidebar que é flexível (`flex flex-col`), mas precisa ficar fixa na parte inferior independente do scroll.
+### Correção 1: Atualizar Prompt SOMPO no Edge Function
 
-### Mudança necessária:
+O formato SOMPO usa "Endosso/Parcela" como identificador único de cada linha. Cada linha é uma parcela individual, mesmo quando `installment_number` parece igual.
 
-Mover a barra flutuante para fora do container de scroll, usando posição `sticky` em vez de `absolute`:
+**Arquivo:** `supabase/functions/extract-documents/index.ts`
 
-```text
-Estrutura atual:
-┌─────────────────────────────────────┐
-│ Sidebar (relative)                  │
-│ ├─ Header (fixed)                   │
-│ ├─ Conversation List (scroll)       │
-│ │   └─ ... conversas ...            │
-│ └─ Floating Bar (absolute bottom)   │ ← Dentro do container
-└─────────────────────────────────────┘
-
-Estrutura corrigida:
-┌─────────────────────────────────────┐
-│ Sidebar (relative)                  │
-│ ├─ Header (fixed)                   │
-│ ├─ Conversation List (scroll)       │
-│ │   └─ ... conversas ...            │
-│ └─ Floating Bar (sticky bottom-0)   │ ← Sempre visível no fundo
-└─────────────────────────────────────┘
-```
-
----
-
-## Implementação
-
-**Arquivo:** `src/components/ChatInterface.tsx`
-
-### Alteração 1: Mover barra para fora do scroll e usar estilo fixo
-
-A barra flutuante atualmente está dentro do container do sidebar, mas posicionada com `absolute`. Precisamos:
-
-1. Mudar de `absolute bottom-4` para estrutura que fica sempre visível
-2. Garantir que fique por cima do conteúdo mesmo durante scroll
-
-```tsx
-// ANTES (linhas 1880-1911) - problemático
-{bulkSelectMode && selectedConversations.size > 0 && (
-  <div className="absolute bottom-4 left-4 right-4 ...">
-
-// DEPOIS - sempre visível no fundo do sidebar
-{bulkSelectMode && selectedConversations.size > 0 && (
-  <div className="sticky bottom-0 mx-4 mb-4 ...">
-```
-
-### Alteração 2: Ajustar container de conversas
-
-Garantir que o container de scroll não cubra a barra flutuante:
-
-```tsx
-// Adicionar padding-bottom quando em modo de seleção
-<div className={`flex-1 overflow-y-auto custom-scrollbar ${bulkSelectMode ? 'pb-20' : ''}`}>
-```
-
----
-
-## Mudanças no Arquivo
-
-| Linha | Antes | Depois |
-|-------|-------|--------|
-| 1709 | `className="flex-1 overflow-y-auto custom-scrollbar"` | `className={\`flex-1 overflow-y-auto custom-scrollbar ${bulkSelectMode ? 'pb-20' : ''}\`}` |
-| 1882 | `className="absolute bottom-4 left-4 right-4 ..."` | `className="mx-4 mb-4 ..."` |
-| 1878-1879 | Manter barra dentro do flex container mas não como absolute | Reestruturar para ficar como elemento regular no flex |
-
----
-
-## Fluxo Esperado Após Correção
+Atualizar seção 4 do prompt (linhas 169-173) com instruções detalhadas:
 
 ```text
-1. Usuário clica em "Selecionar"
-   → bulkSelectMode = true
-   → Checkboxes aparecem nas conversas
-   
-2. Usuário marca uma ou mais conversas
-   → selectedConversations.size > 0
-   → Barra flutuante APARECE no fundo do sidebar
-   
-3. Barra mostra:
-   [2] selecionadas  |  Selecionar todos (15)  |  [Arquivar]
-   
-4. Usuário clica "Arquivar"
-   → Conversas são arquivadas em lote
-   → Toast de confirmação
-   → Modo de seleção desativado
+4. Sompo:
+   - Título do documento: "Parcelas de Apólice"
+   - Colunas: Apólice, Endosso/Parcela, Nome Segurado, Valor (R$), Data Vencimento, Situação
+   - FORMATO ESPECIAL da coluna "Endosso/Parcela": valor como "115427/0"
+     * O número ANTES da barra é o ENDOSSO (ex: 115427) → salvar em endorsement
+     * O número APÓS a barra é o número sequencial da parcela (ex: 0 = parcela única)
+     * CADA LINHA representa uma parcela DIFERENTE, mesmo que o segundo número seja igual
+   - Para installment_number: usar um número sequencial (1, 2, 3...) para cada linha 
+     do mesmo segurado/apólice, pois a SOMPO não numera parcelas explicitamente
+   - MUITO IMPORTANTE: Se houver múltiplas linhas para a mesma apólice, 
+     numere installment_number sequencialmente (1, 2, 3...) pela ordem no documento
+   - Valores: usar ponto como separador decimal (536,90 → 536.90)
+   - Datas: converter para YYYY-MM-DD (28/01/2026 → 2026-01-28)
+```
+
+### Correção 2: Normalizar Datas no Edge Function
+
+Garantir que as datas retornadas pela IA são apenas a parte da data, sem informação de timezone.
+
+**Arquivo:** `supabase/functions/extract-documents/index.ts`
+
+Adicionar pós-processamento de datas antes de retornar (aproximadamente linha 900-950):
+
+```typescript
+// Normalizar datas para evitar problemas de timezone
+for (const inst of result.installments) {
+  if (inst.due_date && typeof inst.due_date === 'string') {
+    // Se contiver 'T' (formato ISO), pegar apenas a parte da data
+    if (inst.due_date.includes('T')) {
+      inst.due_date = inst.due_date.split('T')[0];
+    }
+    // Se estiver em formato DD/MM/YYYY, converter para YYYY-MM-DD
+    const brDateMatch = inst.due_date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (brDateMatch) {
+      const [_, day, month, year] = brDateMatch;
+      inst.due_date = `${year}-${month}-${day}`;
+    }
+  }
+  // Mesma lógica para cancellation_date se existir
+  if (inst.cancellation_date && typeof inst.cancellation_date === 'string') {
+    if (inst.cancellation_date.includes('T')) {
+      inst.cancellation_date = inst.cancellation_date.split('T')[0];
+    }
+  }
+}
+```
+
+### Correção 3: Melhorar Detecção de Duplicatas
+
+O sistema atual usa `policy_id + installment_number + due_date` para detectar duplicatas. Isso falha quando:
+- Duas parcelas têm mesmo `installment_number` (erro de extração)
+- Mesma data de vencimento
+
+**Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
+
+Adicionar `value` na comparação de duplicatas (linha ~763-765):
+
+```typescript
+// Verificar duplicata incluindo valor na comparação
+const { data: existingInstallment } = await supabase
+  .from('installments')
+  .select('id, value, status, due_date')
+  .eq('policy_id', existingPolicy.id)
+  .eq('installment_number', installmentNumber)
+  .eq('due_date', inst.due_date)
+  .maybeSingle();
+
+// Se não encontrou por installment_number + due_date, 
+// também verificar se já existe parcela com mesmo valor + due_date
+// (para pegar casos onde installment_number está errado)
+if (!existingInstallment) {
+  const { data: existingByValue } = await supabase
+    .from('installments')
+    .select('id, value, status, due_date, installment_number')
+    .eq('policy_id', existingPolicy.id)
+    .eq('due_date', inst.due_date)
+    .eq('value', inst.value)
+    .maybeSingle();
+    
+  if (existingByValue) {
+    // Parcela com mesmo valor e data já existe
+    // Tratar como duplicata
+    // ...
+  }
+}
+```
+
+### Correção 4: Usar Endosso como Identificador Único
+
+Para SOMPO, o `endorsement` (endosso) é o identificador único de cada parcela. Quando disponível, usar isso na detecção de duplicatas.
+
+**Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
+
+```typescript
+// Para seguradoras que usam endosso como ID único (SOMPO, etc)
+if (inst.endorsement && inst.endorsement.trim() !== '') {
+  const { data: existingByEndorsement } = await supabase
+    .from('installments')
+    .select('id, value, status, due_date')
+    .eq('policy_id', existingPolicy.id)
+    .eq('metadata->>endorsement', inst.endorsement)
+    .maybeSingle();
+    
+  if (existingByEndorsement) {
+    // Já existe parcela com este endosso
+    // ...
+  }
+}
 ```
 
 ---
@@ -126,5 +183,21 @@ Garantir que o container de scroll não cubra a barra flutuante:
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/components/ChatInterface.tsx` | Ajustar posicionamento da barra flutuante para sempre ficar visível na parte inferior do sidebar, independente do scroll da lista de conversas |
+| `supabase/functions/extract-documents/index.ts` | 1. Atualizar prompt SOMPO com instruções detalhadas sobre formato Endosso/Parcela<br>2. Adicionar pós-processamento de datas para evitar problema de timezone |
+| `src/components/segurados/ImportDocumentAIModal.tsx` | 1. Melhorar detecção de duplicatas incluindo valor na comparação<br>2. Usar endosso como identificador quando disponível |
 
+---
+
+## Dados para Correção Manual
+
+Para corrigir os dados já importados incorretamente:
+
+**Corrigir data da parcela de 27/01 para 28/01:**
+```sql
+UPDATE installments 
+SET due_date = '2026-01-28'
+WHERE id = '1d796af6-8ecf-4e76-8454-0eb22f4200ad';
+```
+
+**Inserir parcela faltante (endosso 109004):**
+Reimportar o PDF após as correções, ou inserir manualmente via interface.
