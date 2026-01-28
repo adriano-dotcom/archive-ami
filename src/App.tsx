@@ -9,6 +9,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
 import { usePrefetchSeguradosData } from './hooks/useSeguradosData';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load route components for code splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -73,8 +74,9 @@ const AppLayout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
         <CompanySettingsProvider>
           <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
@@ -113,8 +115,9 @@ const App: React.FC = () => {
             theme="dark"
           />
         </CompanySettingsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
