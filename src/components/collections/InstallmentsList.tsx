@@ -46,6 +46,8 @@ import { MarkAsPaidDialog } from './installments/MarkAsPaidDialog';
 import { EmptyState } from './installments/EmptyState';
 import { EditInstallmentModal } from './installments/EditInstallmentModal';
 import { DuplicateInstallmentsModal } from './DuplicateInstallmentsModal';
+import { TablePagination } from '@/components/ui/table-pagination';
+import { useDebounce } from '@/hooks/useDebounce';
 
 // Interface for recent import
 interface RecentImport {
@@ -108,6 +110,10 @@ export const InstallmentsList: React.FC = () => {
   const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
   const [collectedThisWeekFilter, setCollectedThisWeekFilter] = useState<string>('all');
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // UI state
   const [showEmailCampaign, setShowEmailCampaign] = useState(false);
@@ -140,7 +146,10 @@ export const InstallmentsList: React.FC = () => {
     }
   });
 
-  // Use custom hook
+  // Apply debounce to search for better performance
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Use custom hook with debounced search
   const {
     sortedInstallments,
     attemptCounts,
@@ -165,7 +174,7 @@ export const InstallmentsList: React.FC = () => {
     clearAllMutation,
     refetch,
   } = useInstallments({
-    search,
+    search: debouncedSearch,  // Use debounced value
     statusFilter,
     rangeFilter,
     dataQualityFilter,
@@ -176,6 +185,17 @@ export const InstallmentsList: React.FC = () => {
     importSessionFilter,
     collectedThisWeekFilter,
   });
+
+  // Paginated installments
+  const paginatedInstallments = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedInstallments.slice(start, start + pageSize);
+  }, [sortedInstallments, currentPage, pageSize]);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
 
   // Pending mark as paid value
   const pendingMarkAsPaidValue = useMemo(() => {
@@ -377,12 +397,13 @@ export const InstallmentsList: React.FC = () => {
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 items-center">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" aria-hidden="true" />
               <Input
                 placeholder="Buscar por nome, telefone, apólice..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 bg-slate-800/50 border-white/10"
+                aria-label="Buscar parcelas por nome, telefone ou apólice"
               />
             </div>
 
@@ -548,16 +569,18 @@ export const InstallmentsList: React.FC = () => {
               size="icon"
               onClick={() => refetch()}
               className="border-white/10"
+              aria-label="Atualizar lista de parcelas"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
             </Button>
 
             <Button 
               variant="outline"
               onClick={handleExport}
               className="border-white/10 gap-2"
+              aria-label="Exportar parcelas para arquivo CSV"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4" aria-hidden="true" />
               Exportar
             </Button>
 
@@ -588,8 +611,9 @@ export const InstallmentsList: React.FC = () => {
               onClick={() => setShowDuplicatesModal(true)}
               className="border-purple-500/30 text-purple-400 hover:bg-purple-500/20 gap-2"
               disabled={sortedInstallments.length === 0}
+              aria-label="Abrir modal para detectar parcelas duplicadas"
             >
-              <Copy className="w-4 h-4" />
+              <Copy className="w-4 h-4" aria-hidden="true" />
               Detectar Duplicatas
             </Button>
 
@@ -765,13 +789,14 @@ export const InstallmentsList: React.FC = () => {
               ))}
             </div>
           ) : sortedInstallments && sortedInstallments.length > 0 ? (
-            <Table>
+            <Table aria-label="Lista de parcelas pendentes">
               <TableHeader>
                 <TableRow className="border-white/5 hover:bg-transparent">
                   <TableHead className="w-12">
                     <Checkbox 
                       checked={selectedIds.length === sortedInstallments.length && sortedInstallments.length > 0}
                       onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todas as parcelas"
                     />
                   </TableHead>
                   <SortableHeader column="empresa" label="Empresa" />
@@ -783,13 +808,13 @@ export const InstallmentsList: React.FC = () => {
                   <SortableHeader column="valor" label="Valor" className="text-right" />
                   <SortableHeader column="vencimento" label="Vencimento" className="text-center" />
                   <SortableHeader column="days_overdue" label="Atraso" className="text-center" />
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Envios</TableHead>
-                  <TableHead className="text-center">Ações</TableHead>
+                  <TableHead className="text-center" scope="col">Status</TableHead>
+                  <TableHead className="text-center" scope="col">Envios</TableHead>
+                  <TableHead className="text-center" scope="col">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedInstallments.map((inst) => (
+                {paginatedInstallments.map((inst) => (
                   <TableRow 
                     key={inst.id} 
                     className={`border-white/5 hover:bg-white/[0.02] ${
@@ -800,6 +825,7 @@ export const InstallmentsList: React.FC = () => {
                       <Checkbox 
                         checked={selectedIds.includes(inst.id)}
                         onCheckedChange={() => toggleSelect(inst.id)}
+                        aria-label={`Selecionar parcela ${inst.installment_number} de ${inst.policy?.company?.razao_social || 'empresa desconhecida'}`}
                       />
                     </TableCell>
                     <TableCell>
@@ -1036,6 +1062,20 @@ export const InstallmentsList: React.FC = () => {
             <EmptyState 
               statusFilter={statusFilter}
               onShowAllIncludingPaid={() => setStatusFilter('all-including-paid')}
+            />
+          )}
+          
+          {/* Pagination */}
+          {sortedInstallments.length > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={sortedInstallments.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
             />
           )}
         </CardContent>

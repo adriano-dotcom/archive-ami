@@ -355,33 +355,35 @@ export const CollectionCampaigns: React.FC = () => {
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-amber-600 hover:bg-amber-700 gap-2">
-              <Plus className="w-4 h-4" />
+            <Button className="bg-amber-600 hover:bg-amber-700 gap-2" aria-label="Criar nova campanha de cobrança">
+              <Plus className="w-4 h-4" aria-hidden="true" />
               Nova Campanha
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl bg-slate-900 border-white/10">
+          <DialogContent className="max-w-2xl bg-slate-900 border-white/10" aria-labelledby="campaign-dialog-title">
             <DialogHeader>
-              <DialogTitle>Criar Campanha de Cobrança</DialogTitle>
+              <DialogTitle id="campaign-dialog-title">Criar Campanha de Cobrança</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nome da Campanha</Label>
+                  <Label htmlFor="campaign-name">Nome da Campanha</Label>
                   <Input 
+                    id="campaign-name"
                     value={newCampaign.name}
                     onChange={(e) => setNewCampaign(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Ex: Cobrança Janeiro 2025"
                     className="bg-slate-800/50 border-white/10"
+                    aria-required="true"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Canal</Label>
+                  <Label htmlFor="campaign-channel">Canal</Label>
                   <Select 
                     value={newCampaign.channel}
                     onValueChange={(v) => setNewCampaign(prev => ({ ...prev, channel: v }))}
                   >
-                    <SelectTrigger className="bg-slate-800/50 border-white/10">
+                    <SelectTrigger id="campaign-channel" className="bg-slate-800/50 border-white/10" aria-label="Selecionar canal de envio">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -393,22 +395,25 @@ export const CollectionCampaigns: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Descrição</Label>
+                <Label htmlFor="campaign-description">Descrição</Label>
                 <Textarea 
+                  id="campaign-description"
                   value={newCampaign.description}
                   onChange={(e) => setNewCampaign(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Descrição opcional da campanha"
                   className="bg-slate-800/50 border-white/10"
+                  aria-describedby="description-hint"
                 />
+                <span id="description-hint" className="sr-only">Campo opcional para descrever o objetivo desta campanha</span>
               </div>
 
               <div className="space-y-2">
-                <Label>Faixa de Atraso</Label>
+                <Label htmlFor="campaign-range">Faixa de Atraso</Label>
                 <Select 
                   value={newCampaign.rangeFilter}
                   onValueChange={(v) => setNewCampaign(prev => ({ ...prev, rangeFilter: v }))}
                 >
-                  <SelectTrigger className="bg-slate-800/50 border-white/10">
+                  <SelectTrigger id="campaign-range" className="bg-slate-800/50 border-white/10" aria-label="Selecionar faixa de dias de atraso">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -420,19 +425,19 @@ export const CollectionCampaigns: React.FC = () => {
                   </SelectContent>
                 </Select>
                 {targetCount !== undefined && (
-                  <p className="text-sm text-amber-400 mt-1">
+                  <p className="text-sm text-amber-400 mt-1" aria-live="polite">
                     {targetCount} parcelas serão incluídas nesta campanha
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label>Template de Mensagem</Label>
+                <Label htmlFor="campaign-template">Template de Mensagem</Label>
                 <Select 
                   value={newCampaign.template}
                   onValueChange={(v) => setNewCampaign(prev => ({ ...prev, template: v }))}
                 >
-                  <SelectTrigger className="bg-slate-800/50 border-white/10">
+                  <SelectTrigger id="campaign-template" className="bg-slate-800/50 border-white/10" aria-label="Selecionar template de mensagem">
                     <SelectValue placeholder="Selecione um template" />
                   </SelectTrigger>
                   <SelectContent>

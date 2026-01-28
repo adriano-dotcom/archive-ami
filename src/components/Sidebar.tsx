@@ -180,7 +180,7 @@ const SidebarContent = () => {
           {open ? <Logo /> : <LogoIcon />}
         </div>
         
-        <nav className="flex flex-col gap-1.5">
+        <nav className="flex flex-col gap-1.5" role="navigation" aria-label="Menu principal">
           {links.map((link, idx) => <SidebarLink key={idx} link={link} isActive={currentPath.startsWith(link.href.slice(1))} badge={link.id === 'chat' ? totalUnread : undefined} />)}
         </nav>
 
@@ -216,8 +216,8 @@ const SidebarContent = () => {
           stiffness: 350,
           damping: 28,
           delay: 0.05
-        }} onClick={handleLogout} className="p-2 rounded-lg bg-white/[0.03] hover:bg-rose-500/20 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 flex items-center justify-center" title="Sair">
-            <LogOut className="w-4 h-4 text-slate-400 group-hover:text-rose-400 transition-colors" />
+        }} onClick={handleLogout} className="p-2 rounded-lg bg-white/[0.03] hover:bg-rose-500/20 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 flex items-center justify-center" title="Sair" aria-label="Sair da conta">
+            <LogOut className="w-4 h-4 text-slate-400 group-hover:text-rose-400 transition-colors" aria-hidden="true" />
           </motion.button>
         </div>
       </div>

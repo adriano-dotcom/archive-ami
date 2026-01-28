@@ -173,8 +173,10 @@ export const DesktopSidebar = ({
               : "bg-white/[0.03] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300"
           )}
           title={pinned ? "Desafixar sidebar" : "Fixar sidebar aberta"}
+          aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar aberta"}
+          aria-pressed={pinned}
         >
-          {pinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+          {pinned ? <Pin className="w-4 h-4" aria-hidden="true" /> : <PinOff className="w-4 h-4" aria-hidden="true" />}
         </motion.button>
       )}
       
@@ -205,6 +207,10 @@ export const MobileSidebar = ({
           <Menu
             className="text-slate-200 cursor-pointer hover:text-cyan-400 transition-colors"
             onClick={() => setOpen(!open)}
+            aria-label="Abrir menu de navegação"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(!open); }}
           />
         </div>
         <AnimatePresence>
@@ -227,8 +233,12 @@ export const MobileSidebar = ({
               <div
                 className="absolute right-10 top-10 z-50 text-slate-200 cursor-pointer hover:text-cyan-400 transition-colors"
                 onClick={() => setOpen(!open)}
+                role="button"
+                aria-label="Fechar menu de navegação"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(!open); }}
               >
-                <X />
+                <X aria-hidden="true" />
               </div>
               {children}
             </motion.div>
@@ -294,6 +304,7 @@ export const SidebarLink = ({
           : "text-slate-400 hover:bg-white/[0.04] hover:backdrop-blur-lg hover:text-slate-100 hover:scale-[1.02]",
         className
       )}
+      aria-current={isActive ? 'page' : undefined}
       {...props}
     >
       {/* Active indicator bar with gradient */}
