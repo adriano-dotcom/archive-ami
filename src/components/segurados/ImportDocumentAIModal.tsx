@@ -45,6 +45,32 @@ import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { KNOWN_INSURERS } from '@/constants/insurers';
 
+// Helper para normalizar datas e evitar problemas de timezone
+// Garante que a data seja uma string pura YYYY-MM-DD sem conversão implícita
+const normalizeDateString = (dateStr: string | undefined | null): string | null => {
+  if (!dateStr) return null;
+  
+  const str = String(dateStr).trim();
+  
+  // Se já está no formato YYYY-MM-DD puro, usar diretamente
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  
+  // Se contém 'T' (formato ISO), pegar apenas a parte da data
+  if (str.includes('T')) {
+    return str.split('T')[0];
+  }
+  
+  // Se está no formato DD/MM/YYYY, converter para YYYY-MM-DD
+  const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  }
+  
+  return str;
+};
+
 interface ExtractedCompany {
   id: string;
   cnpj: string;
@@ -1229,7 +1255,8 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
       const newInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
         ...inst,
         id: `installment-retry-${index}-${i}-${Date.now()}`,
-        selected: true
+        selected: true,
+        due_date: normalizeDateString(inst.due_date)
       }));
 
       setCompanies(prev => [...prev, ...newCompanies]);
@@ -1324,7 +1351,9 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
         selected: true,
         matchStatus: 'new' as const,
         // Apply forced insurer if set
-        insurer: forcedInsurer || inst.insurer
+        insurer: forcedInsurer || inst.insurer,
+        // Normalizar data para evitar problemas de timezone
+        due_date: normalizeDateString(inst.due_date)
       }));
 
       // Check if Excel files were uploaded but no installments extracted
@@ -1872,13 +1901,13 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               contact_id: contactId,
               installment_number: installmentNumber,
               value: inst.value,
-              due_date: inst.due_date,
+              due_date: normalizeDateString(inst.due_date),
               days_overdue: inst.days_overdue || 0,
               status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
               metadata: {
                 receipt_number: inst.receipt_number,
                 endorsement: inst.endorsement,
-                cancellation_date: inst.cancellation_date,
+                cancellation_date: normalizeDateString(inst.cancellation_date),
                 commission: inst.commission,
                 source: inst.source,
                 import_session_id: sessionIdRef.current,
