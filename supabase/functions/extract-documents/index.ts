@@ -167,9 +167,18 @@ SEGURADORAS CONHECIDAS E SEUS FORMATOS:
    - Arquivo geralmente tem "GESTAO_DE_INADIMPLENTES" no nome
 
 4. Sompo:
-   - Campos: Apólice/Endosso/Parcela, Nome Segurado, Valor, Situação, Data Venc. Parcela
-   - Pode aparecer "Parcelas de Apólice" como título
-   - Site sompo.com.br
+   - Título do documento: "Parcelas de Apólice"
+   - Colunas típicas: Apólice, Endosso/Parcela, Nome Segurado, Valor (R$), Data Vencimento, Situação
+   - FORMATO ESPECIAL da coluna "Endosso/Parcela": valor como "115427/0"
+     * O número ANTES da barra é o ENDOSSO (ex: 115427) → salvar em campo endorsement
+     * O número APÓS a barra é apenas um número sequencial interno, NÃO use como installment_number
+   - CRÍTICO para installment_number: Como a SOMPO não numera parcelas explicitamente,
+     você DEVE atribuir números sequenciais (1, 2, 3...) para cada linha do MESMO segurado/apólice
+   - CADA LINHA do documento representa uma parcela DIFERENTE, mesmo que "Endosso/Parcela" pareça igual
+   - Se houver 3 linhas para a mesma apólice, gere installment_number: 1, 2, 3
+   - Valores: remover "R$", usar ponto como separador decimal (536,90 → 536.90)
+   - Datas: converter DD/MM/YYYY para YYYY-MM-DD (28/01/2026 → 2026-01-28)
+   - Site: sompo.com.br
 
 5. ACX / Diversos / Portal Genérico (MUITO IMPORTANTE - formato comum):
    - Colunas típicas: Parceiro de Negócio, Segurado, Cpf/Cnpj, Ramo, Apólice, Endosso, Parcela, Vencimento, Valor Parcela
@@ -613,6 +622,32 @@ serve(async (req) => {
         
         for (const installment of parsed.installments) {
           installment.source = sourceName;
+
+          // CRITICAL: Normalize due_date to YYYY-MM-DD format without timezone
+          if (installment.due_date && typeof installment.due_date === 'string') {
+            // If contains 'T' (ISO format), strip time part
+            if (installment.due_date.includes('T')) {
+              installment.due_date = installment.due_date.split('T')[0];
+            }
+            // If DD/MM/YYYY format, convert to YYYY-MM-DD
+            const brDateMatch = installment.due_date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (brDateMatch) {
+              const [_, day, month, year] = brDateMatch;
+              installment.due_date = `${year}-${month}-${day}`;
+            }
+          }
+          
+          // Same normalization for cancellation_date
+          if (installment.cancellation_date && typeof installment.cancellation_date === 'string') {
+            if (installment.cancellation_date.includes('T')) {
+              installment.cancellation_date = installment.cancellation_date.split('T')[0];
+            }
+            const brDateMatch = installment.cancellation_date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (brDateMatch) {
+              const [_, day, month, year] = brDateMatch;
+              installment.cancellation_date = `${year}-${month}-${day}`;
+            }
+          }
 
           if (installment.insured_document) {
             installment.insured_document = installment.insured_document.replace(/\D/g, '');
