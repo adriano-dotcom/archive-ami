@@ -6,9 +6,10 @@ import {
   Smile, Loader2, Mic, MessageSquare, Info, X, Mail, MapPin, 
   Tag, User, Pause, Brain, Plus, Building2, FileText, Save, Pencil, FileType,
   Briefcase, ExternalLink, Inbox, Archive, ArchiveRestore, PhoneCall, Clock, AlertTriangle,
-  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2, Square, UserX
+  ArrowLeft, Keyboard, XCircle, PlayCircle, Pin, Sparkles, UserCheck, PauseCircle, Bot, AlertCircle, Download, Eye, CheckCircle2, Square, UserX, CheckSquare
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Checkbox } from './ui/checkbox';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -60,7 +61,7 @@ interface AgentQuestion {
 const ChatInterface: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, fetchArchivedConversations, refetch, updateConversationTags } = useConversations();
+  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, archiveConversationsBulk, fetchArchivedConversations, refetch, updateConversationTags } = useConversations();
   const { user } = useAuth();
   const { sdrName, companyName } = useCompanySettings();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -95,6 +96,10 @@ const ChatInterface: React.FC = () => {
   // Collection status filter state
   const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'omega' | 'semResposta' | null>(null);
   
+  // Bulk selection state
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set());
+
   // Editable contact fields
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState('');
@@ -1120,6 +1125,45 @@ const ChatInterface: React.FC = () => {
       return timeB - timeA;
     });
 
+  // Handle bulk archive
+  const handleBulkArchive = useCallback(async () => {
+    if (selectedConversations.size === 0) return;
+    
+    const count = selectedConversations.size;
+    try {
+      await archiveConversationsBulk(Array.from(selectedConversations));
+      setArchivedCount(prev => prev + count);
+      setSelectedConversations(new Set());
+      setBulkSelectMode(false);
+      
+      toast.success(`${count} conversa${count > 1 ? 's' : ''} arquivada${count > 1 ? 's' : ''}`, {
+        description: 'As conversas foram movidas para Arquivados'
+      });
+    } catch (error) {
+      console.error('[ChatInterface] Error bulk archiving:', error);
+      toast.error('Erro ao arquivar conversas');
+    }
+  }, [selectedConversations, archiveConversationsBulk]);
+
+  // Toggle conversation selection
+  const toggleConversationSelection = useCallback((chatId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedConversations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(chatId)) {
+        newSet.delete(chatId);
+      } else {
+        newSet.add(chatId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select all filtered conversations
+  const selectAllConversations = useCallback(() => {
+    setSelectedConversations(new Set(filteredConversations.map(c => c.id)));
+  }, [filteredConversations]);
+
   // Keyboard shortcuts handlers
   const handleNextConversation = useCallback(() => {
     const currentIndex = filteredConversations.findIndex(c => c.id === selectedChatId);
@@ -1357,7 +1401,7 @@ const ChatInterface: React.FC = () => {
     <div className="flex h-full bg-slate-950 md:rounded-tl-2xl overflow-hidden md:border-t md:border-l border-slate-800/50 shadow-2xl">
       
       {/* Left Sidebar: Chat List */}
-      <div className={`${isMobile ? (mobileView === 'list' ? 'w-full' : 'hidden') : 'w-80 lg:w-96'} border-r border-slate-800 flex flex-col bg-slate-900/50 backdrop-blur-md z-20 flex-shrink-0`}>
+      <div className={`${isMobile ? (mobileView === 'list' ? 'w-full' : 'hidden') : 'w-80 lg:w-96'} border-r border-slate-800 flex flex-col bg-slate-900/50 backdrop-blur-md z-20 flex-shrink-0 relative`}>
         {/* Search Header */}
         <div className="p-4 border-b border-slate-800/50">
           <h2 className="text-lg font-bold text-white mb-3 px-1">
@@ -1405,6 +1449,25 @@ const ChatInterface: React.FC = () => {
               {viewingArchived ? 'Voltar aos Ativos' : 'Arquivados'}
               {!viewingArchived && <span className="text-[10px] opacity-60">({archivedCount})</span>}
             </button>
+            
+            {/* Bulk select mode toggle button */}
+            {!viewingArchived && (
+              <button
+                onClick={() => {
+                  setBulkSelectMode(!bulkSelectMode);
+                  setSelectedConversations(new Set());
+                }}
+                aria-label={bulkSelectMode ? 'Cancelar seleção em lote' : 'Ativar seleção em lote'}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
+                  bulkSelectMode
+                    ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30 scale-[1.02] border-transparent'
+                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                }`}
+              >
+                {bulkSelectMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                {bulkSelectMode ? 'Cancelar' : 'Selecionar'}
+              </button>
+            )}
           </div>
           
           {/* Status Filter Pills - iOS 26 Style */}
@@ -1664,19 +1727,41 @@ const ChatInterface: React.FC = () => {
               return (
                 <div 
                   key={chat.id}
-                  onClick={() => setSelectedChatId(chat.id)}
+                  onClick={() => {
+                    if (bulkSelectMode) {
+                      toggleConversationSelection(chat.id, { stopPropagation: () => {} } as React.MouseEvent);
+                    } else {
+                      setSelectedChatId(chat.id);
+                    }
+                  }}
                   className={`flex items-center p-4 cursor-pointer transition-all duration-300 border-b border-white/5 hover:bg-white/[0.03] hover:backdrop-blur-xl hover:scale-[1.005] ${
                     chat.status === 'closed' ? 'opacity-50' : ''
                   } ${
-                    selectedChatId === chat.id 
-                      ? 'bg-gradient-to-r from-cyan-500/15 via-teal-500/10 to-transparent backdrop-blur-xl border-l-[3px] border-l-cyan-400 shadow-lg shadow-cyan-500/10' 
-                      : chat.unreadCount > 0
-                        ? 'bg-gradient-to-r from-cyan-500/10 via-cyan-500/5 to-transparent border-l-[3px] border-l-cyan-400/70'
-                        : chat.status === 'closed'
-                          ? 'border-l-[3px] border-l-slate-600/50'
-                          : 'border-l-[3px] border-l-transparent'
+                    bulkSelectMode && selectedConversations.has(chat.id)
+                      ? 'bg-gradient-to-r from-cyan-500/20 via-cyan-500/10 to-transparent backdrop-blur-xl border-l-[3px] border-l-cyan-400 shadow-lg shadow-cyan-500/10'
+                      : selectedChatId === chat.id 
+                        ? 'bg-gradient-to-r from-cyan-500/15 via-teal-500/10 to-transparent backdrop-blur-xl border-l-[3px] border-l-cyan-400 shadow-lg shadow-cyan-500/10' 
+                        : chat.unreadCount > 0
+                          ? 'bg-gradient-to-r from-cyan-500/10 via-cyan-500/5 to-transparent border-l-[3px] border-l-cyan-400/70'
+                          : chat.status === 'closed'
+                            ? 'border-l-[3px] border-l-slate-600/50'
+                            : 'border-l-[3px] border-l-transparent'
                   }`}
                 >
+                  {/* Bulk selection checkbox */}
+                  {bulkSelectMode && (
+                    <div 
+                      className="flex items-center justify-center mr-3 shrink-0"
+                      onClick={(e) => toggleConversationSelection(chat.id, e)}
+                    >
+                      <Checkbox 
+                        checked={selectedConversations.has(chat.id)}
+                        aria-label={`Selecionar conversa com ${chat.contactName}`}
+                        className="data-[state=checked]:bg-cyan-500 data-[state=checked]:border-cyan-500"
+                      />
+                    </div>
+                  )}
+                  
                   {/* Avatar with vibrant ring */}
                   <div className="relative">
                     <div className={`w-12 h-12 rounded-full p-[2px] transition-all duration-300 ${
@@ -1791,6 +1876,39 @@ const ChatInterface: React.FC = () => {
             })
           )}
         </div>
+        
+        {/* Floating bulk action bar */}
+        {bulkSelectMode && selectedConversations.size > 0 && (
+          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl p-4 shadow-2xl flex items-center justify-between z-30">
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-900 text-sm font-bold px-3 py-1 rounded-full shadow-lg shadow-cyan-500/30">
+                {selectedConversations.size}
+              </span>
+              <span className="text-slate-300 text-sm">selecionada{selectedConversations.size > 1 ? 's' : ''}</span>
+              
+              {/* Select all button */}
+              <button 
+                onClick={selectAllConversations}
+                className="text-cyan-400 text-xs hover:text-cyan-300 transition-colors underline-offset-2 hover:underline"
+                aria-label={`Selecionar todas as ${filteredConversations.length} conversas`}
+              >
+                Selecionar todos ({filteredConversations.length})
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Archive button */}
+              <button
+                onClick={handleBulkArchive}
+                aria-label={`Arquivar ${selectedConversations.size} conversa${selectedConversations.size > 1 ? 's' : ''}`}
+                className="px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2 hover:from-slate-400 hover:to-slate-500 transition-all shadow-lg shadow-slate-500/20"
+              >
+                <Archive className="w-4 h-4" />
+                Arquivar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Area: Chat Window & Profile */}
