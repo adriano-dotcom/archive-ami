@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CollectionEmailCampaign } from './CollectionEmailCampaign';
 import { SendInstallmentWhatsAppModal } from './SendInstallmentWhatsAppModal';
@@ -940,7 +940,7 @@ export const InstallmentsList: React.FC = () => {
                       {formatCurrency(inst.value)}
                     </TableCell>
                     <TableCell className="text-center text-slate-300">
-                      {format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {format(parseISO(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-center">
                       <span className={`font-bold ${

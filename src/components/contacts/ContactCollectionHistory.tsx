@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Mail, MessageCircle, Check, Clock, AlertCircle, FileText, Loader2, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface CollectionAttempt {
@@ -194,7 +194,7 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
                           )}
                           {installmentData.due_date && (
                             <span>
-                              Venc: {format(new Date(installmentData.due_date), 'dd/MM/yyyy')}
+                              Venc: {format(parseISO(installmentData.due_date), 'dd/MM/yyyy')}
                             </span>
                           )}
                           {installmentData.days_overdue && installmentData.days_overdue > 0 && (
