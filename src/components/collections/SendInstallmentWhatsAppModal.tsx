@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface WhatsAppTemplate {
@@ -179,7 +179,7 @@ export const SendInstallmentWhatsAppModal: React.FC<SendInstallmentWhatsAppModal
         style: 'currency',
         currency: 'BRL',
       }).format(installment.value);
-      const dueDate = format(new Date(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
+      const dueDate = format(parseISO(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
 
       // Send via edge function
       const { data, error } = await supabase.functions.invoke('send-whatsapp-template', {
@@ -239,7 +239,7 @@ export const SendInstallmentWhatsAppModal: React.FC<SendInstallmentWhatsAppModal
                         selectedContact?.name || 'N/A';
     const policyNumber = installment.policy?.policy_number || 'N/A';
     const value = formatCurrency(installment.value);
-    const dueDate = format(new Date(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
+    const dueDate = format(parseISO(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
 
     return (
       <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 space-y-2">
@@ -314,7 +314,7 @@ export const SendInstallmentWhatsAppModal: React.FC<SendInstallmentWhatsAppModal
               <div>
                 <span className="text-slate-500">Vencimento:</span>
                 <span className="text-white ml-2">
-                  {format(new Date(installment.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                  {format(parseISO(installment.due_date), 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
               </div>
             </div>
