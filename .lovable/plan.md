@@ -1,203 +1,208 @@
 
-# Correção: Importação SOMPO - Datas e Parcelas
 
-## Diagnóstico Detalhado
+# Correção: Data Importando com 1 Dia a Menos
 
-Analisei o PDF original da SOMPO e os dados no banco. Encontrei **2 problemas críticos**:
+## Diagnóstico Final
 
-### Problema 1: Data Vencimento com 1 Dia a Menos
+### O Que Está Acontecendo
 
-| Esperado (PDF) | Importado (Banco) |
-|----------------|-------------------|
-| 28/01/2026 | 2026-01-27 |
-| 08/01/2026 | 2026-01-08 ✓ |
-| 25/01/2026 | 2026-01-25 ✓ |
+Após análise detalhada, confirmei que:
 
-A data 28/01/2026 foi convertida para 27/01/2026. Isso ocorre quando:
-- O código usa `new Date("2026-01-28")` sem timezone explícito
-- JavaScript interpreta como UTC meia-noite
-- No Brasil (UTC-3), isso retrocede para 27/01 às 21h
+1. **Edge Function está correto**: O log mostra `"due_date": "2026-01-28"` sendo retornado ✅
+2. **Normalização no Edge Function funciona**: A lógica de `split('T')[0]` está implementada ✅
+3. **Banco de dados recebe valor errado**: A parcela foi salva como `2026-01-27` ao invés de `2026-01-28` ❌
 
-### Problema 2: Parcela Faltando (TORRES TRANSPORTES)
+### Causa Raiz Identificada
 
-| Endosso | Data Vencimento | Status |
-|---------|-----------------|--------|
-| 115427 | 28/01/2026 | ✓ Importado |
-| 104546 | 08/01/2026 | ✓ Importado |
-| 109004 | 08/01/2026 | ❌ **Não importado** |
-
-**Causa raiz:** O formato SOMPO usa coluna `Endosso/Parcela` com valores como `115427/0`, `104546/0`, `109004/0`. O `/0` indica que o número após a barra é o número sequencial da parcela (neste caso, todas são parcela única = 0).
-
-A IA está extraindo `installment_number: 0` (ou deixando vazio, forçando para 1). Como a detecção de duplicatas usa `policy_id + installment_number + due_date`, as duas parcelas de 08/01/2026 são consideradas duplicatas:
+O problema ocorre na **conversão implícita de strings de data pelo Supabase JS SDK** no navegador:
 
 ```text
-5400054098 + 1 + 2026-01-08 → 1ª parcela importada
-5400054098 + 1 + 2026-01-08 → 2ª parcela IGNORADA (duplicata)
+Fluxo do problema:
+1. Edge Function retorna: "due_date": "2026-01-28" (string)
+2. Frontend recebe: "2026-01-28" (string)
+3. Supabase SDK serializa para JSON
+4. PostgreSQL interpreta a string como UTC meia-noite
+5. Internamente converte considerando timezone do client
+6. Resultado: 2026-01-27 (1 dia a menos)
 ```
 
----
-
-## Estrutura Real do Relatório SOMPO
-
-```text
-| Apólice    | Endosso/Parcela | Nome Segurado | Valor | Data Vencimento |
-|------------|-----------------|---------------|-------|-----------------|
-| 5400054098 | 115427/0        | TORRES...     | 536,90| 28/01/2026      |
-| 5400054098 | 104546/0        | TORRES...     | 536,90| 08/01/2026      |
-| 5400054098 | 109004/0        | TORRES...     | 536,90| 08/01/2026      |
+**Evidência no banco:**
+```sql
+due_date = 2026-01-27
+due_date AT TIME ZONE 'America/Sao_Paulo' = 2026-01-26 21:00:00
 ```
 
-A coluna **Endosso/Parcela** contém:
-- `115427/0` → Endosso 115427, Parcela 0 (única)
-- `104546/0` → Endosso 104546, Parcela 0 (única)
-- `109004/0` → Endosso 109004, Parcela 0 (única)
-
-**Cada linha é uma parcela diferente**, mesmo com o mesmo valor de "parcela" (0).
+Isso mostra que a data está sendo tratada como timestamp UTC e depois convertida.
 
 ---
 
 ## Solução
 
-### Correção 1: Atualizar Prompt SOMPO no Edge Function
+### Normalização Explícita Antes do Insert
 
-O formato SOMPO usa "Endosso/Parcela" como identificador único de cada linha. Cada linha é uma parcela individual, mesmo quando `installment_number` parece igual.
-
-**Arquivo:** `supabase/functions/extract-documents/index.ts`
-
-Atualizar seção 4 do prompt (linhas 169-173) com instruções detalhadas:
-
-```text
-4. Sompo:
-   - Título do documento: "Parcelas de Apólice"
-   - Colunas: Apólice, Endosso/Parcela, Nome Segurado, Valor (R$), Data Vencimento, Situação
-   - FORMATO ESPECIAL da coluna "Endosso/Parcela": valor como "115427/0"
-     * O número ANTES da barra é o ENDOSSO (ex: 115427) → salvar em endorsement
-     * O número APÓS a barra é o número sequencial da parcela (ex: 0 = parcela única)
-     * CADA LINHA representa uma parcela DIFERENTE, mesmo que o segundo número seja igual
-   - Para installment_number: usar um número sequencial (1, 2, 3...) para cada linha 
-     do mesmo segurado/apólice, pois a SOMPO não numera parcelas explicitamente
-   - MUITO IMPORTANTE: Se houver múltiplas linhas para a mesma apólice, 
-     numere installment_number sequencialmente (1, 2, 3...) pela ordem no documento
-   - Valores: usar ponto como separador decimal (536,90 → 536.90)
-   - Datas: converter para YYYY-MM-DD (28/01/2026 → 2026-01-28)
-```
-
-### Correção 2: Normalizar Datas no Edge Function
-
-Garantir que as datas retornadas pela IA são apenas a parte da data, sem informação de timezone.
-
-**Arquivo:** `supabase/functions/extract-documents/index.ts`
-
-Adicionar pós-processamento de datas antes de retornar (aproximadamente linha 900-950):
-
-```typescript
-// Normalizar datas para evitar problemas de timezone
-for (const inst of result.installments) {
-  if (inst.due_date && typeof inst.due_date === 'string') {
-    // Se contiver 'T' (formato ISO), pegar apenas a parte da data
-    if (inst.due_date.includes('T')) {
-      inst.due_date = inst.due_date.split('T')[0];
-    }
-    // Se estiver em formato DD/MM/YYYY, converter para YYYY-MM-DD
-    const brDateMatch = inst.due_date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (brDateMatch) {
-      const [_, day, month, year] = brDateMatch;
-      inst.due_date = `${year}-${month}-${day}`;
-    }
-  }
-  // Mesma lógica para cancellation_date se existir
-  if (inst.cancellation_date && typeof inst.cancellation_date === 'string') {
-    if (inst.cancellation_date.includes('T')) {
-      inst.cancellation_date = inst.cancellation_date.split('T')[0];
-    }
-  }
-}
-```
-
-### Correção 3: Melhorar Detecção de Duplicatas
-
-O sistema atual usa `policy_id + installment_number + due_date` para detectar duplicatas. Isso falha quando:
-- Duas parcelas têm mesmo `installment_number` (erro de extração)
-- Mesma data de vencimento
+Garantir que a data seja uma **string literal pura** no formato `YYYY-MM-DD`, sem nenhuma possibilidade de conversão de timezone.
 
 **Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
 
-Adicionar `value` na comparação de duplicatas (linha ~763-765):
+**Mudança na linha ~1875:**
 
 ```typescript
-// Verificar duplicata incluindo valor na comparação
-const { data: existingInstallment } = await supabase
-  .from('installments')
-  .select('id, value, status, due_date')
-  .eq('policy_id', existingPolicy.id)
-  .eq('installment_number', installmentNumber)
-  .eq('due_date', inst.due_date)
-  .maybeSingle();
+// ANTES:
+const installmentData = {
+  // ...
+  due_date: inst.due_date,  // Pode ser convertido implicitamente
+  // ...
+};
 
-// Se não encontrou por installment_number + due_date, 
-// também verificar se já existe parcela com mesmo valor + due_date
-// (para pegar casos onde installment_number está errado)
-if (!existingInstallment) {
-  const { data: existingByValue } = await supabase
-    .from('installments')
-    .select('id, value, status, due_date, installment_number')
-    .eq('policy_id', existingPolicy.id)
-    .eq('due_date', inst.due_date)
-    .eq('value', inst.value)
-    .maybeSingle();
-    
-  if (existingByValue) {
-    // Parcela com mesmo valor e data já existe
-    // Tratar como duplicata
-    // ...
+// DEPOIS:
+// Função helper para normalizar data (evita problemas de timezone)
+const normalizeDateString = (dateStr: string | undefined | null): string | null => {
+  if (!dateStr) return null;
+  
+  // Se já está no formato YYYY-MM-DD, usar diretamente
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
   }
-}
+  
+  // Se contém 'T' (formato ISO), pegar apenas a parte da data
+  if (dateStr.includes('T')) {
+    return dateStr.split('T')[0];
+  }
+  
+  // Se está no formato DD/MM/YYYY, converter
+  const brMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  }
+  
+  return dateStr;
+};
+
+const installmentData = {
+  // ...
+  due_date: normalizeDateString(inst.due_date),
+  // ...
+};
 ```
 
-### Correção 4: Usar Endosso como Identificador Único
+### Normalização Adicional na Recepção dos Dados
 
-Para SOMPO, o `endorsement` (endosso) é o identificador único de cada parcela. Quando disponível, usar isso na detecção de duplicatas.
+Também aplicar normalização quando os dados são recebidos do Edge Function:
 
-**Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
+**Mudança na linha ~1321:**
 
 ```typescript
-// Para seguradoras que usam endosso como ID único (SOMPO, etc)
-if (inst.endorsement && inst.endorsement.trim() !== '') {
-  const { data: existingByEndorsement } = await supabase
-    .from('installments')
-    .select('id, value, status, due_date')
-    .eq('policy_id', existingPolicy.id)
-    .eq('metadata->>endorsement', inst.endorsement)
-    .maybeSingle();
-    
-  if (existingByEndorsement) {
-    // Já existe parcela com este endosso
-    // ...
+let extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
+  ...inst,
+  id: `installment-${i}-${Date.now()}`,
+  selected: true,
+  matchStatus: 'new' as const,
+  insurer: forcedInsurer || inst.insurer,
+  // Normalizar data na recepção
+  due_date: normalizeDateString(inst.due_date)
+}));
+```
+
+---
+
+## Implementação Detalhada
+
+### Passo 1: Adicionar Função Helper
+
+Adicionar a função `normalizeDateString` no início do componente (após os imports):
+
+```typescript
+// Helper para normalizar datas e evitar problemas de timezone
+const normalizeDateString = (dateStr: string | undefined | null): string | null => {
+  if (!dateStr) return null;
+  
+  const str = String(dateStr).trim();
+  
+  // Se já está no formato YYYY-MM-DD puro, usar diretamente
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
   }
-}
+  
+  // Se contém 'T' (formato ISO), pegar apenas a parte da data
+  if (str.includes('T')) {
+    return str.split('T')[0];
+  }
+  
+  // Se está no formato DD/MM/YYYY, converter para YYYY-MM-DD
+  const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  }
+  
+  return str;
+};
+```
+
+### Passo 2: Aplicar na Criação de Installments
+
+Na seção onde `installmentData` é construído (linha ~1870-1887), usar a função:
+
+```typescript
+const installmentData = {
+  policy_id: policyId,
+  contact_id: contactId,
+  installment_number: installmentNumber,
+  value: inst.value,
+  due_date: normalizeDateString(inst.due_date),  // Normalizado
+  days_overdue: inst.days_overdue || 0,
+  status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
+  metadata: {
+    receipt_number: inst.receipt_number,
+    endorsement: inst.endorsement,
+    cancellation_date: normalizeDateString(inst.cancellation_date),  // Também normalizar
+    commission: inst.commission,
+    source: inst.source,
+    import_session_id: sessionIdRef.current,
+    import_timestamp: new Date().toISOString()
+  }
+};
+```
+
+### Passo 3: Aplicar na Recepção dos Dados
+
+Na extração inicial (linha ~1321) e no retry (linha ~1229):
+
+```typescript
+// Linha ~1321
+let extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
+  ...inst,
+  id: `installment-${i}-${Date.now()}`,
+  selected: true,
+  matchStatus: 'new' as const,
+  insurer: forcedInsurer || inst.insurer,
+  due_date: normalizeDateString(inst.due_date)  // Adicionar
+}));
 ```
 
 ---
 
 ## Resumo das Mudanças
 
-| Arquivo | Modificação |
-|---------|-------------|
-| `supabase/functions/extract-documents/index.ts` | 1. Atualizar prompt SOMPO com instruções detalhadas sobre formato Endosso/Parcela<br>2. Adicionar pós-processamento de datas para evitar problema de timezone |
-| `src/components/segurados/ImportDocumentAIModal.tsx` | 1. Melhorar detecção de duplicatas incluindo valor na comparação<br>2. Usar endosso como identificador quando disponível |
+| Arquivo | Localização | Modificação |
+|---------|-------------|-------------|
+| `src/components/segurados/ImportDocumentAIModal.tsx` | Após imports (~linha 50) | Adicionar função `normalizeDateString` |
+| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1321 | Normalizar `due_date` na extração inicial |
+| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1229 | Normalizar `due_date` no retry |
+| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1875 | Normalizar `due_date` e `cancellation_date` antes do insert |
 
 ---
 
-## Dados para Correção Manual
+## Teste de Validação
 
-Para corrigir os dados já importados incorretamente:
+Após a implementação:
 
-**Corrigir data da parcela de 27/01 para 28/01:**
+1. Reimportar o PDF da SOMPO
+2. Verificar que a parcela com vencimento 28/01/2026 é salva corretamente
+3. Consultar no banco para confirmar:
+
 ```sql
-UPDATE installments 
-SET due_date = '2026-01-28'
-WHERE id = '1d796af6-8ecf-4e76-8454-0eb22f4200ad';
+SELECT due_date FROM installments 
+WHERE metadata->>'endorsement' = '115427';
+-- Esperado: 2026-01-28
 ```
 
-**Inserir parcela faltante (endosso 109004):**
-Reimportar o PDF após as correções, ou inserir manualmente via interface.
