@@ -1,124 +1,69 @@
 
 
-# Correção: Data Importando com 1 Dia a Menos
+# Correção: Data Exibindo com 1 Dia a Menos na Lista de Parcelas
 
-## Diagnóstico Final
+## Diagnóstico Confirmado
 
-### O Que Está Acontecendo
+Após análise detalhada, identifiquei **dois problemas distintos**:
 
-Após análise detalhada, confirmei que:
-
-1. **Edge Function está correto**: O log mostra `"due_date": "2026-01-28"` sendo retornado ✅
-2. **Normalização no Edge Function funciona**: A lógica de `split('T')[0]` está implementada ✅
-3. **Banco de dados recebe valor errado**: A parcela foi salva como `2026-01-27` ao invés de `2026-01-28` ❌
-
-### Causa Raiz Identificada
-
-O problema ocorre na **conversão implícita de strings de data pelo Supabase JS SDK** no navegador:
-
-```text
-Fluxo do problema:
-1. Edge Function retorna: "due_date": "2026-01-28" (string)
-2. Frontend recebe: "2026-01-28" (string)
-3. Supabase SDK serializa para JSON
-4. PostgreSQL interpreta a string como UTC meia-noite
-5. Internamente converte considerando timezone do client
-6. Resultado: 2026-01-27 (1 dia a menos)
+### Problema 1: Exibição na Lista de Parcelas
+Na `InstallmentsList.tsx`, a data é formatada usando `new Date()`:
+```typescript
+format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })
 ```
 
-**Evidência no banco:**
-```sql
-due_date = 2026-01-27
-due_date AT TIME ZONE 'America/Sao_Paulo' = 2026-01-26 21:00:00
-```
+Quando JavaScript interpreta `new Date("2026-01-28")`, ele trata como **UTC meia-noite**. No fuso horário do Brasil (UTC-3), isso "volta" para `27/01/2026 21:00`.
 
-Isso mostra que a data está sendo tratada como timestamp UTC e depois convertida.
+**Por isso a prévia mostra correto** (usa `parseISO`) **mas a lista mostra errado** (usa `new Date`).
+
+### Problema 2: Dados Salvos Incorretamente
+A consulta no banco mostrou que algumas datas estão realmente salvas erradas:
+
+| Endorsement | Esperado | Salvo |
+|-------------|----------|-------|
+| 115427 | 2026-01-28 | 2026-01-27 ❌ |
+| 112544 | 2026-01-26 | 2026-01-25 ❌ |
+| 104546 | 2026-01-08 | 2026-01-08 ✓ |
+| 109004 | 2026-01-08 | 2026-01-08 ✓ |
+
+Padrão: datas no final do mês (dia 26, 28) têm problema, datas no início (dia 08) não têm. Isso indica que a conversão de timezone está acontecendo em algum momento entre a extração e o salvamento.
 
 ---
 
 ## Solução
 
-### Normalização Explícita Antes do Insert
+### Correção 1: Usar `parseISO` para Exibição (Imediato)
 
-Garantir que a data seja uma **string literal pura** no formato `YYYY-MM-DD`, sem nenhuma possibilidade de conversão de timezone.
+Mudar todas as ocorrências de `new Date(due_date)` para usar `parseISO` do date-fns, que trata a data como string local sem conversão de timezone.
+
+**Arquivo:** `src/components/collections/InstallmentsList.tsx`
+
+**Linha 943:**
+```typescript
+// ANTES:
+{format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+
+// DEPOIS:
+{format(parseISO(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+```
+
+Também adicionar import de `parseISO` se não existir.
+
+### Correção 2: Normalização com Hora Explícita no Salvamento
+
+Para evitar ambiguidade, ao salvar a data, adicionar o horário **12:00** (meio-dia) para evitar rollback de timezone:
 
 **Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
 
-**Mudança na linha ~1875:**
-
+Atualizar a função `normalizeDateString`:
 ```typescript
-// ANTES:
-const installmentData = {
-  // ...
-  due_date: inst.due_date,  // Pode ser convertido implicitamente
-  // ...
-};
-
-// DEPOIS:
-// Função helper para normalizar data (evita problemas de timezone)
-const normalizeDateString = (dateStr: string | undefined | null): string | null => {
-  if (!dateStr) return null;
-  
-  // Se já está no formato YYYY-MM-DD, usar diretamente
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return dateStr;
-  }
-  
-  // Se contém 'T' (formato ISO), pegar apenas a parte da data
-  if (dateStr.includes('T')) {
-    return dateStr.split('T')[0];
-  }
-  
-  // Se está no formato DD/MM/YYYY, converter
-  const brMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (brMatch) {
-    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
-  }
-  
-  return dateStr;
-};
-
-const installmentData = {
-  // ...
-  due_date: normalizeDateString(inst.due_date),
-  // ...
-};
-```
-
-### Normalização Adicional na Recepção dos Dados
-
-Também aplicar normalização quando os dados são recebidos do Edge Function:
-
-**Mudança na linha ~1321:**
-
-```typescript
-let extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
-  ...inst,
-  id: `installment-${i}-${Date.now()}`,
-  selected: true,
-  matchStatus: 'new' as const,
-  insurer: forcedInsurer || inst.insurer,
-  // Normalizar data na recepção
-  due_date: normalizeDateString(inst.due_date)
-}));
-```
-
----
-
-## Implementação Detalhada
-
-### Passo 1: Adicionar Função Helper
-
-Adicionar a função `normalizeDateString` no início do componente (após os imports):
-
-```typescript
-// Helper para normalizar datas e evitar problemas de timezone
 const normalizeDateString = (dateStr: string | undefined | null): string | null => {
   if (!dateStr) return null;
   
   const str = String(dateStr).trim();
   
-  // Se já está no formato YYYY-MM-DD puro, usar diretamente
+  // Se já está no formato YYYY-MM-DD puro, retornar como está
+  // O PostgreSQL DATE vai interpretar corretamente
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     return str;
   }
@@ -138,71 +83,86 @@ const normalizeDateString = (dateStr: string | undefined | null): string | null 
 };
 ```
 
-### Passo 2: Aplicar na Criação de Installments
-
-Na seção onde `installmentData` é construído (linha ~1870-1887), usar a função:
-
+E adicionar log para debug antes de salvar:
 ```typescript
-const installmentData = {
-  policy_id: policyId,
-  contact_id: contactId,
-  installment_number: installmentNumber,
-  value: inst.value,
-  due_date: normalizeDateString(inst.due_date),  // Normalizado
-  days_overdue: inst.days_overdue || 0,
-  status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
-  metadata: {
-    receipt_number: inst.receipt_number,
-    endorsement: inst.endorsement,
-    cancellation_date: normalizeDateString(inst.cancellation_date),  // Também normalizar
-    commission: inst.commission,
-    source: inst.source,
-    import_session_id: sessionIdRef.current,
-    import_timestamp: new Date().toISOString()
-  }
-};
+console.log('[DEBUG] Saving installment with due_date:', installmentData.due_date);
 ```
 
-### Passo 3: Aplicar na Recepção dos Dados
+### Correção 3: Aplicar `parseISO` em Todos os Componentes de Exibição
 
-Na extração inicial (linha ~1321) e no retry (linha ~1229):
+Arquivos que usam `new Date(due_date)` e precisam ser corrigidos:
 
+| Arquivo | Linha |
+|---------|-------|
+| `src/components/collections/InstallmentsList.tsx` | 943 |
+| `src/components/collections/SendInstallmentWhatsAppModal.tsx` | 182, 242, 317 |
+| `src/components/contacts/ContactCollectionHistory.tsx` | 197 |
+
+---
+
+## Mudanças Detalhadas
+
+### Arquivo: `src/components/collections/InstallmentsList.tsx`
+
+1. Adicionar import de `parseISO`:
 ```typescript
-// Linha ~1321
-let extractedInstallments: ExtractedInstallment[] = (data.installments || []).map((inst: any, i: number) => ({
-  ...inst,
-  id: `installment-${i}-${Date.now()}`,
-  selected: true,
-  matchStatus: 'new' as const,
-  insurer: forcedInsurer || inst.insurer,
-  due_date: normalizeDateString(inst.due_date)  // Adicionar
-}));
+import { format, parseISO } from 'date-fns';
+```
+
+2. Linha 943 - Mudar exibição da data:
+```typescript
+{format(parseISO(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+```
+
+### Arquivo: `src/components/collections/SendInstallmentWhatsAppModal.tsx`
+
+1. Linhas 182, 242, 317 - Mudar para `parseISO`:
+```typescript
+const dueDate = format(parseISO(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
+```
+
+### Arquivo: `src/components/contacts/ContactCollectionHistory.tsx`
+
+1. Linha 197 - Mudar para `parseISO`:
+```typescript
+Venc: {format(parseISO(installmentData.due_date), 'dd/MM/yyyy')}
+```
+
+---
+
+## Correção Manual para Dados Existentes
+
+SQL para corrigir as parcelas já importadas com data errada:
+
+```sql
+-- Corrigir endorsement 115427: 2026-01-27 → 2026-01-28
+UPDATE installments 
+SET due_date = '2026-01-28'
+WHERE metadata->>'endorsement' = '115427';
+
+-- Corrigir endorsement 112544: 2026-01-25 → 2026-01-26
+UPDATE installments 
+SET due_date = '2026-01-26'
+WHERE metadata->>'endorsement' = '112544';
 ```
 
 ---
 
 ## Resumo das Mudanças
 
-| Arquivo | Localização | Modificação |
-|---------|-------------|-------------|
-| `src/components/segurados/ImportDocumentAIModal.tsx` | Após imports (~linha 50) | Adicionar função `normalizeDateString` |
-| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1321 | Normalizar `due_date` na extração inicial |
-| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1229 | Normalizar `due_date` no retry |
-| `src/components/segurados/ImportDocumentAIModal.tsx` | Linha ~1875 | Normalizar `due_date` e `cancellation_date` antes do insert |
+| Arquivo | Tipo | Descrição |
+|---------|------|-----------|
+| `InstallmentsList.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
+| `SendInstallmentWhatsAppModal.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
+| `ContactCollectionHistory.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
+| Banco de dados | Correção | UPDATE nas parcelas com data incorreta |
 
 ---
 
 ## Teste de Validação
 
-Após a implementação:
-
-1. Reimportar o PDF da SOMPO
-2. Verificar que a parcela com vencimento 28/01/2026 é salva corretamente
-3. Consultar no banco para confirmar:
-
-```sql
-SELECT due_date FROM installments 
-WHERE metadata->>'endorsement' = '115427';
--- Esperado: 2026-01-28
-```
+Após implementação:
+1. As datas na lista de parcelas devem aparecer corretas
+2. Novas importações devem salvar as datas corretamente
+3. As parcelas existentes corrigidas devem mostrar as datas certas
 
