@@ -1452,6 +1452,25 @@ export const api = {
   },
 
   /**
+   * Archive multiple conversations at once (bulk operation)
+   */
+  archiveConversationsBulk: async (conversationIds: string[]): Promise<void> => {
+    console.log(`[API] Bulk archiving ${conversationIds.length} conversations`);
+    
+    const { error } = await supabase
+      .from('conversations')
+      .update({ is_active: false })
+      .in('id', conversationIds);
+
+    if (error) {
+      console.error('[API] Error bulk archiving conversations:', error);
+      throw error;
+    }
+    
+    console.log(`[API] ${conversationIds.length} conversations archived successfully`);
+  },
+
+  /**
    * Unarchive a conversation (set is_active to true)
    */
   unarchiveConversation: async (conversationId: string): Promise<void> => {

@@ -463,6 +463,19 @@ export function useConversations() {
     }
   }, []);
 
+  // Archive multiple conversations at once (bulk operation)
+  const archiveConversationsBulk = useCallback(async (conversationIds: string[]) => {
+    try {
+      await api.archiveConversationsBulk(conversationIds);
+      // Remove from local list (optimistic update)
+      setConversations(prev => prev.filter(c => !conversationIds.includes(c.id)));
+      console.log(`[useConversations] ${conversationIds.length} conversations archived`);
+    } catch (err) {
+      console.error('[useConversations] Error bulk archiving:', err);
+      throw err;
+    }
+  }, []);
+
   // Fetch archived conversations
   const fetchArchivedConversations = useCallback(async () => {
     try {
@@ -499,6 +512,7 @@ export function useConversations() {
     assignConversation,
     archiveConversation,
     unarchiveConversation,
+    archiveConversationsBulk,
     fetchArchivedConversations,
     refetch: fetchConversations,
     updateConversationTags
