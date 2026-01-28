@@ -755,14 +755,52 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
           Number(inst.installment_number) > 0
         ) ? Math.floor(Number(inst.installment_number)) : 1;
         
-        // Check if installment already exists with same key
-        const { data: existingInstallment } = await supabase
-          .from('installments')
-          .select('id, value, status, due_date')
-          .eq('policy_id', existingPolicy.id)
-          .eq('installment_number', installmentNumber)
-          .eq('due_date', inst.due_date)
-          .maybeSingle();
+        let existingInstallment = null;
+        
+        // Priority 1: Check by endorsement if available (unique identifier for SOMPO etc)
+        if (inst.endorsement && inst.endorsement.trim() !== '') {
+          const { data: byEndorsement } = await supabase
+            .from('installments')
+            .select('id, value, status, due_date, installment_number')
+            .eq('policy_id', existingPolicy.id)
+            .eq('metadata->>endorsement', inst.endorsement)
+            .maybeSingle();
+          
+          if (byEndorsement) {
+            existingInstallment = byEndorsement;
+          }
+        }
+        
+        // Priority 2: Check by installment_number + due_date (traditional method)
+        if (!existingInstallment) {
+          const { data: byNumber } = await supabase
+            .from('installments')
+            .select('id, value, status, due_date, installment_number')
+            .eq('policy_id', existingPolicy.id)
+            .eq('installment_number', installmentNumber)
+            .eq('due_date', inst.due_date)
+            .maybeSingle();
+          
+          if (byNumber) {
+            existingInstallment = byNumber;
+          }
+        }
+        
+        // Priority 3: Check by value + due_date (catches cases where installment_number is wrong)
+        if (!existingInstallment && inst.value && inst.due_date) {
+          const { data: byValueDate } = await supabase
+            .from('installments')
+            .select('id, value, status, due_date, installment_number')
+            .eq('policy_id', existingPolicy.id)
+            .eq('due_date', inst.due_date)
+            .gte('value', inst.value - 0.01)
+            .lte('value', inst.value + 0.01)
+            .maybeSingle();
+          
+          if (byValueDate) {
+            existingInstallment = byValueDate;
+          }
+        }
         
         if (!existingInstallment) {
           // Installment doesn't exist - it's new
