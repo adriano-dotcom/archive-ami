@@ -1,168 +1,149 @@
 
+# Diagnóstico e Correção: Chamadas WhatsApp não aparecem no sistema
 
-# Correção: Data Exibindo com 1 Dia a Menos na Lista de Parcelas
+## Causa Raiz Identificada (3 problemas encadeados)
 
-## Diagnóstico Confirmado
+### Problema 1: O webhook principal ignora eventos de chamada
+O `whatsapp-webhook` (endpoint real registrado na Meta) recebe os eventos de `field: "calls"`, mas o código atual só trata:
+- `field: "message_template_status_update"`
+- `value.statuses` (status de mensagens)
+- `value.messages` (mensagens recebidas)
 
-Após análise detalhada, identifiquei **dois problemas distintos**:
+O campo `calls` cai no bloco final sem nenhum tratamento e é descartado.
 
-### Problema 1: Exibição na Lista de Parcelas
-Na `InstallmentsList.tsx`, a data é formatada usando `new Date()`:
+### Problema 2: O `whatsapp-call-webhook` é uma função separada que a Meta não usa
+A função `whatsapp-call-webhook` existe mas não está registrada como endpoint na Meta. A Meta envia tudo para o endpoint único configurado.
+
+### Problema 3: Mapeamento de status incorreto
+A Meta envia o campo `event` (ex: `"connect"`, `"terminate"`) dentro do objeto de chamada, não `status`. O mapeamento atual esperava `ringing`, `answered`, etc.
+
+Mapeamento correto:
+- `connect` → `ringing` (chamada chegando/conectando)
+- `accept` → `answered` (atendida)
+- `terminate` / `completed` → `ended`
+- `reject` / `cancel` → `rejected`
+- `missed` → `missed`
+
+## Arquivos a Modificar
+
+### 1. `supabase/functions/whatsapp-webhook/index.ts`
+Adicionar bloco de processamento de `field: "calls"` **antes** do bloco que processa `value.messages`. O bloco irá:
+- Detectar quando `changes?.field === 'calls'`
+- Iterar sobre `value.calls`
+- Mapear `call.event` para os status da tabela `whatsapp_calls`
+- Tentar resolver `contact_id` e `conversation_id` pelo número chamador
+- Fazer upsert na tabela `whatsapp_calls` (INSERT ou UPDATE com base no `id` da chamada)
+- Retornar 200 imediatamente para a Meta
+
+### 2. `src/hooks/useIncomingWhatsAppCall.ts`  
+Pequena melhoria: o hook atual só dispara o modal em INSERT com `status === 'ringing'`. Isso está correto. Mas o AudioContext pode ser bloqueado pelo browser pois é criado assincronamente. Corrigir para pré-criar o AudioContext após interação do usuário e reutilizá-lo.
+
+## Implementação Técnica
+
+### Bloco a inserir no `whatsapp-webhook/index.ts` (após o bloco `message_template_status_update`, antes de `value.statuses`):
+
 ```typescript
-format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })
-```
+// Handle WhatsApp Call events (field === 'calls')
+if (changes?.field === 'calls') {
+  const callsList = value.calls ?? [];
+  const metadata_phone_number_id = value.metadata?.phone_number_id ?? phoneNumberId;
 
-Quando JavaScript interpreta `new Date("2026-01-28")`, ele trata como **UTC meia-noite**. No fuso horário do Brasil (UTC-3), isso "volta" para `27/01/2026 21:00`.
+  for (const call of callsList) {
+    const callId: string = call.id ?? '';
+    const fromNumber: string = call.from ?? '';
+    const toNumber: string = call.to ?? value.metadata?.display_phone_number ?? '';
+    const rawEvent: string = (call.event ?? call.status ?? '').toLowerCase();
+    const timestamp: string = call.timestamp
+      ? new Date(parseInt(call.timestamp) * 1000).toISOString()
+      : new Date().toISOString();
 
-**Por isso a prévia mostra correto** (usa `parseISO`) **mas a lista mostra errado** (usa `new Date`).
+    // Map Meta event to internal status
+    const eventStatusMap: Record<string, string> = {
+      connect: 'ringing',
+      ringing: 'ringing',
+      initiated: 'ringing',
+      accept: 'answered',
+      answered: 'answered',
+      terminate: 'ended',
+      completed: 'ended',
+      ended: 'ended',
+      reject: 'rejected',
+      rejected: 'rejected',
+      cancel: 'rejected',
+      canceled: 'rejected',
+      missed: 'missed',
+      failed: 'failed',
+    };
+    const status = eventStatusMap[rawEvent] ?? 'ringing';
 
-### Problema 2: Dados Salvos Incorretamente
-A consulta no banco mostrou que algumas datas estão realmente salvas erradas:
+    // Try to resolve contact
+    let contactId: string | null = null;
+    let conversationId: string | null = null;
 
-| Endorsement | Esperado | Salvo |
-|-------------|----------|-------|
-| 115427 | 2026-01-28 | 2026-01-27 ❌ |
-| 112544 | 2026-01-26 | 2026-01-25 ❌ |
-| 104546 | 2026-01-08 | 2026-01-08 ✓ |
-| 109004 | 2026-01-08 | 2026-01-08 ✓ |
+    if (fromNumber) {
+      const contact = await findContactByPhone(supabase, fromNumber);
+      if (contact) {
+        contactId = contact.id;
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('contact_id', contactId)
+          .eq('is_active', true)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (conv) conversationId = conv.id;
+      }
+    }
 
-Padrão: datas no final do mês (dia 26, 28) têm problema, datas no início (dia 08) não têm. Isso indica que a conversão de timezone está acontecendo em algum momento entre a extração e o salvamento.
+    // Check for existing record by whatsapp_call_id
+    const { data: existing } = callId
+      ? await supabase.from('whatsapp_calls').select('id, status').eq('whatsapp_call_id', callId).maybeSingle()
+      : { data: null };
 
----
-
-## Solução
-
-### Correção 1: Usar `parseISO` para Exibição (Imediato)
-
-Mudar todas as ocorrências de `new Date(due_date)` para usar `parseISO` do date-fns, que trata a data como string local sem conversão de timezone.
-
-**Arquivo:** `src/components/collections/InstallmentsList.tsx`
-
-**Linha 943:**
-```typescript
-// ANTES:
-{format(new Date(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
-
-// DEPOIS:
-{format(parseISO(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
-```
-
-Também adicionar import de `parseISO` se não existir.
-
-### Correção 2: Normalização com Hora Explícita no Salvamento
-
-Para evitar ambiguidade, ao salvar a data, adicionar o horário **12:00** (meio-dia) para evitar rollback de timezone:
-
-**Arquivo:** `src/components/segurados/ImportDocumentAIModal.tsx`
-
-Atualizar a função `normalizeDateString`:
-```typescript
-const normalizeDateString = (dateStr: string | undefined | null): string | null => {
-  if (!dateStr) return null;
-  
-  const str = String(dateStr).trim();
-  
-  // Se já está no formato YYYY-MM-DD puro, retornar como está
-  // O PostgreSQL DATE vai interpretar corretamente
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    return str;
+    if (existing) {
+      const updates: Record<string, any> = {
+        status,
+        metadata: { last_event: rawEvent, last_event_at: timestamp, webhook_body: call },
+      };
+      if (status === 'answered') updates.answered_at = timestamp;
+      if (['ended', 'rejected', 'missed', 'failed'].includes(status)) {
+        updates.ended_at = timestamp;
+        if (call.duration) updates.duration_seconds = parseInt(call.duration, 10);
+      }
+      await supabase.from('whatsapp_calls').update(updates).eq('id', existing.id);
+    } else {
+      await supabase.from('whatsapp_calls').insert({
+        whatsapp_call_id: callId || null,
+        contact_id: contactId,
+        conversation_id: conversationId,
+        direction: call.direction === 'USER_INITIATED' ? 'inbound' : 'inbound',
+        status,
+        phone_number_id: metadata_phone_number_id || null,
+        from_number: fromNumber,
+        to_number: toNumber,
+        started_at: timestamp,
+        answered_at: status === 'answered' ? timestamp : null,
+        ended_at: ['ended', 'rejected', 'missed', 'failed'].includes(status) ? timestamp : null,
+        duration_seconds: call.duration ? parseInt(call.duration, 10) : null,
+        metadata: { initial_event: rawEvent, webhook_body: call },
+      });
+    }
   }
-  
-  // Se contém 'T' (formato ISO), pegar apenas a parte da data
-  if (str.includes('T')) {
-    return str.split('T')[0];
-  }
-  
-  // Se está no formato DD/MM/YYYY, converter para YYYY-MM-DD
-  const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (brMatch) {
-    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
-  }
-  
-  return str;
-};
+
+  logEntry.event_type = 'call';
+  await saveLogEntry(200);
+  return new Response(JSON.stringify({ status: 'call_processed' }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 ```
 
-E adicionar log para debug antes de salvar:
-```typescript
-console.log('[DEBUG] Saving installment with due_date:', installmentData.due_date);
-```
+### Correção do AudioContext no hook (`useIncomingWhatsAppCall.ts`)
+Criar o AudioContext fora da função `playRingtone` e persistir a referência, para evitar que o browser bloqueie o áudio por falta de interação prévia do usuário.
 
-### Correção 3: Aplicar `parseISO` em Todos os Componentes de Exibição
-
-Arquivos que usam `new Date(due_date)` e precisam ser corrigidos:
-
-| Arquivo | Linha |
-|---------|-------|
-| `src/components/collections/InstallmentsList.tsx` | 943 |
-| `src/components/collections/SendInstallmentWhatsAppModal.tsx` | 182, 242, 317 |
-| `src/components/contacts/ContactCollectionHistory.tsx` | 197 |
-
----
-
-## Mudanças Detalhadas
-
-### Arquivo: `src/components/collections/InstallmentsList.tsx`
-
-1. Adicionar import de `parseISO`:
-```typescript
-import { format, parseISO } from 'date-fns';
-```
-
-2. Linha 943 - Mudar exibição da data:
-```typescript
-{format(parseISO(inst.due_date), 'dd/MM/yyyy', { locale: ptBR })}
-```
-
-### Arquivo: `src/components/collections/SendInstallmentWhatsAppModal.tsx`
-
-1. Linhas 182, 242, 317 - Mudar para `parseISO`:
-```typescript
-const dueDate = format(parseISO(installment.due_date), 'dd/MM/yyyy', { locale: ptBR });
-```
-
-### Arquivo: `src/components/contacts/ContactCollectionHistory.tsx`
-
-1. Linha 197 - Mudar para `parseISO`:
-```typescript
-Venc: {format(parseISO(installmentData.due_date), 'dd/MM/yyyy')}
-```
-
----
-
-## Correção Manual para Dados Existentes
-
-SQL para corrigir as parcelas já importadas com data errada:
-
-```sql
--- Corrigir endorsement 115427: 2026-01-27 → 2026-01-28
-UPDATE installments 
-SET due_date = '2026-01-28'
-WHERE metadata->>'endorsement' = '115427';
-
--- Corrigir endorsement 112544: 2026-01-25 → 2026-01-26
-UPDATE installments 
-SET due_date = '2026-01-26'
-WHERE metadata->>'endorsement' = '112544';
-```
-
----
-
-## Resumo das Mudanças
-
-| Arquivo | Tipo | Descrição |
-|---------|------|-----------|
-| `InstallmentsList.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
-| `SendInstallmentWhatsAppModal.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
-| `ContactCollectionHistory.tsx` | Exibição | Usar `parseISO` ao invés de `new Date` |
-| Banco de dados | Correção | UPDATE nas parcelas com data incorreta |
-
----
-
-## Teste de Validação
-
-Após implementação:
-1. As datas na lista de parcelas devem aparecer corretas
-2. Novas importações devem salvar as datas corretamente
-3. As parcelas existentes corrigidas devem mostrar as datas certas
-
+## Resultado Esperado
+Após a correção:
+1. Meta envia `event: "connect"` → `whatsapp-webhook` processa → insere registro com `status: "ringing"` → Realtime dispara → hook detecta → modal aparece com toque
+2. Chamada encerra (`event: "terminate"`) → UPDATE no registro → modal fecha automaticamente
