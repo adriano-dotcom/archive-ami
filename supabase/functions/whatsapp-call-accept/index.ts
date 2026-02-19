@@ -57,9 +57,6 @@ serve(async (req) => {
     }
 
     const resolvedCallId = callRecord.whatsapp_call_id ?? whatsapp_call_id;
-    if (!resolvedCallId) {
-      throw new Error('whatsapp_call_id ausente no registro da chamada');
-    }
 
     // Fetch WhatsApp credentials
     const { data: settings, error: settingsError } = await supabase
@@ -72,36 +69,42 @@ serve(async (req) => {
     }
 
     const phoneNumberId = callRecord.phone_number_id ?? settings.whatsapp_phone_number_id;
-    if (!phoneNumberId) {
-      throw new Error('phone_number_id não configurado');
-    }
 
-    console.log('[whatsapp-call-accept] Enviando accept para Meta:', { phoneNumberId, resolvedCallId });
+    // Check if this is a real Meta call ID (numeric string) — test IDs are skipped
+    const isRealMetaCallId = resolvedCallId && /^\d+$/.test(resolvedCallId);
 
-    // Accept the call via Meta Graph API
-    const metaResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${phoneNumberId}/calls/${resolvedCallId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${settings.whatsapp_access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'answer' }),
+    let metaData: any = {};
+    if (isRealMetaCallId && phoneNumberId) {
+      console.log('[whatsapp-call-accept] Enviando accept para Meta:', { phoneNumberId, resolvedCallId });
+
+      // Accept the call via Meta Graph API
+      // Meta endpoint: POST /{phone-number-id}/calls with call_id and action
+      const metaResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${phoneNumberId}/calls`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${settings.whatsapp_access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ call_id: resolvedCallId, action: 'answer' }),
+        }
+      );
+
+      metaData = await metaResponse.json().catch(() => ({}));
+
+      console.log('[whatsapp-call-accept] Resposta Meta:', {
+        status: metaResponse.status,
+        ok: metaResponse.ok,
+        data: metaData,
+      });
+
+      if (!metaResponse.ok) {
+        const errMsg = metaData?.error?.message ?? `Erro Meta (${metaResponse.status})`;
+        throw new Error(errMsg);
       }
-    );
-
-    const metaData = await metaResponse.json().catch(() => ({}));
-
-    console.log('[whatsapp-call-accept] Resposta Meta:', {
-      status: metaResponse.status,
-      ok: metaResponse.ok,
-      data: metaData,
-    });
-
-    if (!metaResponse.ok) {
-      const errMsg = metaData?.error?.message ?? `Erro Meta (${metaResponse.status})`;
-      throw new Error(errMsg);
+    } else {
+      console.log('[whatsapp-call-accept] ID de chamada não-numérico (test/simulado) — pulando chamada à Meta API:', resolvedCallId);
     }
 
     // Update local record
