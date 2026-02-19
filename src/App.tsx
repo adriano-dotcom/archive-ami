@@ -10,6 +10,8 @@ import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
 import { usePrefetchSeguradosData } from './hooks/useSeguradosData';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { IncomingCallModal } from './components/IncomingCallModal';
+import { useIncomingWhatsAppCall } from './hooks/useIncomingWhatsAppCall';
 
 // Lazy load route components for code splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -41,6 +43,7 @@ const DefaultRedirect: React.FC = () => {
 const AppLayout: React.FC = () => {
   // Prefetch segurados data on app load for instant navigation
   const prefetchSegurados = usePrefetchSeguradosData();
+  const { incomingCall, dismissCall } = useIncomingWhatsAppCall();
   
   useEffect(() => {
     // Prefetch in background after a short delay to prioritize initial render
@@ -68,6 +71,9 @@ const AppLayout: React.FC = () => {
           </Suspense>
         </div>
       </main>
+
+      {/* Global WhatsApp Incoming Call Modal */}
+      <IncomingCallModal call={incomingCall} onDismiss={dismissCall} />
     </div>
   );
 };
