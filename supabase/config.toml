@@ -36,3 +36,15 @@ verify_jwt = false
 
 [functions.validate-campaign-limit]
 verify_jwt = false
+
+[functions.whatsapp-call-webhook]
+verify_jwt = false
+
+[functions.whatsapp-call-accept]
+verify_jwt = false
+
+[functions.whatsapp-call-reject]
+verify_jwt = false
+
+[functions.whatsapp-call-terminate]
+verify_jwt = false
