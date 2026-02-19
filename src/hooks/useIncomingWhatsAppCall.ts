@@ -16,53 +16,86 @@ export interface IncomingWhatsAppCall {
   profile_picture_url?: string | null;
 }
 
+// Persistent AudioContext to avoid browser autoplay restrictions
+// Must be created/resumed after a user interaction
+let sharedAudioCtx: AudioContext | null = null;
+let ringtoneInterval: ReturnType<typeof setInterval> | null = null;
+
+function getOrCreateAudioContext(): AudioContext | null {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+// Pre-unlock AudioContext on first user interaction
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    const ctx = getOrCreateAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    window.removeEventListener('click', unlock);
+    window.removeEventListener('touchstart', unlock);
+    window.removeEventListener('keydown', unlock);
+  };
+  window.addEventListener('click', unlock, { once: true });
+  window.addEventListener('touchstart', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
+}
+
 export const useIncomingWhatsAppCall = () => {
   const [incomingCall, setIncomingCall] = useState<IncomingWhatsAppCall | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const playRingtone = useCallback(() => {
-    if (audioRef.current) return;
+    if (ringtoneInterval) return; // already playing
     try {
-      // Use a simple ringtone via Web Audio API
-      const audio = new Audio(
-        'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA' +
-        'EAAQAQAAAARAAAARAAAIBAAB'
-      );
+      const ctx = getOrCreateAudioContext();
+      if (!ctx) return;
 
-      // Fallback: generate ringtone with Web Audio API
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-
-      const ctx = new AudioContext();
-
-      const playBeep = () => {
-        const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(480, ctx.currentTime);
-        oscillator.frequency.setValueAtTime(620, ctx.currentTime + 0.4);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.9);
+      // Resume context if suspended (needed after user interaction)
+      const doPlay = () => {
+        const playBeep = () => {
+          try {
+            if (!ctx || ctx.state === 'closed') return;
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(480, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(620, ctx.currentTime + 0.4);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.9);
+          } catch { /* silent fail */ }
+        };
+        playBeep();
+        ringtoneInterval = setInterval(playBeep, 2000);
       };
 
-      playBeep();
-      const interval = setInterval(playBeep, 2000);
-      // Store interval reference on audio element trick
-      (audioRef as any).current = { ctx, interval, stop: () => { clearInterval(interval); ctx.close().catch(() => {}); } };
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(doPlay).catch(() => {});
+      } else {
+        doPlay();
+      }
     } catch {
       // silent fail — ringtone is optional
     }
   }, []);
 
   const stopRingtone = useCallback(() => {
-    if ((audioRef as any).current?.stop) {
-      (audioRef as any).current.stop();
-      audioRef.current = null;
+    if (ringtoneInterval) {
+      clearInterval(ringtoneInterval);
+      ringtoneInterval = null;
     }
   }, []);
 
