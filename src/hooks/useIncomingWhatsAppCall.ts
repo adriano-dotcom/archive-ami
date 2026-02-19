@@ -10,6 +10,8 @@ export interface IncomingWhatsAppCall {
   started_at: string | null;
   contact_id: string | null;
   phone_number_id: string | null;
+  sdp_offer: string | null;
+  sdp_type: string | null;
   // enriched
   contact_name?: string | null;
   contact_phone?: string | null;
@@ -17,7 +19,6 @@ export interface IncomingWhatsAppCall {
 }
 
 // Persistent AudioContext to avoid browser autoplay restrictions
-// Must be created/resumed after a user interaction
 let sharedAudioCtx: AudioContext | null = null;
 let ringtoneInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -55,12 +56,11 @@ export const useIncomingWhatsAppCall = () => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const playRingtone = useCallback(() => {
-    if (ringtoneInterval) return; // already playing
+    if (ringtoneInterval) return;
     try {
       const ctx = getOrCreateAudioContext();
       if (!ctx) return;
 
-      // Resume context if suspended (needed after user interaction)
       const doPlay = () => {
         const playBeep = () => {
           try {
@@ -88,7 +88,7 @@ export const useIncomingWhatsAppCall = () => {
         doPlay();
       }
     } catch {
-      // silent fail — ringtone is optional
+      // silent fail
     }
   }, []);
 
@@ -100,7 +100,14 @@ export const useIncomingWhatsAppCall = () => {
   }, []);
 
   const enrichCallWithContact = useCallback(async (call: any): Promise<IncomingWhatsAppCall> => {
-    if (!call.contact_id) return call;
+    const metadata = call.metadata || {};
+    const enriched: IncomingWhatsAppCall = {
+      ...call,
+      sdp_offer: metadata.sdp_offer || null,
+      sdp_type: metadata.sdp_type || null,
+    };
+    
+    if (!call.contact_id) return enriched;
     try {
       const { data: contact } = await supabase
         .from('contacts')
@@ -108,13 +115,13 @@ export const useIncomingWhatsAppCall = () => {
         .eq('id', call.contact_id)
         .maybeSingle();
       return {
-        ...call,
+        ...enriched,
         contact_name: contact?.name ?? null,
         contact_phone: contact?.phone_number ?? null,
         profile_picture_url: contact?.profile_picture_url ?? null,
       };
     } catch {
-      return call;
+      return enriched;
     }
   }, []);
 
@@ -124,7 +131,6 @@ export const useIncomingWhatsAppCall = () => {
   }, [stopRingtone]);
 
   useEffect(() => {
-    // Check if there's already a ringing call on mount
     const checkExisting = async () => {
       const { data } = await supabase
         .from('whatsapp_calls')
@@ -142,7 +148,6 @@ export const useIncomingWhatsAppCall = () => {
     };
     checkExisting();
 
-    // Subscribe to new inserts / updates
     const channel = supabase
       .channel('incoming-whatsapp-calls')
       .on(
@@ -164,12 +169,18 @@ export const useIncomingWhatsAppCall = () => {
           const updated = payload.new as any;
           setIncomingCall(prev => {
             if (!prev || prev.id !== updated.id) return prev;
-            // Call ended/rejected → dismiss
             if (['ended', 'rejected', 'missed', 'failed'].includes(updated.status)) {
               stopRingtone();
               return null;
             }
-            return { ...prev, status: updated.status };
+            // Update SDP offer if it comes in via update
+            const metadata = updated.metadata || {};
+            return { 
+              ...prev, 
+              status: updated.status,
+              sdp_offer: metadata.sdp_offer || prev.sdp_offer,
+              sdp_type: metadata.sdp_type || prev.sdp_type,
+            };
           });
         }
       )

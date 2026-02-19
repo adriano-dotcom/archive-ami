@@ -520,7 +520,7 @@ serve(async (req) => {
           if (existing) {
             const updates: Record<string, any> = {
               status,
-              metadata: { last_event: rawEvent, last_event_at: timestamp, webhook_body: call },
+              metadata: { last_event: rawEvent, last_event_at: timestamp, webhook_body: call, sdp_offer: call.session?.sdp || null, sdp_type: call.session?.sdp_type || null },
             };
             if (status === 'answered') updates.answered_at = timestamp;
             if (['ended', 'rejected', 'missed', 'failed'].includes(status)) {
@@ -543,7 +543,7 @@ serve(async (req) => {
               answered_at: status === 'answered' ? timestamp : null,
               ended_at: ['ended', 'rejected', 'missed', 'failed'].includes(status) ? timestamp : null,
               duration_seconds: call.duration ? parseInt(call.duration, 10) : null,
-              metadata: { initial_event: rawEvent, webhook_body: call },
+              metadata: { initial_event: rawEvent, webhook_body: call, sdp_offer: call.session?.sdp || null, sdp_type: call.session?.sdp_type || null },
             });
             if (insertError) {
               console.error('[Webhook] Error inserting whatsapp_call:', insertError);
