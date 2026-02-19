@@ -89,7 +89,7 @@ serve(async (req) => {
             'Authorization': `Bearer ${settings.whatsapp_access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ messaging_product: 'whatsapp', call_id: resolvedCallId, action: 'answer' }),
+          body: JSON.stringify({ messaging_product: 'whatsapp', call_id: resolvedCallId, action: 'ACCEPT' }),
         }
       );
 
