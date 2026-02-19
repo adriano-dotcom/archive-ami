@@ -8,6 +8,7 @@ import type { IncomingWhatsAppCall } from '@/hooks/useIncomingWhatsAppCall';
 interface IncomingCallModalProps {
   call: IncomingWhatsAppCall | null;
   onDismiss: () => void;
+  onStopRingtone?: () => void;
 }
 
 const formatPhone = (phone: string | null) => {
@@ -19,7 +20,7 @@ const formatPhone = (phone: string | null) => {
   return phone;
 };
 
-export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({ call, onDismiss }) => {
+export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({ call, onDismiss, onStopRingtone }) => {
   const [accepting, setAccepting] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [inCall, setInCall] = useState(false);
@@ -57,6 +58,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({ call, onDi
   const handleAccept = async () => {
     if (!call) return;
     setAccepting(true);
+    onStopRingtone?.();
     
     try {
       // 1. Get user microphone

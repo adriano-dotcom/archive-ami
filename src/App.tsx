@@ -43,7 +43,7 @@ const DefaultRedirect: React.FC = () => {
 const AppLayout: React.FC = () => {
   // Prefetch segurados data on app load for instant navigation
   const prefetchSegurados = usePrefetchSeguradosData();
-  const { incomingCall, dismissCall } = useIncomingWhatsAppCall();
+  const { incomingCall, dismissCall, stopRingtone } = useIncomingWhatsAppCall();
   
   useEffect(() => {
     // Prefetch in background after a short delay to prioritize initial render
@@ -73,7 +73,7 @@ const AppLayout: React.FC = () => {
       </main>
 
       {/* Global WhatsApp Incoming Call Modal */}
-      <IncomingCallModal call={incomingCall} onDismiss={dismissCall} />
+      <IncomingCallModal call={incomingCall} onDismiss={dismissCall} onStopRingtone={stopRingtone} />
     </div>
   );
 };
