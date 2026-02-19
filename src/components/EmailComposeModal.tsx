@@ -155,7 +155,7 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
         .order('name');
       
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data || []) as any);
     } catch (error) {
       console.error('Erro ao carregar templates:', error);
     } finally {

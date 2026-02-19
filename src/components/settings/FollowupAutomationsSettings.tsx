@@ -242,8 +242,14 @@ export default function FollowupAutomationsSettings() {
       if (templatesRes.error) throw templatesRes.error;
       if (agentsRes.error) throw agentsRes.error;
 
-      const mappedAutomations: Automation[] = (automationsRes.data || []).map(a => ({
+      const mappedAutomations: Automation[] = ((automationsRes.data || []).map(a => ({
         ...a,
+        conversation_statuses: a.conversation_statuses ?? [],
+        max_attempts: a.max_attempts ?? 1,
+        cooldown_hours: a.cooldown_hours ?? 24,
+        active_hours_start: a.active_hours_start ?? '09:00:00',
+        active_hours_end: a.active_hours_end ?? '18:00:00',
+        active_days: a.active_days ?? [1,2,3,4,5],
         template_variables: (a.template_variables as Record<string, string>) || {},
         agent_messages: (a.agent_messages as Record<string, string>) || {},
         time_unit: (a.time_unit || 'hours') as 'hours' | 'minutes',
@@ -253,11 +259,11 @@ export default function FollowupAutomationsSettings() {
         minutes_before_expiry: a.minutes_before_expiry ?? 10,
         only_if_no_client_response: a.only_if_no_client_response ?? true,
         messages_sequence: Array.isArray(a.messages_sequence) ? (a.messages_sequence as unknown as MessageSequenceItem[]) : null,
-      }));
+      })) as any) as Automation[];
 
       setAutomations(mappedAutomations);
-      setTemplates(templatesRes.data || []);
-      setAgents(agentsRes.data || []);
+      setTemplates((templatesRes.data || []) as any);
+      setAgents((agentsRes.data || []) as any);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar automações');
@@ -275,7 +281,7 @@ export default function FollowupAutomationsSettings() {
         .limit(100);
 
       if (error) throw error;
-      setLogs(data || []);
+      setLogs((data || []) as any);
     } catch (error) {
       console.error('Error loading logs:', error);
       toast.error('Erro ao carregar logs');
@@ -1004,9 +1010,9 @@ export default function FollowupAutomationsSettings() {
                                 <Label className="text-xs">Tipo de pergunta</Label>
                                 <Select
                                   value={item.ai_prompt_type || 'qualification'}
-                                  onValueChange={(value: MessageSequenceItem['ai_prompt_type']) => {
+                                  onValueChange={(value: string) => {
                                     const updated = [...formData.messages_sequence];
-                                    updated[index] = { ...updated[index], ai_prompt_type: value };
+                                    updated[index] = { ...updated[index], ai_prompt_type: value as MessageSequenceItem['ai_prompt_type'] };
                                     setFormData(prev => ({ ...prev, messages_sequence: updated }));
                                   }}
                                 >

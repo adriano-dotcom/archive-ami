@@ -1901,7 +1901,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               contact_id: contactId,
               installment_number: installmentNumber,
               value: inst.value,
-              due_date: normalizeDateString(inst.due_date),
+              due_date: normalizeDateString(inst.due_date) ?? undefined,
               days_overdue: inst.days_overdue || 0,
               status: inst.status === 'VENCIDO' || inst.status === 'ATRASADO' ? 'overdue' : 'pending',
               metadata: {
@@ -1937,7 +1937,7 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
               // Insert new installment
               const { error: insertError } = await supabase
                 .from('installments')
-                .insert(installmentData);
+                .insert(installmentData as any);
               
               if (insertError) {
                 console.error('Error creating installment:', insertError);

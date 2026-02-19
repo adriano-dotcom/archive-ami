@@ -52,9 +52,9 @@ const Team: React.FC = () => {
         api.fetchSellers()
       ]);
       setMembers(membersData);
-      setTeams(teamsData);
-      setFunctions(functionsData);
-      setSellers(sellersData);
+      setTeams(teamsData as any);
+      setFunctions(functionsData as any);
+      setSellers(sellersData as any);
     } catch (error) {
       console.error("Erro ao carregar dados da equipe", error);
     } finally {
@@ -207,7 +207,7 @@ const Team: React.FC = () => {
       await api.createSeller({
         name: sellerForm.name,
         email: sellerForm.email,
-        phone: sellerForm.phone || null
+        phone: sellerForm.phone || undefined
       });
       toast.success('Vendedor criado com sucesso!');
       setSellerForm({ name: '', email: '', phone: '' });
@@ -226,7 +226,7 @@ const Team: React.FC = () => {
       await api.updateSeller(editingSeller.id, {
         name: sellerForm.name,
         email: sellerForm.email,
-        phone: sellerForm.phone || null
+        phone: sellerForm.phone || undefined
       });
       toast.success('Vendedor atualizado com sucesso!');
       setEditingSeller(null);

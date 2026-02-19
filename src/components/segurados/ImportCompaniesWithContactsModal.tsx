@@ -402,14 +402,14 @@ export const ImportCompaniesWithContactsModal: React.FC<ImportCompaniesWithConta
         companiesSuccess++;
 
         // Get company ID (either from insert or existing)
-        let companyId = companyResult?.id;
+        let companyId: string | undefined = companyResult?.id;
         if (!companyId) {
           const { data: existingCompany } = await supabase
             .from('companies')
             .select('id')
             .eq('cnpj', company.cnpj)
             .single();
-          companyId = existingCompany?.id;
+          companyId = existingCompany?.id ?? undefined;
         }
 
         if (companyId && company.contacts.length > 0) {

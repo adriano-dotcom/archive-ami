@@ -156,7 +156,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
           sdr_name: settings.sdr_name,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', settings.id);
+        .eq('id', settings.id!);
 
       if (error) throw error;
 
