@@ -173,6 +173,10 @@ export const useIncomingWhatsAppCall = () => {
               stopRingtone();
               return null;
             }
+            if (updated.status === 'answered') {
+              stopRingtone();
+              return { ...prev, status: updated.status };
+            }
             // Update SDP offer if it comes in via update
             const metadata = updated.metadata || {};
             return { 
@@ -194,5 +198,5 @@ export const useIncomingWhatsAppCall = () => {
     };
   }, [enrichCallWithContact, playRingtone, stopRingtone]);
 
-  return { incomingCall, dismissCall };
+  return { incomingCall, dismissCall, stopRingtone };
 };
