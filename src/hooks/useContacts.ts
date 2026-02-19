@@ -152,18 +152,18 @@ const enrichContactsWithRelations = async (contacts: ContactLight[], allLoadedCo
 
   const policiesByContact = new Map<string, { count: number; insurers: Set<string> }>();
   (policiesResult.data || []).forEach(policy => {
-    const existing = policiesByContact.get(policy.contact_id) || { count: 0, insurers: new Set() };
+    const existing = policiesByContact.get(policy.contact_id!) || { count: 0, insurers: new Set<string>() };
     existing.count += 1;
     if (policy.insurer) existing.insurers.add(policy.insurer);
-    policiesByContact.set(policy.contact_id, existing);
+    policiesByContact.set(policy.contact_id!, existing);
   });
 
   const overdueByContact = new Map<string, { totalValue: number; maxDays: number }>();
   (installmentsResult.data || []).forEach(inst => {
-    const existing = overdueByContact.get(inst.contact_id) || { totalValue: 0, maxDays: 0 };
+    const existing = overdueByContact.get(inst.contact_id!) || { totalValue: 0, maxDays: 0 };
     existing.totalValue += Number(inst.value) || 0;
     existing.maxDays = Math.max(existing.maxDays, inst.days_overdue || 0);
-    overdueByContact.set(inst.contact_id, existing);
+    overdueByContact.set(inst.contact_id!, existing);
   });
 
   // Detect duplicates across all loaded contacts

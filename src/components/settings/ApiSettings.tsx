@@ -728,7 +728,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                   const { error } = await supabase
                     .from('nina_settings')
                     .update({ elevenlabs_voice_id: newVoiceId })
-                    .eq('id', settings.id);
+                    .eq('id', settings.id!);
                   
                   if (error) {
                     toast.error('Erro ao salvar voz');

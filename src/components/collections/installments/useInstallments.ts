@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 const CARGO_BRANCHES = ['309', '31', '32', '33', '0309', '031', '032', '033'];
 const CARGO_PRODUCTS = ['transportador', 'rctr', 'rctr-c', 'rc-dc', 'carga', 'transporte', 'embarcador'];
 
-export const isCargoInsurance = (policy: { branch?: string | null; product?: string | null; is_cargo_insurance?: boolean } | null): boolean => {
+export const isCargoInsurance = (policy: { branch?: string | null; product?: string | null; is_cargo_insurance?: boolean | null } | null): boolean => {
   if (!policy) return false;
   if (policy.is_cargo_insurance) return true;
   if (policy.branch && CARGO_BRANCHES.includes(policy.branch)) return true;

@@ -381,7 +381,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
       zIndex: 9999,
     };
 
-    function fire(particleRatio: number, opts: confetti.Options) {
+    function fire(particleRatio: number, opts: any) {
       confetti({
         ...defaults,
         ...opts,

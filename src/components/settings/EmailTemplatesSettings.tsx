@@ -58,7 +58,7 @@ const EmailTemplatesSettings: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data || []) as any);
     } catch (error) {
       console.error('Error loading templates:', error);
       toast.error('Erro ao carregar templates');
@@ -147,13 +147,13 @@ const EmailTemplatesSettings: React.FC = () => {
         if (error) throw error;
         toast.success('Template atualizado com sucesso');
       } else {
-        const { error } = await supabase.from('email_templates').insert({
-          name: template.name,
-          subject: template.subject,
-          body_html: template.body_html,
+        const { error } = await supabase.from('email_templates').insert([{
+          name: template.name!,
+          subject: template.subject!,
+          body_html: template.body_html!,
           category: template.category || 'general',
           is_active: true,
-        });
+        }]);
 
         if (error) throw error;
         toast.success('Template criado com sucesso');

@@ -51,7 +51,7 @@ export const useNinaProcessingStatus = (conversationId: string | null): Processi
       const agentName = (conversation?.agents as any)?.name || 'Íris';
 
       setStatus({
-        isAggregating: item.status === 'pending' && isScheduledInFuture,
+        isAggregating: (item.status === 'pending' && isScheduledInFuture) as boolean,
         isProcessing: item.status === 'processing' || (item.status === 'pending' && !isScheduledInFuture),
         agentName,
       });

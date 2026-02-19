@@ -131,7 +131,7 @@ export const api = {
       const conversionsPeriod = appointmentsPeriodResult.count || 0;
       const conversionsPrev = appointmentsPrevResult.count || 0;
       
-      const responseTimes = avgResponseResult.data?.map(m => m.nina_response_time).filter(Boolean) || [];
+      const responseTimes = (avgResponseResult.data?.map(m => m.nina_response_time).filter(Boolean) || []) as number[];
       const avgResponseMs = responseTimes.length > 0 
         ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length 
         : 0;
@@ -299,19 +299,19 @@ export const api = {
     // Create maps for policies count and insurers
     const policiesByContact = new Map<string, { count: number; insurers: Set<string> }>();
     (policiesData || []).forEach(policy => {
-      const existing = policiesByContact.get(policy.contact_id) || { count: 0, insurers: new Set() };
+      const existing = policiesByContact.get(policy.contact_id!) || { count: 0, insurers: new Set<string>() };
       existing.count += 1;
       if (policy.insurer) existing.insurers.add(policy.insurer);
-      policiesByContact.set(policy.contact_id, existing);
+      policiesByContact.set(policy.contact_id!, existing);
     });
 
     // Create maps for overdue installments
     const overdueByContact = new Map<string, { totalValue: number; maxDays: number }>();
     (installmentsData || []).forEach(inst => {
-      const existing = overdueByContact.get(inst.contact_id) || { totalValue: 0, maxDays: 0 };
+      const existing = overdueByContact.get(inst.contact_id!) || { totalValue: 0, maxDays: 0 };
       existing.totalValue += Number(inst.value) || 0;
       existing.maxDays = Math.max(existing.maxDays, inst.days_overdue || 0);
-      overdueByContact.set(inst.contact_id, existing);
+      overdueByContact.set(inst.contact_id!, existing);
     });
 
     // Format CNPJ for display
@@ -535,7 +535,7 @@ export const api = {
       lastActive: m.last_active || undefined,
       team_id: m.team_id,
       function_id: m.function_id,
-      weight: m.weight,
+      weight: m.weight ?? undefined,
       team: m.team as any,
       function: m.function as any
     }));
@@ -605,7 +605,7 @@ export const api = {
       avatar: data.avatar || `https://ui-avatars.com/api/?name=${data.name.replace(' ', '+')}&background=random`,
       team_id: data.team_id,
       function_id: data.function_id,
-      weight: data.weight
+      weight: data.weight ?? undefined
     };
   },
 
@@ -867,7 +867,7 @@ export const api = {
       time: a.time,
       duration: a.duration,
       type: a.type as 'demo' | 'meeting' | 'support' | 'followup',
-      description: a.description,
+      description: a.description ?? undefined,
       attendees: a.attendees || []
     }));
   },
@@ -915,7 +915,7 @@ export const api = {
       time: data.time,
       duration: data.duration,
       type: data.type as 'demo' | 'meeting' | 'support' | 'followup',
-      description: data.description,
+      description: data.description ?? undefined,
       attendees: data.attendees || []
     };
   },

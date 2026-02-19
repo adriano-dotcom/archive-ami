@@ -2462,6 +2462,88 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_calls: {
+        Row: {
+          answered_at: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          from_number: string | null
+          hangup_cause: string | null
+          id: string
+          metadata: Json | null
+          phone_number_id: string | null
+          started_at: string | null
+          status: string
+          to_number: string | null
+          updated_at: string
+          whatsapp_call_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          hangup_cause?: string | null
+          id?: string
+          metadata?: Json | null
+          phone_number_id?: string | null
+          started_at?: string | null
+          status?: string
+          to_number?: string | null
+          updated_at?: string
+          whatsapp_call_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          hangup_cause?: string | null
+          id?: string
+          metadata?: Json | null
+          phone_number_id?: string | null
+          started_at?: string | null
+          status?: string
+          to_number?: string | null
+          updated_at?: string
+          whatsapp_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_calls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_templates: {
         Row: {
           category: string | null

@@ -127,7 +127,7 @@ export default function AutomationsDashboard() {
               .limit(1);
 
             if (firstResponse && firstResponse.length > 0) {
-              const logTime = new Date(log.created_at).getTime();
+              const logTime = new Date(log.created_at!).getTime();
               const responseTimeMs = new Date(firstResponse[0].sent_at).getTime();
               responseTime = (responseTimeMs - logTime) / (1000 * 60 * 60); // hours
             }
@@ -210,7 +210,7 @@ export default function AutomationsDashboard() {
         };
       }).filter(a => a.sent > 0 || a.isActive);
 
-      setAutomationPerformance(automationPerf);
+      setAutomationPerformance(automationPerf as any);
 
       // Build timeline
       const timelineMap = new Map<string, { sent: number; responded: number }>();
@@ -221,7 +221,7 @@ export default function AutomationsDashboard() {
       }
 
       successLogs.forEach(log => {
-        const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd');
+        const dateStr = format(parseISO(log.created_at!), 'yyyy-MM-dd');
         const current = timelineMap.get(dateStr);
         if (current) {
           current.sent++;

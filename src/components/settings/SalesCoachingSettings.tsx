@@ -162,7 +162,7 @@ export default function SalesCoachingSettings() {
         bad_examples: (r.bad_examples || []) as unknown as ExampleItem[],
         prospecting_metrics: (r.prospecting_metrics || null) as unknown as ProspectingMetrics | null,
       }));
-      setReports(typedReports);
+      setReports(typedReports as any);
     }
     setIsLoading(false);
   };
@@ -614,7 +614,7 @@ export default function SalesCoachingSettings() {
                                 <div 
                                   className={cn("h-full rounded-full transition-all", step.color)}
                                   style={{ 
-                                    width: `${report.prospecting_metrics.templates_sent > 0 
+                                    width: `${report.prospecting_metrics && report.prospecting_metrics.templates_sent > 0 
                                       ? (step.value / report.prospecting_metrics.templates_sent) * 100 
                                       : 0}%` 
                                   }}

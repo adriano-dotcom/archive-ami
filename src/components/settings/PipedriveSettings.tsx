@@ -171,7 +171,7 @@ const PipedriveSettings = forwardRef<PipedriveSettingsRef>((_, ref) => {
           pipedrive_default_pipeline_id: settings.pipedrive_default_pipeline_id || null,
           pipedrive_field_mappings: settings.pipedrive_field_mappings as unknown as Json
         })
-        .eq('id', (await supabase.from('nina_settings').select('id').single()).data?.id);
+        .eq('id', (await supabase.from('nina_settings').select('id').single()).data?.id!);
 
       if (error) throw error;
 

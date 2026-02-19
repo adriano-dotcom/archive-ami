@@ -47,9 +47,9 @@ const TeamConfigModal: React.FC<TeamConfigModalProps> = ({ isOpen, onClose, onUp
         api.fetchTeamFunctions(),
         api.fetchSellers()
       ]);
-      setTeams(teamsData);
-      setFunctions(functionsData);
-      setSellers(sellersData);
+      setTeams(teamsData as any);
+      setFunctions(functionsData as any);
+      setSellers(sellersData as any);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

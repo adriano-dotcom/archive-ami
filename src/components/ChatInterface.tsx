@@ -150,7 +150,7 @@ const ChatInterface: React.FC = () => {
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const recorderRef = useRef<RecordRTC | null>(null);
+  const recorderRef = useRef<any>(null);
   const recordingIntervalRef = useRef<number | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   // Input refs for keyboard shortcuts
@@ -365,7 +365,7 @@ const ChatInterface: React.FC = () => {
         await supabase
           .from('team_members')
           .update({ last_active: new Date().toISOString() })
-          .eq('email', user.email);
+          .eq('email', user.email!);
       } catch (err) {
         console.error('[Presence] Error updating last_active:', err);
       }
@@ -648,7 +648,7 @@ const ChatInterface: React.FC = () => {
 
   // Mark as read when selecting conversation
   useEffect(() => {
-    if (selectedChatId && activeChat?.unreadCount > 0) {
+    if (selectedChatId && (activeChat?.unreadCount ?? 0) > 0) {
       markAsRead(selectedChatId);
     }
   }, [selectedChatId, activeChat?.unreadCount, markAsRead]);
@@ -953,10 +953,10 @@ const ChatInterface: React.FC = () => {
     setIsSavingContact(true);
     try {
       await api.updateContact(activeChat.contactId, {
-        name: editName.trim() || null,
+        name: editName.trim() || undefined,
         phone_number: editPhone.replace(/\D/g, '') || undefined,
-        email: editEmail.trim() || null,
-        cnpj: editCnpj.replace(/\D/g, '') || null,
+        email: editEmail.trim() || undefined,
+        cnpj: editCnpj.replace(/\D/g, '') || undefined,
         company: editCompany.trim() || null
       });
       
@@ -2976,7 +2976,7 @@ const ChatInterface: React.FC = () => {
           contactId={activeChat.contactId}
           conversationId={activeChat.id}
           contactName={activeChat.contactName}
-          contactCompany={activeChat.contactCompany}
+          contactCompany={activeChat.contactCompany ?? undefined}
           onSent={() => setShowTemplateModal(false)}
         />
       )}

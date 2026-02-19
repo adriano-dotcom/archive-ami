@@ -112,7 +112,7 @@ const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
         .order('name');
       
       if (error) throw error;
-      setCampaigns(data || []);
+      setCampaigns((data || []) as any);
     } catch (error) {
       console.error('Error loading campaigns:', error);
     } finally {
@@ -138,7 +138,7 @@ const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
 
       if (error) throw error;
 
-      setCampaigns(prev => [...prev, data]);
+      setCampaigns(prev => [...prev, data] as any);
       setSelectedCampaignId(data.id);
       setIsCreatingCampaign(false);
       setNewCampaignName('');
