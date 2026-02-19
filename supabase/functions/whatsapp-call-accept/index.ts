@@ -12,10 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { call_id, whatsapp_call_id } = await req.json();
+    const { call_id, whatsapp_call_id, sdp_answer, sdp_type } = await req.json();
 
     console.log('[whatsapp-call-accept] === ACEITANDO CHAMADA ===');
-    console.log('[whatsapp-call-accept] Params:', { call_id, whatsapp_call_id });
+    console.log('[whatsapp-call-accept] Params:', { call_id, whatsapp_call_id, has_sdp: !!sdp_answer, sdp_type });
 
     if (!call_id && !whatsapp_call_id) {
       throw new Error('É necessário fornecer call_id ou whatsapp_call_id');
@@ -34,7 +34,6 @@ serve(async (req) => {
         .select('id, whatsapp_call_id, phone_number_id, status')
         .eq('id', call_id)
         .maybeSingle();
-
       if (error) throw new Error('Erro ao buscar registro da chamada');
       callRecord = data;
     } else {
@@ -43,7 +42,6 @@ serve(async (req) => {
         .select('id, whatsapp_call_id, phone_number_id, status')
         .eq('whatsapp_call_id', whatsapp_call_id)
         .maybeSingle();
-
       if (error) throw new Error('Erro ao buscar registro da chamada');
       callRecord = data;
     }
@@ -70,17 +68,35 @@ serve(async (req) => {
 
     const phoneNumberId = callRecord.phone_number_id ?? settings.whatsapp_phone_number_id;
 
-    // Check if this is a real Meta call ID — real IDs start with "wacid." or are numeric
-    // Test/simulated IDs typically contain "LIVE_TEST" or "SIMULATED"
+    // Check if this is a test call
     const isTestCallId = resolvedCallId && /LIVE_TEST|SIMULATED|TEST/i.test(resolvedCallId);
     const isRealMetaCallId = resolvedCallId && !isTestCallId;
 
     let metaData: any = {};
     if (isRealMetaCallId && phoneNumberId) {
-      console.log('[whatsapp-call-accept] Enviando accept para Meta:', { phoneNumberId, resolvedCallId });
+      // Build payload with session (SDP answer) if provided
+      const payload: any = {
+        messaging_product: 'whatsapp',
+        call_id: resolvedCallId,
+        action: 'ACCEPT',
+      };
 
-      // Accept the call via Meta Graph API
-      // Meta endpoint: POST /{phone-number-id}/calls with call_id and action
+      if (sdp_answer) {
+        payload.session = {
+          sdp: sdp_answer,
+          sdp_type: sdp_type || 'answer',
+        };
+        console.log('[whatsapp-call-accept] Incluindo SDP answer no payload, tamanho:', sdp_answer.length);
+      } else {
+        console.warn('[whatsapp-call-accept] SDP answer não fornecido — Meta pode rejeitar');
+      }
+
+      console.log('[whatsapp-call-accept] Enviando accept para Meta:', { 
+        phoneNumberId, 
+        resolvedCallId: resolvedCallId.substring(0, 30) + '...',
+        hasSession: !!payload.session,
+      });
+
       const metaResponse = await fetch(
         `https://graph.facebook.com/v21.0/${phoneNumberId}/calls`,
         {
@@ -89,7 +105,7 @@ serve(async (req) => {
             'Authorization': `Bearer ${settings.whatsapp_access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ messaging_product: 'whatsapp', call_id: resolvedCallId, action: 'ACCEPT' }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -106,7 +122,7 @@ serve(async (req) => {
         throw new Error(errMsg);
       }
     } else {
-      console.log('[whatsapp-call-accept] ID de chamada não-numérico (test/simulado) — pulando chamada à Meta API:', resolvedCallId);
+      console.log('[whatsapp-call-accept] Chamada de teste — pulando Meta API');
     }
 
     // Update local record
