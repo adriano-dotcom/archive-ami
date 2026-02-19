@@ -70,8 +70,10 @@ serve(async (req) => {
 
     const phoneNumberId = callRecord.phone_number_id ?? settings.whatsapp_phone_number_id;
 
-    // Check if this is a real Meta call ID (numeric string) — test IDs are skipped
-    const isRealMetaCallId = resolvedCallId && /^\d+$/.test(resolvedCallId);
+    // Check if this is a real Meta call ID — real IDs start with "wacid." or are numeric
+    // Test/simulated IDs typically contain "LIVE_TEST" or "SIMULATED"
+    const isTestCallId = resolvedCallId && /LIVE_TEST|SIMULATED|TEST/i.test(resolvedCallId);
+    const isRealMetaCallId = resolvedCallId && !isTestCallId;
 
     let metaData: any = {};
     if (isRealMetaCallId && phoneNumberId) {
