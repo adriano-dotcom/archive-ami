@@ -52,6 +52,8 @@ import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssist
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useWhatsAppCallHistory } from '@/hooks/useWhatsAppCallHistory';
+import WhatsAppCallHistoryPanel from './WhatsAppCallHistoryPanel';
 
 interface AgentQuestion {
   order: number;
@@ -353,6 +355,9 @@ const ChatInterface: React.FC = () => {
   
   // Active call state
   const { activeCall, callHistory, loading: callHistoryLoading, dismissActiveCall } = useActiveCall(selectedChatId);
+  
+  // WhatsApp call history
+  const { calls: whatsappCallHistory, loading: whatsappCallsLoading } = useWhatsAppCallHistory(activeChat?.contactId || null);
 
 
   // ===== PRESENCE HEARTBEAT =====
@@ -2775,6 +2780,20 @@ const ChatInterface: React.FC = () => {
                     }}
                   />
                 </div>
+
+                {/* WhatsApp Call History */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Chamadas WhatsApp
+                  </h4>
+                  <WhatsAppCallHistoryPanel 
+                    calls={whatsappCallHistory} 
+                    loading={whatsappCallsLoading}
+                  />
+                </div>
+
+                <div className="h-px bg-slate-800/50 w-full"></div>
 
                 {/* Deal/Pipeline functionality removed - system focused on collections and claims */}
 
