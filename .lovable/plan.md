@@ -1,25 +1,26 @@
 
 
-## Plano: Remover integração Pipedrive
+## Plano: Dropar colunas Pipedrive do banco
 
-Arquivos e componentes a remover/editar:
+Uma migração SQL para remover todas as colunas relacionadas ao Pipedrive.
 
-### 1. Deletar edge function
-- Deletar `supabase/functions/sync-pipedrive/index.ts`
+### Migração
 
-### 2. Remover aba Pipedrive das Configurações (`src/components/Settings.tsx`)
-- Remover import do `PipedriveSettings`
-- Remover ref, save/cancel/isSaving do pipedrive
-- Remover `<TabsTrigger value="pipedrive">` e `<TabsContent value="pipedrive">`
+```sql
+-- nina_settings: remover 7 colunas pipedrive_*
+ALTER TABLE public.nina_settings
+  DROP COLUMN IF EXISTS pipedrive_enabled,
+  DROP COLUMN IF EXISTS pipedrive_min_score,
+  DROP COLUMN IF EXISTS pipedrive_field_mappings,
+  DROP COLUMN IF EXISTS pipedrive_api_token,
+  DROP COLUMN IF EXISTS pipedrive_domain,
+  DROP COLUMN IF EXISTS pipedrive_default_pipeline_id,
+  DROP COLUMN IF EXISTS pipedrive_token_in_vault;
 
-### 3. Deletar componente `src/components/settings/PipedriveSettings.tsx`
+-- contacts: remover pipedrive_person_id
+ALTER TABLE public.contacts
+  DROP COLUMN IF EXISTS pipedrive_person_id;
+```
 
-### 4. Limpar referências no Dashboard (`src/components/Dashboard.tsx`)
-- Remover `pipedrive` do objeto `integrations` e da lista de integrações exibidas
-
-### 5. Limpar referência no VaultMigrationPanel (`src/components/settings/VaultMigrationPanel.tsx`)
-- Remover linha `pipedrive_api_token`
-
-### Nota
-As colunas `pipedrive_*` na tabela `nina_settings` e `pipedrive_person_id` em `contacts` serão mantidas no banco por segurança (não quebram nada). Se quiser removê-las depois, podemos fazer uma migração separada.
+Nenhuma alteração de código adicional necessária — as referências no frontend já foram removidas na etapa anterior.
 
