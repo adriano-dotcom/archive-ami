@@ -1,78 +1,33 @@
 
 
-## Varredura de Cores — Fases 3-5
+## Plano: Unificar abas Agente + Agentes em uma unica tela
 
-Escopo: ~60 arquivos restantes com cores hardcoded para migrar para tokens semanticos.
+### Contexto atual
+- **`nina_settings`** (tab "Agente"): config global — prompt, modelo IA, horarios, delays, company_name/sdr_name, `is_active`
+- **`agents`** (tab "Agentes"): lista de agentes — atualmente so tem 1 (Omega, is_default=true)
+- O orchestrator checa `nina_settings.is_active` para decidir se responde WhatsApp, e carrega agentes ativos da tabela `agents`
 
-### Arquivos por fase
+### O que sera feito
 
-**Fase 3 — Contatos e Segurados (~20 arquivos)**
-- `Contacts.tsx` — bg-slate-950, text-white, border-slate-800, bg-slate-900, text-slate-400/200, bg-cyan-500/600
-- `CreateContactModal.tsx` — bg-slate-900, border-slate-700, text-white
-- `EditContactModal.tsx` — bg-slate-900, border-slate-700, text-white
-- `contacts/VirtualizedContactsTable.tsx` — bg-slate-*, text-slate-*, border-slate-*
-- `contacts/ContactCollectionHistory.tsx`
-- `contacts/DuplicateContactsReportModal.tsx`
-- `segurados/SeguradosTab.tsx` — bg-slate-900/50, border-slate-600/700
-- `segurados/CompaniesTable.tsx`
-- `segurados/SeguradosPFTable.tsx`
-- `segurados/CreateCompanyModal.tsx`, `EditCompanyModal.tsx`, `CreateSeguradoPFModal.tsx`, `EditSeguradoPFModal.tsx`
-- `segurados/CompanyDetailsDrawer.tsx`, `AddContactToCompanyModal.tsx`, `CompanySelector.tsx`
-- `segurados/ImportCompaniesModal.tsx`, `ImportContactsSeguradosModal.tsx`, `ImportCompaniesWithContactsModal.tsx`
-- `segurados/ImportDocumentAIModal.tsx`, `MergeCompaniesModal.tsx`, `DuplicateCompaniesReportModal.tsx`
+1. **Remover tab "Agente" separada** — mover configs globais (modelo IA, horarios, delays, toggles) para dentro da tela unificada
+2. **Tab unica "Agentes"** com:
+   - **Status card no topo**: indicador visual se o agente esta ativo para WhatsApp (lendo `nina_settings.is_active` + `auto_response_enabled`)
+   - **Configs globais** (modelo IA, horarios comerciais, delays) numa secao colapsavel ou fixa no topo
+   - **Lista de agentes** da tabela `agents` (criar/editar/excluir como ja funciona)
+3. **Atualizar prompt do Orbi**: substituir o `system_prompt_override` no `nina_settings` e o `system_prompt` do agente Omega pelo prompt da persona Orbi (pet)
+4. **Renomear agente Omega → Orbi** na tabela `agents` e atualizar greeting_message
+5. **Corrigir cores hardcoded** restantes no `AgentsSettings.tsx` (slate → tokens semanticos, como nas fases anteriores)
 
-**Fase 4 — Funcionalidades secundarias (~18 arquivos)**
-- `collections/CollectionsDashboard.tsx` — bg-slate-950, border-white/5
-- `collections/CollectionOverview.tsx` — bg-slate-900/50, text-slate-*, border-white/5
-- `collections/InstallmentsList.tsx` — bg-slate-900/50, border-white/5
-- `collections/ImportPanel.tsx` — bg-slate-900/50, border-white/5
-- `collections/CollectionCampaigns.tsx`, `CollectionEmailCampaign.tsx`
-- `collections/SendCollectionTemplateModal.tsx`, `SendInstallmentWhatsAppModal.tsx`
-- `collections/installments/*.tsx` (~5 arquivos)
-- `WhatsAppDashboard.tsx`, `whatsapp-dashboard/*.tsx` (6 arquivos)
-- `Scheduling.tsx` — bg-slate-950, bg-slate-900, border-slate-800, text-white, text-cyan-500
-- `MeetingRoom.tsx` — bg-slate-950, bg-slate-900, border-slate-800, text-white
-- `CallHistoryPanel.tsx`, `WhatsAppCallHistoryPanel.tsx`, `CallTimelineCard.tsx`
+### Mudancas em arquivos
 
-**Fase 5 — Modais e suporte (~20 arquivos)**
-- `SendWhatsAppTemplateModal.tsx`, `BulkSendTemplateModal.tsx`, `ImportContactsModal.tsx`
-- `EmailComposeModal.tsx`, `EmailTemplateEditorModal.tsx`
-- `settings/WhatsAppTemplatesSettings.tsx`, `AgentsSettings.tsx`, `ApiSettings.tsx`
-- `settings/EmailTemplatesSettings.tsx`, `FollowupAutomationsSettings.tsx`
-- `settings/AutomationsDashboard.tsx`, `SalesCoachingSettings.tsx`
-- `settings/LearningInsightModal.tsx`, `LearningInsightsCard.tsx`
-- `settings/PromptGeneratorSheet.tsx`, `VaultMigrationPanel.tsx`, `WhatsAppDiagnosticPanel.tsx`
-- `settings/TemplateNotificationBell.tsx`
-- `OnboardingWizard.tsx`, `OnboardingBanner.tsx`
-- `Sidebar.tsx` (finalizar), `Team.tsx` (finalizar)
-- `ActiveCallIndicator.tsx`, `AudioPlayer.tsx`, `CallConfirmationModal.tsx`, `IncomingCallModal.tsx`
-- `TagSelector.tsx`, `QuickQuestionsDropdown.tsx`, `KeyboardShortcutsHelp.tsx`
+- **`Settings.tsx`**: remover tab "agent", renomear tab "agents" para exibir como unica
+- **`AgentsSettings.tsx`**: incorporar as configs globais do `AgentSettings.tsx` (prompt, modelo, horarios, delays, company info) + status card de ativo/inativo + corrigir cores
+- **`AgentSettings.tsx`**: arquivo sera removido (codigo migrado)
+- **Migration SQL**: `UPDATE agents SET name='Orbi', slug='orbi', system_prompt=..., greeting_message=... WHERE is_default=true`; `UPDATE nina_settings SET sdr_name='Orbi', system_prompt_override=...`
 
-### Mapeamento (mesmo das fases anteriores)
-
-```text
-bg-slate-950       → bg-background
-bg-slate-900       → bg-card
-bg-slate-900/50    → bg-card/50
-bg-slate-800       → bg-muted
-bg-slate-800/50    → bg-muted/50
-text-white         → text-foreground
-text-slate-50-200  → text-foreground
-text-slate-300-600 → text-muted-foreground
-border-slate-600-800 → border-border
-border-white/5-10  → border-border
-text-cyan-400/500  → text-primary
-bg-cyan-500/600    → bg-primary
-hover:bg-slate-700/800 → hover:bg-accent
-placeholder:text-slate-* → placeholder:text-muted-foreground
-```
-
-### Preservado
-- Cores de status (red, green, amber, yellow, emerald, blue)
-- Gradientes decorativos (violet, fuchsia, purple, pink, rose)
-- Cores de evento tipo (cyan/violet/emerald/orange em getEventTypeColor)
-
-### Estrategia
-- Processar em lotes paralelos de ~8-10 arquivos por commit
-- Priorizar arquivos mais usados (Contacts, Collections, Settings) primeiro
+### Status card WhatsApp
+Um card no topo mostrando:
+- 🟢 "Agente ativo — respondendo WhatsApp" (quando `nina_settings.is_active = true`)
+- 🔴 "Agente inativo — nao responde WhatsApp" com botao para ativar
+- Toggle inline para ligar/desligar
 
