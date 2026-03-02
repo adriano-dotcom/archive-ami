@@ -1,135 +1,71 @@
 
 
-## Replicar Chamadas WhatsApp em Outra Plataforma Lovable
+## Plano: Transformar em Central Completa de Atendimento — Jacometo Seguros
 
-### Visao Geral
+### Contexto Atual
 
-Este guia contem todo o codigo necessario para replicar a funcionalidade de receber chamadas WhatsApp em outro projeto Lovable. Sao 6 passos na ordem correta.
+O projeto atual é um sistema de cobrança e CRM com WhatsApp, contendo:
+- Dashboard de métricas
+- Chat ao vivo (WhatsApp)
+- Contatos e Segurados (PF/PJ)
+- Cobrança (parcelas, campanhas)
+- Agendamentos, Equipe, Configurações
+- WhatsApp Dashboard
+
+O objetivo é reorganizar tudo para funcionar como uma **Central de Atendimento** da corretora, focada no segurado.
 
 ---
 
-### Passo 1: Criar tabela `whatsapp_calls` (Migracao SQL)
+### O que muda
 
-Executar esta migracao no novo projeto:
+**1. Rebranding da Sidebar e Navegação**
+- Subtítulo de "SISTEMA DE COBRANÇA ÔMEGA" → "CENTRAL DE ATENDIMENTO"
+- Reorganizar menu para fluxo de atendimento:
+  - **Painel** (Dashboard com KPIs de atendimento)
+  - **Atendimento** (Chat ao vivo — renomear)
+  - **Segurados** (unificar Contatos + Segurados PF/PJ em uma única entrada)
+  - **Apólices & Cobrança** (manter Collections)
+  - **Agendamentos**
+  - **Chamadas** (novo — histórico de chamadas WhatsApp como seção principal)
+  - **Equipe** (admin)
+  - **WhatsApp** (admin)
+  - **Configurações**
 
-```sql
-CREATE TABLE public.whatsapp_calls (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  whatsapp_call_id text,
-  contact_id uuid,
-  conversation_id uuid,
-  direction text NOT NULL DEFAULT 'inbound',
-  status text NOT NULL DEFAULT 'ringing',
-  phone_number_id text,
-  from_number text,
-  to_number text,
-  started_at timestamptz DEFAULT now(),
-  answered_at timestamptz,
-  ended_at timestamptz,
-  duration_seconds integer,
-  hangup_cause text,
-  metadata jsonb DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+**2. Dashboard Reformulado**
+- Adicionar KPIs de atendimento ao topo:
+  - Atendimentos em aberto
+  - Tempo médio de resposta
+  - Chamadas recebidas hoje
+  - Segurados atendidos hoje
+- Manter gráficos existentes mas renomear para contexto de atendimento
 
-ALTER TABLE public.whatsapp_calls ENABLE ROW LEVEL SECURITY;
+**3. Nova Rota: Segurados (unificada)**
+- Mover a aba Segurados (que hoje está embutida em algum lugar) para rota `/segurados` com acesso direto na sidebar
+- Já existe o componente `SeguradosTab` completo com PF/PJ, empresas, importação
 
-CREATE POLICY "Authenticated users can view whatsapp_calls"
-  ON public.whatsapp_calls FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+**4. Nova Rota: Chamadas**
+- Criar rota `/calls` com o componente `WhatsAppCallHistoryPanel` como página principal
+- Mostrar histórico de todas as chamadas recebidas/realizadas
+- Integrar com a funcionalidade de receber chamadas que já existe
 
-CREATE POLICY "Authenticated users can manage whatsapp_calls"
-  ON public.whatsapp_calls FOR ALL
-  USING (auth.uid() IS NOT NULL)
-  WITH CHECK (auth.uid() IS NOT NULL);
+**5. Textos e Labels**
+- Renomear "Chat Ao Vivo" → "Atendimento"
+- Renomear "Contatos" → "Segurados"
+- Renomear "Cobrança" → "Apólices & Cobrança"
+- Atualizar textos do Dashboard
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_calls;
-```
+---
 
-### Passo 2: Garantir tabela de settings
+### Arquivos a criar/modificar
 
-O novo projeto precisa ter uma tabela com colunas `whatsapp_access_token`, `whatsapp_phone_number_id` e `whatsapp_verify_token`. Se nao existir, criar ou adicionar.
+| Arquivo | Ação |
+|---------|------|
+| `src/components/Sidebar.tsx` | Reorganizar menu, renomear labels, mudar subtítulo |
+| `src/App.tsx` | Adicionar rotas `/segurados` e `/calls` |
+| `src/components/CallsPage.tsx` | **Novo** — página de histórico de chamadas |
+| `src/components/Dashboard.tsx` | Atualizar títulos e labels para contexto de atendimento |
+| `src/components/collections/CollectionsDashboard.tsx` | Renomear título para "Apólices & Cobrança" |
 
-### Passo 3: Adicionar ao `supabase/config.toml`
-
-```toml
-[functions.whatsapp-call-webhook]
-verify_jwt = false
-
-[functions.whatsapp-call-accept]
-verify_jwt = false
-
-[functions.whatsapp-call-reject]
-verify_jwt = false
-
-[functions.whatsapp-call-terminate]
-verify_jwt = false
-```
-
-### Passo 4: Criar as 4 Edge Functions
-
-Copiar integralmente os arquivos deste projeto. A unica mudanca necessaria e trocar `nina_settings` pelo nome da tabela de settings do novo projeto em cada funcao.
-
-- `supabase/functions/whatsapp-call-webhook/index.ts` - Recebe eventos da Meta, cria/atualiza chamadas, resolve contatos
-- `supabase/functions/whatsapp-call-accept/index.ts` - Aceita chamada enviando SDP answer para Meta
-- `supabase/functions/whatsapp-call-reject/index.ts` - Rejeita chamada
-- `supabase/functions/whatsapp-call-terminate/index.ts` - Encerra chamada e calcula duracao
-
-### Passo 5: Copiar componentes frontend
-
-**5.1 Hook** - `src/hooks/useIncomingWhatsAppCall.ts` (202 linhas)
-- Escuta Realtime na tabela `whatsapp_calls`
-- Ringtone via Web Audio API (frequencias 480Hz/620Hz)
-- Pre-desbloqueio do AudioContext na primeira interacao do usuario
-- Enriquecimento com dados do contato
-
-**5.2 Modal** - `src/components/IncomingCallModal.tsx` (335 linhas)
-- Modal fullscreen com backdrop blur
-- Animacao pulsante durante ringing (framer-motion)
-- WebRTC: captura microfone, cria PeerConnection, gera SDP answer
-- Botoes: Atender, Rejeitar, Mudo, Desligar
-- Timer de duracao
-
-### Passo 6: Integrar no layout principal
-
-No componente raiz (App.tsx ou equivalente):
-
-```typescript
-import { useIncomingWhatsAppCall } from '@/hooks/useIncomingWhatsAppCall';
-import { IncomingCallModal } from '@/components/IncomingCallModal';
-
-// Dentro do componente:
-const { incomingCall, dismissCall, stopRingtone } = useIncomingWhatsAppCall();
-
-// No JSX:
-<IncomingCallModal
-  call={incomingCall}
-  onDismiss={dismissCall}
-  onStopRingtone={stopRingtone}
-/>
-```
-
-### Passo 7: Configurar webhook na Meta
-
-1. No painel Meta Developer > WhatsApp > Configuration > Webhook
-2. URL: `https://[PROJECT_ID].supabase.co/functions/v1/whatsapp-call-webhook`
-3. Verify token: o valor configurado na tabela de settings
-4. Assinar o campo **calls**
-
-### Dependencias necessarias
-
-- `framer-motion` (animacoes)
-- `lucide-react` (icones)
-- `sonner` (toasts)
-- `@supabase/supabase-js` (ja vem com Lovable Cloud)
-
-### Checklist de validacao
-
-- [ ] Tabela criada com Realtime habilitado
-- [ ] 4 edge functions deployadas com verify_jwt = false
-- [ ] Settings com token, phone_number_id e verify_token preenchidos
-- [ ] Webhook registrado na Meta com campo `calls` assinado
-- [ ] Hook e Modal integrados no layout principal
-- [ ] Testar com chamada real para o numero configurado
+### Sem mudanças no banco de dados
+Todas as tabelas necessárias já existem. A transformação é puramente de interface e navegação.
 
