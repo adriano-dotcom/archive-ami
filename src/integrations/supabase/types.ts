@@ -1825,6 +1825,72 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          annual_limit: number
+          benefits: Json | null
+          color: string | null
+          coverage_details: Json | null
+          created_at: string | null
+          description: string | null
+          id: string
+          ideal_for: string[] | null
+          is_active: boolean | null
+          monthly_price: number
+          name: string
+          orbi_pitch: string | null
+          reembolso_prazo_dias_uteis: number | null
+          reembolso_via: string | null
+          slug: string
+          sort_order: number | null
+          tagline: string | null
+          updated_at: string | null
+          whatsapp_template_name: string | null
+        }
+        Insert: {
+          annual_limit?: number
+          benefits?: Json | null
+          color?: string | null
+          coverage_details?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id: string
+          ideal_for?: string[] | null
+          is_active?: boolean | null
+          monthly_price?: number
+          name: string
+          orbi_pitch?: string | null
+          reembolso_prazo_dias_uteis?: number | null
+          reembolso_via?: string | null
+          slug: string
+          sort_order?: number | null
+          tagline?: string | null
+          updated_at?: string | null
+          whatsapp_template_name?: string | null
+        }
+        Update: {
+          annual_limit?: number
+          benefits?: Json | null
+          color?: string | null
+          coverage_details?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          ideal_for?: string[] | null
+          is_active?: boolean | null
+          monthly_price?: number
+          name?: string
+          orbi_pitch?: string | null
+          reembolso_prazo_dias_uteis?: number | null
+          reembolso_via?: string | null
+          slug?: string
+          sort_order?: number | null
+          tagline?: string | null
+          updated_at?: string | null
+          whatsapp_template_name?: string | null
+        }
+        Relationships: []
+      }
       policies: {
         Row: {
           branch: string | null
