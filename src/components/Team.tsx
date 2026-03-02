@@ -288,7 +288,7 @@ const Team: React.FC = () => {
             <Settings className="w-4 h-4 mr-2" />
             Configurar
           </Button>
-          <Button onClick={() => setShowModal(true)} className="shadow-lg shadow-cyan-500/20 bg-slate-100 text-slate-900 hover:bg-white hover:text-black">
+          <Button onClick={() => setShowModal(true)} className="shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90">
             <UserPlus className="w-4 h-4 mr-2" />
             Convidar Usuário
           </Button>
@@ -345,7 +345,7 @@ const Team: React.FC = () => {
             <div className="flex flex-col items-center justify-center p-12">
                 <Users className="w-12 h-12 text-slate-600 mb-4" />
                 <p className="text-slate-400 mb-4">Nenhum membro cadastrado ainda.</p>
-                <Button onClick={() => setShowModal(true)} className="bg-slate-100 text-slate-900 hover:bg-white">
+                <Button onClick={() => setShowModal(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Convidar Primeiro Membro
                 </Button>
@@ -538,7 +538,7 @@ const Team: React.FC = () => {
                 <Button type="button" variant="ghost" onClick={cancelSellerEdit} className="border border-slate-700 hover:bg-slate-800">
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-white text-black hover:bg-slate-200">
+                <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {editingSeller ? 'Salvar Alterações' : 'Criar Vendedor'}
                 </Button>
               </div>
@@ -719,7 +719,7 @@ const Team: React.FC = () => {
 
                     <div className="pt-4 flex gap-3">
                         <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
-                        <Button type="submit" className="flex-1 bg-white text-black hover:bg-slate-200">Enviar Convite</Button>
+                        <Button type="submit" className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">Enviar Convite</Button>
                     </div>
                 </form>
             </div>

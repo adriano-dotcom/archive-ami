@@ -53,14 +53,14 @@ const Settings: React.FC = () => {
   const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic';
   
   return (
-    <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-slate-950 text-slate-50 custom-scrollbar">
+    <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-background text-foreground custom-scrollbar">
       <div className="mb-10 flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Configurações</h2>
-          <p className="text-sm text-slate-400 mt-1">Central de controle da sua instância {companyName}.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Configurações</h2>
+          <p className="text-sm text-muted-foreground mt-1">Central de controle da sua instância {companyName}.</p>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-full font-mono flex items-center">
+          <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-xs rounded-full font-mono flex items-center">
             <Shield className="w-3 h-3 mr-1" /> Ambiente Seguro
           </span>
         </div>
