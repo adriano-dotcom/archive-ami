@@ -31,14 +31,12 @@ const GeneralSettings: React.FC = () => {
       .select('collection_email_from, collection_email_bcc, message_cost_per_unit')
       .maybeSingle();
     
-    // Load collection email settings
     if (data?.collection_email_from) {
       setCollectionEmailFrom(data.collection_email_from);
     }
     if (data?.collection_email_bcc) {
       setCollectionEmailBcc((data.collection_email_bcc as string[]).join(', '));
     }
-    // Load message cost
     if (data?.message_cost_per_unit !== null && data?.message_cost_per_unit !== undefined) {
       setMessageCostPerUnit(String(data.message_cost_per_unit).replace('.', ','));
     }
@@ -116,25 +114,25 @@ const GeneralSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Notificações */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Bell className="w-5 h-5 text-cyan-400" />
+      <div className="bg-card/50 border border-border rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" />
           Notificações
         </h3>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border/50">
             <div className="flex items-center gap-3">
               {soundEnabled ? (
-                <Volume2 className="w-5 h-5 text-cyan-400" />
+                <Volume2 className="w-5 h-5 text-primary" />
               ) : (
-                <VolumeX className="w-5 h-5 text-slate-500" />
+                <VolumeX className="w-5 h-5 text-muted-foreground" />
               )}
               <div>
-                <Label htmlFor="notification-sound" className="text-sm font-medium text-white cursor-pointer">
+                <Label htmlFor="notification-sound" className="text-sm font-medium text-foreground cursor-pointer">
                   Som de notificação
                 </Label>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Tocar som ao receber novas mensagens de clientes
                 </p>
               </div>
@@ -143,7 +141,7 @@ const GeneralSettings: React.FC = () => {
               {soundEnabled && (
                 <button
                   onClick={handleTestSound}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
                 >
                   Testar
                 </button>
@@ -159,39 +157,37 @@ const GeneralSettings: React.FC = () => {
       </div>
 
       {/* Configurações de Email de Cobrança */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+      <div className="bg-card/50 border border-border rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <Receipt className="w-5 h-5 text-orange-400" />
           Configurações de Email de Cobrança
         </h3>
         
         <div className="space-y-4">
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-            <Label className="text-sm font-medium text-white mb-2 block">
+          <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+            <Label className="text-sm font-medium text-foreground mb-2 block">
               Remetente (From)
             </Label>
             <Input
               placeholder="cobranca@empresa.com"
               value={collectionEmailFrom}
               onChange={(e) => setCollectionEmailFrom(e.target.value)}
-              className="bg-slate-900/50 border-slate-700"
             />
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Email que aparecerá como remetente nas cobranças
             </p>
           </div>
 
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-            <Label className="text-sm font-medium text-white mb-2 block">
+          <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+            <Label className="text-sm font-medium text-foreground mb-2 block">
               Cópia Oculta (BCC)
             </Label>
             <Input
               placeholder="financeiro@empresa.com, gerente@empresa.com"
               value={collectionEmailBcc}
               onChange={(e) => setCollectionEmailBcc(e.target.value)}
-              className="bg-slate-900/50 border-slate-700"
             />
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Separar múltiplos emails por vírgula
             </p>
           </div>
@@ -209,28 +205,28 @@ const GeneralSettings: React.FC = () => {
       </div>
 
       {/* Custo de Mensagens */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+      <div className="bg-card/50 border border-border rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-green-400" />
           Custo de Mensagens
         </h3>
         
         <div className="space-y-4">
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-            <Label className="text-sm font-medium text-white mb-2 block">
+          <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+            <Label className="text-sm font-medium text-foreground mb-2 block">
               Custo por Mensagem (R$)
             </Label>
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">R$</span>
+              <span className="text-muted-foreground">R$</span>
               <Input
                 type="text"
                 placeholder="0,41"
                 value={messageCostPerUnit}
                 onChange={(e) => setMessageCostPerUnit(e.target.value)}
-                className="bg-slate-900/50 border-slate-700 w-32"
+                className="w-32"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Custo por mensagem WhatsApp Template (cobrado pela Meta)
             </p>
           </div>

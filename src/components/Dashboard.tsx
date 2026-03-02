@@ -423,13 +423,13 @@ const Dashboard: React.FC = () => {
   }, [period]);
 
   const getIcon = (label: string) => {
-    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-cyan-400" />;
+    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-primary" />;
     if (label.includes('Leads')) return <Users className="h-5 w-5 text-violet-400" />;
     return <Activity className="h-5 w-5 text-orange-400" />;
   };
 
   const getGradient = (label: string) => {
-    if (label.includes('Atendimentos')) return 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/20';
+    if (label.includes('Atendimentos')) return 'from-primary/20 to-primary/5 border-primary/20';
     if (label.includes('Leads')) return 'from-violet-500/20 to-violet-500/5 border-violet-500/20';
     return 'from-orange-500/20 to-orange-500/5 border-orange-500/20';
   };
@@ -446,36 +446,36 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950">
+      <div className="flex items-center justify-center h-full bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
-             <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full"></div>
-             <Loader2 className="h-10 w-10 animate-spin text-cyan-400 relative z-10" />
+             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full"></div>
+             <Loader2 className="h-10 w-10 animate-spin text-primary relative z-10" />
           </div>
-          <p className="text-sm text-slate-400 font-medium animate-pulse">Carregando insights...</p>
+          <p className="text-sm text-muted-foreground font-medium animate-pulse">Carregando insights...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-8 overflow-y-auto h-full bg-slate-950 text-slate-50 custom-scrollbar">
+    <div className="p-6 space-y-8 overflow-y-auto h-full bg-background text-foreground custom-scrollbar">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Painel de Atendimento</h2>
-          <p className="text-slate-400 mt-1">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Painel de Atendimento</h2>
+          <p className="text-muted-foreground mt-1">
             Central de atendimento — visão geral {period === 'today' ? 'de hoje' : `dos últimos ${periodLabels[period].toLowerCase()}`}.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-2 bg-card p-1 rounded-lg border border-border">
           {(['today', '7days', '30days'] as PeriodFilter[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 period === p
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? 'bg-muted text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {periodLabels[p]}
@@ -489,38 +489,38 @@ const Dashboard: React.FC = () => {
         {metrics.map((stat, index) => (
           <div 
             key={index} 
-            className={`relative overflow-hidden rounded-2xl border bg-slate-900/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-slate-900 group ${getGradient(stat.label)}`}
+            className={`relative overflow-hidden rounded-2xl border bg-card/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-card group ${getGradient(stat.label)}`}
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <div className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <div className="text-sm font-medium text-slate-400">{getMetricLabel(stat.label)}</div>
-              <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 group-hover:border-slate-600 transition-colors">
+              <div className="text-sm font-medium text-muted-foreground">{getMetricLabel(stat.label)}</div>
+              <div className="p-2 rounded-lg bg-muted/50 border border-border/50 group-hover:border-border transition-colors">
                  {getIcon(stat.label)}
               </div>
             </div>
             <div className="flex items-end justify-between">
-                <div className="text-3xl font-bold text-white tracking-tight">{stat.value}</div>
+                <div className="text-3xl font-bold text-foreground tracking-tight">{stat.value}</div>
                 <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                     {stat.trendUp ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
                     {stat.trend}
                 </div>
             </div>
             {/* Decorative Glow */}
-            <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/5 blur-2xl rounded-full group-hover:bg-white/10 transition-all"></div>
+            <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-foreground/5 blur-2xl rounded-full group-hover:bg-foreground/10 transition-all"></div>
           </div>
         ))}
         
         {/* Card Parcelas Vencidas */}
         {overdueMetrics && (
-          <div className="relative overflow-hidden rounded-2xl border bg-slate-900/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-slate-900 group from-amber-500/20 to-amber-500/5 border-amber-500/20">
+          <div className="relative overflow-hidden rounded-2xl border bg-card/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-card group from-amber-500/20 to-amber-500/5 border-amber-500/20">
             <div className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <div className="text-sm font-medium text-slate-400">Parcelas Vencidas</div>
-              <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 group-hover:border-slate-600 transition-colors">
+              <div className="text-sm font-medium text-muted-foreground">Parcelas Vencidas</div>
+              <div className="p-2 rounded-lg bg-muted/50 border border-border/50 group-hover:border-border transition-colors">
                 <AlertTriangle className="h-5 w-5 text-amber-400" />
               </div>
             </div>
             <div className="flex items-end justify-between">
-              <div className="text-3xl font-bold text-white tracking-tight">{overdueMetrics.total}</div>
+              <div className="text-3xl font-bold text-foreground tracking-tight">{overdueMetrics.total}</div>
               <div className="text-xs text-amber-400/80 font-medium bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
                 R$ {overdueMetrics.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
@@ -533,7 +533,7 @@ const Dashboard: React.FC = () => {
 
       {/* WhatsApp Template Cost Card */}
       {collectionWhatsAppMetrics && (
-        <div className="relative overflow-hidden rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-slate-900 p-6 shadow-xl">
+        <div className="relative overflow-hidden rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-card p-6 shadow-xl">
           {/* Decorative background */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl"></div>
           
@@ -545,7 +545,7 @@ const Dashboard: React.FC = () => {
                   <MessageCircle className="w-5 h-5 text-green-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">WhatsApp Templates</h3>
+                  <h3 className="text-lg font-semibold text-foreground">WhatsApp Templates</h3>
                   <p className="text-xs text-green-400/80">Custo Meta Business</p>
                 </div>
               </div>
@@ -553,33 +553,33 @@ const Dashboard: React.FC = () => {
                 <p className="text-2xl font-bold text-green-400">
                   R$ {(collectionWhatsAppMetrics.totalSent * costPerMessage).toFixed(2).replace('.', ',')}
                 </p>
-                <p className="text-xs text-slate-400">custo total</p>
+                <p className="text-xs text-muted-foreground">custo total</p>
               </div>
             </div>
             
             {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-4 mt-4">
-              <div className="text-center p-3 rounded-lg bg-slate-800/50">
-                <p className="text-2xl font-bold text-white">{collectionWhatsAppMetrics.totalSent}</p>
-                <p className="text-xs text-slate-400">Enviados</p>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-2xl font-bold text-foreground">{collectionWhatsAppMetrics.totalSent}</p>
+                <p className="text-xs text-muted-foreground">Enviados</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-slate-800/50">
+              <div className="text-center p-3 rounded-lg bg-muted/50">
                 <p className="text-2xl font-bold text-emerald-400">{collectionWhatsAppMetrics.delivered}</p>
-                <p className="text-xs text-slate-400">Entregues</p>
+                <p className="text-xs text-muted-foreground">Entregues</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-slate-800/50">
-                <p className="text-2xl font-bold text-white">
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-2xl font-bold text-foreground">
                   {collectionWhatsAppMetrics.totalSent > 0 
                     ? Math.round((collectionWhatsAppMetrics.delivered / collectionWhatsAppMetrics.totalSent) * 100)
                     : 0}%
                 </p>
-                <p className="text-xs text-slate-400">Taxa Entrega</p>
+                <p className="text-xs text-muted-foreground">Taxa Entrega</p>
               </div>
             </div>
             
             {/* Footer */}
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700/50">
-              <span className="text-xs text-slate-500">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
+              <span className="text-xs text-muted-foreground">
                 Custo unitário: R$ {costPerMessage.toFixed(2).replace('.', ',')}
               </span>
               {collectionWhatsAppMetrics.failed > 0 && (
@@ -595,15 +595,15 @@ const Dashboard: React.FC = () => {
       {/* Charts Section */}
       <div>
         {/* Main Chart */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-4 shadow-lg">
+        <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-lg">
           <div className="mb-3 flex items-center justify-between">
             <div>
-                <h3 className="text-base font-semibold text-white">Volume de Atendimentos</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-base font-semibold text-foreground">Volume de Atendimentos</h3>
+                <p className="text-xs text-muted-foreground">
                   Interações da IA {period === 'today' ? 'hoje' : `nos últimos ${periodDays[period]} dias`}
                 </p>
             </div>
-            <button className="text-cyan-400 hover:text-cyan-300 transition-colors p-2 hover:bg-cyan-950/30 rounded-lg">
+            <button className="text-primary hover:text-primary/80 transition-colors p-2 hover:bg-primary/10 rounded-lg">
                 <ArrowUpRight className="w-5 h-5" />
             </button>
           </div>
@@ -656,7 +656,7 @@ const Dashboard: React.FC = () => {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/50 to-transparent"></div>
-            <h3 className="text-lg font-semibold text-slate-300 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-muted-foreground flex items-center gap-2">
               <PhoneCall className="w-5 h-5 text-amber-400" />
               Ligações dos Vendedores
             </h3>
@@ -668,31 +668,31 @@ const Dashboard: React.FC = () => {
             <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Phone className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-slate-400">Total Ligações</span>
+                <span className="text-xs text-muted-foreground">Total Ligações</span>
               </div>
-              <p className="text-2xl font-bold text-white">{callMetrics.totalCalls}</p>
+              <p className="text-2xl font-bold text-foreground">{callMetrics.totalCalls}</p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <PhoneCall className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs text-slate-400">Completadas</span>
+                <span className="text-xs text-muted-foreground">Completadas</span>
               </div>
-              <p className="text-2xl font-bold text-white">{callMetrics.completedCalls}</p>
+              <p className="text-2xl font-bold text-foreground">{callMetrics.completedCalls}</p>
               <p className="text-xs text-emerald-400/80 mt-1">{callMetrics.completionRate}% sucesso</p>
             </div>
             <div className="rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <PhoneMissed className="w-4 h-4 text-rose-400" />
-                <span className="text-xs text-slate-400">Não Atendidas</span>
+                <span className="text-xs text-muted-foreground">Não Atendidas</span>
               </div>
-              <p className="text-2xl font-bold text-white">{callMetrics.noAnswerCalls}</p>
+              <p className="text-2xl font-bold text-foreground">{callMetrics.noAnswerCalls}</p>
             </div>
             <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Timer className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs text-slate-400">Duração Média</span>
+                <span className="text-xs text-muted-foreground">Duração Média</span>
               </div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-2xl font-bold text-foreground">
                 {callMetrics.avgDuration >= 60 
                   ? `${Math.floor(callMetrics.avgDuration / 60)}m${callMetrics.avgDuration % 60}s`
                   : `${callMetrics.avgDuration}s`
@@ -704,25 +704,25 @@ const Dashboard: React.FC = () => {
           {/* Seller Performance Table and Chart */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Performance Table */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+            <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-6 shadow-lg">
               <h4 className="text-sm font-medium text-amber-400 uppercase tracking-wider mb-4">Performance por Vendedor</h4>
               <div className="space-y-3 max-h-[280px] overflow-y-auto custom-scrollbar">
                 {sellerCallData.map((seller) => (
-                  <div key={seller.extension} className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:border-amber-500/30 transition-colors">
+                  <div key={seller.extension} className="p-3 rounded-lg bg-muted/50 border border-border/50 hover:border-amber-500/30 transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <span className="text-sm font-medium text-white">
+                        <span className="text-sm font-medium text-foreground">
                           {seller.sellerName || `Ramal ${seller.extension}`}
                         </span>
                         {seller.sellerName && (
-                          <span className="ml-2 text-xs text-slate-500">({seller.extension})</span>
+                          <span className="ml-2 text-xs text-muted-foreground">({seller.extension})</span>
                         )}
                       </div>
                       <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 font-medium">
                         {seller.total} ligações
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <PhoneCall className="w-3 h-3 text-emerald-400" />
                         {seller.completed} ok
@@ -732,11 +732,11 @@ const Dashboard: React.FC = () => {
                         {seller.noAnswer} s/atend
                       </span>
                       <span className="flex items-center gap-1">
-                        <Timer className="w-3 h-3 text-cyan-400" />
+                        <Timer className="w-3 h-3 text-primary" />
                         {seller.avgDuration}s média
                       </span>
                     </div>
-                    <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
                         style={{ width: `${seller.completionRate}%` }}
@@ -746,13 +746,13 @@ const Dashboard: React.FC = () => {
                   </div>
                 ))}
                 {sellerCallData.length === 0 && (
-                  <p className="text-sm text-slate-500 text-center py-4">Nenhuma ligação no período</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ligação no período</p>
                 )}
               </div>
             </div>
 
             {/* Daily Calls Chart */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
+            <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-6 shadow-lg">
               <h4 className="text-sm font-medium text-amber-400 uppercase tracking-wider mb-4">Evolução de Ligações</h4>
               <div className="flex items-center gap-4 text-xs mb-4">
                 <span className="flex items-center gap-2">
