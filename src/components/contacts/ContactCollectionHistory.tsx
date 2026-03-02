@@ -63,7 +63,7 @@ const getStatusInfo = (status: string, deliveredAt: string | null, readAt: strin
     case 'pending':
       return { label: 'Pendente', color: 'bg-yellow-500/20 text-yellow-400', icon: Clock };
     default:
-      return { label: status, color: 'bg-slate-500/20 text-slate-400', icon: Clock };
+      return { label: status, color: 'bg-muted/50 text-muted-foreground', icon: Clock };
   }
 };
 
@@ -74,7 +74,7 @@ const getChannelIcon = (channel: string) => {
     case 'email':
       return <Mail className="w-4 h-4 text-blue-400" />;
     default:
-      return <FileText className="w-4 h-4 text-slate-400" />;
+      return <FileText className="w-4 h-4 text-muted-foreground" />;
   }
 };
 
@@ -117,10 +117,10 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
 
   if (!history || history.length === 0) {
     return (
-      <div className="text-center py-8 text-slate-400">
-        <FileText className="w-10 h-10 mx-auto mb-2 text-slate-600" />
+      <div className="text-center py-8 text-muted-foreground">
+        <FileText className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm">Nenhuma cobrança enviada</p>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           O histórico aparecerá aqui após enviar cobranças
         </p>
       </div>
@@ -140,8 +140,8 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
       <div className="space-y-6">
         {Object.entries(groupedByDate).map(([date, attempts]) => (
           <div key={date}>
-            <div className="sticky top-0 bg-slate-950/95 py-2 z-10">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="sticky top-0 bg-background/95 py-2 z-10">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {format(new Date(date), "dd 'de' MMMM", { locale: ptBR })}
               </h4>
             </div>
@@ -155,15 +155,15 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
                 return (
                   <div
                     key={attempt.id}
-                    className="bg-slate-900/50 rounded-lg p-3 border border-slate-800"
+                    className="bg-card/50 rounded-lg p-3 border border-border"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
                         {getChannelIcon(attempt.channel)}
-                        <span className="text-sm font-medium text-white capitalize">
+                        <span className="text-sm font-medium text-foreground capitalize">
                           {attempt.channel}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           {format(new Date(attempt.sent_at || attempt.created_at), 'HH:mm')}
                         </span>
                       </div>
@@ -175,10 +175,10 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
 
                     {/* Installment details from metadata */}
                     {installmentData && (
-                      <div className="mt-2 text-xs text-slate-400 space-y-1">
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           {installmentData.policy_number && (
-                            <span className="bg-slate-800 px-2 py-0.5 rounded">
+                            <span className="bg-muted px-2 py-0.5 rounded">
                               {installmentData.insurer} #{installmentData.policy_number}
                             </span>
                           )}
@@ -208,14 +208,14 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
 
                     {/* Show consolidated info if available */}
                     {metadata.installments_count && metadata.installments_count > 1 && (
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-muted-foreground">
                         Cobrança consolidada: {metadata.installments_count} parcelas, total {formatCurrency(metadata.total_value || 0)}
                       </div>
                     )}
 
                     {/* Template used */}
                     {attempt.template_name && (
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-muted-foreground">
                         Template: {attempt.template_name}
                       </div>
                     )}
@@ -235,23 +235,23 @@ export const ContactCollectionHistory: React.FC<ContactCollectionHistoryProps> =
       </div>
 
       {/* Summary stats */}
-      <div className="mt-6 pt-4 border-t border-slate-800">
+      <div className="mt-6 pt-4 border-t border-border">
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-lg font-bold text-white">{history.length}</p>
-            <p className="text-xs text-slate-500">Total enviado</p>
+            <p className="text-lg font-bold text-foreground">{history.length}</p>
+            <p className="text-xs text-muted-foreground">Total enviado</p>
           </div>
           <div>
             <p className="text-lg font-bold text-emerald-400">
               {history.filter(h => h.channel === 'whatsapp').length}
             </p>
-            <p className="text-xs text-slate-500">WhatsApp</p>
+            <p className="text-xs text-muted-foreground">WhatsApp</p>
           </div>
           <div>
             <p className="text-lg font-bold text-blue-400">
               {history.filter(h => h.channel === 'email').length}
             </p>
-            <p className="text-xs text-slate-500">Email</p>
+            <p className="text-xs text-muted-foreground">Email</p>
           </div>
         </div>
       </div>

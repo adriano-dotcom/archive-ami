@@ -1,6 +1,21 @@
 import React from 'react';
 import { Phone, PhoneIncoming, PhoneOff, PhoneMissed, Clock, Loader2 } from 'lucide-react';
-import { WhatsAppCall } from '@/hooks/useWhatsAppCallHistory';
+import type { WhatsAppCall } from '@/hooks/useWhatsAppCallHistory';
+
+interface WhatsAppCallLocal {
+  id: string;
+  status: string;
+  direction: string;
+  created_at: string;
+  duration_seconds: number | null;
+}
+
+interface StatusConfig {
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  color: string;
+  bg: string;
+}
 
 interface WhatsAppCallHistoryPanelProps {
   calls: WhatsAppCall[];
@@ -32,7 +47,7 @@ const formatDate = (dateStr: string): string => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
-const getStatusConfig = (status: string, direction: string) => {
+const getStatusConfig = (status: string, direction: string): StatusConfig => {
   switch (status) {
     case 'completed':
     case 'ended':
@@ -68,8 +83,8 @@ const getStatusConfig = (status: string, direction: string) => {
       return {
         icon: Phone,
         label: status,
-        color: 'text-slate-400',
-        bg: 'bg-slate-500/15',
+        color: 'text-muted-foreground',
+        bg: 'bg-muted/50',
       };
   }
 };
@@ -78,14 +93,14 @@ const WhatsAppCallHistoryPanel: React.FC<WhatsAppCallHistoryPanelProps> = ({ cal
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
+        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
       </div>
     );
   }
 
   if (calls.length === 0) {
     return (
-      <p className="text-xs text-slate-500 text-center py-3">
+      <p className="text-xs text-muted-foreground text-center py-3">
         Nenhuma chamada WhatsApp registrada
       </p>
     );
@@ -100,7 +115,7 @@ const WhatsAppCallHistoryPanel: React.FC<WhatsAppCallHistoryPanelProps> = ({ cal
         return (
           <div
             key={call.id}
-            className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+            className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
           >
             <div className={`w-7 h-7 rounded-full ${config.bg} flex items-center justify-center flex-shrink-0`}>
               <StatusIcon className={`w-3.5 h-3.5 ${config.color}`} />
@@ -110,16 +125,16 @@ const WhatsAppCallHistoryPanel: React.FC<WhatsAppCallHistoryPanelProps> = ({ cal
                 <span className={`text-xs font-medium ${config.color}`}>
                   {config.label}
                 </span>
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-muted-foreground">
                   {formatDate(call.created_at)} {formatTime(call.created_at)}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-500 capitalize">
+                <span className="text-[10px] text-muted-foreground capitalize">
                   {call.direction === 'inbound' ? '↙ Recebida' : '↗ Realizada'}
                 </span>
                 {call.duration_seconds && call.duration_seconds > 0 && (
-                  <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                     <Clock className="w-2.5 h-2.5" />
                     {formatDuration(call.duration_seconds)}
                   </span>
