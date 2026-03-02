@@ -134,7 +134,7 @@ export function ConversationSummaryNotes({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
           Notas Internas
         </h4>
         <Button
@@ -142,7 +142,7 @@ export function ConversationSummaryNotes({
           size="sm"
           onClick={handleGenerateSummary}
           disabled={isGenerating || (messages.length === 0 && callHistory.length === 0)}
-          className="h-7 px-2 text-xs gap-1.5 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+          className="h-7 px-2 text-xs gap-1.5 text-primary hover:text-primary/80 hover:bg-primary/10"
         >
           {isGenerating ? (
             <>
@@ -159,7 +159,7 @@ export function ConversationSummaryNotes({
       </div>
 
       <textarea 
-        className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none resize-none transition-all"
+        className="w-full bg-background/50 border border-border rounded-lg p-3 text-sm text-muted-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:border-primary/50 outline-none resize-none transition-all"
         rows={6}
         placeholder="Adicione observações sobre este lead ou clique em 'Gerar Resumo' para criar um resumo automático..."
         value={notes}

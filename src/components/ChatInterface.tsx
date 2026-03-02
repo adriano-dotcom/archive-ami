@@ -1393,23 +1393,23 @@ const ChatInterface: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-full bg-slate-950 items-center justify-center">
+      <div className="flex h-full bg-background items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
-          <p className="text-sm text-slate-500">Sincronizando conversas...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Sincronizando conversas...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full bg-slate-950 md:rounded-tl-2xl overflow-hidden md:border-t md:border-l border-slate-800/50 shadow-2xl">
+    <div className="flex h-full bg-background md:rounded-tl-2xl overflow-hidden md:border-t md:border-l border-border shadow-2xl">
       
       {/* Left Sidebar: Chat List */}
-      <div className={`${isMobile ? (mobileView === 'list' ? 'w-full' : 'hidden') : 'w-80 lg:w-96'} border-r border-slate-800 flex flex-col bg-slate-900/50 backdrop-blur-md z-20 flex-shrink-0 relative`}>
+      <div className={`${isMobile ? (mobileView === 'list' ? 'w-full' : 'hidden') : 'w-80 lg:w-96'} border-r border-border flex flex-col bg-card/50 backdrop-blur-md z-20 flex-shrink-0 relative`}>
         {/* Search Header */}
-        <div className="p-4 border-b border-slate-800/50">
-          <h2 className="text-lg font-bold text-white mb-3 px-1">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground mb-3 px-1">
             {viewingArchived ? '📦 Arquivados' : 'Chats Ativos'}
           </h2>
           
@@ -1420,7 +1420,7 @@ const ChatInterface: React.FC = () => {
               className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                 !viewingArchived && selectedStatusFilter === null
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30 scale-[1.02] border-transparent'
-                  : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
@@ -1447,7 +1447,7 @@ const ChatInterface: React.FC = () => {
               className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                 viewingArchived
                   ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-lg shadow-slate-500/30 scale-[1.02] border-transparent'
-                  : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                  : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
               }`}
             >
               <Archive className="w-4 h-4" />
@@ -1466,7 +1466,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   bulkSelectMode
                     ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 {bulkSelectMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
@@ -1483,8 +1483,8 @@ const ChatInterface: React.FC = () => {
                 onClick={() => setSelectedStatusFilter(null)}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   selectedStatusFilter === null
-                    ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-lg shadow-slate-500/30 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-foreground shadow-lg shadow-muted/30 scale-[1.02] border-transparent'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 Status
@@ -1509,7 +1509,7 @@ const ChatInterface: React.FC = () => {
                     className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                       isActive
                         ? `bg-gradient-to-r ${style.gradient} text-white shadow-lg ${style.shadow} scale-[1.02] border-transparent`
-                        : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                        : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                     }`}
                   >
                     <Bot className="w-4 h-4" />
@@ -1525,7 +1525,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   selectedStatusFilter === 'human'
                     ? 'bg-gradient-to-r from-lime-400 to-emerald-500 text-white shadow-lg shadow-emerald-500/40 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <User className="w-4 h-4" />
@@ -1539,7 +1539,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   selectedStatusFilter === 'paused'
                     ? 'bg-gradient-to-r from-orange-400 to-red-400 text-white shadow-lg shadow-orange-500/40 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <Pause className="w-4 h-4" />
@@ -1557,8 +1557,8 @@ const ChatInterface: React.FC = () => {
                 onClick={() => { setSelectedOwnerFilter(null); setShowOnlyMyConversations(false); }}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   !showOnlyMyConversations && selectedOwnerFilter === null
-                    ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-lg shadow-slate-500/30 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    ? 'bg-gradient-to-r from-slate-400 to-slate-500 text-foreground shadow-lg shadow-muted/30 scale-[1.02] border-transparent'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <UserCheck className="w-4 h-4" />
@@ -1571,7 +1571,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   showOnlyMyConversations
                     ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/40 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <UserCheck className="w-4 h-4" />
@@ -1585,7 +1585,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   selectedOwnerFilter === 'orphan'
                     ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg shadow-orange-500/40 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <UserX className="w-4 h-4" />
@@ -1618,7 +1618,7 @@ const ChatInterface: React.FC = () => {
                     className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                       isActive
                         ? `bg-gradient-to-r ${style.gradient} text-white shadow-lg ${style.shadow} scale-[1.02] border-transparent`
-                        : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                        : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                     }`}
                   >
                     <User className="w-4 h-4" />
@@ -1639,7 +1639,7 @@ const ChatInterface: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                   selectedCollectionFilter === 'cobranca'
                     ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/40 scale-[1.02] border-transparent'
-                    : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                    : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -1654,7 +1654,7 @@ const ChatInterface: React.FC = () => {
                   className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                     selectedCollectionFilter === 'omega'
                       ? 'bg-gradient-to-r from-purple-400 to-violet-500 text-white shadow-lg shadow-purple-500/40 scale-[1.02] border-transparent'
-                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                      : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                   }`}
                 >
                   <Bot className="w-4 h-4" />
@@ -1670,7 +1670,7 @@ const ChatInterface: React.FC = () => {
                   className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all duration-300 ${
                     selectedCollectionFilter === 'semResposta'
                       ? 'bg-gradient-to-r from-red-400 to-rose-500 text-white shadow-lg shadow-red-500/40 scale-[1.02] border-transparent'
-                      : 'bg-slate-800/40 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-700/50 hover:border-white/20 hover:scale-[1.02]'
+                      : 'bg-muted/40 backdrop-blur-xl text-muted-foreground border border-border hover:bg-accent hover:border-border hover:scale-[1.02]'
                   }`}
                 >
                   <Clock className="w-4 h-4" />
@@ -1684,14 +1684,14 @@ const ChatInterface: React.FC = () => {
           {/* Search and closed filter */}
           <div className="flex items-center gap-2">
             <div className="relative group flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input 
                 ref={searchInputRef}
                 type="text" 
                 placeholder="Buscar conversa... (pressione /)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none text-slate-200 placeholder:text-slate-600 transition-all"
+                className="w-full pl-9 pr-4 py-2.5 bg-background/50 border border-border rounded-xl text-sm focus:ring-2 focus:ring-ring focus:border-primary/50 outline-none text-foreground placeholder:text-muted-foreground transition-all"
               />
             </div>
             {!viewingArchived && (
@@ -1700,8 +1700,8 @@ const ChatInterface: React.FC = () => {
                 title={showClosedConversations ? 'Ocultar encerradas' : 'Mostrar encerradas'}
                 className={`p-2.5 rounded-xl border transition-all shrink-0 ${
                   showClosedConversations
-                    ? 'bg-slate-500/20 text-slate-300 border-slate-500/40'
-                    : 'bg-slate-950/50 text-slate-500 border-slate-800 hover:text-slate-400'
+                    ? 'bg-muted/20 text-muted-foreground border-border'
+                    : 'bg-background/50 text-muted-foreground border-border hover:text-foreground'
                 }`}
               >
                 <XCircle className="w-4 h-4" />
@@ -1713,7 +1713,7 @@ const ChatInterface: React.FC = () => {
         {/* Conversation List */}
         <div className={`flex-1 overflow-y-auto custom-scrollbar ${bulkSelectMode && selectedConversations.size > 0 ? 'pb-24' : ''}`}>
           {filteredConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
               <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-sm">Nenhuma conversa encontrada</p>
               <p className="text-xs mt-1 opacity-70">As conversas aparecerão aqui quando receberem mensagens</p>
@@ -1931,7 +1931,7 @@ const ChatInterface: React.FC = () => {
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
             {/* Chat Header */}
-            <div className={`${isMobile ? 'h-14 px-3' : 'h-16 px-6'} flex items-center justify-between bg-slate-900/80 backdrop-blur-md border-b border-slate-800 z-10 shrink-0`}>
+            <div className={`${isMobile ? 'h-14 px-3' : 'h-16 px-6'} flex items-center justify-between bg-card/80 backdrop-blur-md border-b border-border z-10 shrink-0`}>
               <div className="flex items-center gap-2">
                 {/* Back button on mobile */}
                 {isMobile && (
@@ -1939,7 +1939,7 @@ const ChatInterface: React.FC = () => {
                     variant="ghost" 
                     size="icon"
                     onClick={handleMobileBack}
-                    className="text-slate-400 hover:text-white -ml-1"
+                    className="text-muted-foreground hover:text-foreground -ml-1"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </Button>
@@ -1948,15 +1948,15 @@ const ChatInterface: React.FC = () => {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div 
-                        className="flex items-center cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors pr-3"
+                        className="flex items-center cursor-pointer hover:bg-accent p-1.5 rounded-lg transition-colors pr-3"
                         onClick={() => !isMobile && setShowProfileInfo(!showProfileInfo)}
                       >
                         <div className="relative">
-                          <img src={activeChat.contactAvatar} alt={activeChat.contactName} className={`${isMobile ? 'w-8 h-8' : 'w-9 h-9'} rounded-full ring-2 ring-slate-800`} />
+                          <img src={activeChat.contactAvatar} alt={activeChat.contactName} className={`${isMobile ? 'w-8 h-8' : 'w-9 h-9'} rounded-full ring-2 ring-card`} />
                           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
                         </div>
                         <div className="ml-3">
-                          <h2 className={`${isMobile ? 'text-sm' : 'text-sm'} font-bold text-slate-100 flex items-center gap-2 flex-wrap`}>
+                          <h2 className={`${isMobile ? 'text-sm' : 'text-sm'} font-bold text-foreground flex items-center gap-2 flex-wrap`}>
                             <span className="truncate max-w-[120px] md:max-w-none">{activeChat.contactName}</span>
                             {!isMobile && renderStatusBadge(activeChat.status, activeChat.assignedUserName)}
                             {!isMobile && renderAssigneeBadge(activeChat.assignedUserName)}
@@ -1977,11 +1977,11 @@ const ChatInterface: React.FC = () => {
                                     <ChevronDown className="w-3 h-3 opacity-60" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="bg-slate-800 border-slate-700">
-                                  <DropdownMenuLabel className="text-xs text-slate-400">
+                                <DropdownMenuContent align="start" className="bg-muted border-border">
+                                  <DropdownMenuLabel className="text-xs text-muted-foreground">
                                     Trocar agente
                                   </DropdownMenuLabel>
-                                  <DropdownMenuSeparator className="bg-slate-700" />
+                                  <DropdownMenuSeparator className="bg-border" />
                                   {availableAgents.map(agent => (
                                     <DropdownMenuItem
                                       key={agent.id}
@@ -1989,7 +1989,7 @@ const ChatInterface: React.FC = () => {
                                       className={`cursor-pointer ${
                                         activeChat.agentId === agent.id 
                                           ? 'bg-violet-500/20 text-violet-300' 
-                                          : 'text-slate-200'
+                                          : 'text-foreground'
                                       }`}
                                     >
                                       <Bot className="w-4 h-4 mr-2" />
@@ -2015,13 +2015,13 @@ const ChatInterface: React.FC = () => {
                               </span>
                             )}
                           </h2>
-                          <p className="text-xs text-cyan-500 font-medium">{activeChat.contactPhone}</p>
+                          <p className="text-xs text-primary font-medium">{activeChat.contactPhone}</p>
                         </div>
                       </div>
                     </TooltipTrigger>
                     {!isMobile && (
-                      <TooltipContent side="bottom" className="bg-slate-800 border-slate-700">
-                        <p className="text-xs text-slate-300">Clique para ver informações do contato</p>
+                      <TooltipContent side="bottom" className="bg-muted border-border">
+                        <p className="text-xs text-muted-foreground">Clique para ver informações do contato</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -2034,7 +2034,7 @@ const ChatInterface: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`text-slate-400 hover:text-white ${activeChat.status === 'nina' ? 'bg-violet-500/20 text-violet-400' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${activeChat.status === 'nina' ? 'bg-violet-500/20 text-violet-400' : ''}`}
                       onClick={() => handleStatusChange('nina')}
                       title={`Ativar ${sdrName} (IA)`}
                     >
@@ -2043,7 +2043,7 @@ const ChatInterface: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`text-slate-400 hover:text-white ${activeChat.status === 'human' ? 'bg-emerald-500/20 text-emerald-400' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${activeChat.status === 'human' ? 'bg-emerald-500/20 text-emerald-400' : ''}`}
                       onClick={() => handleStatusChange('human')}
                       title="Assumir conversa"
                     >
@@ -2052,7 +2052,7 @@ const ChatInterface: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`text-slate-400 hover:text-white ${activeChat.status === 'paused' ? 'bg-amber-500/20 text-amber-400' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${activeChat.status === 'paused' ? 'bg-amber-500/20 text-amber-400' : ''}`}
                       onClick={() => handleStatusChange('paused')}
                       title="Pausar conversa"
                     >
@@ -2061,7 +2061,7 @@ const ChatInterface: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-slate-400 hover:text-green-400 hover:bg-green-500/10"
+                      className="text-muted-foreground hover:text-green-400 hover:bg-green-500/10"
                       onClick={() => {
                         if (!activeChat.contactPhone) {
                           toast.error('Contato sem número de telefone');
@@ -2080,7 +2080,7 @@ const ChatInterface: React.FC = () => {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className={`text-slate-400 hover:text-white ${activeChat.status === 'human' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-violet-500/20 text-violet-400'}`}
+                    className={`text-muted-foreground hover:text-foreground ${activeChat.status === 'human' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-violet-500/20 text-violet-400'}`}
                     onClick={() => handleStatusChange(activeChat.status === 'human' ? 'nina' : 'human')}
                     title={activeChat.status === 'human' ? `Ativar ${sdrName}` : 'Assumir conversa'}
                   >
@@ -2093,11 +2093,11 @@ const ChatInterface: React.FC = () => {
                     <ActiveCallIndicator call={activeCall} onDismiss={dismissActiveCall} />
                   </div>
                 )}
-                <div className="h-6 w-px bg-slate-800 mx-1"></div>
+                <div className="h-6 w-px bg-border mx-1"></div>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className={`text-slate-400 hover:text-white ${showProfileInfo ? 'bg-slate-800 text-cyan-400' : ''}`} 
+                  className={`text-muted-foreground hover:text-foreground ${showProfileInfo ? 'bg-muted text-primary' : ''}`} 
                   onClick={() => setShowProfileInfo(!showProfileInfo)} 
                   title="Ver Informações"
                 >
@@ -2105,11 +2105,11 @@ const ChatInterface: React.FC = () => {
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <ShadcnButton variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+                    <ShadcnButton variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                       <MoreVertical className="w-5 h-5" />
                     </ShadcnButton>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                  <DropdownMenuContent align="end" className="bg-muted border-border">
                     {viewingArchived ? (
                       <DropdownMenuItem 
                         onClick={async () => {
@@ -2150,7 +2150,7 @@ const ChatInterface: React.FC = () => {
                             Encerrar Atendimento
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator className="bg-slate-700" />
+                        <DropdownMenuSeparator className="bg-border" />
                         <DropdownMenuItem 
                           onClick={async () => {
                             if (!activeChat) return;
@@ -2238,7 +2238,7 @@ const ChatInterface: React.FC = () => {
                           <React.Fragment key={`call-${item.data.id}`}>
                             {showDateSeparator && (
                               <div className="flex justify-center my-6">
-                                <span className="px-4 py-1.5 bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-medium rounded-full shadow-sm backdrop-blur-sm">
+                                <span className="px-4 py-1.5 bg-muted/80 border border-border text-muted-foreground text-xs font-medium rounded-full shadow-sm backdrop-blur-sm">
                                   {getDateLabel(item.date)}
                                 </span>
                               </div>
@@ -2254,10 +2254,10 @@ const ChatInterface: React.FC = () => {
                       return (
                         <React.Fragment key={msg.id}>
                           {showDateSeparator && (
-                            <div className="flex justify-center my-6">
-                              <span className="px-4 py-1.5 bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-medium rounded-full shadow-sm backdrop-blur-sm">
-                                {getDateLabel(item.date)}
-                              </span>
+                             <div className="flex justify-center my-6">
+                               <span className="px-4 py-1.5 bg-muted/80 border border-border text-muted-foreground text-xs font-medium rounded-full shadow-sm backdrop-blur-sm">
+                                 {getDateLabel(item.date)}
+                               </span>
                             </div>
                           )}
                           <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
@@ -2268,7 +2268,7 @@ const ChatInterface: React.FC = () => {
                                     ? msg.fromType === 'nina'
                                       ? 'bg-gradient-to-br from-violet-600 to-purple-700 text-white rounded-tr-sm shadow-violet-900/20'
                                       : 'bg-gradient-to-br from-cyan-600 to-teal-700 text-white rounded-tr-sm shadow-cyan-900/20'
-                                    : 'bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700/50'
+                                    : 'bg-muted text-foreground rounded-tl-sm border border-border'
                                 }`}
                               >
                                 {/* Show operator name above message for human messages */}
@@ -2357,7 +2357,7 @@ const ChatInterface: React.FC = () => {
             </div>
 
             {/* Input Area */}
-            <div className={`${isMobile ? 'p-2' : 'p-4'} bg-slate-900/90 border-t border-slate-800 backdrop-blur-sm z-10`}>
+            <div className={`${isMobile ? 'p-2' : 'p-4'} bg-card/90 border-t border-border backdrop-blur-sm z-10`}>
               {/* Window closed banner - uses real-time state */}
               {!windowTimeRemaining.isOpen && (
                 <div className={`mb-2 md:mb-3 ${isMobile ? 'p-2' : 'p-3'} bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 md:gap-3`}>
@@ -2390,14 +2390,14 @@ const ChatInterface: React.FC = () => {
                 <div className={`flex items-center ${isMobile ? 'gap-0.5' : 'gap-1'}`}>
                   {!isMobile && (
                     <>
-                      <Button type="button" variant="ghost" size="icon" className="text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors" disabled={!windowTimeRemaining.isOpen}>
+                      <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-accent rounded-full transition-colors" disabled={!windowTimeRemaining.isOpen}>
                         <Smile className="w-5 h-5" />
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="icon" 
-                        className="text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors" 
+                        className="text-muted-foreground hover:text-primary hover:bg-accent rounded-full transition-colors" 
                         disabled={!windowTimeRemaining.isOpen || uploadingFile}
                         onClick={() => fileInputRef.current?.click()}
                         title="Enviar anexo"
@@ -2447,10 +2447,10 @@ const ChatInterface: React.FC = () => {
                   />
                 )}
                 
-                <div className={`flex-1 bg-slate-950 rounded-2xl border ${
+                <div className={`flex-1 bg-background rounded-2xl border ${
                   !windowTimeRemaining.isOpen 
                     ? 'border-red-500/30 opacity-50' 
-                    : 'border-slate-800 focus-within:ring-2 focus-within:ring-cyan-500/30 focus-within:border-cyan-500/50'
+                    : 'border-border focus-within:ring-2 focus-within:ring-ring focus-within:border-primary/50'
                 } transition-all shadow-inner relative`}>
                   <textarea
                     ref={messageInputRef}
@@ -2466,7 +2466,7 @@ const ChatInterface: React.FC = () => {
                             ? 'Digite / para perguntas rápidas...'
                             : 'Digite sua mensagem...'
                     }
-                    className={`w-full bg-transparent border-none ${isMobile ? 'p-3 min-h-[44px] text-base' : 'p-3.5 min-h-[48px] text-sm'} max-h-32 text-slate-200 focus:ring-0 resize-none outline-none placeholder:text-slate-600 disabled:cursor-not-allowed`}
+                    className={`w-full bg-transparent border-none ${isMobile ? 'p-3 min-h-[44px] text-base' : 'p-3.5 min-h-[48px] text-sm'} max-h-32 text-foreground focus:ring-0 resize-none outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed`}
                     rows={1}
                     disabled={!windowTimeRemaining.isOpen}
                   />
@@ -2518,7 +2518,7 @@ const ChatInterface: React.FC = () => {
                   <Button 
                     type="button" 
                     variant="secondary" 
-                    className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700 transition-colors`} 
+                    className={`rounded-full ${isMobile ? 'w-11 h-11' : 'w-12 h-12'} p-0 bg-muted hover:bg-accent text-muted-foreground hover:text-primary border-border transition-colors`} 
                     disabled={!windowTimeRemaining.isOpen || uploadingFile}
                     onClick={startRecording}
                     title="Gravar áudio"
@@ -2533,12 +2533,12 @@ const ChatInterface: React.FC = () => {
           {/* Right Profile Sidebar (CRM View) - Hidden on mobile */}
           {!isMobile && (
           <div 
-            className={`${showProfileInfo ? 'w-80 border-l border-slate-800 opacity-100' : 'w-0 opacity-0 border-none'} transition-all duration-300 ease-in-out bg-slate-900/95 flex-shrink-0 flex flex-col overflow-hidden`}
+            className={`${showProfileInfo ? 'w-80 border-l border-border opacity-100' : 'w-0 opacity-0 border-none'} transition-all duration-300 ease-in-out bg-card/95 flex-shrink-0 flex flex-col overflow-hidden`}
           >
             <div className="w-80 h-full flex flex-col">
               {/* Header */}
-              <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800 flex-shrink-0">
-                <span className="font-semibold text-white">Informações do Lead</span>
+              <div className="h-16 flex items-center justify-between px-6 border-b border-border flex-shrink-0">
+                <span className="font-semibold text-foreground">Informações do Lead</span>
                 <div className="flex items-center gap-1">
                   {/* Botão de Fixar */}
                   <button 
@@ -2549,8 +2549,8 @@ const ChatInterface: React.FC = () => {
                     }}
                     className={`p-1.5 rounded-lg transition-colors ${
                       isPinnedProfileInfo 
-                        ? 'bg-cyan-500/20 text-cyan-400' 
-                        : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                        ? 'bg-primary/20 text-primary' 
+                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                     }`}
                     title={isPinnedProfileInfo ? 'Desafixar painel' : 'Fixar painel'}
                   >
@@ -2560,7 +2560,7 @@ const ChatInterface: React.FC = () => {
                   {/* Botão de Fechar */}
                   <button 
                     onClick={() => setShowProfileInfo(false)}
-                    className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>

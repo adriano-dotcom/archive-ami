@@ -118,7 +118,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
     switch (status) {
       case 'customer': return { label: 'Cliente Ativo', gradient: 'from-emerald-500/20 to-green-500/20', text: 'text-emerald-300', border: 'border-emerald-400/30', glow: 'shadow-emerald-500/20' };
       case 'lead': return { label: 'Lead', gradient: 'from-cyan-500/20 to-teal-500/20', text: 'text-cyan-300', border: 'border-cyan-400/30', glow: 'shadow-cyan-500/20' };
-      default: return { label: 'Novo Lead', gradient: 'from-slate-500/20 to-gray-500/20', text: 'text-slate-300', border: 'border-slate-400/30', glow: 'shadow-slate-500/20' };
+      default: return { label: 'Novo Lead', gradient: 'from-muted/20 to-muted/10', text: 'text-muted-foreground', border: 'border-border', glow: 'shadow-muted/20' };
     }
   };
 
@@ -128,9 +128,9 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
 
   // Section header component with iOS 26 style
   const SectionHeader = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
-    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-4">
-      <span className="p-1.5 rounded-lg bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-white/5">
-        <Icon className="w-3.5 h-3.5 text-cyan-400" />
+    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-4">
+      <span className="p-1.5 rounded-lg bg-gradient-to-br from-muted/80 to-card/80 border border-border">
+        <Icon className="w-3.5 h-3.5 text-primary" />
       </span>
       {title}
     </h3>
@@ -138,13 +138,13 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
 
   // Info row component with iOS 26 style
   const InfoRow = ({ icon: Icon, label, value, isLink }: { icon: React.ElementType; label: string; value: string; isLink?: boolean }) => (
-    <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.03] hover:border-cyan-500/20 transition-all duration-300 group">
-      <div className="p-2 rounded-lg bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-white/5 group-hover:border-cyan-500/20 transition-all">
-        <Icon className="w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+    <div className="flex items-start gap-3 p-3 rounded-xl bg-card/[0.02] hover:bg-card/[0.04] border border-border/30 hover:border-primary/20 transition-all duration-300 group">
+      <div className="p-2 rounded-lg bg-gradient-to-br from-muted/80 to-card/80 border border-border group-hover:border-primary/20 transition-all">
+        <Icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </div>
       <div className="flex-1 min-w-0">
-        <span className="text-xs text-slate-500 block">{label}</span>
-        <p className={`font-medium truncate ${isLink ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-200'}`}>
+        <span className="text-xs text-muted-foreground block">{label}</span>
+        <p className={`font-medium truncate ${isLink ? 'text-primary hover:text-primary/80' : 'text-foreground'}`}>
           {value || '-'}
         </p>
       </div>
@@ -153,7 +153,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg bg-gradient-to-b from-slate-950/98 via-slate-900/95 to-slate-950/98 backdrop-blur-2xl border-l border-white/[0.06] overflow-y-auto shadow-2xl">
+      <SheetContent className="w-full sm:max-w-lg bg-gradient-to-b from-background/98 via-card/95 to-background/98 backdrop-blur-2xl border-l border-border overflow-y-auto shadow-2xl">
         {/* Header with glassmorphism */}
         <SheetHeader className="pb-6">
           {/* Avatar section with glow */}
@@ -162,8 +162,8 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
               {/* Glow effect behind avatar */}
               <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/30 to-teal-500/30 blur-2xl rounded-full scale-150 animate-pulse" />
               {/* Avatar ring */}
-              <div className="relative w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-cyan-400 via-teal-400 to-cyan-500 shadow-lg shadow-cyan-500/30">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-3xl font-bold text-cyan-300 shadow-inner">
+                <div className="relative w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary via-teal-400 to-primary shadow-lg shadow-primary/30">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-muted to-card flex items-center justify-center text-3xl font-bold text-primary/80 shadow-inner">
                   {contact.name?.substring(0, 2).toUpperCase() || '??'}
                 </div>
               </div>
@@ -177,7 +177,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                   onKeyDown={handleKeyDown}
                   autoFocus
                   disabled={isSaving}
-                  className="text-center text-lg font-bold bg-white/5 border-cyan-500/30 text-white focus:border-cyan-400"
+                  className="text-center text-lg font-bold bg-card/5 border-primary/30 text-foreground focus:border-primary"
                   placeholder="Nome do lead"
                 />
                 <Button
@@ -200,7 +200,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                 </Button>
               </div>
             ) : (
-              <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-white via-white to-slate-300 bg-clip-text text-transparent">
+              <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
                 <span
                   className="inline-flex items-center gap-2 cursor-pointer group"
                   onClick={handleStartEditing}
@@ -209,7 +209,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                   onKeyDown={(e) => e.key === 'Enter' && handleStartEditing()}
                 >
                   {contact.name}
-                  <Pencil className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Pencil className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </span>
               </SheetTitle>
             )}
@@ -223,7 +223,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
           <div className="flex gap-3">
             <Button 
               onClick={onEdit} 
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white shadow-lg shadow-cyan-500/30 border-0 transition-all duration-300 hover:scale-[1.02]"
+              className="flex-1 bg-gradient-to-r from-primary to-teal-500 hover:from-primary/90 hover:to-teal-400 text-primary-foreground shadow-lg shadow-primary/30 border-0 transition-all duration-300 hover:scale-[1.02]"
             >
               <Edit className="w-4 h-4 mr-2" />
               Editar
@@ -231,7 +231,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
             <Button 
               onClick={onConverse} 
               variant="outline" 
-              className="flex-1 bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-cyan-500/30 text-slate-200 transition-all duration-300 hover:scale-[1.02]"
+              className="flex-1 bg-card/[0.03] border-border hover:bg-card/[0.06] hover:border-primary/30 text-foreground transition-all duration-300 hover:scale-[1.02]"
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Conversar
@@ -267,7 +267,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
           {/* Histórico de Chamadas */}
           <section>
             <SectionHeader icon={Phone} title="Histórico de Ligações" />
-            <div className="bg-white/[0.02] rounded-xl border border-white/[0.03] p-3">
+            <div className="bg-card/[0.02] rounded-xl border border-border/30 p-3">
               <CallHistoryPanel 
                 calls={callHistory} 
                 loading={callsLoading} 
@@ -290,8 +290,8 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                       <Target className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                      <span className="text-xs text-slate-500 block">Tamanho da Frota</span>
-                      <p className="text-xl font-bold text-emerald-300">{contact.fleet_size} veículos</p>
+                       <span className="text-xs text-muted-foreground block">Tamanho da Frota</span>
+                       <p className="text-xl font-bold text-emerald-300">{contact.fleet_size} veículos</p>
                     </div>
                   </div>
                 </div>
@@ -305,16 +305,16 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
               <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               <section>
                 <SectionHeader icon={MapPin} title="Endereço Completo" />
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.03] space-y-2">
+                <div className="p-4 rounded-xl bg-card/[0.02] border border-border/30 space-y-2">
                   {contact.cep && (
-                    <p className="text-xs text-slate-500">CEP: <span className="text-slate-400 font-mono">{formatCEP(contact.cep)}</span></p>
+                    <p className="text-xs text-muted-foreground">CEP: <span className="text-muted-foreground font-mono">{formatCEP(contact.cep)}</span></p>
                   )}
-                  <p className="text-slate-200">
+                  <p className="text-foreground">
                     {contact.street}
                     {contact.number && `, ${contact.number}`}
                     {contact.complement && ` - ${contact.complement}`}
                   </p>
-                  {contact.neighborhood && <p className="text-slate-400">{contact.neighborhood}</p>}
+                  {contact.neighborhood && <p className="text-muted-foreground">{contact.neighborhood}</p>}
                 </div>
               </section>
             </>
@@ -326,7 +326,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
               <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               <section>
                 <SectionHeader icon={FileText} title="Notas" />
-                <p className="text-slate-300 text-sm whitespace-pre-wrap bg-white/[0.02] p-4 rounded-xl border border-white/[0.03]">
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap bg-card/[0.02] p-4 rounded-xl border border-border/30">
                   {contact.notes}
                 </p>
               </section>
@@ -339,29 +339,29 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
               <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               <section>
                 <SectionHeader icon={Target} title="Origem da Campanha" />
-                <div className="space-y-2 text-sm bg-white/[0.02] p-4 rounded-xl border border-white/[0.03]">
+                <div className="space-y-2 text-sm bg-card/[0.02] p-4 rounded-xl border border-border/30">
                   {contact.utm_source && (
-                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                      <span className="text-slate-500">Fonte</span>
-                      <span className="font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{contact.utm_source}</span>
+                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-card/[0.02] transition-colors">
+                      <span className="text-muted-foreground">Fonte</span>
+                      <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">{contact.utm_source}</span>
                     </div>
                   )}
                   {contact.utm_campaign && (
-                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                      <span className="text-slate-500">Campanha</span>
-                      <span className="font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{contact.utm_campaign}</span>
+                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-card/[0.02] transition-colors">
+                      <span className="text-muted-foreground">Campanha</span>
+                      <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">{contact.utm_campaign}</span>
                     </div>
                   )}
                   {contact.utm_content && (
-                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                      <span className="text-slate-500">Conteúdo</span>
-                      <span className="font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{contact.utm_content}</span>
+                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-card/[0.02] transition-colors">
+                      <span className="text-muted-foreground">Conteúdo</span>
+                      <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">{contact.utm_content}</span>
                     </div>
                   )}
                   {contact.utm_term && (
-                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                      <span className="text-slate-500">Termo</span>
-                      <span className="font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{contact.utm_term}</span>
+                    <div className="flex justify-between items-center p-2 rounded-lg hover:bg-card/[0.02] transition-colors">
+                      <span className="text-muted-foreground">Termo</span>
+                      <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">{contact.utm_term}</span>
                     </div>
                   )}
                 </div>
@@ -379,7 +379,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                   <Calendar className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <span className="text-xs text-slate-500 block">Última interação</span>
+                  <span className="text-xs text-muted-foreground block">Última interação</span>
                   <p className="font-medium text-violet-300">{contact.lastContact || 'Qualificação IA'}</p>
                 </div>
               </div>
