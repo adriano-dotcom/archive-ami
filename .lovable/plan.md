@@ -1,104 +1,64 @@
 
 
-## Plano: Varredura completa de cores hardcoded para tokens semanticos
+## Varredura completa de cores — Fases 2-5
 
-### Escopo
+94 arquivos restantes com ~11.000 ocorrências de cores hardcoded. Fases 1 e 6 já foram aplicadas.
 
-101 arquivos com ~11.600 ocorrencias de cores hardcoded (`slate-*`, `white`, `black`, `cyan-*`). Este e um trabalho grande que sera feito em fases por prioridade visual.
+### Escopo por fase
 
-### Mapeamento de substituicoes
+**Fase 2 — Chat (maior arquivo: ChatInterface.tsx com 3152 linhas)**
+- `ChatInterface.tsx` — ~150 ocorrências (bg-slate-950, text-white, border-slate-800, text-cyan-500, bg-slate-800/40, etc.)
+- `ContactDetailsDrawer.tsx`, `TypingIndicator.tsx`
+- `chat/ConversationSummaryNotes.tsx`, `HandoffSummaryCard.tsx`, `LeadScoreBadge.tsx`, `MessageToneAssistant.tsx`, `PDFPreviewModal.tsx`, `VideoThumbnailPreview.tsx`, `WaitingTimeBadge.tsx`
+
+**Fase 3 — Contatos e Segurados**
+- `Contacts.tsx`, `CreateContactModal.tsx`, `EditContactModal.tsx`
+- `contacts/VirtualizedContactsTable.tsx`, `ContactCollectionHistory.tsx`, `DuplicateContactsReportModal.tsx`
+- `segurados/*.tsx` (~15 arquivos: tabelas, modais, importação)
+
+**Fase 4 — Funcionalidades secundárias**
+- `collections/*.tsx` (~10 arquivos)
+- `WhatsAppDashboard.tsx`, `whatsapp-dashboard/*.tsx` (6 arquivos)
+- `SalesFunnel.tsx`, `BotFlows.tsx`, `Reports.tsx`, `Scheduling.tsx`, `MeetingRoom.tsx`
+- `CallHistoryPanel.tsx`, `WhatsAppCallHistoryPanel.tsx`, `CallTimelineCard.tsx`
+
+**Fase 5 — Modais e suporte**
+- `SendWhatsAppTemplateModal.tsx`, `BulkSendTemplateModal.tsx`, `ImportContactsModal.tsx`
+- `EmailComposeModal.tsx`, `EmailTemplateEditorModal.tsx`
+- `settings/*.tsx` restantes (AgentsSettings, ApiSettings, WhatsAppTemplatesSettings, etc.)
+- `OnboardingWizard.tsx`, `OnboardingBanner.tsx`, `Sidebar.tsx`, `Team.tsx`
+- `ActiveCallIndicator.tsx`, `AudioPlayer.tsx`, `CallConfirmationModal.tsx`, `IncomingCallModal.tsx`
+- `TagSelector.tsx`, `QuickQuestionsDropdown.tsx`, `KeyboardShortcutsHelp.tsx`
+
+### Mapeamento (mesmo já definido)
 
 ```text
-BACKGROUNDS
-  bg-slate-950      → bg-background
-  bg-slate-900      → bg-card
-  bg-slate-900/50   → bg-card/50
-  bg-slate-800      → bg-muted
-  bg-white          → bg-background
-  bg-black          → bg-background
-
-TEXT
-  text-white         → text-foreground
-  text-slate-50      → text-foreground
-  text-slate-100     → text-foreground
-  text-slate-200     → text-foreground
-  text-slate-300     → text-muted-foreground
-  text-slate-400     → text-muted-foreground
-  text-slate-500     → text-muted-foreground
-  text-slate-600     → text-muted-foreground
-  text-black         → text-foreground
-
-BORDERS
-  border-slate-700   → border-border
-  border-slate-800   → border-border
-  border-white/5     → border-border
-  border-white/10    → border-border
-
-ACCENTS (cyan → primary)
-  text-cyan-400      → text-primary
-  text-cyan-500      → text-primary
-  bg-cyan-500/10     → bg-primary/10
-  bg-cyan-500/20     → bg-primary/20
-  ring-cyan-500/50   → ring-ring
-
-INPUTS
-  bg-slate-950 border-slate-700  → bg-input border-input
-  placeholder:text-slate-600     → placeholder:text-muted-foreground
-
-HOVER/INTERACTIVE
-  hover:bg-slate-800  → hover:bg-accent
-  hover:bg-slate-700  → hover:bg-accent
-  hover:bg-white      → hover:bg-accent
+bg-slate-950       → bg-background
+bg-slate-900       → bg-card
+bg-slate-900/50    → bg-card/50
+bg-slate-800       → bg-muted
+bg-slate-800/50    → bg-muted/50
+bg-slate-800/40    → bg-muted/40
+text-white         → text-foreground
+text-slate-100-200 → text-foreground
+text-slate-300-600 → text-muted-foreground
+border-slate-700/800 → border-border
+text-cyan-400/500  → text-primary
+bg-cyan-500/10     → bg-primary/10
+bg-cyan-600        → bg-primary
+hover:bg-slate-700/800 → hover:bg-accent
+hover:bg-cyan-700  → hover:bg-primary/80
+placeholder:text-slate-* → placeholder:text-muted-foreground
 ```
 
-### Fases de execucao
+### Exceções preservadas
+- Cores funcionais de status: `text-red-*`, `text-green-*`, `text-amber-*`, `text-yellow-*`
+- Gradientes decorativos de agentes (violet, fuchsia, purple, pink, rose, amber)
+- Gradientes de botões ativos (from-cyan-400 to-blue-500 → from-primary to-blue-500)
+- Cores de diferenciação por seção (blue, indigo, orange)
 
-**Fase 1 — Paginas principais (mais visiveis)**
-- `Settings.tsx` (parcialmente feito)
-- `AgentSettings.tsx`
-- `ApiSettings.tsx`
-- `AgentsSettings.tsx`
-- `GeneralSettings.tsx`
-- `Dashboard.tsx`
-- `Sidebar.tsx`
-- `Team.tsx` (parcialmente feito)
-
-**Fase 2 — Chat e conversas**
-- `ChatInterface.tsx`
-- `chat/*.tsx` (subcomponentes)
-- `ContactDetailsDrawer.tsx`
-- `TypingIndicator.tsx`
-
-**Fase 3 — Contatos e segurados**
-- `Contacts.tsx`, `CreateContactModal.tsx`, `EditContactModal.tsx`
-- `segurados/*.tsx` (todos os modais e tabelas)
-- `contacts/*.tsx`
-
-**Fase 4 — Funcionalidades secundarias**
-- `collections/*.tsx`
-- `CallsPage.tsx`, `CallHistoryPanel.tsx`
-- `WhatsAppDashboard.tsx`, `whatsapp-dashboard/*.tsx`
-- `SalesFunnel.tsx`, `BotFlows.tsx`, `Reports.tsx`
-- `Scheduling.tsx`, `MeetingRoom.tsx`
-
-**Fase 5 — Modais e componentes de suporte**
-- `SendWhatsAppTemplateModal.tsx`, `BulkSendTemplateModal.tsx`
-- `ImportContactsModal.tsx`
-- `settings/*.tsx` restantes
-- `OnboardingWizard.tsx`, `OnboardingBanner.tsx`
-- `EmailComposeModal.tsx`
-
-**Fase 6 — Componentes UI base**
-- `ui/input.tsx`, `ui/textarea.tsx`, `ui/tooltip.tsx`, `ui/popover.tsx`
-- Remover prefixos `dark:` redundantes (ja que dark mode e global)
-
-### Notas tecnicas
-- As variaveis do tema ja estao bem definidas no `index.css` (`:root` e `.dark`)
-- Com `class="dark"` global, prefixos `dark:bg-slate-900` sao redundantes e devem ser removidos
-- Cores funcionais (`text-red-400`, `text-green-400`, `text-amber-500`) serao mantidas — sao indicadores de status
-- Cores de acento especificas (`text-blue-400`, `text-indigo-400`) podem ser mantidas para diferenciacao visual entre secoes
-- O Toaster em `App.tsx` deve trocar `theme="light"` para `theme="dark"`
-
-### Estimativa
-~101 arquivos, trabalho sera dividido em 6 lotes para evitar erros. Cada fase sera aplicada e verificada antes de avancar.
+### Nota técnica
+- O `ChatInterface.tsx` tem 3152 linhas — será o arquivo com mais edits
+- Arquivos `Sidebar.tsx` e `Team.tsx` já tiveram correções parciais, agora serão finalizados
+- Total estimado: ~60-70 arquivos precisam de edits
 
