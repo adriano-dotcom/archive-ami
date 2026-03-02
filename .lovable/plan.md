@@ -1,21 +1,25 @@
 
 
-## Plano: Aplicar o prompt da Orbi no sistema
+## Analise: Fundo Branco
 
-Nao e necessaria nenhuma mudanca de codigo. O prompt pode ser colado diretamente no campo "Prompt do Sistema" em **Configuracoes > Agente**.
+O problema e que o app esta rodando em **modo claro** (light mode). A variavel CSS `--background` no `:root` e `0 0% 98%` (quase branco). A classe `dark` nunca e aplicada no `<html>`.
 
-### Passos
-1. Ir em Configuracoes > aba Agente
-2. No campo "Prompt do Sistema", colar o conteudo entre as linhas 10-243 do arquivo (a secao dentro do bloco de codigo)
-3. Atualizar "Nome da Empresa" para **OrbePet**
-4. Atualizar "Nome do SDR" para **Orbi**
-5. Salvar
+O componente Settings usa classes dark hardcoded (`bg-slate-950`, `bg-slate-900/50`), entao o conteudo interno fica escuro, mas o **layout principal** (`AppLayout`) usa `bg-background` que resolve para branco.
 
-### Notas tecnicas (para a equipe)
-- O campo `nina_settings.system_prompt_override` aceita texto longo, sem limite pratico
-- As variaveis `{{ cliente_nome }}`, `{{ data_hora }}` ja sao substituidas pelo orchestrator — o prompt pode usa-las
-- A configuracao de temperature/max_tokens deve ser ajustada na edge function `nina-orchestrator` se quiser seguir os valores recomendados (0.5 / 300 tokens)
-- O modelo recomendado pode ser selecionado na UI (Flash, Pro 2.5, Pro 3 ou Adaptativo)
+### Opcoes
 
-Se voce quiser que eu **cole o prompt automaticamente no banco** (via SQL), posso fazer isso tambem.
+1. **Forcar dark mode globalmente** — adicionar `class="dark"` no `<html>` em `index.html`, garantindo que `bg-background` resolva para o valor escuro (`273 20% 8%`). Isso e o mais simples e alinha tudo ao tema escuro que ja e usado em todos os componentes.
+
+2. **Trocar `bg-background` por `bg-slate-950`** no `AppLayout` — correcao pontual, mas nao resolve outros componentes que dependem das variaveis CSS.
+
+### Plano recomendado
+
+Adicionar `class="dark"` ao `<html>` no `index.html`. Isso ativa o tema escuro globalmente e faz todas as variaveis CSS (`--background`, `--foreground`, `--card`, etc.) usarem os valores da classe `.dark` definidos no `index.css`.
+
+### Alteracao
+
+**Arquivo:** `index.html`
+- Trocar `<html lang="en">` por `<html lang="pt-BR" class="dark">`
+
+Isso resolve o fundo branco em todas as paginas de uma vez.
 
