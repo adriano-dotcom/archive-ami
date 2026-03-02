@@ -65,7 +65,7 @@ export const LeadScoreBadge: React.FC<LeadScoreBadgeProps> = ({ clientMemory, co
       <Icon className={`w-4 h-4 ${temp.iconColor}`} />
       <div className="flex flex-col">
         <span className={`text-xs font-bold ${temp.iconColor}`}>{temp.label} Lead</span>
-        <span className="text-[10px] text-slate-400">Score: {score}%</span>
+        <span className="text-[10px] text-muted-foreground">Score: {score}%</span>
       </div>
     </div>
   );

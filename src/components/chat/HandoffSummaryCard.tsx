@@ -102,7 +102,7 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
         <ClipboardList className="w-4 h-4" />
         Resumo do Contato
         <span className="ml-auto px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded font-medium">
@@ -110,7 +110,7 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
         </span>
       </h4>
       
-      <div className="p-3 rounded-lg bg-gradient-to-br from-slate-800/70 to-slate-900/70 border border-slate-700/50 space-y-2">
+      <div className="p-3 rounded-lg bg-gradient-to-br from-muted/70 to-card/70 border border-border space-y-2">
         {/* Qualification fields */}
         {fields.map(({ key, label, icon: Icon }) => {
           const value = answers[key];
@@ -122,8 +122,8 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-slate-500 text-xs">{label}:</span>
-                <p className="text-slate-200 font-medium truncate">{value}</p>
+                <span className="text-muted-foreground text-xs">{label}:</span>
+                <p className="text-foreground font-medium truncate">{value}</p>
               </div>
             </div>
           );
@@ -135,12 +135,12 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
           
           return (
             <div key={key} className="flex items-start gap-2 text-sm">
-              <div className="w-5 h-5 rounded bg-slate-600/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <HelpCircle className="w-3 h-3 text-slate-400" />
+              <div className="w-5 h-5 rounded bg-muted/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <HelpCircle className="w-3 h-3 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-slate-500 text-xs capitalize">{key.replace(/_/g, ' ')}:</span>
-                <p className="text-slate-200 font-medium truncate">{value}</p>
+                <span className="text-muted-foreground text-xs capitalize">{key.replace(/_/g, ' ')}:</span>
+                <p className="text-foreground font-medium truncate">{value}</p>
               </div>
             </div>
           );
@@ -149,14 +149,14 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
         {/* Pending Installments Section */}
         {installmentsSummary && installmentsSummary.count > 0 && (
           <>
-            <div className="h-px bg-slate-700/50 my-2" />
+            <div className="h-px bg-border my-2" />
             
             <div className="flex items-start gap-2 text-sm">
               <div className="w-5 h-5 rounded bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Receipt className="w-3 h-3 text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-slate-500 text-xs">Parcelas Pendentes:</span>
+                <span className="text-muted-foreground text-xs">Parcelas Pendentes:</span>
                 <p className="text-amber-400 font-medium">{installmentsSummary.count}</p>
               </div>
             </div>
@@ -166,7 +166,7 @@ export const HandoffSummaryCard: React.FC<HandoffSummaryCardProps> = ({ ninaCont
                 <DollarSign className="w-3 h-3 text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-slate-500 text-xs">Valor Pendente:</span>
+                <span className="text-muted-foreground text-xs">Valor Pendente:</span>
                 <p className="text-amber-400 font-medium">
                   {new Intl.NumberFormat('pt-BR', { 
                     style: 'currency', 

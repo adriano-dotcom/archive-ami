@@ -13,7 +13,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
   return (
     <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex flex-col max-w-[75%] items-start">
-        <div className="px-5 py-3 rounded-2xl rounded-tl-sm bg-slate-800 border border-slate-700/50 shadow-md">
+        <div className="px-5 py-3 rounded-2xl rounded-tl-sm bg-muted border border-border shadow-md">
           <div className="flex items-center gap-3">
             <Bot className="w-4 h-4 text-violet-400 flex-shrink-0" />
             <div className="flex items-center gap-1.5">
@@ -22,7 +22,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
               <span className="typing-dot w-2 h-2 rounded-full bg-violet-400" style={{ animationDelay: '400ms' }} />
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             {isAggregating 
               ? 'Coletando mensagens...' 
               : `${agentName} está digitando...`

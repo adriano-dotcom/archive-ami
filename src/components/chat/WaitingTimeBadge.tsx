@@ -62,10 +62,10 @@ export const WaitingTimeBadge: React.FC<WaitingTimeBadgeProps> = ({
       };
     }
     return {
-      gradient: 'bg-gradient-to-r from-slate-600/25 to-slate-500/25',
-      iconColor: 'text-slate-400',
-      textColor: 'text-slate-300',
-      borderColor: 'border-slate-500/40',
+      gradient: 'bg-gradient-to-r from-muted/25 to-muted/15',
+      iconColor: 'text-muted-foreground',
+      textColor: 'text-muted-foreground',
+      borderColor: 'border-border',
       glow: '',
       pulse: false,
       icon: Hourglass
@@ -101,7 +101,7 @@ export const WaitingTimeBadge: React.FC<WaitingTimeBadgeProps> = ({
       <Icon className={`w-4 h-4 ${urgency.iconColor}`} />
       <div className="flex flex-col">
         <span className={`text-xs font-medium ${urgency.textColor}`}>Aguardando</span>
-        <span className="text-[10px] text-slate-400">{formatWaitingTime()}</span>
+        <span className="text-[10px] text-muted-foreground">{formatWaitingTime()}</span>
       </div>
     </div>
   );

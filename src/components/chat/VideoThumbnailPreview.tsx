@@ -12,7 +12,7 @@ export function VideoThumbnailPreview({ videoUrl }: VideoThumbnailPreviewProps) 
   if (isLoading) {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className="w-7 h-5 bg-slate-700 rounded animate-pulse" />
+        <span className="w-7 h-5 bg-muted rounded animate-pulse" />
         <span>Vídeo</span>
       </span>
     );
