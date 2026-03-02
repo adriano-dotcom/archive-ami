@@ -1,33 +1,46 @@
 
 
-## Plano: Unificar abas Agente + Agentes em uma unica tela
+## Plano: Dividir perguntas de qualificação em 2 mensagens e encurtar respostas
 
-### Contexto atual
-- **`nina_settings`** (tab "Agente"): config global — prompt, modelo IA, horarios, delays, company_name/sdr_name, `is_active`
-- **`agents`** (tab "Agentes"): lista de agentes — atualmente so tem 1 (Omega, is_default=true)
-- O orchestrator checa `nina_settings.is_active` para decidir se responde WhatsApp, e carrega agentes ativos da tabela `agents`
+### Problema
+A Orbi envia todas as 4 perguntas de qualificação numa única mensagem longa, o que fica pesado no WhatsApp.
 
-### O que sera feito
+### Solução
+Atualizar o **system prompt** (tanto em `nina_settings.system_prompt_override` quanto em `agents.system_prompt`) para instruir a Orbi a:
 
-1. **Remover tab "Agente" separada** — mover configs globais (modelo IA, horarios, delays, toggles) para dentro da tela unificada
-2. **Tab unica "Agentes"** com:
-   - **Status card no topo**: indicador visual se o agente esta ativo para WhatsApp (lendo `nina_settings.is_active` + `auto_response_enabled`)
-   - **Configs globais** (modelo IA, horarios comerciais, delays) numa secao colapsavel ou fixa no topo
-   - **Lista de agentes** da tabela `agents` (criar/editar/excluir como ja funciona)
-3. **Atualizar prompt do Orbi**: substituir o `system_prompt_override` no `nina_settings` e o `system_prompt` do agente Omega pelo prompt da persona Orbi (pet)
-4. **Renomear agente Omega → Orbi** na tabela `agents` e atualizar greeting_message
-5. **Corrigir cores hardcoded** restantes no `AgentsSettings.tsx` (slate → tokens semanticos, como nas fases anteriores)
+1. **Dividir a qualificação em 2 etapas:**
+   - **Mensagem 1:** Nome do pet + espécie (cão/gato) + idade
+   - **Mensagem 2:** Já tem plano? + O que mais preocupa na saúde?
 
-### Mudancas em arquivos
+2. **Respostas mais curtas:** Adicionar regra explícita de max 2-3 linhas por mensagem no WhatsApp, sem listas numeradas longas.
 
-- **`Settings.tsx`**: remover tab "agent", renomear tab "agents" para exibir como unica
-- **`AgentsSettings.tsx`**: incorporar as configs globais do `AgentSettings.tsx` (prompt, modelo, horarios, delays, company info) + status card de ativo/inativo + corrigir cores
-- **`AgentSettings.tsx`**: arquivo sera removido (codigo migrado)
-- **Migration SQL**: `UPDATE agents SET name='Orbi', slug='orbi', system_prompt=..., greeting_message=... WHERE is_default=true`; `UPDATE nina_settings SET sdr_name='Orbi', system_prompt_override=...`
+### Mudanças
 
-### Status card WhatsApp
-Um card no topo mostrando:
-- 🟢 "Agente ativo — respondendo WhatsApp" (quando `nina_settings.is_active = true`)
-- 🔴 "Agente inativo — nao responde WhatsApp" com botao para ativar
-- Toggle inline para ligar/desligar
+**1. SQL Migration** — Atualizar a seção "QUALIFICAÇÃO" do prompt em ambas as tabelas:
+- Substituir o bloco `### 2. QUALIFICAÇÃO` por instrução de 2 etapas
+- Reforçar regra de mensagens curtas no bloco `TOM E ESTILO`
+
+Trecho do prompt que será atualizado:
+```
+### 2. QUALIFICAÇÃO
+Após saber o nome do pet, divida em DUAS mensagens separadas (nunca todas as perguntas de uma vez):
+
+**Primeira mensagem:** Pergunte espécie (cão ou gato) e idade aproximada.
+Exemplo: "O [nome] é um cão ou gatinho? E quantos anos ele tem? 🐾"
+
+**Segunda mensagem (após resposta):** Pergunte sobre plano atual e principal preocupação.
+Exemplo: "Você já tem algum plano de saúde pro [nome]? E o que mais te preocupa: consultas do dia a dia ou coisas como cirurgias?"
+```
+
+E no bloco TOM E ESTILO:
+```
+- Máximo 2-3 linhas por mensagem
+- NUNCA envie listas numeradas com mais de 2 itens numa mesma mensagem
+- Prefira perguntas naturais em texto corrido, não em formato de lista
+```
+
+**2. Nenhuma mudança de código** — O `message_breaking_enabled` + `breakMessageIntoChunks` já cuida de separar mensagens por `\n\n`. O prompt é o que controla o comportamento.
+
+### Nota técnica
+A função `breakMessageIntoChunks` já existe e separa por `\n\n`, então se a IA gerar parágrafos separados eles já vão como mensagens distintas no WhatsApp. O foco é puramente no prompt.
 
