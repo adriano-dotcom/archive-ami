@@ -50,14 +50,14 @@ const SimpleAudioPlayer: React.FC<{ src: string }> = ({ src }) => {
         )}
       </button>
       <div className="flex-1">
-        <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+        <div className="h-1 bg-muted rounded-full overflow-hidden">
           <div 
             className="h-full bg-emerald-400 transition-all"
             style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
           />
         </div>
       </div>
-      <span className="text-xs text-slate-400 tabular-nums">
+      <span className="text-xs text-muted-foreground tabular-nums">
         {formatTime(progress)} / {formatTime(duration)}
       </span>
     </div>
@@ -133,10 +133,10 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
         return {
           icon: Phone,
           label: 'Ligação',
-          bgColor: 'bg-slate-500/10',
-          borderColor: 'border-slate-500/30',
-          textColor: 'text-slate-400',
-          iconBg: 'bg-slate-500/20'
+          bgColor: 'bg-muted/50',
+          borderColor: 'border-border',
+          textColor: 'text-muted-foreground',
+          iconBg: 'bg-muted'
         };
     }
   };
@@ -155,12 +155,12 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
             </div>
             <div>
               <p className={`font-semibold ${config.textColor}`}>{config.label}</p>
-              <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="w-3 h-3" />
                 <span>{formatTime(call.started_at)}</span>
                 {call.duration_seconds && call.duration_seconds > 0 && (
                   <>
-                    <span className="text-slate-600">•</span>
+                    <span className="text-muted-foreground">•</span>
                     <span>{formatDuration(call.duration_seconds)}</span>
                   </>
                 )}
@@ -171,7 +171,7 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
 
         {/* Audio Player */}
         {call.record_url && (
-          <div className="mt-3 bg-slate-800/50 rounded-lg p-3">
+          <div className="mt-3 bg-muted/50 rounded-lg p-3">
             <SimpleAudioPlayer src={call.record_url} />
           </div>
         )}
@@ -181,7 +181,7 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
           <div className="mt-3">
             <button
               onClick={() => setShowTranscription(!showTranscription)}
-              className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 transition-colors"
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Ver transcrição</span>
@@ -193,7 +193,7 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
             </button>
             
             {showTranscription && (
-              <div className="mt-2 p-3 bg-slate-800/50 rounded-lg text-xs text-slate-300 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+              <div className="mt-2 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
                 {call.transcription}
               </div>
             )}
@@ -202,8 +202,8 @@ const CallTimelineCard: React.FC<CallTimelineCardProps> = ({ call }) => {
 
         {/* Transcription Status */}
         {call.transcription_status === 'processing' && !call.transcription && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-            <div className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="w-3 h-3 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
             <span>Transcrevendo...</span>
           </div>
         )}

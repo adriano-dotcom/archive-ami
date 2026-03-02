@@ -54,7 +54,7 @@ const getStatusConfig = (status: string) => {
     case 'completed':
       return { icon: PhoneOutgoing, color: 'text-emerald-400', bg: 'bg-emerald-500/10', label: 'Concluída' };
     case 'answered':
-      return { icon: Phone, color: 'text-cyan-400', bg: 'bg-cyan-500/10', label: 'Em andamento' };
+      return { icon: Phone, color: 'text-primary', bg: 'bg-primary/10', label: 'Em andamento' };
     case 'ringing':
       return { icon: PhoneIncoming, color: 'text-amber-400', bg: 'bg-amber-500/10', label: 'Tocando' };
     case 'dialing':
@@ -66,11 +66,11 @@ const getStatusConfig = (status: string) => {
     case 'failed':
       return { icon: PhoneMissed, color: 'text-red-400', bg: 'bg-red-500/10', label: 'Falhou' };
     case 'cancelled':
-      return { icon: PhoneMissed, color: 'text-slate-400', bg: 'bg-slate-500/10', label: 'Cancelada' };
+      return { icon: PhoneMissed, color: 'text-muted-foreground', bg: 'bg-muted/50', label: 'Cancelada' };
     case 'timeout':
-      return { icon: PhoneMissed, color: 'text-slate-400', bg: 'bg-slate-500/10', label: 'Timeout' };
+      return { icon: PhoneMissed, color: 'text-muted-foreground', bg: 'bg-muted/50', label: 'Timeout' };
     default:
-      return { icon: Phone, color: 'text-slate-400', bg: 'bg-slate-500/10', label: status };
+      return { icon: Phone, color: 'text-muted-foreground', bg: 'bg-muted/50', label: status };
   }
 };
 
@@ -133,7 +133,7 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
   };
 
   return (
-    <div className="p-2 bg-slate-900/50 rounded-lg border border-slate-700/50">
+    <div className="p-2 bg-card/50 rounded-lg border border-border">
       <audio
         ref={audioRef}
         src={url}
@@ -146,15 +146,15 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
       <div className="flex items-center gap-2">
         <button
           onClick={togglePlay}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-cyan-600 hover:bg-cyan-500 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-primary hover:bg-primary/80 transition-colors"
           disabled={isLoading}
         >
           {isLoading ? (
-            <Loader2 className="w-4 h-4 text-white animate-spin" />
+            <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
           ) : isPlaying ? (
-            <Pause className="w-4 h-4 text-white" />
+            <Pause className="w-4 h-4 text-primary-foreground" />
           ) : (
-            <Play className="w-4 h-4 text-white ml-0.5" />
+            <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
           )}
         </button>
 
@@ -165,14 +165,14 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
             max={duration || 100}
             value={currentTime}
             onChange={handleSeek}
-            className="flex-1 h-1 bg-slate-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400"
+            className="flex-1 h-1 bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
           />
-          <span className="text-xs text-slate-500 font-mono min-w-[70px] text-right">
+          <span className="text-xs text-muted-foreground font-mono min-w-[70px] text-right">
             {formatAudioTime(currentTime)} / {formatAudioTime(duration)}
           </span>
         </div>
 
-        <Volume2 className="w-4 h-4 text-slate-500" />
+        <Volume2 className="w-4 h-4 text-muted-foreground" />
       </div>
     </div>
   );
@@ -226,7 +226,6 @@ const TranscriptionSection: React.FC<{
 
     setIsSummarizing(true);
     try {
-      // 1. Gerar resumo via edge function
       const { data: summaryData, error: summaryError } = await supabase.functions.invoke('summarize-transcription', {
         body: { 
           transcription: transcriptionText,
@@ -241,7 +240,6 @@ const TranscriptionSection: React.FC<{
         throw new Error('Resumo não gerado');
       }
 
-      // 2. Buscar notas atuais do contato
       const { data: contact, error: contactError } = await supabase
         .from('contacts')
         .select('notes')
@@ -250,12 +248,10 @@ const TranscriptionSection: React.FC<{
 
       if (contactError) throw contactError;
 
-      // 3. Append resumo às notas existentes
       const existingNotes = contact?.notes || '';
       const separator = existingNotes.trim() ? '\n\n---\n\n' : '';
       const newNotes = existingNotes + separator + summaryData.summary;
 
-      // 4. Salvar notas atualizadas
       const { error: updateError } = await supabase
         .from('contacts')
         .update({ notes: newNotes })
@@ -263,7 +259,6 @@ const TranscriptionSection: React.FC<{
 
       if (updateError) throw updateError;
 
-      // 5. Notificar componente pai
       onNotesUpdate?.(newNotes);
       
       toast.success('Resumo adicionado às notas!');
@@ -280,13 +275,12 @@ const TranscriptionSection: React.FC<{
 
   if (!hasRecording) return null;
 
-  // Se tem transcrição, mostrar
   if (displayTranscription) {
     return (
       <div className="mt-2 space-y-2">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors w-full"
+          className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors w-full"
         >
           <FileText className="w-3.5 h-3.5" />
           <span>Transcrição</span>
@@ -295,13 +289,12 @@ const TranscriptionSection: React.FC<{
         
         {isExpanded && (
           <>
-            <div className="p-3 bg-slate-900/70 rounded-lg border border-slate-700/50 max-h-40 overflow-y-auto">
-              <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+            <div className="p-3 bg-card/70 rounded-lg border border-border max-h-40 overflow-y-auto">
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                 {displayTranscription}
               </p>
             </div>
             
-            {/* Botão de resumir para notas */}
             {contactId && (
               <button
                 onClick={handleSummarizeToNotes}
@@ -327,13 +320,12 @@ const TranscriptionSection: React.FC<{
     );
   }
 
-  // Se não tem transcrição, mostrar botão
   return (
     <div className="mt-2">
       <button
         onClick={handleTranscribe}
         disabled={isProcessing}
-        className="flex items-center gap-2 text-xs text-slate-400 hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isProcessing ? (
           <>
@@ -365,7 +357,7 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
+        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
       </div>
     );
   }
@@ -373,8 +365,8 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
   if (calls.length === 0) {
     return (
       <div className="text-center py-6">
-        <Phone className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-        <p className="text-sm text-slate-500">Nenhuma ligação registrada</p>
+        <Phone className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">Nenhuma ligação registrada</p>
       </div>
     );
   }
@@ -395,8 +387,8 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
             key={call.id}
             className={`rounded-lg border transition-colors ${
               isActive 
-                ? 'bg-cyan-500/10 border-cyan-500/30 animate-pulse' 
-                : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800'
+                ? 'bg-primary/10 border-primary/30 animate-pulse' 
+                : 'bg-muted/50 border-border hover:bg-muted'
             }`}
           >
             <div 
@@ -413,23 +405,23 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
                     {config.label}
                   </span>
                   {isActive && (
-                    <span className="flex items-center gap-1 text-[10px] text-cyan-400">
+                    <span className="flex items-center gap-1 text-[10px] text-primary">
                       <Loader2 className="w-3 h-3 animate-spin" />
                     </span>
                   )}
                   {hasRecording && (
-                    <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Volume2 className="w-3 h-3" />
                       Gravação
                     </span>
                   )}
                   {call.transcription && (
-                    <span className="flex items-center gap-1 text-[10px] text-cyan-500">
+                    <span className="flex items-center gap-1 text-[10px] text-primary">
                       <FileText className="w-3 h-3" />
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                   <span>{formatDate(call.started_at)}</span>
                   <span>•</span>
                   <span>{formatTime(call.started_at)}</span>
@@ -446,7 +438,6 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
               </div>
             </div>
 
-            {/* Expanded Content: Audio Player + Transcription */}
             {isExpanded && hasRecording && (
               <div className="px-3 pb-3 space-y-2">
                 <AudioPlayer url={call.record_url!} />
@@ -468,7 +459,7 @@ export const CallHistoryPanel: React.FC<CallHistoryPanelProps> = ({
       })}
 
       {compact && calls.length > 5 && (
-        <p className="text-xs text-slate-500 text-center py-2">
+        <p className="text-xs text-muted-foreground text-center py-2">
           + {calls.length - 5} chamadas anteriores
         </p>
       )}
