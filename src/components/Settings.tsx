@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Shield, Bot, Plug, Loader2, Save, RotateCcw, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope } from 'lucide-react';
+import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
-import AgentSettings, { AgentSettingsRef } from './settings/AgentSettings';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
 import AgentsSettings, { AgentsSettingsRef } from './settings/AgentsSettings';
 import EmailTemplatesSettings from './settings/EmailTemplatesSettings';
@@ -16,16 +15,13 @@ import { Button } from './Button';
 
 const Settings: React.FC = () => {
   const { companyName } = useCompanySettings();
-  const agentRef = useRef<AgentSettingsRef>(null);
   const apiRef = useRef<ApiSettingsRef>(null);
   const agentsRef = useRef<AgentsSettingsRef>(null);
   
   const [activeTab, setActiveTab] = useState('general');
 
   const handleSave = async () => {
-    if (activeTab === 'agent') {
-      await agentRef.current?.save();
-    } else if (activeTab === 'apis') {
+    if (activeTab === 'apis') {
       await apiRef.current?.save();
     } else if (activeTab === 'agents') {
       await agentsRef.current?.save();
@@ -33,18 +29,14 @@ const Settings: React.FC = () => {
   };
 
   const handleCancel = () => {
-    if (activeTab === 'agent') {
-      agentRef.current?.cancel();
-    } else if (activeTab === 'apis') {
+    if (activeTab === 'apis') {
       apiRef.current?.cancel();
     } else if (activeTab === 'agents') {
       agentsRef.current?.cancel();
     }
   };
 
-  const isSaving = activeTab === 'agent' 
-    ? agentRef.current?.isSaving 
-    : activeTab === 'apis'
+  const isSaving = activeTab === 'apis'
     ? apiRef.current?.isSaving
     : activeTab === 'agents'
     ? agentsRef.current?.isSaving
@@ -66,16 +58,12 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="agent" className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="agents" className="w-full" onValueChange={setActiveTab}>
         <div className="flex items-center justify-between mb-8">
           <TabsList>
             <TabsTrigger value="general" className="gap-2">
               <Settings2 className="w-4 h-4" />
               Geral
-            </TabsTrigger>
-            <TabsTrigger value="agent" className="gap-2">
-              <Bot className="w-4 h-4" />
-              Agente
             </TabsTrigger>
             <TabsTrigger value="agents" className="gap-2">
               <Users className="w-4 h-4" />
@@ -140,10 +128,6 @@ const Settings: React.FC = () => {
 
         <TabsContent value="general">
           <GeneralSettings />
-        </TabsContent>
-
-        <TabsContent value="agent">
-          <AgentSettings ref={agentRef} />
         </TabsContent>
 
         <TabsContent value="agents">
