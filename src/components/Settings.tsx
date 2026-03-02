@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Shield, Bot, Plug, Loader2, Save, RotateCcw, Users, Mail, Link, Settings2, MessageSquare, Zap, Brain, Stethoscope } from 'lucide-react';
+import { Shield, Bot, Plug, Loader2, Save, RotateCcw, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import AgentSettings, { AgentSettingsRef } from './settings/AgentSettings';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
@@ -7,7 +7,7 @@ import AgentsSettings, { AgentsSettingsRef } from './settings/AgentsSettings';
 import EmailTemplatesSettings from './settings/EmailTemplatesSettings';
 import WhatsAppTemplatesSettings from './settings/WhatsAppTemplatesSettings';
 import FollowupAutomationsSettings from './settings/FollowupAutomationsSettings';
-import PipedriveSettings, { PipedriveSettingsRef } from './settings/PipedriveSettings';
+
 import GeneralSettings from './settings/GeneralSettings';
 import SalesCoachingSettings from './settings/SalesCoachingSettings';
 import WhatsAppDiagnosticPanel from './settings/WhatsAppDiagnosticPanel';
@@ -19,7 +19,7 @@ const Settings: React.FC = () => {
   const agentRef = useRef<AgentSettingsRef>(null);
   const apiRef = useRef<ApiSettingsRef>(null);
   const agentsRef = useRef<AgentsSettingsRef>(null);
-  const pipedriveRef = useRef<PipedriveSettingsRef>(null);
+  
   const [activeTab, setActiveTab] = useState('general');
 
   const handleSave = async () => {
@@ -29,8 +29,6 @@ const Settings: React.FC = () => {
       await apiRef.current?.save();
     } else if (activeTab === 'agents') {
       await agentsRef.current?.save();
-    } else if (activeTab === 'pipedrive') {
-      await pipedriveRef.current?.save();
     }
   };
 
@@ -41,8 +39,6 @@ const Settings: React.FC = () => {
       apiRef.current?.cancel();
     } else if (activeTab === 'agents') {
       agentsRef.current?.cancel();
-    } else if (activeTab === 'pipedrive') {
-      pipedriveRef.current?.cancel();
     }
   };
 
@@ -52,8 +48,6 @@ const Settings: React.FC = () => {
     ? apiRef.current?.isSaving
     : activeTab === 'agents'
     ? agentsRef.current?.isSaving
-    : activeTab === 'pipedrive'
-    ? pipedriveRef.current?.isSaving
     : false;
 
   const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic';
@@ -102,10 +96,6 @@ const Settings: React.FC = () => {
             <TabsTrigger value="automations" className="gap-2">
               <Zap className="w-4 h-4" />
               Automações
-            </TabsTrigger>
-            <TabsTrigger value="pipedrive" className="gap-2">
-              <Link className="w-4 h-4" />
-              Pipedrive
             </TabsTrigger>
             <TabsTrigger value="coaching" className="gap-2">
               <Brain className="w-4 h-4" />
@@ -176,9 +166,6 @@ const Settings: React.FC = () => {
           <FollowupAutomationsSettings />
         </TabsContent>
 
-        <TabsContent value="pipedrive">
-          <PipedriveSettings ref={pipedriveRef} />
-        </TabsContent>
 
         <TabsContent value="coaching">
           <SalesCoachingSettings />
