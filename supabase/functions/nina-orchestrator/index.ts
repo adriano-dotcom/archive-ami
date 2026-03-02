@@ -3929,6 +3929,33 @@ Agradeço pela compreensão! 🙏`;
     installmentsData = await fetchContactInstallments(supabase, conversation.contact_id);
   }
   
+  // ===== FETCH PRODUCT KNOWLEDGE =====
+  let productKnowledgeContent = '';
+  try {
+    const { data: activeProducts } = await supabase
+      .from('product_knowledge')
+      .select('name, insurer, full_content, summary')
+      .eq('is_active', true)
+      .eq('extraction_status', 'completed');
+    
+    if (activeProducts && activeProducts.length > 0) {
+      productKnowledgeContent = '\n\n## 📚 BASE DE CONHECIMENTO - CONDIÇÕES GERAIS DOS PRODUTOS\n';
+      for (const prod of activeProducts) {
+        productKnowledgeContent += `\n### ${prod.name}${prod.insurer ? ` (${prod.insurer})` : ''}\n`;
+        if (prod.summary) {
+          productKnowledgeContent += `**Resumo:** ${prod.summary}\n\n`;
+        }
+        if (prod.full_content) {
+          productKnowledgeContent += prod.full_content + '\n';
+        }
+      }
+      productKnowledgeContent += `\n⚠️ Use estas informações das condições gerais para responder perguntas sobre coberturas, exclusões, carências, limites e procedimentos dos produtos. Cite as condições gerais quando relevante.`;
+      console.log(`[Nina] 📚 Product knowledge loaded: ${activeProducts.length} products, ${productKnowledgeContent.length} chars`);
+    }
+  } catch (err) {
+    console.error('[Nina] Error fetching product knowledge:', err);
+  }
+  
   // ===== FETCH COLLECTION TEMPLATE CONTEXT =====
   // Buscar contexto do template de cobrança enviado para manter continuidade
   let collectionContext: CollectionTemplateContext | null = null;
@@ -3951,7 +3978,8 @@ Agradeço pela compreensão! 🙏`;
     recentAgentMsgs,
     recentCallLogs,
     installmentsData,
-    collectionContext
+    collectionContext,
+    productKnowledgeContent
   );
 
   // Process template variables
@@ -4537,7 +4565,8 @@ function buildEnhancedPrompt(
   recentAgentMessages?: string[],
   recentCallLogs?: any[],
   installmentsData?: InstallmentsData | null,
-  collectionContext?: CollectionTemplateContext | null
+  collectionContext?: CollectionTemplateContext | null,
+  productKnowledge?: string
 ): string {
   let contextInfo = '';
 
@@ -4943,6 +4972,11 @@ Antes de fazer QUALQUER pergunta:
 - Quando cliente pedir para falar com humano
 - Use uma das VARIAÇÕES acima (nunca repita a mesma frase!)
 - Em seguida, pause a conversa para intervenção humana`;
+
+  // Inject product knowledge at the end of the prompt
+  if (productKnowledge) {
+    contextInfo += productKnowledge;
+  }
 
   return basePrompt + contextInfo;
 }

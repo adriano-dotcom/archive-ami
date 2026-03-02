@@ -1943,6 +1943,45 @@ export type Database = {
           },
         ]
       }
+      product_knowledge: {
+        Row: {
+          created_at: string
+          extraction_status: string
+          full_content: string | null
+          id: string
+          insurer: string | null
+          is_active: boolean
+          name: string
+          source_file_url: string | null
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          extraction_status?: string
+          full_content?: string | null
+          id?: string
+          insurer?: string | null
+          is_active?: boolean
+          name: string
+          source_file_url?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          extraction_status?: string
+          full_content?: string | null
+          id?: string
+          insurer?: string | null
+          is_active?: boolean
+          name?: string
+          source_file_url?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales_coaching_reports: {
         Row: {
           agent_id: string | null
