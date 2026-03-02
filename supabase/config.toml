@@ -48,3 +48,6 @@ verify_jwt = false
 
 [functions.whatsapp-call-terminate]
 verify_jwt = false
+
+[functions.extract-product-text]
+verify_jwt = false
