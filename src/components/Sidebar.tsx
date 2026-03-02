@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Receipt, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Receipt, MessageCircle, PhoneCall } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
@@ -9,18 +9,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 const allMenuItems = [{
   id: 'dashboard',
-  label: 'Dashboard',
+  label: 'Painel',
   icon: LayoutDashboard,
   adminOnly: false
 }, {
   id: 'chat',
-  label: 'Chat Ao Vivo',
+  label: 'Atendimento',
   icon: MessageSquare,
   adminOnly: false
 }, {
-  id: 'contacts',
-  label: 'Contatos',
+  id: 'segurados',
+  label: 'Segurados',
   icon: Users,
+  adminOnly: false
+}, {
+  id: 'collections',
+  label: 'Apólices & Cobrança',
+  icon: Receipt,
   adminOnly: false
 }, {
   id: 'scheduling',
@@ -28,9 +33,9 @@ const allMenuItems = [{
   icon: Calendar,
   adminOnly: false
 }, {
-  id: 'collections',
-  label: 'Cobrança',
-  icon: Receipt,
+  id: 'calls',
+  label: 'Chamadas',
+  icon: PhoneCall,
   adminOnly: false
 }, {
   id: 'whatsapp',
@@ -71,7 +76,7 @@ const Logo = () => {
         <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">
           Jacometo
         </span>
-        <span className="text-[10px] uppercase tracking-wider bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent font-bold">SISTEMA DE COBRAÇA ÓMEGA</span>
+        <span className="text-[10px] uppercase tracking-wider bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent font-bold">CENTRAL DE ATENDIMENTO</span>
       </motion.div>
     </Link>;
 };

@@ -17,12 +17,14 @@ import { useIncomingWhatsAppCall } from './hooks/useIncomingWhatsAppCall';
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const ChatInterface = lazy(() => import('./components/ChatInterface'));
 const Contacts = lazy(() => import('./components/Contacts'));
+const SeguradosTab = lazy(() => import('./components/segurados/SeguradosTab').then(m => ({ default: m.SeguradosTab })));
 const Settings = lazy(() => import('./components/Settings'));
 const Team = lazy(() => import('./components/Team'));
 const Scheduling = lazy(() => import('./components/Scheduling'));
 const MeetingRoom = lazy(() => import('./components/MeetingRoom'));
 const WhatsAppDashboard = lazy(() => import('./components/WhatsAppDashboard'));
 const CollectionsDashboard = lazy(() => import('./components/collections').then(m => ({ default: m.CollectionsDashboard })));
+const CallsPage = lazy(() => import('./components/CallsPage'));
 const Auth = lazy(() => import('./pages/Auth'));
 
 const queryClient = new QueryClient();
@@ -106,9 +108,11 @@ const App: React.FC = () => {
                   
                   <Route path="/chat" element={<ChatInterface />} />
                   <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/segurados" element={<SeguradosTab />} />
                   <Route path="/scheduling" element={<Scheduling />} />
                   <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
                   <Route path="/collections" element={<CollectionsDashboard />} />
+                  <Route path="/calls" element={<CallsPage />} />
                   <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
