@@ -464,9 +464,9 @@ const Dashboard: React.FC = () => {
     <div className="p-6 space-y-8 overflow-y-auto h-full bg-slate-950 text-slate-50 custom-scrollbar">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Painel de Atendimento</h2>
           <p className="text-slate-400 mt-1">
-            Visão geral da performance da sua IA {period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.
+            Central de atendimento — visão geral {period === 'today' ? 'de hoje' : `dos últimos ${periodLabels[period].toLowerCase()}`}.
           </p>
         </div>
         <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
