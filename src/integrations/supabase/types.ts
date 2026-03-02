@@ -633,7 +633,6 @@ export type Database = {
           notes: string | null
           number: string | null
           phone_number: string
-          pipedrive_person_id: string | null
           profile_picture_url: string | null
           role: string | null
           seller_id: string | null
@@ -677,7 +676,6 @@ export type Database = {
           notes?: string | null
           number?: string | null
           phone_number: string
-          pipedrive_person_id?: string | null
           profile_picture_url?: string | null
           role?: string | null
           seller_id?: string | null
@@ -721,7 +719,6 @@ export type Database = {
           notes?: string | null
           number?: string | null
           phone_number?: string
-          pipedrive_person_id?: string | null
           profile_picture_url?: string | null
           role?: string | null
           seller_id?: string | null
@@ -1647,13 +1644,6 @@ export type Database = {
           openai_assistant_id: string
           openai_key_in_vault: boolean | null
           openai_model: string
-          pipedrive_api_token: string | null
-          pipedrive_default_pipeline_id: string | null
-          pipedrive_domain: string | null
-          pipedrive_enabled: boolean | null
-          pipedrive_field_mappings: Json | null
-          pipedrive_min_score: number | null
-          pipedrive_token_in_vault: boolean | null
           response_delay_max: number
           response_delay_min: number
           route_all_to_receiver_enabled: boolean
@@ -1705,13 +1695,6 @@ export type Database = {
           openai_assistant_id?: string
           openai_key_in_vault?: boolean | null
           openai_model?: string
-          pipedrive_api_token?: string | null
-          pipedrive_default_pipeline_id?: string | null
-          pipedrive_domain?: string | null
-          pipedrive_enabled?: boolean | null
-          pipedrive_field_mappings?: Json | null
-          pipedrive_min_score?: number | null
-          pipedrive_token_in_vault?: boolean | null
           response_delay_max?: number
           response_delay_min?: number
           route_all_to_receiver_enabled?: boolean
@@ -1763,13 +1746,6 @@ export type Database = {
           openai_assistant_id?: string
           openai_key_in_vault?: boolean | null
           openai_model?: string
-          pipedrive_api_token?: string | null
-          pipedrive_default_pipeline_id?: string | null
-          pipedrive_domain?: string | null
-          pipedrive_enabled?: boolean | null
-          pipedrive_field_mappings?: Json | null
-          pipedrive_min_score?: number | null
-          pipedrive_token_in_vault?: boolean | null
           response_delay_max?: number
           response_delay_min?: number
           route_all_to_receiver_enabled?: boolean
