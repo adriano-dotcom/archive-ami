@@ -1,50 +1,80 @@
 
 
-## Limpeza de Dados para OrbePet
+## Plano: Criar tabela `plans` e inserir dados dos planos OrbePet
 
-Vou executar DELETEs nas tabelas na ordem correta (respeitando foreign keys), mantendo configurações, templates, equipe e usuários.
+A tabela `plans` ainda não existe no banco. Preciso criar a estrutura e depois inserir os 3 planos (Essencial, Órbita Plus, Total).
 
-### Ordem de execução (via insert tool)
+### Etapa 1 — Migração: Criar tabela `plans`
 
-1. **Filas de processamento** — `send_queue`, `nina_processing_queue`, `message_processing_queue`, `message_grouping_queue`
-2. **Mensagens** — `messages`
-3. **Estados de conversa** — `conversation_states`
-4. **Chamadas WhatsApp** — `whatsapp_calls`
-5. **Conversas** — `conversations`
-6. **Parcelas e histórico** — `installment_history`, `installments`
-7. **Emails agendados e logs** — `scheduled_emails`, `collection_email_logs`, `collection_batches`
-8. **Contatos** — `contacts`
-9. **Empresas** — `companies`
+Colunas baseadas no SQL enviado + campos extras do JSON (`orbi_pitch`, `whatsapp_template_name`):
 
-### O que será preservado
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `id` | `text` PRIMARY KEY | IDs textuais (ex: `plan_essencial_001`) |
+| `name` | `text` NOT NULL | |
+| `slug` | `text` UNIQUE NOT NULL | |
+| `tagline` | `text` | |
+| `description` | `text` | |
+| `monthly_price` | `numeric` NOT NULL DEFAULT 0 | |
+| `annual_limit` | `numeric` NOT NULL DEFAULT 0 | |
+| `coverage_details` | `jsonb` DEFAULT '{}' | Coberturas detalhadas |
+| `benefits` | `jsonb` DEFAULT '{}' | Benefícios inclusos |
+| `ideal_for` | `text[]` DEFAULT '{}' | Perfis ideais |
+| `orbi_pitch` | `text` | Pitch do bot para apresentação |
+| `whatsapp_template_name` | `text` | Nome do template WhatsApp |
+| `color` | `text` DEFAULT '#6A0DAD' | |
+| `is_active` | `boolean` DEFAULT true | |
+| `sort_order` | `integer` DEFAULT 0 | |
+| `reembolso_prazo_dias_uteis` | `integer` DEFAULT 10 | |
+| `reembolso_via` | `text` DEFAULT 'conta_bancaria' | |
+| `created_at` | `timestamptz` DEFAULT now() | |
+| `updated_at` | `timestamptz` DEFAULT now() | |
 
-- `team_members`, `user_roles`, `auth.users`
-- `nina_settings`, `whatsapp_templates`, `tag_definitions`
-- `followup_automations`, `email_templates`
-- `campaigns`, `teams`, `team_functions`
-- `sellers`, `import_mappings`
+RLS: leitura para usuários autenticados, gerenciamento completo para admins.
 
-### Seção técnica
+### Etapa 2 — Insert: 3 planos
+
+Usar o insert tool para inserir os 3 registros (Essencial R$37,62, Órbita Plus R$89,82, Total R$107,82) com todos os dados de cobertura, benefícios e pitch do JSON enviado.
+
+### Seção Técnica
 
 ```sql
--- Executado em sequência via insert tool:
-DELETE FROM send_queue;
-DELETE FROM nina_processing_queue;
-DELETE FROM message_processing_queue;
-DELETE FROM message_grouping_queue;
-DELETE FROM messages;
-DELETE FROM conversation_states;
-DELETE FROM whatsapp_calls;
-DELETE FROM conversations;
-DELETE FROM installment_history;
-DELETE FROM installments;
-DELETE FROM scheduled_emails;
-DELETE FROM collection_email_logs;
-DELETE FROM collection_batches;
-DELETE FROM appointments;
-DELETE FROM contacts;
-DELETE FROM companies;
+-- Migration
+CREATE TABLE public.plans (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  slug text UNIQUE NOT NULL,
+  tagline text,
+  description text,
+  monthly_price numeric NOT NULL DEFAULT 0,
+  annual_limit numeric NOT NULL DEFAULT 0,
+  coverage_details jsonb DEFAULT '{}',
+  benefits jsonb DEFAULT '{}',
+  ideal_for text[] DEFAULT '{}',
+  orbi_pitch text,
+  whatsapp_template_name text,
+  color text DEFAULT '#6A0DAD',
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  reembolso_prazo_dias_uteis integer DEFAULT 10,
+  reembolso_via text DEFAULT 'conta_bancaria',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view plans"
+  ON public.plans FOR SELECT
+  TO authenticated
+  USING (is_authenticated_user());
+
+CREATE POLICY "Admins can manage plans"
+  ON public.plans FOR ALL
+  TO authenticated
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
 ```
 
-Nenhuma alteração de schema — apenas limpeza de dados existentes.
+Depois, 3 INSERTs via insert tool com os dados completos dos arquivos enviados.
 
