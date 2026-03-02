@@ -25,14 +25,17 @@ const MeetingRoom = lazy(() => import('./components/MeetingRoom'));
 const WhatsAppDashboard = lazy(() => import('./components/WhatsAppDashboard'));
 const CollectionsDashboard = lazy(() => import('./components/collections').then(m => ({ default: m.CollectionsDashboard })));
 const CallsPage = lazy(() => import('./components/CallsPage'));
+const SalesFunnel = lazy(() => import('./components/SalesFunnel'));
+const BotFlows = lazy(() => import('./components/BotFlows'));
+const Reports = lazy(() => import('./components/Reports'));
 const Auth = lazy(() => import('./pages/Auth'));
 
 const queryClient = new QueryClient();
 
 // Loading fallback component
 const PageLoader: React.FC = () => (
-  <div className="flex items-center justify-center h-full w-full bg-slate-950">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+  <div className="flex items-center justify-center h-full w-full bg-background">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
   </div>
 );
 
@@ -56,16 +59,11 @@ const AppLayout: React.FC = () => {
   }, [prefetchSegurados]);
   
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-slate-950 text-slate-50 overflow-hidden">
-      {/* Background Ambient Glows */}
-      <div className="fixed top-0 left-0 w-[500px] h-[500px] bg-cyan-900/20 rounded-full blur-[128px] pointer-events-none -translate-x-1/2 -translate-y-1/2 z-0"></div>
-      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-violet-900/10 rounded-full blur-[128px] pointer-events-none translate-x-1/2 translate-y-1/2 z-0"></div>
-      
+    <div className="flex flex-col md:flex-row h-screen w-full bg-background text-foreground overflow-hidden">
       <Sidebar />
       
       <main className="flex-1 h-full overflow-hidden relative z-10 flex flex-col">
-        {/* Top Border Gradient */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent opacity-50 z-20"></div>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent opacity-50 z-20"></div>
         
         <div className="flex-1 w-full h-full relative overflow-hidden">
           <Suspense fallback={<PageLoader />}>
@@ -107,8 +105,12 @@ const App: React.FC = () => {
                   <Route path="/dashboard" element={<Dashboard />} />
                   
                   <Route path="/chat" element={<ChatInterface />} />
+                  <Route path="/funil" element={<SalesFunnel />} />
                   <Route path="/contacts" element={<Contacts />} />
                   <Route path="/segurados" element={<SeguradosTab />} />
+                  <Route path="/templates" element={<Settings />} />
+                  <Route path="/fluxos" element={<BotFlows />} />
+                  <Route path="/relatorios" element={<Reports />} />
                   <Route path="/scheduling" element={<Scheduling />} />
                   <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
                   <Route path="/collections" element={<CollectionsDashboard />} />
@@ -122,7 +124,7 @@ const App: React.FC = () => {
           <Toaster 
             position="top-right"
             richColors
-            theme="dark"
+            theme="light"
           />
         </CompanySettingsProvider>
         </AuthProvider>
