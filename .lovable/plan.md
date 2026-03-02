@@ -1,76 +1,137 @@
 
 
-## Análise de Adequação: Projeto Atual vs. OrbePet
+## Plano de Implementação: OrbePet no Projeto Atual
 
-### O que o prompt OrbePet pede vs. o que já existe neste projeto
-
-| Módulo OrbePet | Existe no projeto atual? | Adequação |
-|---|---|---|
-| **Dashboard com KPIs** | ✅ `Dashboard.tsx` com cards e gráficos | Alta — precisa trocar labels e adicionar funil de conversão |
-| **Caixa de entrada (Chat)** | ✅ `ChatInterface.tsx` completo com 3 painéis | **Muito alta** — já tem lista de conversas, chat com balões, ficha de contato |
-| **Perfil do contato** | ✅ `ContactDetailsDrawer.tsx` | Alta — falta aba de Plano/Pet |
-| **Funil de vendas (Kanban)** | ❌ Não existe | **Precisa criar** — novo componente com drag-and-drop |
-| **Templates e Scripts** | ✅ `WhatsAppTemplatesSettings.tsx` | Alta — já gerencia templates HSM |
-| **Fluxos do Bot** | ❌ Não existe | **Precisa criar** — visualização de flowchart dos 4 fluxos |
-| **Segurados** | ✅ `SeguradosTab.tsx` com PF/PJ | Média — precisa adaptar para pets (nome do pet, espécie, plano) |
-| **Relatórios** | ⚠️ Parcial — Dashboard tem gráficos mas não há página dedicada | Precisa expandir |
-| **Configurações** | ✅ `Settings.tsx` com múltiplas abas | Alta — já tem WhatsApp, equipe, API |
-| **Auth com roles** | ✅ `useAuth`, `useUserRole`, `AdminRoute` | **Muito alta** — já tem admin/operator |
-| **Realtime** | ✅ Mensagens e chamadas com Realtime | **Muito alta** |
-| **Chamadas WhatsApp** | ✅ Completo com WebRTC | **Bônus** — OrbePet não pede, mas já existe |
-| **Webhook WhatsApp** | ✅ `whatsapp-webhook` edge function | **Muito alta** |
-| **Follow-up automations** | ✅ `followup_automations` table + edge functions | **Muito alta** — OrbePet pede exatamente isso |
+O projeto será transformado incrementalmente em 6 fases, priorizando mudanças visuais primeiro (impacto imediato) e funcionalidades novas depois.
 
 ---
 
-### O que precisa ser **criado do zero**
+### Fase 1 — Rebranding Visual OrbePet
 
-1. **Funil Kanban** (`/funil`) — visualização drag-and-drop com estágios: Novo Lead → Qualificado → Proposta → Negociação → Vendido → Perdido
-2. **Fluxos do Bot** (`/fluxos`) — visualização de flowchart dos 4 fluxos automáticos
-3. **Tabela de Planos** (`plans`) — dados dos planos pet (Essencial/Completo/Premium) com coberturas em JSONB
-4. **Tabela de Assinaturas** (`subscriptions`) — vínculo contato ↔ plano com status
-5. **Página de Relatórios** (`/relatorios`) — gráficos de conversão, atendimento, retenção, receita
+**Arquivos:** `src/index.css`, `src/components/Sidebar.tsx`, `src/App.tsx`
 
-### O que precisa de **adaptação significativa**
-
-1. **Identidade visual** — trocar tema cyan/slate para roxo `#6A0DAD` + fundo claro `#FAFAFA`
-2. **Contatos** — adicionar campos pet: `pet_name`, `pet_species`, `pet_age`, `city`, `stage` (funil)
-3. **Sidebar** — reorganizar menu para os módulos OrbePet (Dashboard, Conversas, Funil, Segurados, Templates, Fluxos, Relatórios, Config)
-4. **Branding** — trocar "Jacometo / Central de Atendimento" para "OrbePet 🐾"
-5. **Linguagem** — substituir termos de seguros (apólice, sinistro) por termos pet (plano, proteção, tutor)
-
-### O que pode ser **reutilizado quase intacto**
-
-- `ChatInterface.tsx` (90%+ reaproveitável)
-- `WhatsAppCallHistoryPanel` + `IncomingCallModal`
-- Todas as edge functions de WhatsApp
-- `useConversations`, `useContacts`, `useAuth`
-- Sistema de templates e follow-ups
-- Estrutura de RLS e roles
-- Sistema de notificações e badges de não-lidas
+- Trocar variáveis CSS: primary → roxo `#6A0DAD` (273° 90% 36%), secondary → `#EDE0F5`, fundo → `#FAFAFA`
+- Sidebar: substituir logo "Jacometo" por texto "OrbePet 🐾", trocar gradientes cyan → roxo
+- AppLayout: trocar `bg-slate-950` → `bg-[#FAFAFA]`, remover ambient glows cyan/violet, ajustar para tema claro
+- PageLoader: spinner roxo em vez de cyan
+- Toaster: `theme="light"`
 
 ---
 
-### Veredicto
+### Fase 2 — Reorganizar Menu e Rotas
 
-**Adequação: ~65-70%** — O projeto atual cobre solidamente o core de CRM conversacional WhatsApp (chat, contatos, templates, automações, chamadas, auth). Os gaps principais são:
+**Arquivos:** `src/components/Sidebar.tsx`, `src/App.tsx`
 
-- **Funil Kanban** (componente novo)
-- **Fluxos visuais do bot** (componente novo)
-- **Domínio pet** (tabelas plans/subscriptions + campos pet nos contatos)
-- **Rebranding visual** (tema roxo + layout claro)
-- **Relatórios dedicados** (página nova)
+Menu OrbePet:
+1. **Dashboard** (`/dashboard`)
+2. **Conversas** (`/chat`) — renomear de "Atendimento"
+3. **Funil** (`/funil`) — novo
+4. **Segurados** (`/segurados`) — manter
+5. **Templates** (`/templates`) — mover de dentro de Settings
+6. **Fluxos** (`/fluxos`) — novo
+7. **Relatórios** (`/relatorios`) — novo
+8. **Configurações** (`/settings`)
 
-### Recomendação
+Remover do menu: Apólices & Cobrança (Collections), Agendamentos, Chamadas, WhatsApp, Equipe (mover para dentro de Config)
 
-A melhor abordagem é usar **este projeto como base** no outro Lovable e fazer as adaptações incrementalmente:
+---
 
-1. Copiar a infraestrutura core (chat, webhook, auth, templates)
-2. Aplicar rebranding OrbePet (cores, logo, linguagem)
-3. Criar as tabelas `plans` e `subscriptions`
-4. Adicionar campos pet à tabela `contacts`
-5. Construir Funil Kanban e Fluxos do Bot como novos módulos
-6. Expandir Dashboard e criar página de Relatórios
+### Fase 3 — Banco de Dados (Migrações SQL)
 
-Quer que eu prepare o plano de implementação detalhado para o novo projeto OrbePet?
+Criar tabelas:
+
+```text
+plans
+├── id (uuid PK)
+├── name (text) — Essencial/Completo/Premium
+├── price_monthly (numeric)
+├── annual_limit (numeric)
+├── coverages (jsonb) — array de coberturas com limites e carências
+└── created_at, updated_at
+
+subscriptions
+├── id (uuid PK)
+├── contact_id (uuid FK → contacts)
+├── plan_id (uuid FK → plans)
+├── status (text) — active/cancelled/overdue
+├── start_date (date)
+└── created_at, updated_at
+```
+
+Adicionar colunas à tabela `contacts`:
+- `pet_name text`
+- `pet_species text` (cão/gato)
+- `pet_age integer`
+- `stage text` default 'novo_lead' (funil: novo_lead/qualificado/proposta/negociacao/vendido/perdido)
+
+RLS: mesmas policies dos contacts (team_member OR admin OR operator).
+
+Seed data: inserir os 3 planos (Essencial R$37,62, Completo, Premium) com coberturas em JSONB.
+
+---
+
+### Fase 4 — Funil Kanban (`/funil`)
+
+**Novo componente:** `src/components/SalesFunnel.tsx`
+
+- 6 colunas: Novo Lead → Qualificado → Proposta → Negociação → Vendido → Perdido
+- Cards mostram: nome, pet_name, plano de interesse, data de entrada, agente
+- Drag-and-drop entre colunas (usando estado local + update no campo `stage` da tabela `contacts`)
+- Filtros: agente, período, plano
+- Query: `SELECT * FROM contacts WHERE stage IS NOT NULL ORDER BY updated_at`
+
+---
+
+### Fase 5 — Fluxos do Bot (`/fluxos`)
+
+**Novo componente:** `src/components/BotFlows.tsx`
+
+- Visualização estática de 4 fluxos (Captação, Vendas, Onboarding, Suporte)
+- Cada fluxo = sequência de cards conectados por setas (CSS flexbox/grid, sem lib externa)
+- Dados hardcoded inicialmente (fluxos são configuração fixa)
+- Toggle ativar/desativar por fluxo (salva em `nina_settings.metadata` ou nova coluna)
+- Modal de edição do texto de cada nó
+
+---
+
+### Fase 6 — Dashboard OrbePet + Relatórios
+
+**Dashboard** (`src/components/Dashboard.tsx`):
+- KPIs: NPS, leads esta semana, taxa de conversão, receita recorrente
+- Funil visual mini (barras horizontais)
+- Lista de conversas recentes com badges coloridos (🟣 Novo, 🟡 Aguardando, 🟢 Vendido, etc.)
+
+**Relatórios** (`src/components/Reports.tsx` — novo):
+- Abas: Conversões | Atendimento | Retenção | Receita
+- Gráficos com recharts (já instalado)
+- Filtro de período
+- Exportar CSV
+
+---
+
+### Fase 7 — Adaptações de Linguagem e UX
+
+- `ChatInterface.tsx`: balão bot = roxo claro com 🤖, balão agente = roxo escuro
+- `ContactDetailsDrawer.tsx`: adicionar campos pet_name, pet_species, pet_age, stage, plano contratado
+- Renomear globalmente: "segurado" mantém, mas remover "apólice/sinistro" → "plano/proteção/reembolso"
+- Empty state: "Nenhuma conversa ativa no momento 🐾..."
+- `Settings.tsx`: adicionar aba "Planos" para editar tabela `plans`
+
+---
+
+### Ordem de Execução Recomendada
+
+| Passo | O que | Estimativa |
+|-------|-------|-----------|
+| 1 | Rebranding visual (CSS + Sidebar) | 1 sessão |
+| 2 | Migrações SQL (plans, subscriptions, campos pet) | 1 sessão |
+| 3 | Menu + rotas novas (funil, fluxos, relatórios) | 1 sessão |
+| 4 | Funil Kanban | 1-2 sessões |
+| 5 | Dashboard OrbePet + Relatórios | 1-2 sessões |
+| 6 | Fluxos do Bot | 1 sessão |
+| 7 | Adaptações de linguagem e UX | 1 sessão |
+
+**Total estimado: 7-9 sessões de trabalho**
+
+Quer começar pela Fase 1 (rebranding visual)?
 
