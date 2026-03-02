@@ -124,7 +124,7 @@ const App: React.FC = () => {
           <Toaster 
             position="top-right"
             richColors
-            theme="light"
+            theme="dark"
           />
         </CompanySettingsProvider>
         </AuthProvider>
