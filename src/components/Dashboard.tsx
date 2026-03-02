@@ -35,7 +35,6 @@ interface SystemMetrics {
     elevenlabs: boolean;
     resend: boolean;
     api4com: boolean;
-    pipedrive: boolean;
   };
   systemStartDate: string | null;
 }
@@ -124,7 +123,7 @@ const Dashboard: React.FC = () => {
         supabase.from('agents').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('followup_automations').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('whatsapp_templates').select('*', { count: 'exact', head: true }).eq('status', 'APPROVED'),
-        supabase.from('nina_settings').select('whatsapp_phone_number_id, elevenlabs_api_key, api4com_enabled, pipedrive_enabled, elevenlabs_key_in_vault, api4com_token_in_vault, pipedrive_token_in_vault').limit(1).maybeSingle(),
+        supabase.from('nina_settings').select('whatsapp_phone_number_id, elevenlabs_api_key, api4com_enabled, elevenlabs_key_in_vault, api4com_token_in_vault').limit(1).maybeSingle(),
         supabase.from('conversations').select('created_at').order('created_at', { ascending: true }).limit(1).maybeSingle()
       ]);
 
@@ -147,8 +146,7 @@ const Dashboard: React.FC = () => {
           whatsapp: !!settingsData?.whatsapp_phone_number_id,
           elevenlabs: !!settingsData?.elevenlabs_api_key || !!settingsData?.elevenlabs_key_in_vault,
           resend: true,
-          api4com: !!settingsData?.api4com_enabled || !!settingsData?.api4com_token_in_vault,
-          pipedrive: !!settingsData?.pipedrive_enabled || !!settingsData?.pipedrive_token_in_vault
+          api4com: !!settingsData?.api4com_enabled || !!settingsData?.api4com_token_in_vault
         },
         systemStartDate: firstConversation?.created_at || null
       });
@@ -1175,8 +1173,7 @@ const Dashboard: React.FC = () => {
                   { name: 'WhatsApp', active: systemMetrics.integrations.whatsapp },
                   { name: 'ElevenLabs', active: systemMetrics.integrations.elevenlabs },
                   { name: 'Resend', active: systemMetrics.integrations.resend },
-                  { name: 'API4Com', active: systemMetrics.integrations.api4com },
-                  { name: 'Pipedrive', active: systemMetrics.integrations.pipedrive }
+                  { name: 'API4Com', active: systemMetrics.integrations.api4com }
                 ].map((integration) => (
                   <div
                     key={integration.name}

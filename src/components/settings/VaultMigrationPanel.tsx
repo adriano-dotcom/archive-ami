@@ -15,7 +15,7 @@ interface SecretStatus {
 const SECRET_LABELS: Record<string, string> = {
   whatsapp_access_token: 'WhatsApp Access Token',
   elevenlabs_api_key: 'ElevenLabs API Key',
-  pipedrive_api_token: 'Pipedrive API Token',
+  
   api4com_api_token: 'API4Com Token',
   calcom_api_key: 'Cal.com API Key',
   openai_api_key: 'OpenAI API Key',
