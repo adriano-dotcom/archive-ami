@@ -1,47 +1,135 @@
 
 
-## Fix: Chamada continua tocando depois de atender
+## Replicar Chamadas WhatsApp em Outra Plataforma Lovable
 
-### Problema
-Quando a chamada e atendida, o status no banco muda para `answered`, mas o hook `useIncomingWhatsAppCall` so para o toque para os status `ended`, `rejected`, `missed`, `failed`. O status `answered` nao esta na lista, entao o ringtone continua tocando e a animacao de "chamando" persiste.
+### Visao Geral
 
-### Solucao
+Este guia contem todo o codigo necessario para replicar a funcionalidade de receber chamadas WhatsApp em outro projeto Lovable. Sao 6 passos na ordem correta.
 
-Duas correções complementares para garantir resposta imediata:
+---
 
-**1. Hook `useIncomingWhatsAppCall.ts`**
-- No handler de UPDATE (linha 172), adicionar `'answered'` a lista de status que param o ringtone
-- Diferente dos outros status, `answered` deve parar o ringtone mas **manter o objeto da chamada** (nao retornar null), pois o modal precisa dele para mostrar a tela "Em chamada"
-- Expor a funcao `stopRingtone` no retorno do hook para uso direto pelo modal
+### Passo 1: Criar tabela `whatsapp_calls` (Migracao SQL)
 
-**2. Modal `IncomingCallModal.tsx`**
-- Chamar `stopRingtone()` imediatamente ao aceitar a chamada (antes de esperar a resposta da edge function), para feedback instantaneo ao usuario
-- Isso garante que mesmo se o Realtime demorar, o toque para na hora
+Executar esta migracao no novo projeto:
 
-### Mudancas tecnicas
+```sql
+CREATE TABLE public.whatsapp_calls (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  whatsapp_call_id text,
+  contact_id uuid,
+  conversation_id uuid,
+  direction text NOT NULL DEFAULT 'inbound',
+  status text NOT NULL DEFAULT 'ringing',
+  phone_number_id text,
+  from_number text,
+  to_number text,
+  started_at timestamptz DEFAULT now(),
+  answered_at timestamptz,
+  ended_at timestamptz,
+  duration_seconds integer,
+  hangup_cause text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-**`src/hooks/useIncomingWhatsAppCall.ts`**
-- No UPDATE handler, tratar `answered` separadamente: parar ringtone mas manter o call object
-- Retornar `{ incomingCall, dismissCall, stopRingtone }` ao inves de apenas `{ incomingCall, dismissCall }`
+ALTER TABLE public.whatsapp_calls ENABLE ROW LEVEL SECURITY;
 
-```text
-// Pseudo-codigo do UPDATE handler atualizado:
-if (['ended', 'rejected', 'missed', 'failed'].includes(status)) {
-  stopRingtone();
-  return null;  // remove call
-}
-if (status === 'answered') {
-  stopRingtone();  // para o toque
-  return { ...prev, status };  // mantem o call para a UI de "em chamada"
-}
+CREATE POLICY "Authenticated users can view whatsapp_calls"
+  ON public.whatsapp_calls FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Authenticated users can manage whatsapp_calls"
+  ON public.whatsapp_calls FOR ALL
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_calls;
 ```
 
-**`src/components/IncomingCallModal.tsx`**
-- Receber `onStopRingtone` como prop
-- Chamar `onStopRingtone()` no inicio de `handleAccept`, antes do WebRTC
+### Passo 2: Garantir tabela de settings
 
-**`src/App.tsx` (ou onde o modal e renderizado)**
-- Passar `stopRingtone` como prop para o `IncomingCallModal`
+O novo projeto precisa ter uma tabela com colunas `whatsapp_access_token`, `whatsapp_phone_number_id` e `whatsapp_verify_token`. Se nao existir, criar ou adicionar.
 
-### Resultado esperado
-- Ao clicar "Atender": ringtone para imediatamente, animacao de pulsacao some, modal muda para modo "Em chamada" com timer e botoes de mudo/desligar
+### Passo 3: Adicionar ao `supabase/config.toml`
+
+```toml
+[functions.whatsapp-call-webhook]
+verify_jwt = false
+
+[functions.whatsapp-call-accept]
+verify_jwt = false
+
+[functions.whatsapp-call-reject]
+verify_jwt = false
+
+[functions.whatsapp-call-terminate]
+verify_jwt = false
+```
+
+### Passo 4: Criar as 4 Edge Functions
+
+Copiar integralmente os arquivos deste projeto. A unica mudanca necessaria e trocar `nina_settings` pelo nome da tabela de settings do novo projeto em cada funcao.
+
+- `supabase/functions/whatsapp-call-webhook/index.ts` - Recebe eventos da Meta, cria/atualiza chamadas, resolve contatos
+- `supabase/functions/whatsapp-call-accept/index.ts` - Aceita chamada enviando SDP answer para Meta
+- `supabase/functions/whatsapp-call-reject/index.ts` - Rejeita chamada
+- `supabase/functions/whatsapp-call-terminate/index.ts` - Encerra chamada e calcula duracao
+
+### Passo 5: Copiar componentes frontend
+
+**5.1 Hook** - `src/hooks/useIncomingWhatsAppCall.ts` (202 linhas)
+- Escuta Realtime na tabela `whatsapp_calls`
+- Ringtone via Web Audio API (frequencias 480Hz/620Hz)
+- Pre-desbloqueio do AudioContext na primeira interacao do usuario
+- Enriquecimento com dados do contato
+
+**5.2 Modal** - `src/components/IncomingCallModal.tsx` (335 linhas)
+- Modal fullscreen com backdrop blur
+- Animacao pulsante durante ringing (framer-motion)
+- WebRTC: captura microfone, cria PeerConnection, gera SDP answer
+- Botoes: Atender, Rejeitar, Mudo, Desligar
+- Timer de duracao
+
+### Passo 6: Integrar no layout principal
+
+No componente raiz (App.tsx ou equivalente):
+
+```typescript
+import { useIncomingWhatsAppCall } from '@/hooks/useIncomingWhatsAppCall';
+import { IncomingCallModal } from '@/components/IncomingCallModal';
+
+// Dentro do componente:
+const { incomingCall, dismissCall, stopRingtone } = useIncomingWhatsAppCall();
+
+// No JSX:
+<IncomingCallModal
+  call={incomingCall}
+  onDismiss={dismissCall}
+  onStopRingtone={stopRingtone}
+/>
+```
+
+### Passo 7: Configurar webhook na Meta
+
+1. No painel Meta Developer > WhatsApp > Configuration > Webhook
+2. URL: `https://[PROJECT_ID].supabase.co/functions/v1/whatsapp-call-webhook`
+3. Verify token: o valor configurado na tabela de settings
+4. Assinar o campo **calls**
+
+### Dependencias necessarias
+
+- `framer-motion` (animacoes)
+- `lucide-react` (icones)
+- `sonner` (toasts)
+- `@supabase/supabase-js` (ja vem com Lovable Cloud)
+
+### Checklist de validacao
+
+- [ ] Tabela criada com Realtime habilitado
+- [ ] 4 edge functions deployadas com verify_jwt = false
+- [ ] Settings com token, phone_number_id e verify_token preenchidos
+- [ ] Webhook registrado na Meta com campo `calls` assinado
+- [ ] Hook e Modal integrados no layout principal
+- [ ] Testar com chamada real para o numero configurado
+
