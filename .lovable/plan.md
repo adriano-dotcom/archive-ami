@@ -1,36 +1,54 @@
 
 
-## Varredura completa de cores — Fases 2-5
+## Varredura de Cores — Fases 3-5
 
-94 arquivos restantes com ~11.000 ocorrências de cores hardcoded. Fases 1 e 6 já foram aplicadas.
+Escopo: ~60 arquivos restantes com cores hardcoded para migrar para tokens semanticos.
 
-### Escopo por fase
+### Arquivos por fase
 
-**Fase 2 — Chat (maior arquivo: ChatInterface.tsx com 3152 linhas)**
-- `ChatInterface.tsx` — ~150 ocorrências (bg-slate-950, text-white, border-slate-800, text-cyan-500, bg-slate-800/40, etc.)
-- `ContactDetailsDrawer.tsx`, `TypingIndicator.tsx`
-- `chat/ConversationSummaryNotes.tsx`, `HandoffSummaryCard.tsx`, `LeadScoreBadge.tsx`, `MessageToneAssistant.tsx`, `PDFPreviewModal.tsx`, `VideoThumbnailPreview.tsx`, `WaitingTimeBadge.tsx`
+**Fase 3 — Contatos e Segurados (~20 arquivos)**
+- `Contacts.tsx` — bg-slate-950, text-white, border-slate-800, bg-slate-900, text-slate-400/200, bg-cyan-500/600
+- `CreateContactModal.tsx` — bg-slate-900, border-slate-700, text-white
+- `EditContactModal.tsx` — bg-slate-900, border-slate-700, text-white
+- `contacts/VirtualizedContactsTable.tsx` — bg-slate-*, text-slate-*, border-slate-*
+- `contacts/ContactCollectionHistory.tsx`
+- `contacts/DuplicateContactsReportModal.tsx`
+- `segurados/SeguradosTab.tsx` — bg-slate-900/50, border-slate-600/700
+- `segurados/CompaniesTable.tsx`
+- `segurados/SeguradosPFTable.tsx`
+- `segurados/CreateCompanyModal.tsx`, `EditCompanyModal.tsx`, `CreateSeguradoPFModal.tsx`, `EditSeguradoPFModal.tsx`
+- `segurados/CompanyDetailsDrawer.tsx`, `AddContactToCompanyModal.tsx`, `CompanySelector.tsx`
+- `segurados/ImportCompaniesModal.tsx`, `ImportContactsSeguradosModal.tsx`, `ImportCompaniesWithContactsModal.tsx`
+- `segurados/ImportDocumentAIModal.tsx`, `MergeCompaniesModal.tsx`, `DuplicateCompaniesReportModal.tsx`
 
-**Fase 3 — Contatos e Segurados**
-- `Contacts.tsx`, `CreateContactModal.tsx`, `EditContactModal.tsx`
-- `contacts/VirtualizedContactsTable.tsx`, `ContactCollectionHistory.tsx`, `DuplicateContactsReportModal.tsx`
-- `segurados/*.tsx` (~15 arquivos: tabelas, modais, importação)
-
-**Fase 4 — Funcionalidades secundárias**
-- `collections/*.tsx` (~10 arquivos)
+**Fase 4 — Funcionalidades secundarias (~18 arquivos)**
+- `collections/CollectionsDashboard.tsx` — bg-slate-950, border-white/5
+- `collections/CollectionOverview.tsx` — bg-slate-900/50, text-slate-*, border-white/5
+- `collections/InstallmentsList.tsx` — bg-slate-900/50, border-white/5
+- `collections/ImportPanel.tsx` — bg-slate-900/50, border-white/5
+- `collections/CollectionCampaigns.tsx`, `CollectionEmailCampaign.tsx`
+- `collections/SendCollectionTemplateModal.tsx`, `SendInstallmentWhatsAppModal.tsx`
+- `collections/installments/*.tsx` (~5 arquivos)
 - `WhatsAppDashboard.tsx`, `whatsapp-dashboard/*.tsx` (6 arquivos)
-- `SalesFunnel.tsx`, `BotFlows.tsx`, `Reports.tsx`, `Scheduling.tsx`, `MeetingRoom.tsx`
+- `Scheduling.tsx` — bg-slate-950, bg-slate-900, border-slate-800, text-white, text-cyan-500
+- `MeetingRoom.tsx` — bg-slate-950, bg-slate-900, border-slate-800, text-white
 - `CallHistoryPanel.tsx`, `WhatsAppCallHistoryPanel.tsx`, `CallTimelineCard.tsx`
 
-**Fase 5 — Modais e suporte**
+**Fase 5 — Modais e suporte (~20 arquivos)**
 - `SendWhatsAppTemplateModal.tsx`, `BulkSendTemplateModal.tsx`, `ImportContactsModal.tsx`
 - `EmailComposeModal.tsx`, `EmailTemplateEditorModal.tsx`
-- `settings/*.tsx` restantes (AgentsSettings, ApiSettings, WhatsAppTemplatesSettings, etc.)
-- `OnboardingWizard.tsx`, `OnboardingBanner.tsx`, `Sidebar.tsx`, `Team.tsx`
+- `settings/WhatsAppTemplatesSettings.tsx`, `AgentsSettings.tsx`, `ApiSettings.tsx`
+- `settings/EmailTemplatesSettings.tsx`, `FollowupAutomationsSettings.tsx`
+- `settings/AutomationsDashboard.tsx`, `SalesCoachingSettings.tsx`
+- `settings/LearningInsightModal.tsx`, `LearningInsightsCard.tsx`
+- `settings/PromptGeneratorSheet.tsx`, `VaultMigrationPanel.tsx`, `WhatsAppDiagnosticPanel.tsx`
+- `settings/TemplateNotificationBell.tsx`
+- `OnboardingWizard.tsx`, `OnboardingBanner.tsx`
+- `Sidebar.tsx` (finalizar), `Team.tsx` (finalizar)
 - `ActiveCallIndicator.tsx`, `AudioPlayer.tsx`, `CallConfirmationModal.tsx`, `IncomingCallModal.tsx`
 - `TagSelector.tsx`, `QuickQuestionsDropdown.tsx`, `KeyboardShortcutsHelp.tsx`
 
-### Mapeamento (mesmo já definido)
+### Mapeamento (mesmo das fases anteriores)
 
 ```text
 bg-slate-950       → bg-background
@@ -38,27 +56,23 @@ bg-slate-900       → bg-card
 bg-slate-900/50    → bg-card/50
 bg-slate-800       → bg-muted
 bg-slate-800/50    → bg-muted/50
-bg-slate-800/40    → bg-muted/40
 text-white         → text-foreground
-text-slate-100-200 → text-foreground
+text-slate-50-200  → text-foreground
 text-slate-300-600 → text-muted-foreground
-border-slate-700/800 → border-border
+border-slate-600-800 → border-border
+border-white/5-10  → border-border
 text-cyan-400/500  → text-primary
-bg-cyan-500/10     → bg-primary/10
-bg-cyan-600        → bg-primary
+bg-cyan-500/600    → bg-primary
 hover:bg-slate-700/800 → hover:bg-accent
-hover:bg-cyan-700  → hover:bg-primary/80
 placeholder:text-slate-* → placeholder:text-muted-foreground
 ```
 
-### Exceções preservadas
-- Cores funcionais de status: `text-red-*`, `text-green-*`, `text-amber-*`, `text-yellow-*`
-- Gradientes decorativos de agentes (violet, fuchsia, purple, pink, rose, amber)
-- Gradientes de botões ativos (from-cyan-400 to-blue-500 → from-primary to-blue-500)
-- Cores de diferenciação por seção (blue, indigo, orange)
+### Preservado
+- Cores de status (red, green, amber, yellow, emerald, blue)
+- Gradientes decorativos (violet, fuchsia, purple, pink, rose)
+- Cores de evento tipo (cyan/violet/emerald/orange em getEventTypeColor)
 
-### Nota técnica
-- O `ChatInterface.tsx` tem 3152 linhas — será o arquivo com mais edits
-- Arquivos `Sidebar.tsx` e `Team.tsx` já tiveram correções parciais, agora serão finalizados
-- Total estimado: ~60-70 arquivos precisam de edits
+### Estrategia
+- Processar em lotes paralelos de ~8-10 arquivos por commit
+- Priorizar arquivos mais usados (Contacts, Collections, Settings) primeiro
 
