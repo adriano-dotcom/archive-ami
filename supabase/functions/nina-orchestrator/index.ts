@@ -1922,7 +1922,13 @@ async function processQueueItem(
     return;
   }
 
-  // 🆕 DUPLICATE PROCESSING CHECK: Skip if message already has a Nina response after it
+  // 🆕 GUARD 1: Skip if message already flagged as processed
+  if (message.processed_by_nina === true) {
+    console.log(`[Nina] ⏭️ Message ${message.id} already has processed_by_nina=true, skipping`);
+    return;
+  }
+
+  // 🆕 GUARD 2: Check if a Nina response already exists in messages table
   const { data: subsequentNinaMessages } = await supabase
     .from('messages')
     .select('id')
@@ -1934,8 +1940,32 @@ async function processQueueItem(
   if (subsequentNinaMessages && subsequentNinaMessages.length > 0) {
     console.log('[Nina] ⏭️ Message already has Nina response after it, skipping duplicate processing');
     console.log(`[Nina] ⏭️ Message ID: ${message.id}, Subsequent Nina message: ${subsequentNinaMessages[0].id}`);
-    return; // Skip processing - already handled
+    return;
   }
+
+  // 🆕 GUARD 3: Check if a response is already pending in send_queue for this message
+  const { data: queuedForThisMsg } = await supabase
+    .from('send_queue')
+    .select('id, metadata')
+    .eq('conversation_id', conversation.id)
+    .in('status', ['pending', 'processing'])
+    .limit(20);
+
+  const hasQueuedResponse = queuedForThisMsg?.some((sq: any) => {
+    return sq.metadata?.response_to_message_id === message.id;
+  });
+
+  if (hasQueuedResponse) {
+    console.log(`[Nina] ⏭️ Response already queued in send_queue for message ${message.id}, skipping`);
+    return;
+  }
+
+  // 🆕 GUARD 4: Immediately mark as processed to prevent concurrent triggers
+  await supabase
+    .from('messages')
+    .update({ processed_by_nina: true })
+    .eq('id', message.id)
+    .eq('processed_by_nina', false); // Only update if still false (atomic check)
 
   // Check WhatsApp 24h window
   const windowStart = conversation.whatsapp_window_start ? new Date(conversation.whatsapp_window_start) : null;
@@ -4441,21 +4471,25 @@ async function queueTextResponse(
     return;
   }
   
-  // Also check send_queue for pending duplicates
+  // Also check send_queue for pending duplicates (by content OR by response_to_message_id)
   const { data: pendingMessages } = await supabase
     .from('send_queue')
-    .select('content')
+    .select('content, metadata')
     .eq('conversation_id', conversation.id)
     .in('status', ['pending', 'processing'])
-    .limit(5);
+    .limit(10);
     
   const isPendingDuplicate = pendingMessages?.some((m: any) => {
     if (!m.content) return false;
-    return m.content.toLowerCase().trim() === normalizedNewContent;
+    // Check exact text match
+    if (m.content.toLowerCase().trim() === normalizedNewContent) return true;
+    // Check if already responding to same message
+    if (m.metadata?.response_to_message_id === message.id) return true;
+    return false;
   });
   
   if (isPendingDuplicate) {
-    console.log('[Nina] ⚠️ Mensagem já está na fila de envio, não duplicando');
+    console.log('[Nina] ⚠️ Mensagem já está na fila de envio (conteúdo ou message_id), não duplicando');
     return;
   }
   // ===== END DUPLICATE MESSAGE CHECK =====

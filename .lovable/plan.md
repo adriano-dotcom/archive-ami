@@ -1,42 +1,50 @@
 
 
-## Diagnóstico: Mensagens Repetidas pelo Agente
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Problema Identificado
-O agente está enviando respostas duplicadas (semanticamente iguais mas com texto ligeiramente diferente) ao lead. A imagem mostra a Orbi respondendo sobre o "Plano Órbita Plus" duas vezes com informações idênticas reformuladas.
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-### Causa Raiz
-Existem **duas falhas** no sistema anti-duplicação:
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-1. **Race condition no guard de processamento duplicado** (linha 1925-1938): O check `subsequentNinaMessages` procura respostas Nina na tabela `messages` após a mensagem do usuário. Porém, a resposta da IA vai primeiro para `send_queue` e só é inserida em `messages` quando o `whatsapp-sender` a envia. Se o orchestrator é invocado novamente antes do sender processar a fila, o guard não encontra a resposta anterior e processa de novo.
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-2. **Duplicate check textual insuficiente** (linha 4431-4436): A verificação em `queueTextResponse` só detecta duplicatas **textuais exatas** ou substrings dos primeiros 50 caracteres. Como o LLM gera texto diferente a cada chamada, respostas semanticamente iguais passam por esse filtro.
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-### Plano de Correção
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**1. Expandir o guard de duplicação para incluir `send_queue`** (nina-orchestrator, ~linha 1925):
-- Além de verificar `messages`, verificar também se já existe uma resposta na tabela `send_queue` para essa conversa que foi criada após a mensagem do usuário
-- Se existir item em `send_queue` com `response_to_message_id` igual ao `message.id` atual, pular processamento
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-**2. Adicionar lock por conversa via flag `processed_by_nina`** (nina-orchestrator, ~linha 1925):
-- Verificar se a mensagem já tem `processed_by_nina = true` antes de processar
-- Se já foi processada, pular imediatamente
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-**3. Melhorar duplicate check no `queueTextResponse`** (nina-orchestrator, ~linha 4430):
-- Adicionar verificação por `response_to_message_id` no metadata do `send_queue` — se já existe uma resposta pendente para o mesmo `message.id`, não enviar outra
+### Tarefas de Implementação
+
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
 
 ### Detalhes Técnicos
 
 ```text
-Fluxo ATUAL (com bug):
-  Trigger 1 → processQueueItem → check messages (vazio) → gera resposta A → send_queue
-  Trigger 2 → processQueueItem → check messages (ainda vazio!) → gera resposta B → send_queue
-  whatsapp-sender → envia A e B → lead recebe duplicado
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
 
-Fluxo CORRIGIDO:
-  Trigger 1 → processQueueItem → check messages + send_queue (vazio) → gera resposta A → send_queue
-  Trigger 2 → processQueueItem → check send_queue (resposta A encontrada!) → SKIP
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
 ```
-
-Alterações em **1 arquivo**: `supabase/functions/nina-orchestrator/index.ts`
 
