@@ -3785,7 +3785,7 @@ Agradeço pela compreensão! 🙏`;
 
   // ===== QUALIFICATION COMPLETE CHECK - ASK FOR EMAIL FIRST =====
   // Check if all essential qualification fields are collected - if so, ask for email before handoff
-  const qualificationComplete = isQualificationComplete(conversation.contact, mergedQA);
+  const qualificationComplete = shouldRunCargoQualification ? isQualificationComplete(conversation.contact, mergedQA) : false;
   
   if (qualificationComplete && ninaContext.awaiting_qualification_email !== true) {
     console.log(`[Nina] ✅ Qualificação completa! Dados coletados:`, mergedQA);
