@@ -1,67 +1,50 @@
 
 
-## Plano: Corrigir Qualificação Orbi + Configurar Follow-up Automático
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Diagnóstico do Problema
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-Analisei a conversa `ece1e604` (Junior Garcia, Pandora e Zeus). A Orbi processou o "Sim" (queue: completed, processed_by_nina: true) mas **nenhuma resposta foi gerada** no send_queue. Há dois problemas:
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-**1. Extração de qualificação de cargas ainda rodando para a Orbi**
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-A nina_context mostra `qualification_answers: {cte: "sim", estados: "AL, ES"}` — dados falsos extraídos porque:
-- `cte: sim` foi extraído da regex `/\b(sim|não|nao|emito...)\b/i` que interpreta "Sim" como resposta sobre CTE (Conhecimento de Transporte)
-- `estados: AL, ES` foi extraído de palavras como "ESSencial" e "AmbulATORIAL"
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-Apesar de o código-fonte ter o whitelist `CARGO_QUALIFICATION_AGENTS`, a **edge function pode não ter sido re-deployada corretamente**, pois a extração cargo CONTINUA contaminando o nina_context das conversas Orbi.
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**2. Não existe automação de follow-up para a Orbi**
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-A tabela `followup_automations` está vazia. Quando o lead para de responder dentro da janela de 24h, nada acontece.
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-### Correções
+### Tarefas de Implementação
 
-**Correção 1: Re-deploy do nina-orchestrator com proteção reforçada**
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
 
-No `nina-orchestrator/index.ts`:
-- Manter o whitelist `CARGO_QUALIFICATION_AGENTS` (já existe)
-- Adicionar proteção extra: limpar `qualification_answers` do nina_context quando o agente for Orbi (evitar dados contaminados de execuções anteriores)
-- Re-deployar a edge function para garantir que o código atualizado está em produção
-
-**Correção 2: Criar automação de follow-up para a Orbi**
-
-Inserir na tabela `followup_automations` uma automação de tipo `free_text` com sequência de mensagens AI para o agente Orbi:
+### Detalhes Técnicos
 
 ```text
-Automação: "Follow-up OrbePet"
-- Tipo: free_text (mensagem dentro da janela 24h)
-- Conversas alvo: status = 'nina'
-- Tempo sem resposta: 30 minutos
-- Máximo de tentativas: 3
-- Cooldown: 2 horas
-- Horário ativo: 09:00-20:00, seg-sáb
-- within_window_only: true
-- only_if_no_client_response: true
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
 
-Sequência:
-1. Tentativa 1 (30 min): AI tipo "soft_reengagement"
-2. Tentativa 2 (2h): AI tipo "schedule_call" 
-3. Tentativa 3 (6h): AI tipo "last_chance"
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
 ```
-
-**Correção 3: Limpar nina_context contaminado nas conversas Orbi ativas**
-
-SQL para limpar os `qualification_answers` falsos das conversas existentes do Orbi:
-
-```sql
-UPDATE conversations 
-SET nina_context = nina_context - 'qualification_answers' - 'last_extraction'
-WHERE current_agent_id = 'f1dc66a9-6036-423a-91cb-58b8dee9c7f2'
-  AND is_active = true
-  AND nina_context ? 'qualification_answers';
-```
-
-### Arquivos alterados
-
-1. `supabase/functions/nina-orchestrator/index.ts` — Adicionar limpeza de qualification_answers para agentes fora do whitelist
-2. Migração SQL — Inserir automação follow-up + limpar nina_context contaminado
 
