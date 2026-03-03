@@ -4484,21 +4484,25 @@ async function queueTextResponse(
     return;
   }
   
-  // Also check send_queue for pending duplicates
+  // Also check send_queue for pending duplicates (by content OR by response_to_message_id)
   const { data: pendingMessages } = await supabase
     .from('send_queue')
-    .select('content')
+    .select('content, metadata')
     .eq('conversation_id', conversation.id)
     .in('status', ['pending', 'processing'])
-    .limit(5);
+    .limit(10);
     
   const isPendingDuplicate = pendingMessages?.some((m: any) => {
     if (!m.content) return false;
-    return m.content.toLowerCase().trim() === normalizedNewContent;
+    // Check exact text match
+    if (m.content.toLowerCase().trim() === normalizedNewContent) return true;
+    // Check if already responding to same message
+    if (m.metadata?.response_to_message_id === message.id) return true;
+    return false;
   });
   
   if (isPendingDuplicate) {
-    console.log('[Nina] ⚠️ Mensagem já está na fila de envio, não duplicando');
+    console.log('[Nina] ⚠️ Mensagem já está na fila de envio (conteúdo ou message_id), não duplicando');
     return;
   }
   // ===== END DUPLICATE MESSAGE CHECK =====
