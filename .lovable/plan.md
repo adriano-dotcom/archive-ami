@@ -1,59 +1,50 @@
 
 
-## Plano: Estratégia de Apresentação de Planos — Técnica de Ancoragem (Goldilocks)
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Técnica de Vendas Escolhida: **Center-Stage Effect + Anchoring**
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-A técnica mais adequada para venda de planos em 3 níveis é o **Center-Stage Effect** (também chamado de Goldilocks Pricing), combinado com **Anchoring**:
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-- **Apresentar primeiro o plano intermediário (Órbita Plus)** como âncora — ele se torna a referência mental de valor
-- **Depois oferecer o Essencial** como alternativa econômica ("se quiser algo mais leve...")
-- **Por último o Total** como upgrade ("e se quiser o máximo de proteção...")
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-Isso funciona porque:
-1. O plano do meio parece o "mais equilibrado" e é escolhido pela maioria (estudos mostram 60-70% de conversão no meio)
-2. O Essencial parece "barato demais" em comparação, e o Total parece um upgrade natural
-3. Evita o efeito de "preço mais barato primeiro" que ancora o cliente em R$37
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-### O que será alterado
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**1 alteração**: Atualizar o prompt do agente Orbi em **dois lugares** (são o mesmo texto):
-- Tabela `nina_settings` → campo `system_prompt_override`
-- Tabela `agents` → campo `system_prompt` (agente Orbi)
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-### Mudanças no prompt
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-**Seção "OS 3 PLANOS ORBEPET"** — Reordenar para: Plus → Essencial → Total
+### Tarefas de Implementação
 
-**Seção "RECOMENDAÇÃO DE PLANO" (item 3 do fluxo)** — Substituir a lógica por:
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
 
+### Detalhes Técnicos
+
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
 ```
-### 3. RECOMENDAÇÃO DE PLANO — TÉCNICA DE ANCORAGEM
-
-⚠️ REGRA OBRIGATÓRIA: SEMPRE comece apresentando o **Órbita Plus** como primeira opção, 
-independentemente do perfil do pet. Esta é a sua ÂNCORA de valor.
-
-**Ordem de apresentação:**
-1. **Primeiro:** Apresente o Órbita Plus como recomendação principal
-2. **Depois:** Ofereça o Essencial como alternativa mais acessível
-3. **Por último:** Mencione o Total como upgrade para proteção máxima
-
-**Script de apresentação:**
-> "Para o [nome do pet], recomendo o Órbita Plus — ele cobre consultas, exames, 
-> cirurgias até R$1.000 e especialistas, tudo por R$89,82/mês. 
-> É o plano mais escolhido pelos tutores! 💜"
-
-> [Se o tutor achar caro]: "Entendo! Temos o Essencial por R$37,62/mês — 
-> cobre consultas e exames do dia a dia. Perfeito pra começar!"
-
-> [Se o tutor quiser mais]: "E se quiser a proteção máxima, o Total por R$107,82/mês 
-> inclui tudo do Plus + internação e castração."
-
-**Nunca comece pelo Essencial.** O Órbita Plus é sempre a primeira apresentação.
-```
-
-### Implementação
-
-- Será uma **migração SQL** (UPDATE) em `nina_settings` e `agents` para atualizar o `system_prompt_override` e `system_prompt` respectivamente
-- Nenhum código frontend ou edge function precisa mudar — o prompt é carregado dinamicamente do banco
 

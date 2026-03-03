@@ -3481,43 +3481,53 @@ Agradeço pela compreensão! 🙏`;
 
   // ===== REAL-TIME QUALIFICATION EXTRACTION =====
   // Extract qualification answers from user messages immediately and save to nina_context
-  const userMessagesContent = (recentMessages || [])
-    .filter((m: any) => m.from_type === 'user' && m.content)
-    .map((m: any) => m.content);
+  // IMPORTANT: Only run cargo-specific qualification extraction for cargo/transport agents
+  // Orbi (pet health) agent has its own qualification flow handled by the AI prompt
+  const CARGO_QUALIFICATION_AGENTS = ['adri', 'clara', 'leo', 'atlas', 'sofia', 'omega'];
+  const shouldRunCargoQualification = agent?.slug ? CARGO_QUALIFICATION_AGENTS.includes(agent.slug) : false;
   
-  const extractedQA = extractQualificationFromMessages(userMessagesContent);
   const existingQA = conversation.nina_context?.qualification_answers || {};
   const mergedQA: { [key: string]: string } = { ...existingQA };
   
-  // Merge only new non-empty values (don't overwrite existing)
-  let hasNewData = false;
-  for (const [key, value] of Object.entries(extractedQA)) {
-    if (value && !mergedQA[key]) {
-      mergedQA[key] = value;
-      hasNewData = true;
+  if (shouldRunCargoQualification) {
+    const userMessagesContent = (recentMessages || [])
+      .filter((m: any) => m.from_type === 'user' && m.content)
+      .map((m: any) => m.content);
+    
+    const extractedQA = extractQualificationFromMessages(userMessagesContent);
+    
+    // Merge only new non-empty values (don't overwrite existing)
+    let hasNewData = false;
+    for (const [key, value] of Object.entries(extractedQA)) {
+      if (value && !mergedQA[key]) {
+        mergedQA[key] = value;
+        hasNewData = true;
+      }
     }
-  }
-  
-  // Save if there are new answers
-  if (hasNewData) {
-    await supabase
-      .from('conversations')
-      .update({
-        nina_context: {
-          ...conversation.nina_context,
-          qualification_answers: mergedQA,
-          last_extraction: new Date().toISOString()
-        }
-      })
-      .eq('id', conversation.id);
     
-    // Update local reference for buildEnhancedPrompt
-    conversation.nina_context = {
-      ...conversation.nina_context,
-      qualification_answers: mergedQA
-    };
-    
-    console.log(`[Nina] 📝 Qualification answers extracted in real-time:`, mergedQA);
+    // Save if there are new answers
+    if (hasNewData) {
+      await supabase
+        .from('conversations')
+        .update({
+          nina_context: {
+            ...conversation.nina_context,
+            qualification_answers: mergedQA,
+            last_extraction: new Date().toISOString()
+          }
+        })
+        .eq('id', conversation.id);
+      
+      // Update local reference for buildEnhancedPrompt
+      conversation.nina_context = {
+        ...conversation.nina_context,
+        qualification_answers: mergedQA
+      };
+      
+      console.log(`[Nina] 📝 Qualification answers extracted in real-time:`, mergedQA);
+    }
+  } else {
+    console.log(`[Nina] ⏭️ Skipping cargo qualification extraction for agent: ${agent?.slug || 'unknown'}`);
   }
   // ===== END REAL-TIME QUALIFICATION EXTRACTION =====
 
@@ -3525,7 +3535,7 @@ Agradeço pela compreensão! 🙏`;
   // If awaiting email confirmation/capture, handle it first
   // (ninaContext already declared above)
   
-  if (ninaContext.awaiting_qualification_email === true && message.content) {
+  if (shouldRunCargoQualification && ninaContext.awaiting_qualification_email === true && message.content) {
     console.log(`[Nina] 📧 Awaiting qualification email - checking user response...`);
     
     // Try to extract email from message
@@ -3775,7 +3785,7 @@ Agradeço pela compreensão! 🙏`;
 
   // ===== QUALIFICATION COMPLETE CHECK - ASK FOR EMAIL FIRST =====
   // Check if all essential qualification fields are collected - if so, ask for email before handoff
-  const qualificationComplete = isQualificationComplete(conversation.contact, mergedQA);
+  const qualificationComplete = shouldRunCargoQualification ? isQualificationComplete(conversation.contact, mergedQA) : false;
   
   if (qualificationComplete && ninaContext.awaiting_qualification_email !== true) {
     console.log(`[Nina] ✅ Qualificação completa! Dados coletados:`, mergedQA);
