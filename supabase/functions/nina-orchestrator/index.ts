@@ -1922,7 +1922,13 @@ async function processQueueItem(
     return;
   }
 
-  // 🆕 DUPLICATE PROCESSING CHECK: Skip if message already has a Nina response after it
+  // 🆕 GUARD 1: Skip if message already flagged as processed
+  if (message.processed_by_nina === true) {
+    console.log(`[Nina] ⏭️ Message ${message.id} already has processed_by_nina=true, skipping`);
+    return;
+  }
+
+  // 🆕 GUARD 2: Check if a Nina response already exists in messages table
   const { data: subsequentNinaMessages } = await supabase
     .from('messages')
     .select('id')
@@ -1934,8 +1940,45 @@ async function processQueueItem(
   if (subsequentNinaMessages && subsequentNinaMessages.length > 0) {
     console.log('[Nina] ⏭️ Message already has Nina response after it, skipping duplicate processing');
     console.log(`[Nina] ⏭️ Message ID: ${message.id}, Subsequent Nina message: ${subsequentNinaMessages[0].id}`);
-    return; // Skip processing - already handled
+    return;
   }
+
+  // 🆕 GUARD 3: Check if a response is already pending in send_queue for this message
+  const { data: pendingInQueue } = await supabase
+    .from('send_queue')
+    .select('id')
+    .eq('conversation_id', conversation.id)
+    .in('status', ['pending', 'processing'])
+    .limit(20);
+
+  const alreadyQueued = pendingInQueue?.some((sq: any) => {
+    // Check metadata for response_to_message_id matching current message
+    return false; // metadata not selected, check below
+  });
+
+  // Need to check with metadata - do a targeted query
+  const { data: queuedForThisMsg } = await supabase
+    .from('send_queue')
+    .select('id, metadata')
+    .eq('conversation_id', conversation.id)
+    .in('status', ['pending', 'processing'])
+    .limit(20);
+
+  const hasQueuedResponse = queuedForThisMsg?.some((sq: any) => {
+    return sq.metadata?.response_to_message_id === message.id;
+  });
+
+  if (hasQueuedResponse) {
+    console.log(`[Nina] ⏭️ Response already queued in send_queue for message ${message.id}, skipping`);
+    return;
+  }
+
+  // 🆕 GUARD 4: Immediately mark as processed to prevent concurrent triggers
+  await supabase
+    .from('messages')
+    .update({ processed_by_nina: true })
+    .eq('id', message.id)
+    .eq('processed_by_nina', false); // Only update if still false (atomic check)
 
   // Check WhatsApp 24h window
   const windowStart = conversation.whatsapp_window_start ? new Date(conversation.whatsapp_window_start) : null;
