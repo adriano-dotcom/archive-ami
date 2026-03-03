@@ -695,6 +695,91 @@ serve(async (req) => {
         
         await processQueueItem(supabase, lovableApiKey, item, settings, activeAgents, defaultAgent);
         
+        // 🛡️ SAFETY NET: Check if message was marked as processed but no response was queued
+        // This catches "lost responses" where early returns set processed_by_nina=true without enqueuing a reply
+        try {
+          const { data: processedMsg } = await supabase
+            .from('messages')
+            .select('id, processed_by_nina, conversation_id, content')
+            .eq('id', item.message_id)
+            .single();
+          
+          if (processedMsg?.processed_by_nina === true) {
+            // Check if any response was queued for this message
+            const { data: queuedResponses } = await supabase
+              .from('send_queue')
+              .select('id')
+              .eq('conversation_id', processedMsg.conversation_id)
+              .filter('metadata->>response_to_message_id', 'eq', item.message_id)
+              .in('status', ['pending', 'processing', 'completed'])
+              .limit(1);
+            
+            // Also check if a nina/human message was already inserted after this message
+            const { data: subsequentResponse } = await supabase
+              .from('messages')
+              .select('id')
+              .eq('conversation_id', processedMsg.conversation_id)
+              .in('from_type', ['nina', 'human'])
+              .gt('sent_at', new Date(Date.now() - 60000).toISOString()) // last 60s
+              .limit(1);
+            
+            const hasResponse = (queuedResponses && queuedResponses.length > 0) || 
+                                (subsequentResponse && subsequentResponse.length > 0);
+            
+            if (!hasResponse) {
+              console.error(`[Nina] 🛡️ SAFETY NET: Message ${item.message_id} was processed but NO response was queued!`);
+              console.error(`[Nina] 🛡️ Message content: "${processedMsg.content?.substring(0, 80)}..."`);
+              
+              // Check if window is still open
+              const { data: conv } = await supabase
+                .from('conversations')
+                .select('whatsapp_window_start, contact_id, status')
+                .eq('id', processedMsg.conversation_id)
+                .single();
+              
+              // Only enqueue safety response if conversation is still in nina mode and window is open
+              if (conv?.status === 'nina' && conv?.whatsapp_window_start) {
+                const windowStart = new Date(conv.whatsapp_window_start);
+                const windowOpen = (Date.now() - windowStart.getTime()) < 24 * 60 * 60 * 1000;
+                
+                if (windowOpen) {
+                  console.log(`[Nina] 🛡️ Enqueuing safety-net follow-up response`);
+                  
+                  // Get contact name for personalized message
+                  const { data: contact } = await supabase
+                    .from('contacts')
+                    .select('name, call_name')
+                    .eq('id', conv.contact_id)
+                    .single();
+                  
+                  const contactName = contact?.call_name || contact?.name || 'Cliente';
+                  const safetyMessage = `Oi ${contactName}! Desculpa a demora, posso te ajudar com algo? 😊`;
+                  
+                  await supabase
+                    .from('send_queue')
+                    .insert({
+                      conversation_id: processedMsg.conversation_id,
+                      contact_id: conv.contact_id,
+                      content: safetyMessage,
+                      from_type: 'nina',
+                      message_type: 'text',
+                      priority: 1,
+                      metadata: {
+                        response_to_message_id: item.message_id,
+                        safety_net: true,
+                        reason: 'No response was queued after processing'
+                      }
+                    });
+                  
+                  console.log(`[Nina] 🛡️ Safety net response queued successfully`);
+                }
+              }
+            }
+          }
+        } catch (safetyError) {
+          console.error('[Nina] 🛡️ Safety net check failed (non-critical):', safetyError);
+        }
+        
         // Mark as completed
         await supabase
           .from('nina_processing_queue')

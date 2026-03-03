@@ -1,52 +1,50 @@
 
 
-## Plano: Reativar Conversa Parada + Corrigir Follow-up para Mensagens Não Respondidas
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Diagnóstico
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-A conversa do Junior Garcia parou porque:
-1. O "Sim" foi processado pelo orchestrator (`processed_by_nina: true`, `status: completed`) mas **nenhuma resposta foi gerada** — provavelmente a versão antiga do código entrou no branch `awaiting_qualification_email` (cargo) e retornou sem enviar mensagem
-2. O follow-up automático **não dispara** porque a lógica em `process-followups` (linha 461) pula conversas onde a última mensagem é do usuário — assumindo que o agente deveria ter respondido via orchestrator
-3. Resultado: a conversa fica "presa" — orchestrator não reprocessa (já marcada), follow-up não toca (última msg é do user)
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-### Correções
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-**1. Ação imediata: Re-enfileirar mensagem para reprocessamento**
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-Inserir manualmente um item na `nina_processing_queue` para a conversa do Junior Garcia, forçando o orchestrator a reprocessar. Primeiro resetar o `processed_by_nina` da mensagem "Sim".
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-```sql
--- Resetar flag para permitir reprocessamento
-UPDATE messages SET processed_by_nina = false 
-WHERE id = '2000afd6-af74-43bc-882a-fe128abf0a12';
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
--- Inserir na fila de processamento
-INSERT INTO nina_processing_queue (conversation_id, message_id, status, priority, context_data)
-VALUES (
-  'ece1e604-0bbd-4d9f-b773-1d56705e7b5e',
-  '2000afd6-af74-43bc-882a-fe128abf0a12',
-  'pending', 1,
-  '{"triggered_by": "manual_retry", "contact_name": "Junior Garcia"}'
-);
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
+
+### Tarefas de Implementação
+
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+
+### Detalhes Técnicos
+
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
 ```
-
-**2. Correção estrutural: process-followups não deve pular conversas sem resposta**
-
-No `process-followups/index.ts`, alterar a lógica da linha 461. Em vez de pular quando a última mensagem é do usuário, verificar se essa mensagem foi respondida. Se `processed_by_nina = true` mas não existe resposta nina posterior, é um caso de "resposta perdida" e o follow-up DEVE disparar.
-
-Nova lógica:
-```
-// Se última msg é do user E processed_by_nina=true MAS não tem resposta nina depois
-// → É um caso de resposta perdida → tentar re-enfileirar no orchestrator
-```
-
-**3. Prevenir no futuro: "Safety net" no orchestrator**
-
-Adicionar no final do orchestrator um catch-all que verifica se aiContent foi de fato enfileirado, e se não foi, logar um erro e tentar enfileirar uma mensagem genérica de continuidade.
-
-### Arquivos alterados
-
-1. **Migração SQL** — Resetar mensagem do Junior Garcia e re-enfileirar
-2. **`supabase/functions/process-followups/index.ts`** — Alterar lógica para detectar "mensagens do user sem resposta" e re-enfileirá-las ou tratá-las como follow-up
-3. **`supabase/functions/nina-orchestrator/index.ts`** — Adicionar safety net no final do processamento
 
