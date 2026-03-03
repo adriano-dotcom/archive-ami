@@ -3528,6 +3528,23 @@ Agradeço pela compreensão! 🙏`;
     }
   } else {
     console.log(`[Nina] ⏭️ Skipping cargo qualification extraction for agent: ${agent?.slug || 'unknown'}`);
+    
+    // CLEANUP: Remove any contaminated qualification_answers from non-cargo agents
+    // This fixes cases where old deployments wrote false data (e.g., "cte: sim" from Orbi conversations)
+    if (conversation.nina_context?.qualification_answers && Object.keys(conversation.nina_context.qualification_answers).length > 0) {
+      console.log(`[Nina] 🧹 Cleaning contaminated qualification_answers from non-cargo agent ${agent?.slug}`);
+      const cleanedContext = { ...conversation.nina_context };
+      delete cleanedContext.qualification_answers;
+      delete cleanedContext.last_extraction;
+      delete cleanedContext.awaiting_qualification_email;
+      
+      await supabase
+        .from('conversations')
+        .update({ nina_context: cleanedContext })
+        .eq('id', conversation.id);
+      
+      conversation.nina_context = cleanedContext;
+    }
   }
   // ===== END REAL-TIME QUALIFICATION EXTRACTION =====
 
