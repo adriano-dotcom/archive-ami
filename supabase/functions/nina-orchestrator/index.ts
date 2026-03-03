@@ -3535,7 +3535,7 @@ Agradeço pela compreensão! 🙏`;
   // If awaiting email confirmation/capture, handle it first
   // (ninaContext already declared above)
   
-  if (ninaContext.awaiting_qualification_email === true && message.content) {
+  if (shouldRunCargoQualification && ninaContext.awaiting_qualification_email === true && message.content) {
     console.log(`[Nina] 📧 Awaiting qualification email - checking user response...`);
     
     // Try to extract email from message
