@@ -1944,19 +1944,6 @@ async function processQueueItem(
   }
 
   // 🆕 GUARD 3: Check if a response is already pending in send_queue for this message
-  const { data: pendingInQueue } = await supabase
-    .from('send_queue')
-    .select('id')
-    .eq('conversation_id', conversation.id)
-    .in('status', ['pending', 'processing'])
-    .limit(20);
-
-  const alreadyQueued = pendingInQueue?.some((sq: any) => {
-    // Check metadata for response_to_message_id matching current message
-    return false; // metadata not selected, check below
-  });
-
-  // Need to check with metadata - do a targeted query
   const { data: queuedForThisMsg } = await supabase
     .from('send_queue')
     .select('id, metadata')
