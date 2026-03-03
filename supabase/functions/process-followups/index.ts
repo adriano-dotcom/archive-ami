@@ -449,19 +449,37 @@ serve(async (req) => {
           }
         }
 
-        // Check if last message was from user (skip if user sent last message)
-        const { data: lastMessage } = await supabase
+        // Check if last message was from user
+        // If user sent last message AND it was processed_by_nina but no AI response followed,
+        // this is a "lost response" case — we should NOT skip it
+        const { data: lastMessages } = await supabase
           .from('messages')
-          .select('from_type')
+          .select('from_type, processed_by_nina, sent_at')
           .eq('conversation_id', conv.id)
           .order('sent_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(3);
 
+        const lastMessage = lastMessages?.[0];
+        
         if (lastMessage?.from_type === 'user') {
-          console.log(`[process-followups] Last message from user, skipping conversation ${conv.id}`);
-          skipped++;
-          continue;
+          // Check if this is a "lost response" — user message was processed but no AI response followed
+          const hasNinaResponseAfter = lastMessages?.some((m: any, idx: number) => 
+            idx > 0 ? false : false // We check: is there any nina/human message AFTER the user message?
+          );
+          
+          // Actually check: among messages, is the latest from user AND processed_by_nina=true
+          // but NO subsequent nina message exists?
+          const isLostResponse = lastMessage.processed_by_nina === true;
+          
+          if (isLostResponse) {
+            console.log(`[process-followups] ⚠️ LOST RESPONSE detected for conversation ${conv.id} — user message processed but no AI response followed. Will send follow-up.`);
+            // Don't skip — proceed to send follow-up
+          } else {
+            // Normal case: user just sent a message, skip (orchestrator should handle it)
+            console.log(`[process-followups] Last message from user (not processed yet), skipping conversation ${conv.id}`);
+            skipped++;
+            continue;
+          }
         }
 
         // Check previous follow-ups from this automation (now including message_content for anti-repetition)
