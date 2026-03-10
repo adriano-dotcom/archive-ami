@@ -268,67 +268,9 @@ async function fetchContactInstallments(supabase: any, contactId: string): Promi
 }
 
 
-// ===== OUT OF SCOPE INSURANCE DETECTION (for Sofia agent) =====
-// Insurance types that are NOT handled by transport specialists (Adri, Clara, Leo)
-// These will be handled by Sofia (generic insurance agent)
-const OUT_OF_SCOPE_INSURANCE_KEYWORDS: Record<string, string[]> = {
-  // Tipos existentes
-  'auto': ['seguro auto', 'seguro carro', 'seguro do carro', 'seguro do meu carro', 'seguro veículo particular', 'seguro veiculo particular', 'seguro meu veículo', 'seguro meu veiculo'],
-  'residencial': ['seguro residencial', 'seguro residencia', 'seguro da casa', 'seguro casa', 'seguro do apartamento', 'seguro apartamento', 'seguro apto', 'seguro imóvel', 'seguro imovel'],
-  'vida': ['seguro de vida', 'seguro vida', 'seguro morte', 'seguro pessoal'],
-  'viagem': ['seguro viagem', 'seguro de viagem', 'assistência viagem', 'assistencia viagem'],
-  'pet': ['seguro pet', 'seguro do cachorro', 'seguro do gato', 'seguro animal'],
-  'celular': ['seguro celular', 'seguro do celular', 'seguro smartphone', 'seguro do iphone', 'seguro do telefone'],
-  'bike': ['seguro bike', 'seguro bicicleta', 'seguro da bike'],
-  'fianca': ['seguro fiança', 'seguro fianca', 'seguro aluguel', 'seguro locatício', 'seguro locaticio'],
-  'empresarial': ['seguro empresa', 'seguro empresarial', 'seguro comercial', 'seguro patrimônio', 'seguro patrimonio', 'seguro do negócio', 'seguro do negocio'],
-  'frota_geral': ['seguro frota', 'frota de veículos', 'frota de veiculos', 'vários veículos', 'varios veiculos', 'seguro moto', 'seguro motocicleta'],
-  
-  // Novos tipos adicionados
-  'garantia': ['seguro garantia', 'garantia contratual', 'garantia de obra', 'seguro performance', 'garantia licitação', 'garantia licitacao', 'garantia judicial', 'seguro garantia contratual'],
-  'rc': ['responsabilidade civil', 'seguro rc', 'rc profissional', 'rc geral', 'danos a terceiros', 'seguro responsabilidade', 'rc médica', 'rc medica', 'rc advogado', 'rc engenheiro'],
-  'deo': ['seguro d&o', 'd&o', 'directors and officers', 'seguro diretores', 'seguro executivos', 'responsabilidade de gestores', 'd and o'],
-  'equipamentos': ['seguro equipamentos', 'seguro máquinas', 'seguro maquinas', 'seguro eletrônicos', 'seguro eletronicos', 'seguro notebook', 'seguro computador', 'seguro maquinário', 'seguro maquinario'],
-  'condominio': ['seguro condomínio', 'seguro condominio', 'seguro prédio', 'seguro predio', 'seguro do condomínio', 'seguro do condominio', 'seguro predial'],
-  'rural': ['seguro rural', 'seguro agrícola', 'seguro agricola', 'seguro safra', 'seguro fazenda', 'seguro gado', 'seguro pecuário', 'seguro pecuario', 'seguro plantação', 'seguro plantacao', 'seguro colheita'],
-  'nautico': ['seguro barco', 'seguro lancha', 'seguro jet ski', 'seguro jetski', 'seguro embarcação', 'seguro embarcacao', 'seguro iate', 'seguro marítimo', 'seguro maritimo', 'seguro náutico', 'seguro nautico'],
-  'aeronautico': ['seguro avião', 'seguro aviao', 'seguro helicóptero', 'seguro helicoptero', 'seguro aeronave', 'seguro drone', 'seguro aeronáutico', 'seguro aeronautico', 'seguro asa delta', 'seguro parapente'],
-  // 'saude' e 'odonto' REMOVIDOS - Clara (agente especialista) atende esses tipos
-  // 'saude': [...] - Atendido por Clara
-  // 'odonto': [...] - Atendido por Clara
-  'previdencia': ['previdência privada', 'previdencia privada', 'pgbl', 'vgbl', 'aposentadoria privada', 'plano de aposentadoria', 'fundo de previdência', 'fundo de previdencia', 'plano previdenciário', 'plano previdenciario'],
-  'consorcio': ['consórcio', 'consorcio', 'consórcio imóvel', 'consorcio imovel', 'consórcio carro', 'consorcio carro', 'consórcio auto', 'consorcio auto', 'carta de crédito', 'carta de credito'],
-  'cyber': ['seguro cyber', 'seguro digital', 'proteção de dados', 'protecao de dados', 'seguro vazamento', 'seguro cibernético', 'seguro cibernetico', 'seguro ataque hacker', 'seguro ransomware', 'lgpd'],
-};
-
-// Map type to friendly name in Portuguese
-const INSURANCE_TYPE_NAMES: Record<string, string> = {
-  // Tipos existentes
-  'auto': 'Seguro Auto',
-  'residencial': 'Seguro Residencial',
-  'vida': 'Seguro de Vida',
-  'viagem': 'Seguro Viagem',
-  'pet': 'Seguro Pet',
-  'celular': 'Seguro Celular',
-  'bike': 'Seguro Bike',
-  'fianca': 'Seguro Fiança',
-  'empresarial': 'Seguro Empresarial',
-  'frota_geral': 'Seguro de Frota',
-  
-  // Novos tipos adicionados
-  'garantia': 'Seguro Garantia',
-  'rc': 'Responsabilidade Civil',
-  'deo': 'Seguro D&O',
-  'equipamentos': 'Seguro de Equipamentos',
-  'condominio': 'Seguro Condomínio',
-  'rural': 'Seguro Rural/Agrícola',
-  'nautico': 'Seguro Náutico',
-  'aeronautico': 'Seguro Aeronáutico',
-  // 'saude' e 'odonto' removidos - Clara atende esses tipos
-  'previdencia': 'Previdência Privada',
-  'consorcio': 'Consórcio',
-  'cyber': 'Seguro Cyber',
-};
+// ===== OUT OF SCOPE DETECTION =====
+// Removed — no longer applicable in OrbePet context.
+// The detectOutOfScopeInsurance function returns a no-op result.
 
 interface OutOfScopeResult {
   isOutOfScope: boolean;
@@ -337,41 +279,7 @@ interface OutOfScopeResult {
   detectedKeyword: string | null;
 }
 
-function detectOutOfScopeInsurance(messageContent: string, currentAgentSlug: string | null): OutOfScopeResult {
-  console.log('[Nina][OutOfScope] ========== VERIFICANDO OUT OF SCOPE ==========');
-  console.log('[Nina][OutOfScope] Mensagem:', messageContent.substring(0, 80) + (messageContent.length > 80 ? '...' : ''));
-  console.log('[Nina][OutOfScope] Agente atual slug:', currentAgentSlug || 'nenhum');
-  
-  // Only detect out of scope if NOT already using Sofia or if using transport-specific agents
-  if (currentAgentSlug === 'sofia') {
-    console.log('[Nina][OutOfScope] ⏭️ Já está com Sofia - pulando verificação');
-    return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
-  }
-  
-  const content = messageContent.toLowerCase().trim();
-  
-  console.log('[Nina][OutOfScope] Verificando', Object.keys(OUT_OF_SCOPE_INSURANCE_KEYWORDS).length, 'tipos de seguro...');
-  
-  for (const [type, keywords] of Object.entries(OUT_OF_SCOPE_INSURANCE_KEYWORDS)) {
-    for (const keyword of keywords) {
-      if (content.includes(keyword)) {
-        console.log('[Nina][OutOfScope] ⚠️ OUT OF SCOPE DETECTADO!');
-        console.log('[Nina][OutOfScope] Tipo:', type);
-        console.log('[Nina][OutOfScope] Keyword encontrada:', `"${keyword}"`);
-        console.log('[Nina][OutOfScope] Nome amigável:', INSURANCE_TYPE_NAMES[type] || type);
-        console.log('[Nina][OutOfScope] ========== FIM OUT OF SCOPE ==========');
-        return { 
-          isOutOfScope: true, 
-          insuranceType: type, 
-          friendlyName: INSURANCE_TYPE_NAMES[type] || type,
-          detectedKeyword: keyword 
-        };
-      }
-    }
-  }
-  
-  console.log('[Nina][OutOfScope] ✅ Mensagem está IN SCOPE (não é seguro fora do escopo)');
-  console.log('[Nina][OutOfScope] ========== FIM OUT OF SCOPE ==========');
+function detectOutOfScopeInsurance(_messageContent: string, _currentAgentSlug: string | null): OutOfScopeResult {
   return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
 }
 
