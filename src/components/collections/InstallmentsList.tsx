@@ -103,7 +103,6 @@ export const InstallmentsList: React.FC = () => {
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   
-  const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
   const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
