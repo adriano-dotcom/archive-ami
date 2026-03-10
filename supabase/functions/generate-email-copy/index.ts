@@ -177,7 +177,7 @@ ESTRUTURA HTML OBRIGATÓRIA:
 6. Box de DESTAQUE para valor total (fundo azul claro #dbeafe, borda azul #3b82f6)
 7. Texto sobre regularização
 8. Botão CTA estilizado (fundo #1e3a5f, texto branco, border-radius: 8px)
-9. Footer com assinatura: Jacometo Seguros - Equipe de Cobrança
+9. Footer com assinatura: OrbePet - Equipe de Cobrança
 
 VARIÁVEIS DISPONÍVEIS:
 - {{nome}}, {{empresa}}, {{cnpj}}, {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}
