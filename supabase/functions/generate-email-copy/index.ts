@@ -185,7 +185,7 @@ VARIÁVEIS DISPONÍVEIS:
 IMPORTANTE:
 - Seja cordial mas firme
 - Foco em regularização e manutenção do relacionamento
-- Mencione que a Jacometo está à disposição para ajudar
+- Mencione que a OrbePet está à disposição para ajudar
 `,
   'cobranca-leve': `
 OBJETIVO: Primeiro contato amigável sobre parcelas em atraso
