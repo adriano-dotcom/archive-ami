@@ -37,7 +37,6 @@ import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
 import { CompanyDetailsDrawer, EditCompanyModal } from '@/components/segurados';
 import { 
   useInstallments, 
-  isCargoInsurance, 
   Installment, 
   SortColumn 
 } from './installments';
