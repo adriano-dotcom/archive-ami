@@ -198,7 +198,7 @@ export const SeguradosTab: React.FC = () => {
         .eq('company_id', deletingCompany.id);
 
       if (policiesCount && policiesCount > 0) {
-        toast.error(`Esta empresa possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        toast.error(`Esta clínica/petshop possui ${policiesCount} planos vinculados. Remova-os antes de excluir.`);
         return;
       }
 
