@@ -43,7 +43,7 @@ import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 
 // Helper para normalizar datas e evitar problemas de timezone
 // Garante que a data seja uma string pura YYYY-MM-DD sem conversão implícita
