@@ -768,7 +768,7 @@ export const InstallmentsList: React.FC = () => {
                   <SortableHeader column="empresa" label="Empresa" />
                   <SortableHeader column="cnpj" label="CNPJ" />
                   <SortableHeader column="contato" label="Contato" />
-                  <SortableHeader column="seguradora" label="Seguradora" />
+                  
                   <SortableHeader column="apolice" label="Apólice" />
                   <SortableHeader column="parcela" label="Parcela" className="text-center" />
                   <SortableHeader column="valor" label="Valor" className="text-right" />
