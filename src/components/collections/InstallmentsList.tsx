@@ -567,18 +567,6 @@ export const InstallmentsList: React.FC = () => {
             </Button>
 
             <Button 
-              variant={cargoOnlyFilter ? "default" : "outline"}
-              onClick={() => setCargoOnlyFilter(!cargoOnlyFilter)}
-              className={cargoOnlyFilter 
-                ? "bg-blue-600 hover:bg-blue-700 gap-2" 
-                : "border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
-              }
-            >
-              <Truck className="w-4 h-4" />
-              Só Carga {atmRiskCount > 0 && `(${atmRiskCount} ATM risco)`}
-            </Button>
-
-            <Button 
               variant="outline"
               onClick={selectOverdue30Plus}
               className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20 gap-2"
