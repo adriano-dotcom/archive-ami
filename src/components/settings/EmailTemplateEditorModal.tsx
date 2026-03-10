@@ -43,7 +43,7 @@ const DEFAULT_HTML = `<div style="font-family: Arial, sans-serif; max-width: 600
   
   <p style="color: #666; line-height: 1.6;">
     Atenciosamente,<br>
-    <strong>Equipe Jacometo Seguros</strong>
+    <strong>Equipe OrbePet</strong>
   </p>
 </div>`;
 
