@@ -78,7 +78,7 @@ interface UseInstallmentsOptions {
   statusFilter: string;
   rangeFilter: string;
   dataQualityFilter: string;
-  insurerFilter: string;
+  
   cargoOnlyFilter: boolean;
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
   whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
