@@ -268,21 +268,6 @@ async function fetchContactInstallments(supabase: any, contactId: string): Promi
   }
 }
 
-// Keywords que indicam interesse explícito em seguro de cargas (para campanhas)
-const CARGO_INSURANCE_KEYWORDS = [
-  'seguro de carga', 'seguro de cargas', 'seguro da carga', 'seguro cargas',
-  'rctr', 'rctr-c', 'rc-dc', 'roubo de carga', 'roubo carga',
-  'seguro pra transportadora', 'seguro para transportadora',
-  'seguro transporte', 'seguro de frete', 'seguro frete',
-  'seguro para caminhão', 'seguro caminhoneiro', 'seguro caminhão',
-  'transporte de carga', 'transporto carga', 'minha transportadora',
-  'seguro pra frota', 'seguro para frota', 'seguro da frota'
-];
-
-function hasExplicitCargoInterest(messageContent: string): boolean {
-  const lowerContent = messageContent.toLowerCase();
-  return CARGO_INSURANCE_KEYWORDS.some(keyword => lowerContent.includes(keyword));
-}
 
 // ===== OUT OF SCOPE INSURANCE DETECTION (for Sofia agent) =====
 // Insurance types that are NOT handled by transport specialists (Adri, Clara, Leo)
