@@ -176,7 +176,7 @@ export const InstallmentsList: React.FC = () => {
     statusFilter,
     rangeFilter,
     dataQualityFilter,
-    insurerFilter: 'all',
+    
     cargoOnlyFilter,
     emailSentFilter,
     whatsappSentFilter,
