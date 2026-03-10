@@ -43,7 +43,7 @@ import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 
 // Helper para normalizar datas e evitar problemas de timezone
 // Garante que a data seja uma string pura YYYY-MM-DD sem conversão implícita
@@ -2340,33 +2340,6 @@ export const ImportDocumentAIModal: React.FC<Props> = ({ open, onOpenChange, onS
                 </div>
               )}
 
-              {/* Force Insurer Selector */}
-              {files.length > 0 && (
-                <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Forçar seguradora para este relatório (opcional)
-                  </label>
-                  <Select value={forcedInsurer || 'auto'} onValueChange={(v) => setForcedInsurer(v === 'auto' ? null : v)}>
-                    <SelectTrigger className="w-full bg-slate-800/50 border-white/10">
-                      <SelectValue placeholder="Detectar automaticamente (IA)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-amber-400" />
-                          Detectar automaticamente (IA)
-                        </div>
-                      </SelectItem>
-                      {KNOWN_INSURERS.filter(i => i !== 'NÃO IDENTIFICADA').map(insurer => (
-                        <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500 mt-2">
-                    Se selecionado, todas as parcelas usarão esta seguradora
-                  </p>
-                </div>
-              )}
 
               {/* Sequential Mode Toggle */}
               {files.length > 0 && (

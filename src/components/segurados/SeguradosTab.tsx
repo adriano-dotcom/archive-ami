@@ -25,7 +25,7 @@ import { DuplicateCompaniesReportModal } from './DuplicateCompaniesReportModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -58,7 +58,7 @@ export const SeguradosTab: React.FC = () => {
   const [overdueRangePJ, setOverdueRangePJ] = useState<string>('all');
   
   // Filters for Segurados (PF)
-  const [insurerFilterPF, setInsurerFilterPF] = useState<string>('all');
+  
   const [stateFilterPF, setStateFilterPF] = useState<string>('all');
   const [overdueStatusPF, setOverdueStatusPF] = useState<string>('all');
   const [overdueRangePF, setOverdueRangePF] = useState<string>('all');
@@ -96,7 +96,7 @@ export const SeguradosTab: React.FC = () => {
   const hasActivePJFilters = stateFilterPJ !== 'all' || overdueStatusPJ !== 'all' || overdueRangePJ !== 'all';
   
   // Check if any PF filters are active
-  const hasActivePFFilters = insurerFilterPF !== 'all' || stateFilterPF !== 'all' || overdueStatusPF !== 'all' || overdueRangePF !== 'all';
+  const hasActivePFFilters = stateFilterPF !== 'all' || overdueStatusPF !== 'all' || overdueRangePF !== 'all';
   
   // Clear all PJ filters
   const clearPJFilters = () => {
@@ -107,7 +107,6 @@ export const SeguradosTab: React.FC = () => {
   
   // Clear all PF filters
   const clearPFFilters = () => {
-    setInsurerFilterPF('all');
     setStateFilterPF('all');
     setOverdueStatusPF('all');
     setOverdueRangePF('all');
@@ -456,11 +455,6 @@ export const SeguradosTab: React.FC = () => {
         s.cpf?.includes(searchTerm) ||
         s.phone_number.includes(searchTerm);
       
-      // Insurer filter
-      const matchesInsurer = 
-        insurerFilterPF === 'all' || 
-        s.insurers.some(i => i.toUpperCase() === insurerFilterPF.toUpperCase());
-      
       // State filter
       const matchesState = stateFilterPF === 'all' || s.state === stateFilterPF;
       
@@ -477,9 +471,9 @@ export const SeguradosTab: React.FC = () => {
         (overdueRangePF === '31-60' && s.max_days_overdue >= 31 && s.max_days_overdue <= 60) ||
         (overdueRangePF === '60+' && s.max_days_overdue > 60);
       
-      return matchesSearch && matchesInsurer && matchesState && matchesOverdueStatus && matchesOverdueRange;
+      return matchesSearch && matchesState && matchesOverdueStatus && matchesOverdueRange;
     });
-  }, [seguradosPF, searchTerm, insurerFilterPF, stateFilterPF, overdueStatusPF, overdueRangePF]);
+  }, [seguradosPF, searchTerm, stateFilterPF, overdueStatusPF, overdueRangePF]);
 
   return (
     <div className="space-y-4">
@@ -624,17 +618,6 @@ export const SeguradosTab: React.FC = () => {
           </>
         ) : (
           <>
-            <Select value={insurerFilterPF} onValueChange={setInsurerFilterPF}>
-              <SelectTrigger className="w-[160px] h-8 bg-slate-900/50 border-slate-600 text-sm">
-                <SelectValue placeholder="Seguradora" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700 max-h-[300px]">
-                <SelectItem value="all">Todas Seguradoras</SelectItem>
-                {KNOWN_INSURERS.map(insurer => (
-                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
             <Select value={stateFilterPF} onValueChange={setStateFilterPF}>
               <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
@@ -711,12 +694,6 @@ export const SeguradosTab: React.FC = () => {
           )}
           {activeSubTab === 'pf' && (
             <>
-              {insurerFilterPF !== 'all' && (
-                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
-                  {insurerFilterPF}
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setInsurerFilterPF('all')} />
-                </Badge>
-              )}
               {stateFilterPF !== 'all' && (
                 <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
                   {stateFilterPF}

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 import { Installment } from './useInstallments';
 
 interface EditInstallmentModalProps {
@@ -108,7 +108,7 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
   
   // Installment data
   const [status, setStatus] = useState('pending');
-  const [insurer, setInsurer] = useState('');
+  
   const [notes, setNotes] = useState('');
   
   // Contact search
@@ -131,7 +131,7 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
   useEffect(() => {
     if (installment && open) {
       setStatus(installment.status);
-      setInsurer(installment.policy?.insurer || '');
+      
       setNotes('');
       setContactSearch('');
       setSearchResults([]);
@@ -320,22 +320,6 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
       
       if (installmentError) throw installmentError;
       
-      // Update policy insurer if changed
-      if (installment.policy?.id && insurer && insurer !== installment.policy.insurer) {
-        const updateData: { insurer: string; contact_id?: string | null } = { insurer };
-        
-        // Also update policy contact_id if we have a contact
-        if (contactId && !installment.policy?.company?.id) {
-          updateData.contact_id = contactId;
-        }
-        
-        const { error: policyError } = await supabase
-          .from('policies')
-          .update(updateData)
-          .eq('id', installment.policy.id);
-        
-        if (policyError) throw policyError;
-      }
       
       toast.success('Parcela atualizada com sucesso!');
       onSuccess();
@@ -404,21 +388,6 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
                       <SelectItem value="overdue" className="text-slate-100 focus:bg-slate-800">Vencido</SelectItem>
                       <SelectItem value="negotiating" className="text-slate-100 focus:bg-slate-800">Negociando</SelectItem>
                       <SelectItem value="paid" className="text-slate-100 focus:bg-slate-800">Pago</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-slate-300">Seguradora</Label>
-                  <Select value={insurer} onValueChange={setInsurer}>
-                    <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 max-h-[200px]">
-                      {KNOWN_INSURERS.map((ins) => (
-                        <SelectItem key={ins} value={ins} className="text-slate-100 focus:bg-slate-800">
-                          {ins}
-                        </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 </div>

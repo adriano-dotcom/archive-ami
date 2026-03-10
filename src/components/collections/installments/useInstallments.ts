@@ -70,7 +70,7 @@ export interface InstallmentHistory {
   metadata: Record<string, any>;
 }
 
-export type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
+export type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
 export type SortDirection = 'asc' | 'desc';
 
 interface UseInstallmentsOptions {
@@ -78,7 +78,7 @@ interface UseInstallmentsOptions {
   statusFilter: string;
   rangeFilter: string;
   dataQualityFilter: string;
-  insurerFilter: string;
+  
   cargoOnlyFilter: boolean;
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
   whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
@@ -87,7 +87,7 @@ interface UseInstallmentsOptions {
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -158,7 +158,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -214,11 +214,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
       
       let filteredData = data as Installment[];
       
-      if (insurerFilter !== 'all') {
-        filteredData = filteredData.filter(inst => 
-          inst.policy?.insurer?.toUpperCase() === insurerFilter.toUpperCase()
-        );
-      }
       
       if (cargoOnlyFilter) {
         filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
@@ -335,10 +330,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
         case 'contato':
           valA = (a.contact?.name || '').toLowerCase();
           valB = (b.contact?.name || '').toLowerCase();
-          break;
-        case 'seguradora':
-          valA = (a.policy?.insurer || '').toLowerCase();
-          valB = (b.policy?.insurer || '').toLowerCase();
           break;
         case 'apolice':
           valA = (a.policy?.policy_number || '').toLowerCase();
@@ -504,47 +495,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     }
   });
 
-  const updateInsurerMutation = useMutation({
-    mutationFn: async ({ policyId, insurer }: { policyId: string; insurer: string }) => {
-      const { error } = await supabase
-        .from('policies')
-        .update({ insurer })
-        .eq('id', policyId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      toast.success('Seguradora atualizada');
-    },
-    onError: () => {
-      toast.error('Erro ao atualizar seguradora');
-    }
-  });
-
-  const bulkUpdateInsurerMutation = useMutation({
-    mutationFn: async ({ installmentIds, insurer }: { installmentIds: string[]; insurer: string }) => {
-      const selectedInstallments = installments?.filter(inst => installmentIds.includes(inst.id)) || [];
-      const policyIds = [...new Set(selectedInstallments.map(inst => inst.policy?.id).filter(Boolean))] as string[];
-      
-      if (policyIds.length === 0) throw new Error('Nenhuma apólice encontrada');
-      
-      const { error } = await supabase
-        .from('policies')
-        .update({ insurer })
-        .in('id', policyIds);
-      
-      if (error) throw error;
-      return policyIds.length;
-    },
-    onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] });
-      toast.success(`Seguradora atualizada em ${count} apólice(s)`);
-    },
-    onError: () => {
-      toast.error('Erro ao atualizar seguradoras');
-    }
-  });
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
@@ -645,8 +595,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     // Mutations
     markAsPaidMutation,
     deleteMutation,
-    updateInsurerMutation,
-    bulkUpdateInsurerMutation,
     clearAllMutation,
     
     // Other

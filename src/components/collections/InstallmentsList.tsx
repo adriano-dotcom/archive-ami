@@ -15,7 +15,7 @@ import {
   ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock,
   AlertOctagon
 } from 'lucide-react';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,7 +103,7 @@ export const InstallmentsList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
-  const [insurerFilter, setInsurerFilter] = useState<string>('all');
+  
   const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
@@ -169,8 +169,6 @@ export const InstallmentsList: React.FC = () => {
     uniqueContactsCount,
     markAsPaidMutation,
     deleteMutation,
-    updateInsurerMutation,
-    bulkUpdateInsurerMutation,
     clearAllMutation,
     refetch,
   } = useInstallments({
@@ -178,7 +176,7 @@ export const InstallmentsList: React.FC = () => {
     statusFilter,
     rangeFilter,
     dataQualityFilter,
-    insurerFilter,
+    
     cargoOnlyFilter,
     emailSentFilter,
     whatsappSentFilter,
@@ -195,7 +193,7 @@ export const InstallmentsList: React.FC = () => {
   // Reset to first page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
+  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
 
   // Pending mark as paid value
   const pendingMarkAsPaidValue = useMemo(() => {
@@ -407,17 +405,6 @@ export const InstallmentsList: React.FC = () => {
               />
             </div>
 
-            <Select value={insurerFilter} onValueChange={setInsurerFilter}>
-              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
-                <SelectValue placeholder="Seguradora" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas Seguradoras</SelectItem>
-                {KNOWN_INSURERS.filter(i => i !== 'NÃO IDENTIFICADA').map(insurer => (
-                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
@@ -714,27 +701,6 @@ export const InstallmentsList: React.FC = () => {
                 </Tooltip>
               </TooltipProvider>
               
-              <Select
-                value=""
-                onValueChange={(value) => {
-                  bulkUpdateInsurerMutation.mutate({ 
-                    installmentIds: selectedIds, 
-                    insurer: value 
-                  });
-                }}
-              >
-                <SelectTrigger className="w-[180px] h-9 bg-slate-800/50 border-white/10">
-                  <Pencil className="w-4 h-4 mr-2 text-slate-400" />
-                  <SelectValue placeholder="Trocar Seguradora" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {KNOWN_INSURERS.map((insurer) => (
-                    <SelectItem key={insurer} value={insurer}>
-                      {insurer}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               
               <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogTrigger asChild>
@@ -802,7 +768,7 @@ export const InstallmentsList: React.FC = () => {
                   <SortableHeader column="empresa" label="Empresa" />
                   <SortableHeader column="cnpj" label="CNPJ" />
                   <SortableHeader column="contato" label="Contato" />
-                  <SortableHeader column="seguradora" label="Seguradora" />
+                  
                   <SortableHeader column="apolice" label="Apólice" />
                   <SortableHeader column="parcela" label="Parcela" className="text-center" />
                   <SortableHeader column="valor" label="Valor" className="text-right" />
@@ -861,32 +827,6 @@ export const InstallmentsList: React.FC = () => {
                           {inst.contact?.phone_number || ''}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-slate-300">
-                      {inst.policy?.id ? (
-                        <Select
-                          value={inst.policy.insurer || ''}
-                          onValueChange={(value) => updateInsurerMutation.mutate({ policyId: inst.policy!.id, insurer: value })}
-                        >
-                          <SelectTrigger className="h-8 w-[160px] bg-transparent border-transparent hover:border-white/20 hover:bg-white/5 text-left">
-                            <SelectValue placeholder="Selecionar">
-                              <span className="flex items-center gap-2">
-                                {inst.policy.insurer || 'N/A'}
-                                <Pencil className="w-3 h-3 text-slate-500" />
-                              </span>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {KNOWN_INSURERS.map((insurer) => (
-                              <SelectItem key={insurer} value={insurer}>
-                                {insurer}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        'N/A'
-                      )}
                     </TableCell>
                     <TableCell className="text-slate-300">
                       {inst.policy ? (

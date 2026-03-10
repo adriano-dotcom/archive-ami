@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Upload, FileText, Trash2, Eye, Plus, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 
 interface ProductKnowledge {
   id: string;
@@ -229,22 +229,6 @@ const ProductKnowledgeSettings: React.FC = () => {
                     value={newProduct.name}
                     onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
                   />
-                </div>
-                <div>
-                  <Label>Seguradora</Label>
-                  <Select
-                    value={newProduct.insurer}
-                    onValueChange={(v) => setNewProduct(prev => ({ ...prev, insurer: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a seguradora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {KNOWN_INSURERS.map(ins => (
-                        <SelectItem key={ins} value={ins}>{ins}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
                   <Label>Arquivo PDF *</Label>
