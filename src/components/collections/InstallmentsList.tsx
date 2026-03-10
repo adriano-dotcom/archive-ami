@@ -169,8 +169,6 @@ export const InstallmentsList: React.FC = () => {
     uniqueContactsCount,
     markAsPaidMutation,
     deleteMutation,
-    updateInsurerMutation,
-    bulkUpdateInsurerMutation,
     clearAllMutation,
     refetch,
   } = useInstallments({
