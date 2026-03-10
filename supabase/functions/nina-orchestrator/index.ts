@@ -1401,15 +1401,13 @@ function getDefaultRenewalEmail(
         <p>Estamos entrando em contato porque você mencionou que seu seguro de cargas vence em <strong>${formattedDate}</strong>.</p>
         <p>Gostaríamos de apresentar uma cotação competitiva para a renovação. Trabalhamos com as melhores seguradoras do mercado e podemos oferecer condições diferenciadas.</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0;"><strong>📞 WhatsApp:</strong> (43) 9143-4002</p>
-          <p style="margin: 10px 0 0;"><strong>🌐 Site:</strong> jacometoseguros.com.br</p>
+          <p style="margin: 0;"><strong>📞</strong> Entre em contato conosco</p>
         </div>
         <p>Responda este email ou envie uma mensagem no WhatsApp - fazemos uma proposta sem compromisso!</p>
         <p style="margin-top: 30px;">
           Atenciosamente,<br>
-          <strong>João Pedro</strong><br>
-          WhatsApp: <a href="https://wa.me/5543991562099" style="color:#25d366;">+55 43 99156-2099</a><br><br>
-          <span style="color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</span><br>
+          <strong>Equipe OrbePet</strong><br><br>
+          <span style="color:#6b7280;">OrbePet - Equipe de Cobrança</span><br>
           <span style="font-size:12px;color:#9ca3af;">À disposição para esclarecimento</span>
         </p>
       </div>

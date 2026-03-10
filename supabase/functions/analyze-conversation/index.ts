@@ -728,7 +728,7 @@ ESTÁGIO ATUAL DO DEAL: ${currentDeal?.stage || 'Sem estágio'}` : ''}
                   </div>
                   
                   <p style="color: #9ca3af; font-size: 11px; text-align: center; margin-top: 20px;">
-                    Este email foi enviado automaticamente pelo sistema Nina - Jacometo Seguros
+                    Este email foi enviado automaticamente pelo sistema de IA - OrbePet
                   </p>
                 </div>
               `;
