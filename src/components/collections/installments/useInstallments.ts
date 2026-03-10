@@ -331,10 +331,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
           valA = (a.contact?.name || '').toLowerCase();
           valB = (b.contact?.name || '').toLowerCase();
           break;
-        case 'seguradora':
-          valA = (a.policy?.insurer || '').toLowerCase();
-          valB = (b.policy?.insurer || '').toLowerCase();
-          break;
         case 'apolice':
           valA = (a.policy?.policy_number || '').toLowerCase();
           valB = (b.policy?.policy_number || '').toLowerCase();
