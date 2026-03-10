@@ -1019,11 +1019,11 @@ export const SeguradosTab: React.FC = () => {
       <AlertDialog open={showBulkDeleteSeguradosConfirm} onOpenChange={setShowBulkDeleteSeguradosConfirm}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Excluir Segurados em Lote</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-100">Excluir Tutores em Lote</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedSeguradoIds.length} segurado(s)</strong>? 
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedSeguradoIds.length} tutor(es)</strong>? 
               <br /><br />
-              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e conversas serão removidas junto com os segurados.
+              <span className="text-red-400">⚠️ Atenção:</span> Planos, parcelas e conversas serão removidas junto com os tutores.
               <br /><br />
               <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
             </AlertDialogDescription>
