@@ -43,7 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Sending invite email to: ${email}, role: ${role}, inviter: ${inviter_name}, authUrl: ${authUrl}`);
 
     const emailResponse = await resend.emails.send({
-      from: "Jacometo CRM <onboarding@resend.dev>",
+      from: "OrbePet CRM <onboarding@resend.dev>",
       to: [email],
       subject: `${inviter_name} convidou você para o Jacometo CRM`,
       html: `
