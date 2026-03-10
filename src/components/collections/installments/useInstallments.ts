@@ -158,7 +158,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
