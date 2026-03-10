@@ -193,7 +193,7 @@ export const InstallmentsList: React.FC = () => {
   // Reset to first page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
+  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
 
   // Pending mark as paid value
   const pendingMarkAsPaidValue = useMemo(() => {
