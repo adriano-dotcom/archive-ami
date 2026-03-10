@@ -467,7 +467,7 @@ ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
 </div>
 ` : '';
     
-    const systemPrompt = `Você é um copywriter especialista em emails B2B para uma corretora de seguros (Jacometo Seguros).
+    const systemPrompt = `Você é um copywriter especialista em emails B2B para a OrbePet (planos de saúde pet).
 
 ${verticalKnowledge}
 
