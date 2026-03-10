@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock,
+  ChevronUp, ChevronDown, ArrowUpDown, History, Copy, MessageCircle, Clock,
   AlertOctagon
 } from 'lucide-react';
 
@@ -37,7 +37,6 @@ import { SendCollectionTemplateModal } from './SendCollectionTemplateModal';
 import { CompanyDetailsDrawer, EditCompanyModal } from '@/components/segurados';
 import { 
   useInstallments, 
-  isCargoInsurance, 
   Installment, 
   SortColumn 
 } from './installments';
@@ -104,7 +103,6 @@ export const InstallmentsList: React.FC = () => {
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dataQualityFilter, setDataQualityFilter] = useState<string>('all');
   
-  const [cargoOnlyFilter, setCargoOnlyFilter] = useState<boolean>(false);
   const [emailSentFilter, setEmailSentFilter] = useState<string>('all');
   const [whatsappSentFilter, setWhatsappSentFilter] = useState<string>('all');
   const [importSessionFilter, setImportSessionFilter] = useState<string>('all');
@@ -165,7 +163,6 @@ export const InstallmentsList: React.FC = () => {
     selectedTotal,
     overdue30Count,
     incompleteCount,
-    atmRiskCount,
     uniqueContactsCount,
     markAsPaidMutation,
     deleteMutation,
@@ -176,8 +173,6 @@ export const InstallmentsList: React.FC = () => {
     statusFilter,
     rangeFilter,
     dataQualityFilter,
-    
-    cargoOnlyFilter,
     emailSentFilter,
     whatsappSentFilter,
     importSessionFilter,
@@ -193,7 +188,7 @@ export const InstallmentsList: React.FC = () => {
   // Reset to first page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
+  }, [debouncedSearch, statusFilter, rangeFilter, dataQualityFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter]);
 
   // Pending mark as paid value
   const pendingMarkAsPaidValue = useMemo(() => {
@@ -335,27 +330,6 @@ export const InstallmentsList: React.FC = () => {
     return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">Pendente</Badge>;
   };
 
-  const getAtmRiskBadge = (inst: Installment) => {
-    if (isCargoInsurance(inst.policy) && inst.days_overdue >= 15) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="bg-red-500/30 text-red-400 border-red-500/40 animate-pulse ml-1">
-                <Truck className="w-3 h-3 mr-1" />
-                ATM
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-sm">Seguro de carga com risco de suspensão do ATM</p>
-              <p className="text-xs text-slate-400">Atraso &gt; 15 dias pode bloquear averbações</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-    return null;
-  };
 
   const handleExport = () => {
     if (!sortedInstallments || sortedInstallments.length === 0) {
@@ -569,18 +543,6 @@ export const InstallmentsList: React.FC = () => {
             >
               <Download className="w-4 h-4" aria-hidden="true" />
               Exportar
-            </Button>
-
-            <Button 
-              variant={cargoOnlyFilter ? "default" : "outline"}
-              onClick={() => setCargoOnlyFilter(!cargoOnlyFilter)}
-              className={cargoOnlyFilter 
-                ? "bg-blue-600 hover:bg-blue-700 gap-2" 
-                : "border-blue-500/30 text-blue-400 hover:bg-blue-500/20 gap-2"
-              }
-            >
-              <Truck className="w-4 h-4" />
-              Só Carga {atmRiskCount > 0 && `(${atmRiskCount} ATM risco)`}
             </Button>
 
             <Button 
@@ -896,7 +858,6 @@ export const InstallmentsList: React.FC = () => {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         {getStatusBadge(inst.status, inst.days_overdue)}
-                        {getAtmRiskBadge(inst)}
                       </div>
                     </TableCell>
                     <TableCell className="text-center">

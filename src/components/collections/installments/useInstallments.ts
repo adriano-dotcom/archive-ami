@@ -3,20 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Ramos SUSEP de seguro de transporte/carga
-const CARGO_BRANCHES = ['309', '31', '32', '33', '0309', '031', '032', '033'];
-const CARGO_PRODUCTS = ['transportador', 'rctr', 'rctr-c', 'rc-dc', 'carga', 'transporte', 'embarcador'];
-
-export const isCargoInsurance = (policy: { branch?: string | null; product?: string | null; is_cargo_insurance?: boolean | null } | null): boolean => {
-  if (!policy) return false;
-  if (policy.is_cargo_insurance) return true;
-  if (policy.branch && CARGO_BRANCHES.includes(policy.branch)) return true;
-  if (policy.product) {
-    const productLower = policy.product.toLowerCase();
-    return CARGO_PRODUCTS.some(p => productLower.includes(p));
-  }
-  return false;
-};
 
 export interface Installment {
   id: string;
@@ -41,7 +27,6 @@ export interface Installment {
     insurer: string;
     branch: string | null;
     product: string | null;
-    is_cargo_insurance?: boolean | null;
     start_date: string | null;
     end_date: string | null;
     total_value: number | null;
@@ -79,7 +64,6 @@ interface UseInstallmentsOptions {
   rangeFilter: string;
   dataQualityFilter: string;
   
-  cargoOnlyFilter: boolean;
   emailSentFilter: string; // 'all' | 'sent' | 'not-sent'
   whatsappSentFilter: string; // 'all' | 'sent' | 'not-sent'
   importSessionFilter: string; // 'all' | session_id
@@ -87,7 +71,7 @@ interface UseInstallmentsOptions {
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -158,7 +142,7 @@ export function useInstallments(options: UseInstallmentsOptions) {
 
   // Fetch installments
   const { data: installments, isLoading, refetch } = useQuery({
-    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
+    queryKey: ['installments', search, statusFilter, rangeFilter, dataQualityFilter, emailSentFilter, whatsappSentFilter, importSessionFilter],
     queryFn: async () => {
       let query = supabase
         .from('installments')
@@ -213,11 +197,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
       if (error) throw error;
       
       let filteredData = data as Installment[];
-      
-      
-      if (cargoOnlyFilter) {
-        filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
-      }
       
       if (search) {
         const searchLower = search.toLowerCase();
@@ -388,11 +367,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
   }, [installments]);
 
-  const atmRiskCount = useMemo(() => {
-    return installments?.filter(inst => 
-      isCargoInsurance(inst.policy) && inst.days_overdue >= 15
-    ).length || 0;
-  }, [installments]);
 
   const uniqueContactsCount = useMemo(() => {
     if (!sortedInstallments || selectedIds.length === 0) return 0;
@@ -589,7 +563,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     selectedTotal,
     overdue30Count,
     incompleteCount,
-    atmRiskCount,
     uniqueContactsCount,
     
     // Mutations

@@ -1,41 +1,50 @@
 
 
-## Plano: Remover Lógica de Seguro de Carga (Cargo Insurance)
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-Remover toda a lógica de seguro de carga/ATM que é herança do CRM de seguros Jacometo. Não se aplica ao contexto OrbePet.
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-### Alterações
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-**1. `src/components/collections/installments/useInstallments.ts`**
-- Remover constantes `CARGO_BRANCHES`, `CARGO_PRODUCTS`
-- Remover export `isCargoInsurance`
-- Remover estado `cargoOnlyFilter` das options e do filtro
-- Remover `atmRiskCount` do memo
-- Remover `is_cargo_insurance` do tipo `Installment.policy`
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-**2. `src/components/collections/InstallmentsList.tsx`**
-- Remover import de `isCargoInsurance` e `Truck`
-- Remover estado `cargoOnlyFilter`
-- Remover função `getAtmRiskBadge`
-- Remover botão "Só Carga" e uso de `atmRiskCount`
-- Remover chamada `getAtmRiskBadge(inst)` na tabela
-- Remover `cargoOnlyFilter` do useEffect de reset de página
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-**3. `supabase/functions/nina-orchestrator/index.ts`**
-- Remover `CARGO_INSURANCE_KEYWORDS` e `hasExplicitCargoInterest()`
-- Remover lógica de `awaiting_qualification_email` (branch de qualificação de carga)
-- Remover uso de `cargo_focused_greeting` no greeting
-- Remover `shouldRunCargoQualification` e lógica associada
-- Manter `OUT_OF_SCOPE_INSURANCE_KEYWORDS` — pode ser útil para redirecionar leads que pedem seguros genéricos
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**4. `supabase/functions/process-atm-alerts/index.ts`**
-- Remover todo o conteúdo do arquivo ou simplificar para um no-op — a edge function de alertas ATM não faz sentido para OrbePet
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-**5. `src/components/settings/AgentsSettings.tsx`**
-- Remover campo `cargo_focused_greeting` do tipo de agent e do formulário de criação
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-### Escopo
-- 5 arquivos editados
-- Nenhuma migração SQL necessária (colunas no banco ficam intactas)
-- Edge functions `process-atm-alerts` será esvaziada mas não deletada
+### Tarefas de Implementação
+
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+
+### Detalhes Técnicos
+
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
+```
 
