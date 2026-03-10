@@ -245,7 +245,7 @@ export const SeguradosTab: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Segurado excluído com sucesso!');
+      toast.success('Tutor excluído com sucesso!');
       setDeletingSegurado(null);
       loadData();
     } catch (error) {
