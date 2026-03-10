@@ -214,11 +214,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
       
       let filteredData = data as Installment[];
       
-      if (insurerFilter !== 'all') {
-        filteredData = filteredData.filter(inst => 
-          inst.policy?.insurer?.toUpperCase() === insurerFilter.toUpperCase()
-        );
-      }
       
       if (cargoOnlyFilter) {
         filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
