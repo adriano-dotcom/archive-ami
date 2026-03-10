@@ -221,7 +221,7 @@ TOM: Profissional, direto mas cordial
 
 ESTRUTURA HTML OBRIGATÓRIA:
 1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
-2. Header com background #1e3a5f, texto branco "Jacometo Seguros"
+2. Header com background #1e3a5f, texto branco "OrbePet"
 3. Corpo com padding 32px
 4. Saudação + referência ao contato anterior
 5. TABELA DE PARCELAS ESTILIZADA:

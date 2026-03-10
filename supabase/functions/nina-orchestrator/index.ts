@@ -4212,15 +4212,11 @@ function buildEnhancedPrompt(
   }
 
   // ===== INFORMAÇÕES OFICIAIS DA EMPRESA =====
-  contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA (USE APENAS ESTES DADOS):
-- **Razão Social:** Jacometo Corretora de Seguros
-- **Endereço:** R. Sen. Souza Naves, 612 - Sala 51 - Centro - Londrina/PR
-- **CEP:** 86010-160
-- **Telefone:** (43) 3321-5007
-- **WhatsApp:** +55 43 9 9143-4002
-- **Site:** https://jacometoseguros.com.br
+  contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA:
+- **Empresa:** OrbePet
+- **Segmento:** Planos de saúde pet
 
-⚠️ NUNCA invente endereços, telefones ou informações da empresa. Use APENAS os dados acima.`;
+⚠️ NUNCA invente endereços, telefones ou informações da empresa.`;
 
   // ===== CONHECIMENTO ESPECIALIZADO EM SEGUROS =====
   contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE
