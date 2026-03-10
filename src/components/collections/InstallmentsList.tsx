@@ -173,8 +173,6 @@ export const InstallmentsList: React.FC = () => {
     statusFilter,
     rangeFilter,
     dataQualityFilter,
-    
-    cargoOnlyFilter,
     emailSentFilter,
     whatsappSentFilter,
     importSessionFilter,
