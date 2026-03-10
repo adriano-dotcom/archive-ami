@@ -1,41 +1,50 @@
 
 
-## Plano: Renomear Segurados para Tutores & Pets
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-Adaptar toda a terminologia da página de Segurados para o contexto OrbePet. O foco é renaming de labels — a estrutura de dados e lógica permanecem iguais.
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-### Alterações
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-**1. `src/components/Sidebar.tsx`**
-- Renomear label `Segurados` → `Tutores`
-- Trocar ícone `Users` → `PawPrint` (ou manter `Users` com label novo)
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-**2. `src/App.tsx`**
-- Renomear rota `/segurados` → `/tutores` (manter alias se necessário)
-- Atualizar referências de prefetch (apenas comentários/nomes)
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-**3. `src/components/segurados/SeguradosTab.tsx`**
-- Tabs: `Empresas (PJ)` → `Clínicas/Petshops` | `Pessoas (PF)` → `Tutores`
-- Botão `Novo Segurado PF` → `Novo Tutor`
-- Textos de confirmação: "segurado" → "tutor"
-- Remover coluna "Apólices" e referências a "apólices" nos dialogs de exclusão → usar "planos"
-- "Valor em Aberto" e "Atraso" continuam (são genéricos)
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**4. `src/components/segurados/SeguradosPFTable.tsx`**
-- Header `Segurado` → `Tutor`
-- Remover coluna `Seguradoras` (já vazia mas ainda renderizada)
-- Renomear `Apólices` → `Planos`
-- Empty state: "Nenhum segurado PF cadastrado" → "Nenhum tutor cadastrado"
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-**5. `src/components/segurados/CompaniesTable.tsx`**
-- Header `Empresa` → `Clínica/Petshop`
-- `Apólices` → `Planos`
-- Empty state: "Nenhuma empresa cadastrada" → "Nenhuma clínica/petshop cadastrada"
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-**6. `src/hooks/useSeguradosData.ts`**
-- Apenas renomear comentários. Types e nomes de funções permanecem para não quebrar imports.
+### Tarefas de Implementação
 
-### Escopo
-- Apenas renaming de UI labels — sem mudanças no banco, sem mudanças em lógica de negócio
-- 5 arquivos editados
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+
+### Detalhes Técnicos
+
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
+```
 

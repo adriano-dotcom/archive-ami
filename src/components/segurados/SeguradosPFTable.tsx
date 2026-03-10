@@ -158,9 +158,9 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <User className="w-12 h-12 text-slate-600 mb-4" />
-        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhum segurado PF cadastrado</h3>
+        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhum tutor cadastrado</h3>
         <p className="text-slate-500 text-sm">
-          Os segurados serão criados automaticamente ao importar arquivos de cobrança
+          Os tutores serão criados automaticamente ao importar arquivos
         </p>
       </div>
     );
@@ -209,7 +209,7 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                 onClick={() => handleSort('segurado')}
               >
                 <div className="flex items-center gap-1">
-                  Segurado
+                  Tutor
                   {getSortIcon('segurado')}
                 </div>
               </TableHead>
@@ -232,20 +232,11 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="text-slate-400 cursor-pointer hover:text-slate-200 select-none"
-                onClick={() => handleSort('seguradoras')}
-              >
-                <div className="flex items-center gap-1">
-                  Seguradoras
-                  {getSortIcon('seguradoras')}
-                </div>
-              </TableHead>
-              <TableHead 
                 className="text-slate-400 text-center cursor-pointer hover:text-slate-200 select-none"
                 onClick={() => handleSort('apolices')}
               >
                 <div className="flex items-center justify-center gap-1">
-                  Apólices
+                  Planos
                   {getSortIcon('apolices')}
                 </div>
               </TableHead>
@@ -331,20 +322,6 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                         <Mail className="w-3 h-3" />
                         {segurado.email}
                       </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {segurado.insurers.slice(0, 2).map((insurer, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs border-white/10 text-slate-300">
-                        {insurer}
-                      </Badge>
-                    ))}
-                    {segurado.insurers.length > 2 && (
-                      <Badge variant="outline" className="text-xs border-white/10 text-slate-500">
-                        +{segurado.insurers.length - 2}
-                      </Badge>
                     )}
                   </div>
                 </TableCell>

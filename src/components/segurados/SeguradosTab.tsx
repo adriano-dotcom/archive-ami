@@ -172,7 +172,7 @@ export const SeguradosTab: React.FC = () => {
   };
 
   const handleSelectSegurado = (segurado: SeguradoPF) => {
-    toast.info(`Detalhes do segurado: ${segurado.name}`);
+    toast.info(`Detalhes do tutor: ${segurado.name}`);
   };
 
   const handleDeleteCompany = async () => {
@@ -198,7 +198,7 @@ export const SeguradosTab: React.FC = () => {
         .eq('company_id', deletingCompany.id);
 
       if (policiesCount && policiesCount > 0) {
-        toast.error(`Esta empresa possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        toast.error(`Esta clínica/petshop possui ${policiesCount} planos vinculados. Remova-os antes de excluir.`);
         return;
       }
 
@@ -233,7 +233,7 @@ export const SeguradosTab: React.FC = () => {
         .eq('contact_id', deletingSegurado.id);
 
       if (policiesCount && policiesCount > 0) {
-        toast.error(`Este segurado possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        toast.error(`Este tutor possui ${policiesCount} planos vinculados. Remova-os antes de excluir.`);
         return;
       }
 
@@ -245,12 +245,12 @@ export const SeguradosTab: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Segurado excluído com sucesso!');
+      toast.success('Tutor excluído com sucesso!');
       setDeletingSegurado(null);
       loadData();
     } catch (error) {
       console.error('Error deleting segurado:', error);
-      toast.error('Erro ao excluir segurado');
+      toast.error('Erro ao excluir tutor');
     } finally {
       setDeleteLoading(false);
     }
@@ -393,10 +393,10 @@ export const SeguradosTab: React.FC = () => {
       }
 
       if (deletedCount > 0) {
-        toast.success(`${deletedCount} segurado(s) excluído(s) com sucesso!`);
+        toast.success(`${deletedCount} tutor(es) excluído(s) com sucesso!`);
       }
       if (errorCount > 0) {
-        toast.error(`${errorCount} segurado(s) não puderam ser excluídos`);
+        toast.error(`${errorCount} tutor(es) não puderam ser excluídos`);
       }
 
       setSelectedSeguradoIds([]);
@@ -404,7 +404,7 @@ export const SeguradosTab: React.FC = () => {
       loadData();
     } catch (error) {
       console.error('Error in bulk delete segurados:', error);
-      toast.error('Erro ao excluir segurados');
+      toast.error('Erro ao excluir tutores');
     } finally {
       setBulkDeleteSeguradosLoading(false);
     }
@@ -558,7 +558,7 @@ export const SeguradosTab: React.FC = () => {
             className="bg-emerald-600 hover:bg-emerald-700 gap-2"
           >
             <Plus className="w-4 h-4" />
-            Novo Segurado PF
+            Novo Tutor
           </Button>
         )}
       </div>
@@ -725,7 +725,7 @@ export const SeguradosTab: React.FC = () => {
             className="gap-2 text-slate-300 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
           >
             <Building2 className="w-4 h-4" />
-            Empresas (PJ)
+            Clínicas/Petshops
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredCompanies.length}
             </span>
@@ -735,7 +735,7 @@ export const SeguradosTab: React.FC = () => {
             className="gap-2 text-slate-300 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400"
           >
             <User className="w-4 h-4" />
-            Pessoas (PF)
+            Tutores
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredSeguradosPF.length}
             </span>
@@ -966,9 +966,9 @@ export const SeguradosTab: React.FC = () => {
       <AlertDialog open={!!deletingSegurado} onOpenChange={() => setDeletingSegurado(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Excluir Segurado</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-100">Excluir Tutor</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Tem certeza que deseja excluir o segurado <strong className="text-slate-200">{deletingSegurado?.name}</strong>? 
+              Tem certeza que deseja excluir o tutor <strong className="text-slate-200">{deletingSegurado?.name}</strong>?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -995,7 +995,7 @@ export const SeguradosTab: React.FC = () => {
             <AlertDialogDescription className="text-slate-400">
               Tem certeza que deseja excluir <strong className="text-slate-200">{selectedCompanyIds.length} empresa(s)</strong>? 
               <br /><br />
-              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e vínculos com contatos serão removidos junto com as empresas.
+              <span className="text-red-400">⚠️ Atenção:</span> Planos, parcelas e vínculos com contatos serão removidos junto com as clínicas/petshops.
               <br /><br />
               <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
             </AlertDialogDescription>
@@ -1019,11 +1019,11 @@ export const SeguradosTab: React.FC = () => {
       <AlertDialog open={showBulkDeleteSeguradosConfirm} onOpenChange={setShowBulkDeleteSeguradosConfirm}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Excluir Segurados em Lote</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-100">Excluir Tutores em Lote</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedSeguradoIds.length} segurado(s)</strong>? 
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedSeguradoIds.length} tutor(es)</strong>? 
               <br /><br />
-              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e conversas serão removidas junto com os segurados.
+              <span className="text-red-400">⚠️ Atenção:</span> Planos, parcelas e conversas serão removidas junto com os tutores.
               <br /><br />
               <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
             </AlertDialogDescription>
@@ -1037,7 +1037,7 @@ export const SeguradosTab: React.FC = () => {
               disabled={bulkDeleteSeguradosLoading}
               className="bg-red-600 hover:bg-red-700"
             >
-              {bulkDeleteSeguradosLoading ? 'Excluindo...' : `Excluir ${selectedSeguradoIds.length} segurado(s)`}
+              {bulkDeleteSeguradosLoading ? 'Excluindo...' : `Excluir ${selectedSeguradoIds.length} tutor(es)`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
