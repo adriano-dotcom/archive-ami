@@ -582,7 +582,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     selectedTotal,
     overdue30Count,
     incompleteCount,
-    atmRiskCount,
     uniqueContactsCount,
     
     // Mutations

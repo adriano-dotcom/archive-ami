@@ -879,7 +879,6 @@ export const InstallmentsList: React.FC = () => {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         {getStatusBadge(inst.status, inst.days_overdue)}
-                        {getAtmRiskBadge(inst)}
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
