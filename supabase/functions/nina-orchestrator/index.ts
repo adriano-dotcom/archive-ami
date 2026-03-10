@@ -20,7 +20,6 @@ interface Agent {
   detection_keywords: string[];
   greeting_message: string | null;
   handoff_message: string | null;
-  cargo_focused_greeting: string | null;
   qualification_questions: Array<{ order: number; question: string }>;
   audio_response_enabled?: boolean;
   elevenlabs_voice_id?: string | null;
