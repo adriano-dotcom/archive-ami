@@ -209,7 +209,7 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                 onClick={() => handleSort('segurado')}
               >
                 <div className="flex items-center gap-1">
-                  Segurado
+                  Tutor
                   {getSortIcon('segurado')}
                 </div>
               </TableHead>
