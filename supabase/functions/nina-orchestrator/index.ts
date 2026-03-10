@@ -351,12 +351,6 @@ function detectOutOfScopeInsurance(messageContent: string, currentAgentSlug: str
   
   const content = messageContent.toLowerCase().trim();
   
-  // First check if it's explicitly about transport/cargo insurance - those are IN scope
-  if (hasExplicitCargoInterest(content)) {
-    console.log('[Nina][OutOfScope] ✅ Interesse explícito em CARGA - NÃO é out of scope');
-    return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
-  }
-  
   console.log('[Nina][OutOfScope] Verificando', Object.keys(OUT_OF_SCOPE_INSURANCE_KEYWORDS).length, 'tipos de seguro...');
   
   for (const [type, keywords] of Object.entries(OUT_OF_SCOPE_INSURANCE_KEYWORDS)) {
