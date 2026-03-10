@@ -405,17 +405,6 @@ export const InstallmentsList: React.FC = () => {
               />
             </div>
 
-            <Select value={insurerFilter} onValueChange={setInsurerFilter}>
-              <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
-                <SelectValue placeholder="Seguradora" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas Seguradoras</SelectItem>
-                {KNOWN_INSURERS.filter(i => i !== 'NÃO IDENTIFICADA').map(insurer => (
-                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px] bg-slate-800/50 border-white/10">
