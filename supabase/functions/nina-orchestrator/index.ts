@@ -1568,9 +1568,6 @@ function sanitizeTextForAudio(text: string): string {
   // Remove protocol (https://, http://)
   sanitized = sanitized.replace(/https?:\/\//g, '');
   
-  // Simplify jacometoseguros.com.br paths to just the domain
-  sanitized = sanitized.replace(/jacometoseguros\.com\.br\/[\w-]+/g, 'jacometoseguros.com.br');
-  
   return sanitized;
 }
 
