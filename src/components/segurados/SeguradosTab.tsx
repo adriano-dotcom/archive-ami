@@ -471,9 +471,9 @@ export const SeguradosTab: React.FC = () => {
         (overdueRangePF === '31-60' && s.max_days_overdue >= 31 && s.max_days_overdue <= 60) ||
         (overdueRangePF === '60+' && s.max_days_overdue > 60);
       
-      return matchesSearch && matchesInsurer && matchesState && matchesOverdueStatus && matchesOverdueRange;
+      return matchesSearch && matchesState && matchesOverdueStatus && matchesOverdueRange;
     });
-  }, [seguradosPF, searchTerm, insurerFilterPF, stateFilterPF, overdueStatusPF, overdueRangePF]);
+  }, [seguradosPF, searchTerm, stateFilterPF, overdueStatusPF, overdueRangePF]);
 
   return (
     <div className="space-y-4">
