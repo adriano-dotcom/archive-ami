@@ -203,7 +203,7 @@ serve(async (req) => {
     
     <div class="footer">
       <p>Este é um email de teste do sistema de qualificação automática.</p>
-      <p>Jacometo Seguros - SDR Adri</p>
+      <p>OrbePet CRM</p>
     </div>
   </div>
 </body>

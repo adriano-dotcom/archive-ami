@@ -94,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
             <!-- Footer -->
             <div style="padding: 24px 32px; border-top: 1px solid #334155; text-align: center;">
               <p style="color: #475569; font-size: 12px; margin: 0;">
-                © ${new Date().getFullYear()} Jacometo Corretora de Seguros
+                © ${new Date().getFullYear()} OrbePet
               </p>
             </div>
           </div>
