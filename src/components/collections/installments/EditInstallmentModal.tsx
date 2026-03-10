@@ -320,22 +320,6 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
       
       if (installmentError) throw installmentError;
       
-      // Update policy insurer if changed
-      if (installment.policy?.id && insurer && insurer !== installment.policy.insurer) {
-        const updateData: { insurer: string; contact_id?: string | null } = { insurer };
-        
-        // Also update policy contact_id if we have a contact
-        if (contactId && !installment.policy?.company?.id) {
-          updateData.contact_id = contactId;
-        }
-        
-        const { error: policyError } = await supabase
-          .from('policies')
-          .update(updateData)
-          .eq('id', installment.policy.id);
-        
-        if (policyError) throw policyError;
-      }
       
       toast.success('Parcela atualizada com sucesso!');
       onSuccess();
