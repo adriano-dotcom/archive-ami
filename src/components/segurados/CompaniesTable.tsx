@@ -252,7 +252,7 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                 onClick={() => handleSort('apolices')}
               >
                 <div className="flex items-center justify-center gap-1">
-                  Apólices
+                  Planos
                   <SortIcon field="apolices" />
                 </div>
               </TableHead>
