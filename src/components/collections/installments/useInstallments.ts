@@ -87,7 +87,7 @@ interface UseInstallmentsOptions {
 }
 
 export function useInstallments(options: UseInstallmentsOptions) {
-  const { search, statusFilter, rangeFilter, dataQualityFilter, insurerFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
+  const { search, statusFilter, rangeFilter, dataQualityFilter, cargoOnlyFilter, emailSentFilter, whatsappSentFilter, importSessionFilter, collectedThisWeekFilter } = options;
   const queryClient = useQueryClient();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
