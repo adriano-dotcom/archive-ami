@@ -250,7 +250,7 @@ export const SeguradosTab: React.FC = () => {
       loadData();
     } catch (error) {
       console.error('Error deleting segurado:', error);
-      toast.error('Erro ao excluir segurado');
+      toast.error('Erro ao excluir tutor');
     } finally {
       setDeleteLoading(false);
     }
