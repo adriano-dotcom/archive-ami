@@ -194,7 +194,7 @@ TOM: Amigável, acolhedor, oferecendo ajuda
 
 ESTRUTURA HTML OBRIGATÓRIA:
 1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
-2. Header com background #1e3a5f, padding 24px, texto branco "Jacometo Seguros"
+2. Header com background #1e3a5f, padding 24px, texto branco "OrbePet"
 3. Corpo com padding 32px, background branco
 4. Saudação personalizada: "{{saudacao}} {{nome}}," em negrito
 5. Referência à empresa: "Referente à empresa {{empresa}}" + CNPJ se disponível
