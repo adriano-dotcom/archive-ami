@@ -58,7 +58,7 @@ export const SeguradosTab: React.FC = () => {
   const [overdueRangePJ, setOverdueRangePJ] = useState<string>('all');
   
   // Filters for Segurados (PF)
-  const [insurerFilterPF, setInsurerFilterPF] = useState<string>('all');
+  
   const [stateFilterPF, setStateFilterPF] = useState<string>('all');
   const [overdueStatusPF, setOverdueStatusPF] = useState<string>('all');
   const [overdueRangePF, setOverdueRangePF] = useState<string>('all');
