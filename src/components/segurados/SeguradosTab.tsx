@@ -233,7 +233,7 @@ export const SeguradosTab: React.FC = () => {
         .eq('contact_id', deletingSegurado.id);
 
       if (policiesCount && policiesCount > 0) {
-        toast.error(`Este segurado possui ${policiesCount} apólices vinculadas. Remova-as antes de excluir.`);
+        toast.error(`Este tutor possui ${policiesCount} planos vinculados. Remova-os antes de excluir.`);
         return;
       }
 
