@@ -3559,21 +3559,9 @@ Agradeço pela compreensão! 🙏`;
 
   // If first interaction and agent has greeting_message, use it instead of AI
   if (isFirstInteraction && agent?.greeting_message) {
-    // Check if lead already mentioned cargo insurance (from campaigns)
-    const firstUserMessage = userMessages[0]?.content || '';
-    const hasCargoInterest = agent.slug === 'iris' && hasExplicitCargoInterest(firstUserMessage);
-    
-    let greetingContent: string;
-    
-    if (hasCargoInterest && agent.cargo_focused_greeting) {
-      // Lead from cargo campaign - use focused greeting that starts with cargo type question
-      console.log(`[Nina] 🚛 Lead from cargo campaign detected - using cargo_focused_greeting for ${agent.name}`);
-      greetingContent = processPromptTemplate(agent.cargo_focused_greeting, conversation.contact);
-    } else {
-      // Normal greeting
-      console.log(`[Nina] First interaction - using greeting_message for ${agent.name}`);
-      greetingContent = processPromptTemplate(agent.greeting_message, conversation.contact);
-    }
+    // Normal greeting
+    console.log(`[Nina] First interaction - using greeting_message for ${agent.name}`);
+    const greetingContent = processPromptTemplate(agent.greeting_message, conversation.contact);
     
     // Calculate delay
     const delayMin = settings?.response_delay_min || 1000;

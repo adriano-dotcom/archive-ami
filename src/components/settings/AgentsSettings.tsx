@@ -437,7 +437,7 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
       id: '', name: '', slug: '', specialty: '', description: '',
       system_prompt: '', is_default: false, is_active: true,
       detection_keywords: [], greeting_message: '', handoff_message: '',
-      cargo_focused_greeting: '', qualification_questions: [],
+      qualification_questions: [],
       audio_response_enabled: false,
       elevenlabs_voice_id: 'FGY2WhTYpPnrIDTdsKH5',
       elevenlabs_model: 'eleven_turbo_v2_5',
