@@ -108,7 +108,7 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
   
   // Installment data
   const [status, setStatus] = useState('pending');
-  const [insurer, setInsurer] = useState('');
+  
   const [notes, setNotes] = useState('');
   
   // Contact search
