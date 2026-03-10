@@ -1,4 +1,4 @@
-export { useInstallments, isCargoInsurance } from './useInstallments';
+export { useInstallments } from './useInstallments';
 export type { Installment, InstallmentHistory, SortColumn, SortDirection } from './useInstallments';
 export { InstallmentHistoryDrawer } from './InstallmentHistoryDrawer';
 export { MarkAsPaidDialog } from './MarkAsPaidDialog';
