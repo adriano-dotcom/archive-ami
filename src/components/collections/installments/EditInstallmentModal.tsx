@@ -131,7 +131,7 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
   useEffect(() => {
     if (installment && open) {
       setStatus(installment.status);
-      setInsurer(installment.policy?.insurer || '');
+      
       setNotes('');
       setContactSearch('');
       setSearchResults([]);
