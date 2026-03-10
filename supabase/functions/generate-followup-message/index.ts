@@ -55,7 +55,7 @@ Envie uma mensagem de encerramento amigável que:
 - Não seja agressiva ou culpabilizadora
 - Deixe claro que você está disponível
 - Ofereça uma alternativa (ligação, outro momento)
-- SEMPRE termine a mensagem com: "Acesse nosso site: https://jacometoseguros.com.br/"`,
+- SEMPRE termine a mensagem com: "Estamos à disposição!"`,
 
   schedule_call: `O cliente não respondeu à primeira mensagem.
 Sua missão é perguntar qual o melhor horário para uma conversa.

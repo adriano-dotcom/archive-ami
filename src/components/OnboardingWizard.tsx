@@ -326,7 +326,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
       const { data, error } = await supabase.functions.invoke('test-whatsapp-message', {
         body: {
           phone_number: testPhoneNumber,
-          message: '🧪 Teste de conexão do WhatsApp - Sistema CRM Jacometo'
+          message: '🧪 Teste de conexão do WhatsApp - OrbePet CRM'
         }
       });
 

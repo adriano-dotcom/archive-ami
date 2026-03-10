@@ -43,9 +43,9 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Sending invite email to: ${email}, role: ${role}, inviter: ${inviter_name}, authUrl: ${authUrl}`);
 
     const emailResponse = await resend.emails.send({
-      from: "Jacometo CRM <onboarding@resend.dev>",
+      from: "OrbePet CRM <onboarding@resend.dev>",
       to: [email],
-      subject: `${inviter_name} convidou você para o Jacometo CRM`,
+      subject: `${inviter_name} convidou você para o OrbePet CRM`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -58,8 +58,8 @@ const handler = async (req: Request): Promise<Response> => {
             
             <!-- Header -->
             <div style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #334155;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Jacometo CRM</h1>
-              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 14px;">SDR Inteligente</p>
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">OrbePet CRM</h1>
+              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 14px;">Planos de Saúde Pet</p>
             </div>
             
             <!-- Content -->
@@ -69,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
               </p>
               
               <p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-                ${inviter_name} convidou você para fazer parte da equipe no Jacometo CRM como <strong style="color: #22d3ee;">${roleDisplay}</strong>.
+                ${inviter_name} convidou você para fazer parte da equipe no OrbePet CRM como <strong style="color: #22d3ee;">${roleDisplay}</strong>.
               </p>
               
               <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
@@ -94,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
             <!-- Footer -->
             <div style="padding: 24px 32px; border-top: 1px solid #334155; text-align: center;">
               <p style="color: #475569; font-size: 12px; margin: 0;">
-                © ${new Date().getFullYear()} Jacometo Corretora de Seguros
+                © ${new Date().getFullYear()} OrbePet
               </p>
             </div>
           </div>

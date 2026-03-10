@@ -268,67 +268,9 @@ async function fetchContactInstallments(supabase: any, contactId: string): Promi
 }
 
 
-// ===== OUT OF SCOPE INSURANCE DETECTION (for Sofia agent) =====
-// Insurance types that are NOT handled by transport specialists (Adri, Clara, Leo)
-// These will be handled by Sofia (generic insurance agent)
-const OUT_OF_SCOPE_INSURANCE_KEYWORDS: Record<string, string[]> = {
-  // Tipos existentes
-  'auto': ['seguro auto', 'seguro carro', 'seguro do carro', 'seguro do meu carro', 'seguro veículo particular', 'seguro veiculo particular', 'seguro meu veículo', 'seguro meu veiculo'],
-  'residencial': ['seguro residencial', 'seguro residencia', 'seguro da casa', 'seguro casa', 'seguro do apartamento', 'seguro apartamento', 'seguro apto', 'seguro imóvel', 'seguro imovel'],
-  'vida': ['seguro de vida', 'seguro vida', 'seguro morte', 'seguro pessoal'],
-  'viagem': ['seguro viagem', 'seguro de viagem', 'assistência viagem', 'assistencia viagem'],
-  'pet': ['seguro pet', 'seguro do cachorro', 'seguro do gato', 'seguro animal'],
-  'celular': ['seguro celular', 'seguro do celular', 'seguro smartphone', 'seguro do iphone', 'seguro do telefone'],
-  'bike': ['seguro bike', 'seguro bicicleta', 'seguro da bike'],
-  'fianca': ['seguro fiança', 'seguro fianca', 'seguro aluguel', 'seguro locatício', 'seguro locaticio'],
-  'empresarial': ['seguro empresa', 'seguro empresarial', 'seguro comercial', 'seguro patrimônio', 'seguro patrimonio', 'seguro do negócio', 'seguro do negocio'],
-  'frota_geral': ['seguro frota', 'frota de veículos', 'frota de veiculos', 'vários veículos', 'varios veiculos', 'seguro moto', 'seguro motocicleta'],
-  
-  // Novos tipos adicionados
-  'garantia': ['seguro garantia', 'garantia contratual', 'garantia de obra', 'seguro performance', 'garantia licitação', 'garantia licitacao', 'garantia judicial', 'seguro garantia contratual'],
-  'rc': ['responsabilidade civil', 'seguro rc', 'rc profissional', 'rc geral', 'danos a terceiros', 'seguro responsabilidade', 'rc médica', 'rc medica', 'rc advogado', 'rc engenheiro'],
-  'deo': ['seguro d&o', 'd&o', 'directors and officers', 'seguro diretores', 'seguro executivos', 'responsabilidade de gestores', 'd and o'],
-  'equipamentos': ['seguro equipamentos', 'seguro máquinas', 'seguro maquinas', 'seguro eletrônicos', 'seguro eletronicos', 'seguro notebook', 'seguro computador', 'seguro maquinário', 'seguro maquinario'],
-  'condominio': ['seguro condomínio', 'seguro condominio', 'seguro prédio', 'seguro predio', 'seguro do condomínio', 'seguro do condominio', 'seguro predial'],
-  'rural': ['seguro rural', 'seguro agrícola', 'seguro agricola', 'seguro safra', 'seguro fazenda', 'seguro gado', 'seguro pecuário', 'seguro pecuario', 'seguro plantação', 'seguro plantacao', 'seguro colheita'],
-  'nautico': ['seguro barco', 'seguro lancha', 'seguro jet ski', 'seguro jetski', 'seguro embarcação', 'seguro embarcacao', 'seguro iate', 'seguro marítimo', 'seguro maritimo', 'seguro náutico', 'seguro nautico'],
-  'aeronautico': ['seguro avião', 'seguro aviao', 'seguro helicóptero', 'seguro helicoptero', 'seguro aeronave', 'seguro drone', 'seguro aeronáutico', 'seguro aeronautico', 'seguro asa delta', 'seguro parapente'],
-  // 'saude' e 'odonto' REMOVIDOS - Clara (agente especialista) atende esses tipos
-  // 'saude': [...] - Atendido por Clara
-  // 'odonto': [...] - Atendido por Clara
-  'previdencia': ['previdência privada', 'previdencia privada', 'pgbl', 'vgbl', 'aposentadoria privada', 'plano de aposentadoria', 'fundo de previdência', 'fundo de previdencia', 'plano previdenciário', 'plano previdenciario'],
-  'consorcio': ['consórcio', 'consorcio', 'consórcio imóvel', 'consorcio imovel', 'consórcio carro', 'consorcio carro', 'consórcio auto', 'consorcio auto', 'carta de crédito', 'carta de credito'],
-  'cyber': ['seguro cyber', 'seguro digital', 'proteção de dados', 'protecao de dados', 'seguro vazamento', 'seguro cibernético', 'seguro cibernetico', 'seguro ataque hacker', 'seguro ransomware', 'lgpd'],
-};
-
-// Map type to friendly name in Portuguese
-const INSURANCE_TYPE_NAMES: Record<string, string> = {
-  // Tipos existentes
-  'auto': 'Seguro Auto',
-  'residencial': 'Seguro Residencial',
-  'vida': 'Seguro de Vida',
-  'viagem': 'Seguro Viagem',
-  'pet': 'Seguro Pet',
-  'celular': 'Seguro Celular',
-  'bike': 'Seguro Bike',
-  'fianca': 'Seguro Fiança',
-  'empresarial': 'Seguro Empresarial',
-  'frota_geral': 'Seguro de Frota',
-  
-  // Novos tipos adicionados
-  'garantia': 'Seguro Garantia',
-  'rc': 'Responsabilidade Civil',
-  'deo': 'Seguro D&O',
-  'equipamentos': 'Seguro de Equipamentos',
-  'condominio': 'Seguro Condomínio',
-  'rural': 'Seguro Rural/Agrícola',
-  'nautico': 'Seguro Náutico',
-  'aeronautico': 'Seguro Aeronáutico',
-  // 'saude' e 'odonto' removidos - Clara atende esses tipos
-  'previdencia': 'Previdência Privada',
-  'consorcio': 'Consórcio',
-  'cyber': 'Seguro Cyber',
-};
+// ===== OUT OF SCOPE DETECTION =====
+// Removed — no longer applicable in OrbePet context.
+// The detectOutOfScopeInsurance function returns a no-op result.
 
 interface OutOfScopeResult {
   isOutOfScope: boolean;
@@ -337,41 +279,7 @@ interface OutOfScopeResult {
   detectedKeyword: string | null;
 }
 
-function detectOutOfScopeInsurance(messageContent: string, currentAgentSlug: string | null): OutOfScopeResult {
-  console.log('[Nina][OutOfScope] ========== VERIFICANDO OUT OF SCOPE ==========');
-  console.log('[Nina][OutOfScope] Mensagem:', messageContent.substring(0, 80) + (messageContent.length > 80 ? '...' : ''));
-  console.log('[Nina][OutOfScope] Agente atual slug:', currentAgentSlug || 'nenhum');
-  
-  // Only detect out of scope if NOT already using Sofia or if using transport-specific agents
-  if (currentAgentSlug === 'sofia') {
-    console.log('[Nina][OutOfScope] ⏭️ Já está com Sofia - pulando verificação');
-    return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
-  }
-  
-  const content = messageContent.toLowerCase().trim();
-  
-  console.log('[Nina][OutOfScope] Verificando', Object.keys(OUT_OF_SCOPE_INSURANCE_KEYWORDS).length, 'tipos de seguro...');
-  
-  for (const [type, keywords] of Object.entries(OUT_OF_SCOPE_INSURANCE_KEYWORDS)) {
-    for (const keyword of keywords) {
-      if (content.includes(keyword)) {
-        console.log('[Nina][OutOfScope] ⚠️ OUT OF SCOPE DETECTADO!');
-        console.log('[Nina][OutOfScope] Tipo:', type);
-        console.log('[Nina][OutOfScope] Keyword encontrada:', `"${keyword}"`);
-        console.log('[Nina][OutOfScope] Nome amigável:', INSURANCE_TYPE_NAMES[type] || type);
-        console.log('[Nina][OutOfScope] ========== FIM OUT OF SCOPE ==========');
-        return { 
-          isOutOfScope: true, 
-          insuranceType: type, 
-          friendlyName: INSURANCE_TYPE_NAMES[type] || type,
-          detectedKeyword: keyword 
-        };
-      }
-    }
-  }
-  
-  console.log('[Nina][OutOfScope] ✅ Mensagem está IN SCOPE (não é seguro fora do escopo)');
-  console.log('[Nina][OutOfScope] ========== FIM OUT OF SCOPE ==========');
+function detectOutOfScopeInsurance(_messageContent: string, _currentAgentSlug: string | null): OutOfScopeResult {
   return { isOutOfScope: false, insuranceType: null, friendlyName: null, detectedKeyword: null };
 }
 
@@ -1493,15 +1401,13 @@ function getDefaultRenewalEmail(
         <p>Estamos entrando em contato porque você mencionou que seu seguro de cargas vence em <strong>${formattedDate}</strong>.</p>
         <p>Gostaríamos de apresentar uma cotação competitiva para a renovação. Trabalhamos com as melhores seguradoras do mercado e podemos oferecer condições diferenciadas.</p>
         <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0;"><strong>📞 WhatsApp:</strong> (43) 9143-4002</p>
-          <p style="margin: 10px 0 0;"><strong>🌐 Site:</strong> jacometoseguros.com.br</p>
+          <p style="margin: 0;"><strong>📞</strong> Entre em contato conosco</p>
         </div>
         <p>Responda este email ou envie uma mensagem no WhatsApp - fazemos uma proposta sem compromisso!</p>
         <p style="margin-top: 30px;">
           Atenciosamente,<br>
-          <strong>João Pedro</strong><br>
-          WhatsApp: <a href="https://wa.me/5543991562099" style="color:#25d366;">+55 43 99156-2099</a><br><br>
-          <span style="color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</span><br>
+          <strong>Equipe OrbePet</strong><br><br>
+          <span style="color:#6b7280;">OrbePet - Equipe de Cobrança</span><br>
           <span style="font-size:12px;color:#9ca3af;">À disposição para esclarecimento</span>
         </p>
       </div>
@@ -1659,9 +1565,6 @@ function sanitizeTextForAudio(text: string): string {
   
   // Remove protocol (https://, http://)
   sanitized = sanitized.replace(/https?:\/\//g, '');
-  
-  // Simplify jacometoseguros.com.br paths to just the domain
-  sanitized = sanitized.replace(/jacometoseguros\.com\.br\/[\w-]+/g, 'jacometoseguros.com.br');
   
   return sanitized;
 }
@@ -2665,7 +2568,7 @@ async function processQueueItem(
           .eq('id', conversation.id);
         
         // Generate Sofia's greeting based on insurance type
-        let sofiaGreeting = `Olá! Sou a Sofia, especialista em ${outOfScopeCheck.friendlyName} da Jacometo. `;
+        let sofiaGreeting = `Olá! Sou especialista em ${outOfScopeCheck.friendlyName}. `;
         
         // Add first qualification question based on type
         switch (outOfScopeCheck.insuranceType) {
@@ -4307,15 +4210,11 @@ function buildEnhancedPrompt(
   }
 
   // ===== INFORMAÇÕES OFICIAIS DA EMPRESA =====
-  contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA (USE APENAS ESTES DADOS):
-- **Razão Social:** Jacometo Corretora de Seguros
-- **Endereço:** R. Sen. Souza Naves, 612 - Sala 51 - Centro - Londrina/PR
-- **CEP:** 86010-160
-- **Telefone:** (43) 3321-5007
-- **WhatsApp:** +55 43 9 9143-4002
-- **Site:** https://jacometoseguros.com.br
+  contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA:
+- **Empresa:** OrbePet
+- **Segmento:** Planos de saúde pet
 
-⚠️ NUNCA invente endereços, telefones ou informações da empresa. Use APENAS os dados acima.`;
+⚠️ NUNCA invente endereços, telefones ou informações da empresa.`;
 
   // ===== CONHECIMENTO ESPECIALIZADO EM SEGUROS =====
   contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE

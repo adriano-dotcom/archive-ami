@@ -929,11 +929,7 @@ async function processWindowExpiringAutomation(
       
       let messageContent = replaceVariables(rawMessage, conv);
       
-      // Adicionar link do site no final da mensagem (consistência com last_chance)
-      const siteLink = 'Acesse nosso site: https://jacometoseguros.com.br/';
-      if (!messageContent.includes('jacometoseguros.com.br')) {
-        messageContent = `${messageContent}\n\n${siteLink}`;
-      }
+      // (Site link removed — no longer applicable)
       
       console.log(`[process-followups] Sending window expiring message to ${conv.id}: "${messageContent.substring(0, 50)}..."`);
 

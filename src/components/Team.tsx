@@ -107,7 +107,7 @@ const Team: React.FC = () => {
 
       // 3. Enviar email de convite
       const { data: userData } = await supabase.auth.getUser();
-      const inviterName = userData.user?.email?.split('@')[0] || 'Equipe Jacometo';
+      const inviterName = userData.user?.email?.split('@')[0] || 'Equipe OrbePet';
       
       const { error: emailError } = await supabase.functions.invoke('send-invite-email', {
         body: {

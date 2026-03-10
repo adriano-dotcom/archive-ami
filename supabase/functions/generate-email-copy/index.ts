@@ -177,7 +177,7 @@ ESTRUTURA HTML OBRIGATÓRIA:
 6. Box de DESTAQUE para valor total (fundo azul claro #dbeafe, borda azul #3b82f6)
 7. Texto sobre regularização
 8. Botão CTA estilizado (fundo #1e3a5f, texto branco, border-radius: 8px)
-9. Footer com assinatura: Jacometo Seguros - Equipe de Cobrança
+9. Footer com assinatura: OrbePet - Equipe de Cobrança
 
 VARIÁVEIS DISPONÍVEIS:
 - {{nome}}, {{empresa}}, {{cnpj}}, {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}
@@ -185,7 +185,7 @@ VARIÁVEIS DISPONÍVEIS:
 IMPORTANTE:
 - Seja cordial mas firme
 - Foco em regularização e manutenção do relacionamento
-- Mencione que a Jacometo está à disposição para ajudar
+- Mencione que a OrbePet está à disposição para ajudar
 `,
   'cobranca-leve': `
 OBJETIVO: Primeiro contato amigável sobre parcelas em atraso
@@ -194,7 +194,7 @@ TOM: Amigável, acolhedor, oferecendo ajuda
 
 ESTRUTURA HTML OBRIGATÓRIA:
 1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
-2. Header com background #1e3a5f, padding 24px, texto branco "Jacometo Seguros"
+2. Header com background #1e3a5f, padding 24px, texto branco "OrbePet"
 3. Corpo com padding 32px, background branco
 4. Saudação personalizada: "{{saudacao}} {{nome}}," em negrito
 5. Referência à empresa: "Referente à empresa {{empresa}}" + CNPJ se disponível
@@ -221,7 +221,7 @@ TOM: Profissional, direto mas cordial
 
 ESTRUTURA HTML OBRIGATÓRIA:
 1. Container centralizado (max-width: 600px) com font-family: Arial, sans-serif
-2. Header com background #1e3a5f, texto branco "Jacometo Seguros"
+2. Header com background #1e3a5f, texto branco "OrbePet"
 3. Corpo com padding 32px
 4. Saudação + referência ao contato anterior
 5. TABELA DE PARCELAS ESTILIZADA:
@@ -391,8 +391,8 @@ ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
 <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;background:#ffffff;">
   <!-- HEADER -->
   <div style="background:#1e3a5f;padding:24px;text-align:center;">
-    <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:0.5px;">Jacometo Seguros</span>
-  </div>
+     <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:0.5px;">OrbePet</span>
+   </div>
   
   <!-- CORPO -->
   <div style="padding:32px;background:#ffffff;">
@@ -461,13 +461,13 @@ ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
     <p style="margin:4px 0 0 0;font-size:12px;color:#374151;">
       WhatsApp: <a href="https://wa.me/5543991562099" style="color:#25d366;text-decoration:none;">+55 43 99156-2099</a>
     </p>
-    <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;">Jacometo Seguros - Equipe de Cobrança</p>
+    <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;">OrbePet - Equipe de Cobrança</p>
     <p style="margin:4px 0 0 0;font-size:11px;color:#9ca3af;">À disposição para esclarecimento</p>
   </div>
 </div>
 ` : '';
     
-    const systemPrompt = `Você é um copywriter especialista em emails B2B para uma corretora de seguros (Jacometo Seguros).
+    const systemPrompt = `Você é um copywriter especialista em emails B2B para a OrbePet (planos de saúde pet).
 
 ${verticalKnowledge}
 

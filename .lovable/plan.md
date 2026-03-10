@@ -1,60 +1,50 @@
 
 
-## Plano: Remover Referências a Jacometo e Seguros de Carga
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-Escopo amplo — 12 arquivos com referências ao antigo CRM de seguros. Dividido em frontend e edge functions.
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-### Frontend (5 arquivos)
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-**1. `src/pages/Auth.tsx`**
-- Trocar import de `jacometo-logo.png` para um logo OrbePet (ou texto "OrbePet")
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-**2. `src/components/EditContactModal.tsx`**
-- Segmentos: `🚛 Transporte (Seguro de Carga)` → `🐕 Pet (Tutor)` | `🚗 Automotores (Seguro de Frota)` → `🏥 Clínica/Petshop`
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-**3. `src/components/settings/EmailTemplateEditorModal.tsx`**
-- `"Equipe Jacometo Seguros"` → `"Equipe OrbePet"`
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-**4. `src/components/settings/FollowupAutomationsSettings.tsx`**
-- Mensagens de agente: trocar `"seguro de carga"` por `"plano de saúde pet"`, `"adri"` → `"orbi"`
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-**5. `src/components/settings/AgentsSettings.tsx`**
-- Placeholder: `"seguro de carga", "rctr-c"` → `"plano de saúde pet", "consulta veterinária"`
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-### Edge Functions (7 arquivos)
+### Tarefas de Implementação
 
-**6. `supabase/functions/send-invite-email/index.ts`**
-- `"Jacometo CRM"` → `"OrbePet CRM"` em todo o email de convite
-- `"Jacometo Corretora de Seguros"` → `"OrbePet"`
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
 
-**7. `supabase/functions/generate-prompt/index.ts`**
-- Arquivo mais pesado — remover todo o bloco de `<regulatory_faq>` (MEI, ANTT, CT-e, RCTR-C) e `<objection_handling>` de seguros
-- Remover `<departamentos_jacometo>`, links para `jacometoseguros.com.br`
-- Manter a estrutura do gerador de prompt genérica (ele gera prompts baseados nos inputs do formulário, que já são genéricos)
+### Detalhes Técnicos
 
-**8. `supabase/functions/nina-orchestrator/index.ts`**
-- `OUT_OF_SCOPE_INSURANCE_KEYWORDS` — remover ou substituir por keywords OrbePet
-- Remover bloco de informações oficiais da Jacometo (endereço, telefone, site)
-- Remover `getDefaultRenewalEmail` e referências a "seguro de cargas" nos emails de renovação
-- Remover `jacometoseguros.com.br` sanitization
-- `"Sofia, especialista em X da Jacometo"` → referência genérica ao agente
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
 
-**9. `supabase/functions/generate-email-copy/index.ts`**
-- Substituir contextos de produto (transporte/frotas) por contexto pet
-- `"Jacometo Seguros"` → `"OrbePet"` nos templates de email
-
-**10. `supabase/functions/process-followups/index.ts`**
-- Remover link `jacometoseguros.com.br` do final das mensagens de followup
-
-**11. `supabase/functions/test-qualification-email/index.ts`**
-- `adriano@jacometo.com.br` → placeholder genérico
-- `"Jacometo Seguros - SDR Adri"` → `"OrbePet"`
-
-**12. `supabase/functions/analyze-conversation/index.ts`**
-- Remover campos de qualificação de carga: `tipo_carga`, `valor_medio`, `maior_valor`, `contratacao`, referências a CT-e/CNPJ de transportadora
-- Manter campos genéricos reutilizáveis (email, empresa, estados)
-
-### Nota
-- O logo `src/assets/jacometo-logo.png` permanece no repositório (pode ser substituído depois por um asset OrbePet)
-- Alterações em edge functions serão deployed automaticamente
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
+```
 

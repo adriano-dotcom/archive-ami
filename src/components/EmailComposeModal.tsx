@@ -292,20 +292,20 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   // Remove assinaturas genéricas embutidas nos templates antes de adicionar a personalizada
   const cleanGenericSignature = (html: string): string => {
     return html
-      // Remove padrão: <p>Atenciosamente,</p><p>Equipe Jacometo...</p> (com ou sem estilos)
-      .replace(/<p[^>]*>Atenciosamente[,.]?<\/p>\s*<p[^>]*>Equipe Jacometo[^<]*<\/p>/gi, '')
-      // Remove "Atenciosamente, Equipe Jacometo Seguros" com <br> e <strong>
-      .replace(/Atenciosamente[,.]?\s*<br\s*\/?>\s*<strong>Equipe Jacometo.*?<\/strong>/gi, '')
-      // Remove "Com carinho, Equipe Jacometo Seguros"
-      .replace(/Com carinho[,.]?\s*<br\s*\/?>\s*<strong>Equipe Jacometo.*?<\/strong>/gi, '')
-      // Remove "<p>Equipe Jacometo Seguros</p>" (com qualquer estilo)
-      .replace(/<p[^>]*>Equipe Jacometo[^<]*<\/p>/gi, '')
-      // Remove "Equipe Jacometo" genérico em tags strong
-      .replace(/<strong>Equipe Jacometo[^<]*<\/strong>/gi, '')
-      // Remove "Equipe Jacometo" em texto puro (sem tags)
-      .replace(/Equipe Jacometo\s*Seguros?/gi, '')
-      // Remove "Atenciosamente," seguido de "Equipe Jacometo" em texto puro
-      .replace(/Atenciosamente[,.]?\s*Equipe Jacometo[^\n<]*/gi, '')
+      // Remove padrão: <p>Atenciosamente,</p><p>Equipe OrbePet...</p> (com ou sem estilos)
+      .replace(/<p[^>]*>Atenciosamente[,.]?<\/p>\s*<p[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/p>/gi, '')
+      // Remove "Atenciosamente, Equipe OrbePet" com <br> e <strong>
+      .replace(/Atenciosamente[,.]?\s*<br\s*\/?>\s*<strong>Equipe (OrbePet|Jacometo).*?<\/strong>/gi, '')
+      // Remove "Com carinho, Equipe OrbePet"
+      .replace(/Com carinho[,.]?\s*<br\s*\/?>\s*<strong>Equipe (OrbePet|Jacometo).*?<\/strong>/gi, '')
+      // Remove "<p>Equipe OrbePet</p>" (com qualquer estilo)
+      .replace(/<p[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/p>/gi, '')
+      // Remove "Equipe OrbePet" genérico em tags strong
+      .replace(/<strong>Equipe (OrbePet|Jacometo)[^<]*<\/strong>/gi, '')
+      // Remove "Equipe OrbePet" em texto puro (sem tags)
+      .replace(/Equipe (OrbePet|Jacometo)\s*Seguros?/gi, '')
+      // Remove "Atenciosamente," seguido de "Equipe OrbePet" em texto puro
+      .replace(/Atenciosamente[,.]?\s*Equipe (OrbePet|Jacometo)[^\n<]*/gi, '')
       // Remove "Atenciosamente," seguido de quebra de linha e "Equipe"
       .replace(/Atenciosamente[,.]?\s*[\n\r]+\s*Equipe[^\n<]*/gi, '')
       // Remove bloco de assinatura com "Atenciosamente" em qualquer formato
@@ -313,9 +313,9 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
       // Remove "Equipe" sozinho seguido de nome da empresa
       .replace(/<p[^>]*>\s*Equipe\s+[^<]+<\/p>/gi, '')
       // Remove assinatura dentro de div/span
-      .replace(/<(div|span)[^>]*>Equipe Jacometo[^<]*<\/(div|span)>/gi, '')
-      // Remove "Abraços, Equipe Jacometo"
-      .replace(/Abraços[,.]?\s*(<br\s*\/?>)?\s*(Equipe Jacometo[^<\n]*)?/gi, '')
+      .replace(/<(div|span)[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/(div|span)>/gi, '')
+      // Remove "Abraços, Equipe OrbePet"
+      .replace(/Abraços[,.]?\s*(<br\s*\/?>)?\s*(Equipe (OrbePet|Jacometo)[^<\n]*)?/gi, '')
       // Remove linhas vazias extras no final
       .replace(/(<br\s*\/?>\s*)+$/gi, '')
       .replace(/(<p[^>]*>\s*<\/p>\s*)+$/gi, '');
@@ -331,13 +331,9 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   <tr>
     <td style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.7;">
       <p style="margin: 0 0 12px 0; font-weight: 500; color: #475569;">Atenciosamente,</p>
-      <strong style="font-size: 15px; color: #1e293b; display: block;">${senderName || 'Adriano Jacometo'}</strong>
-      <span style="color: #64748b; display: block; margin-bottom: 4px;">Corretor de Seguros</span>
-      <strong style="color: #334155; display: block; margin-bottom: 16px;">Jacometo Corretora de Seguros</strong>
-      <span style="display: block; margin-bottom: 6px; color: #475569;">📱 WhatsApp: <a href="https://wa.me/5543991434002" style="color: #25D366; text-decoration: none;">+55 43 9 9143 4002</a></span>
-      <span style="display: block; margin-bottom: 6px; color: #475569;">📞 Telefone: (43) 3321‑5007</span>
-      <span style="display: block; margin-bottom: 6px; color: #475569;">📍 R. Sen. Souza Naves, 612 - Sala 51 - Centro - Londrina/PR - CEP: 86010-160</span>
-      <span style="display: block; margin-top: 10px;">🌐 <a href="https://jacometoseguros.com.br" style="color: #6366f1; text-decoration: none;">jacometoseguros.com.br</a></span>
+      <strong style="font-size: 15px; color: #1e293b; display: block;">${senderName || 'Equipe OrbePet'}</strong>
+      <span style="color: #64748b; display: block; margin-bottom: 4px;">Consultor</span>
+      <strong style="color: #334155; display: block; margin-bottom: 16px;">OrbePet</strong>
     </td>
   </tr>
 </table>`;
@@ -361,8 +357,8 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
       const bodyWithSignature = addSignature(body);
       
       // CCO: admin fixo + operador logado
-      const bccList = ['adriano@jacometo.com.br'];
-      if (user?.email && user.email !== 'adriano@jacometo.com.br') {
+      const bccList: string[] = [];
+      if (user?.email) {
         bccList.push(user.email);
       }
 

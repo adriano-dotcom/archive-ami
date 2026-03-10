@@ -43,7 +43,7 @@ const DEFAULT_HTML = `<div style="font-family: Arial, sans-serif; max-width: 600
   
   <p style="color: #666; line-height: 1.6;">
     Atenciosamente,<br>
-    <strong>Equipe Jacometo Seguros</strong>
+    <strong>Equipe OrbePet</strong>
   </p>
 </div>`;
 
@@ -298,7 +298,7 @@ const EmailTemplateEditorModal: React.FC<EmailTemplateEditorModalProps> = ({
               <Input
                 value={briefing}
                 onChange={(e) => setBriefing(e.target.value)}
-                placeholder="Ex: Email para transportador que pediu cotação de RCTR-C para cargas de grãos..."
+                placeholder="Ex: Email para tutor que pediu cotação de plano de saúde pet..."
                 className="bg-slate-800/50 border-slate-700 text-sm text-white placeholder:text-slate-400"
               />
             </div>

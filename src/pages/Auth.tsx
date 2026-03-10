@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, LogIn, UserPlus, Check, X, KeyRound, ArrowLeft } from "lucide-react";
-import logo from "@/assets/jacometo-logo.png";
+// Logo removed — using text-based branding
 
 const validatePassword = (password: string) => {
   return {
@@ -244,17 +244,17 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-2 sm:p-3 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={logo} alt="Jacometo Seguros" width={46} height={48} className="h-9 sm:h-12 w-auto" />
+              <span className="text-2xl sm:text-3xl">🐾</span>
             </div>
           </div>
           
           {/* Title */}
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Jacometo Cobranças</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">OrbePet</h1>
           
           {/* SDR Badge */}
           <div className="mt-2 sm:mt-3 flex items-center justify-center gap-2 sm:gap-3">
             <div className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-white/40" />
-            <span className="text-cyan-400 font-semibold text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em]">ÓMEGA</span>
+            <span className="text-cyan-400 font-semibold text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em]">CRM</span>
             <div className="h-px w-8 sm:w-12 bg-gradient-to-l from-transparent to-white/40" />
           </div>
           
