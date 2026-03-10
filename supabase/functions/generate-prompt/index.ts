@@ -113,12 +113,7 @@ Deno.serve(async (req) => {
       2. **Descoberta (Prioridade Máxima):**
          - Motivação (Por que agora? Qual o problema a resolver?)
          - Qualificação Técnica (Orçamento? Decisor? Prazo?)
-      3. **Qualificação Documental (para Seguros de Transporte):**
-         - ANTT: "A ANTT de vocês está ativa e regularizada?" (Requisito obrigatório para RCTR-C)
-         - CT-e: "Vocês emitem CT-e (Conhecimento de Transporte Eletrônico)?" (Necessário para acionamento do seguro)
-         - Se ANTT não ativa: Informar que é essencial para contratar o seguro e aguardar regularização.
-         - Se não emite CT-e: Verificar se há previsão de regularização.
-      4. **Compromisso:** Se qualificado (Motivação + Técnica + Documentação claros) -> [AÇÃO_DE_CONVERSÃO].
+      3. **Compromisso:** Se qualificado (Motivação + Técnica claros) -> [AÇÃO_DE_CONVERSÃO].
     </conversation_flow>
 
     <objection_handling>
