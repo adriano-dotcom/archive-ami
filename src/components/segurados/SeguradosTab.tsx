@@ -455,11 +455,6 @@ export const SeguradosTab: React.FC = () => {
         s.cpf?.includes(searchTerm) ||
         s.phone_number.includes(searchTerm);
       
-      // Insurer filter
-      const matchesInsurer = 
-        insurerFilterPF === 'all' || 
-        s.insurers.some(i => i.toUpperCase() === insurerFilterPF.toUpperCase());
-      
       // State filter
       const matchesState = stateFilterPF === 'all' || s.state === stateFilterPF;
       
