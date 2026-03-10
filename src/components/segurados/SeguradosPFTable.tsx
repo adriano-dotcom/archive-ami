@@ -158,9 +158,9 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <User className="w-12 h-12 text-slate-600 mb-4" />
-        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhum segurado PF cadastrado</h3>
+        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhum tutor cadastrado</h3>
         <p className="text-slate-500 text-sm">
-          Os segurados serão criados automaticamente ao importar arquivos de cobrança
+          Os tutores serão criados automaticamente ao importar arquivos
         </p>
       </div>
     );
