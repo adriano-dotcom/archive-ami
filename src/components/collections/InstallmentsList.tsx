@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Search, Filter, Download, RefreshCw, CheckCircle, MessageSquare, 
   Mail, Sparkles, AlertTriangle, Trash2, Pencil, Building2, 
-  ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock,
+  ChevronUp, ChevronDown, ArrowUpDown, History, Copy, MessageCircle, Clock,
   AlertOctagon
 } from 'lucide-react';
 
