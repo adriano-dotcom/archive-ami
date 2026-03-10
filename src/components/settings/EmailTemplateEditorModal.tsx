@@ -298,7 +298,7 @@ const EmailTemplateEditorModal: React.FC<EmailTemplateEditorModalProps> = ({
               <Input
                 value={briefing}
                 onChange={(e) => setBriefing(e.target.value)}
-                placeholder="Ex: Email para transportador que pediu cotação de RCTR-C para cargas de grãos..."
+                placeholder="Ex: Email para tutor que pediu cotação de plano de saúde pet..."
                 className="bg-slate-800/50 border-slate-700 text-sm text-white placeholder:text-slate-400"
               />
             </div>

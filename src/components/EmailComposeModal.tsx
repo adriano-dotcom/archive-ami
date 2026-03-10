@@ -357,8 +357,8 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
       const bodyWithSignature = addSignature(body);
       
       // CCO: admin fixo + operador logado
-      const bccList = ['adriano@jacometo.com.br'];
-      if (user?.email && user.email !== 'adriano@jacometo.com.br') {
+      const bccList: string[] = [];
+      if (user?.email) {
         bccList.push(user.email);
       }
 
