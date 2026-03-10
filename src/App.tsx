@@ -107,7 +107,8 @@ const App: React.FC = () => {
                   <Route path="/chat" element={<ChatInterface />} />
                   <Route path="/funil" element={<SalesFunnel />} />
                   <Route path="/contacts" element={<Contacts />} />
-                  <Route path="/segurados" element={<SeguradosTab />} />
+                  <Route path="/tutores" element={<SeguradosTab />} />
+                  <Route path="/segurados" element={<Navigate to="/tutores" replace />} />
                   <Route path="/templates" element={<Settings />} />
                   <Route path="/fluxos" element={<BotFlows />} />
                   <Route path="/relatorios" element={<Reports />} />

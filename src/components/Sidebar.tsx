@@ -23,8 +23,8 @@ const allMenuItems = [{
   icon: Filter,
   adminOnly: false
 }, {
-  id: 'segurados',
-  label: 'Segurados',
+  id: 'tutores',
+  label: 'Tutores',
   icon: Users,
   adminOnly: false
 }, {

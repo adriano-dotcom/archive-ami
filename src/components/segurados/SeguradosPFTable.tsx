@@ -325,20 +325,6 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                     )}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {segurado.insurers.slice(0, 2).map((insurer, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs border-white/10 text-slate-300">
-                        {insurer}
-                      </Badge>
-                    ))}
-                    {segurado.insurers.length > 2 && (
-                      <Badge variant="outline" className="text-xs border-white/10 text-slate-500">
-                        +{segurado.insurers.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <FileText className="w-4 h-4 text-slate-500" />

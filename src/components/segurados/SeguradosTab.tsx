@@ -1037,7 +1037,7 @@ export const SeguradosTab: React.FC = () => {
               disabled={bulkDeleteSeguradosLoading}
               className="bg-red-600 hover:bg-red-700"
             >
-              {bulkDeleteSeguradosLoading ? 'Excluindo...' : `Excluir ${selectedSeguradoIds.length} segurado(s)`}
+              {bulkDeleteSeguradosLoading ? 'Excluindo...' : `Excluir ${selectedSeguradoIds.length} tutor(es)`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
