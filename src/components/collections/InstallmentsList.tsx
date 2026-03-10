@@ -829,32 +829,6 @@ export const InstallmentsList: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-slate-300">
-                      {inst.policy?.id ? (
-                        <Select
-                          value={inst.policy.insurer || ''}
-                          onValueChange={(value) => updateInsurerMutation.mutate({ policyId: inst.policy!.id, insurer: value })}
-                        >
-                          <SelectTrigger className="h-8 w-[160px] bg-transparent border-transparent hover:border-white/20 hover:bg-white/5 text-left">
-                            <SelectValue placeholder="Selecionar">
-                              <span className="flex items-center gap-2">
-                                {inst.policy.insurer || 'N/A'}
-                                <Pencil className="w-3 h-3 text-slate-500" />
-                              </span>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {KNOWN_INSURERS.map((insurer) => (
-                              <SelectItem key={insurer} value={insurer}>
-                                {insurer}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        'N/A'
-                      )}
-                    </TableCell>
-                    <TableCell className="text-slate-300">
                       {inst.policy ? (
                         <TooltipProvider>
                           <Tooltip>

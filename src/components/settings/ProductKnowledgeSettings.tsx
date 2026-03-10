@@ -231,22 +231,6 @@ const ProductKnowledgeSettings: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label>Seguradora</Label>
-                  <Select
-                    value={newProduct.insurer}
-                    onValueChange={(v) => setNewProduct(prev => ({ ...prev, insurer: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a seguradora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {KNOWN_INSURERS.map(ins => (
-                        <SelectItem key={ins} value={ins}>{ins}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <Label>Arquivo PDF *</Label>
                   <Input
                     type="file"
