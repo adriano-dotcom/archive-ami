@@ -96,7 +96,7 @@ export const SeguradosTab: React.FC = () => {
   const hasActivePJFilters = stateFilterPJ !== 'all' || overdueStatusPJ !== 'all' || overdueRangePJ !== 'all';
   
   // Check if any PF filters are active
-  const hasActivePFFilters = insurerFilterPF !== 'all' || stateFilterPF !== 'all' || overdueStatusPF !== 'all' || overdueRangePF !== 'all';
+  const hasActivePFFilters = stateFilterPF !== 'all' || overdueStatusPF !== 'all' || overdueRangePF !== 'all';
   
   // Clear all PJ filters
   const clearPJFilters = () => {
