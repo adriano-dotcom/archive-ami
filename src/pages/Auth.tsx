@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, LogIn, UserPlus, Check, X, KeyRound, ArrowLeft } from "lucide-react";
-import logo from "@/assets/jacometo-logo.png";
+// Logo removed — using text-based branding
 
 const validatePassword = (password: string) => {
   return {
