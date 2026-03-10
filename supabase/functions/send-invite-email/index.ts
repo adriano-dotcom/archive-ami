@@ -58,8 +58,8 @@ const handler = async (req: Request): Promise<Response> => {
             
             <!-- Header -->
             <div style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #334155;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Jacometo CRM</h1>
-              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 14px;">SDR Inteligente</p>
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">OrbePet CRM</h1>
+              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 14px;">Planos de Saúde Pet</p>
             </div>
             
             <!-- Content -->
