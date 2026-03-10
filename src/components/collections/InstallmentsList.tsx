@@ -701,27 +701,6 @@ export const InstallmentsList: React.FC = () => {
                 </Tooltip>
               </TooltipProvider>
               
-              <Select
-                value=""
-                onValueChange={(value) => {
-                  bulkUpdateInsurerMutation.mutate({ 
-                    installmentIds: selectedIds, 
-                    insurer: value 
-                  });
-                }}
-              >
-                <SelectTrigger className="w-[180px] h-9 bg-slate-800/50 border-white/10">
-                  <Pencil className="w-4 h-4 mr-2 text-slate-400" />
-                  <SelectValue placeholder="Trocar Seguradora" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {KNOWN_INSURERS.map((insurer) => (
-                    <SelectItem key={insurer} value={insurer}>
-                      {insurer}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               
               <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogTrigger asChild>
