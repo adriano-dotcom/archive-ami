@@ -618,7 +618,7 @@ ESTÁGIO ATUAL DO DEAL: ${currentDeal?.stage || 'Sem estágio'}` : ''}
               });
               
               // Build recipients list - always include admin
-              const recipients: string[] = ['adriano@jacometo.com.br'];
+              const recipients: string[] = [];
               
               // Fetch owner email if exists
               if (currentDeal.owner_id) {
