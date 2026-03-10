@@ -212,11 +212,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
       
       let filteredData = data as Installment[];
       
-      
-      if (cargoOnlyFilter) {
-        filteredData = filteredData.filter(inst => isCargoInsurance(inst.policy));
-      }
-      
       if (search) {
         const searchLower = search.toLowerCase();
         const searchDigitsOnly = search.replace(/\D/g, '');
