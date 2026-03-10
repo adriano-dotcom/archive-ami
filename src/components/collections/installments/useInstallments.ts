@@ -41,7 +41,6 @@ export interface Installment {
     insurer: string;
     branch: string | null;
     product: string | null;
-    is_cargo_insurance?: boolean | null;
     start_date: string | null;
     end_date: string | null;
     total_value: number | null;
