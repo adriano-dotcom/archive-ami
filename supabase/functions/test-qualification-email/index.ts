@@ -82,7 +82,7 @@ serve(async (req) => {
     console.log(`✅ Deal movido para: ${newStageTitle}`);
 
     // 6. Montar lista de destinatários
-    const recipients: string[] = ['adriano@jacometo.com.br'];
+    const recipients: string[] = [];
     
     if (deal.owner_id) {
       const { data: owner } = await supabase
