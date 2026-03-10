@@ -393,7 +393,7 @@ export const SeguradosTab: React.FC = () => {
       }
 
       if (deletedCount > 0) {
-        toast.success(`${deletedCount} segurado(s) excluído(s) com sucesso!`);
+        toast.success(`${deletedCount} tutor(es) excluído(s) com sucesso!`);
       }
       if (errorCount > 0) {
         toast.error(`${errorCount} segurado(s) não puderam ser excluídos`);
