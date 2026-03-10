@@ -292,20 +292,20 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
   // Remove assinaturas genéricas embutidas nos templates antes de adicionar a personalizada
   const cleanGenericSignature = (html: string): string => {
     return html
-      // Remove padrão: <p>Atenciosamente,</p><p>Equipe Jacometo...</p> (com ou sem estilos)
-      .replace(/<p[^>]*>Atenciosamente[,.]?<\/p>\s*<p[^>]*>Equipe Jacometo[^<]*<\/p>/gi, '')
-      // Remove "Atenciosamente, Equipe Jacometo Seguros" com <br> e <strong>
-      .replace(/Atenciosamente[,.]?\s*<br\s*\/?>\s*<strong>Equipe Jacometo.*?<\/strong>/gi, '')
-      // Remove "Com carinho, Equipe Jacometo Seguros"
-      .replace(/Com carinho[,.]?\s*<br\s*\/?>\s*<strong>Equipe Jacometo.*?<\/strong>/gi, '')
-      // Remove "<p>Equipe Jacometo Seguros</p>" (com qualquer estilo)
-      .replace(/<p[^>]*>Equipe Jacometo[^<]*<\/p>/gi, '')
-      // Remove "Equipe Jacometo" genérico em tags strong
-      .replace(/<strong>Equipe Jacometo[^<]*<\/strong>/gi, '')
-      // Remove "Equipe Jacometo" em texto puro (sem tags)
-      .replace(/Equipe Jacometo\s*Seguros?/gi, '')
-      // Remove "Atenciosamente," seguido de "Equipe Jacometo" em texto puro
-      .replace(/Atenciosamente[,.]?\s*Equipe Jacometo[^\n<]*/gi, '')
+      // Remove padrão: <p>Atenciosamente,</p><p>Equipe OrbePet...</p> (com ou sem estilos)
+      .replace(/<p[^>]*>Atenciosamente[,.]?<\/p>\s*<p[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/p>/gi, '')
+      // Remove "Atenciosamente, Equipe OrbePet" com <br> e <strong>
+      .replace(/Atenciosamente[,.]?\s*<br\s*\/?>\s*<strong>Equipe (OrbePet|Jacometo).*?<\/strong>/gi, '')
+      // Remove "Com carinho, Equipe OrbePet"
+      .replace(/Com carinho[,.]?\s*<br\s*\/?>\s*<strong>Equipe (OrbePet|Jacometo).*?<\/strong>/gi, '')
+      // Remove "<p>Equipe OrbePet</p>" (com qualquer estilo)
+      .replace(/<p[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/p>/gi, '')
+      // Remove "Equipe OrbePet" genérico em tags strong
+      .replace(/<strong>Equipe (OrbePet|Jacometo)[^<]*<\/strong>/gi, '')
+      // Remove "Equipe OrbePet" em texto puro (sem tags)
+      .replace(/Equipe (OrbePet|Jacometo)\s*Seguros?/gi, '')
+      // Remove "Atenciosamente," seguido de "Equipe OrbePet" em texto puro
+      .replace(/Atenciosamente[,.]?\s*Equipe (OrbePet|Jacometo)[^\n<]*/gi, '')
       // Remove "Atenciosamente," seguido de quebra de linha e "Equipe"
       .replace(/Atenciosamente[,.]?\s*[\n\r]+\s*Equipe[^\n<]*/gi, '')
       // Remove bloco de assinatura com "Atenciosamente" em qualquer formato
@@ -313,9 +313,9 @@ export const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
       // Remove "Equipe" sozinho seguido de nome da empresa
       .replace(/<p[^>]*>\s*Equipe\s+[^<]+<\/p>/gi, '')
       // Remove assinatura dentro de div/span
-      .replace(/<(div|span)[^>]*>Equipe Jacometo[^<]*<\/(div|span)>/gi, '')
-      // Remove "Abraços, Equipe Jacometo"
-      .replace(/Abraços[,.]?\s*(<br\s*\/?>)?\s*(Equipe Jacometo[^<\n]*)?/gi, '')
+      .replace(/<(div|span)[^>]*>Equipe (OrbePet|Jacometo)[^<]*<\/(div|span)>/gi, '')
+      // Remove "Abraços, Equipe OrbePet"
+      .replace(/Abraços[,.]?\s*(<br\s*\/?>)?\s*(Equipe (OrbePet|Jacometo)[^<\n]*)?/gi, '')
       // Remove linhas vazias extras no final
       .replace(/(<br\s*\/?>\s*)+$/gi, '')
       .replace(/(<p[^>]*>\s*<\/p>\s*)+$/gi, '');
