@@ -367,11 +367,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     return installments?.filter(inst => !inst.policy || !inst.contact).length || 0;
   }, [installments]);
 
-  const atmRiskCount = useMemo(() => {
-    return installments?.filter(inst => 
-      isCargoInsurance(inst.policy) && inst.days_overdue >= 15
-    ).length || 0;
-  }, [installments]);
 
   const uniqueContactsCount = useMemo(() => {
     if (!sortedInstallments || selectedIds.length === 0) return 0;

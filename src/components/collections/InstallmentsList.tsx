@@ -330,27 +330,6 @@ export const InstallmentsList: React.FC = () => {
     return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">Pendente</Badge>;
   };
 
-  const getAtmRiskBadge = (inst: Installment) => {
-    if (isCargoInsurance(inst.policy) && inst.days_overdue >= 15) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="bg-red-500/30 text-red-400 border-red-500/40 animate-pulse ml-1">
-                <Truck className="w-3 h-3 mr-1" />
-                ATM
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-sm">Seguro de carga com risco de suspensão do ATM</p>
-              <p className="text-xs text-slate-400">Atraso &gt; 15 dias pode bloquear averbações</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-    return null;
-  };
 
   const handleExport = () => {
     if (!sortedInstallments || sortedInstallments.length === 0) {
