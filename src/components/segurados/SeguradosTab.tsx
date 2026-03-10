@@ -25,7 +25,7 @@ import { DuplicateCompaniesReportModal } from './DuplicateCompaniesReportModal';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
 import { useUserRole } from '@/hooks/useUserRole';
 
