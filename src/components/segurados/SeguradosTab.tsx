@@ -694,12 +694,6 @@ export const SeguradosTab: React.FC = () => {
           )}
           {activeSubTab === 'pf' && (
             <>
-              {insurerFilterPF !== 'all' && (
-                <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
-                  {insurerFilterPF}
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setInsurerFilterPF('all')} />
-                </Badge>
-              )}
               {stateFilterPF !== 'all' && (
                 <Badge variant="secondary" className="gap-1 bg-slate-700/50 text-slate-300">
                   {stateFilterPF}

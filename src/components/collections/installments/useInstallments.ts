@@ -595,8 +595,6 @@ export function useInstallments(options: UseInstallmentsOptions) {
     // Mutations
     markAsPaidMutation,
     deleteMutation,
-    updateInsurerMutation,
-    bulkUpdateInsurerMutation,
     clearAllMutation,
     
     // Other

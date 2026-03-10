@@ -391,21 +391,6 @@ export const EditInstallmentModal: React.FC<EditInstallmentModalProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label className="text-slate-300">Seguradora</Label>
-                  <Select value={insurer} onValueChange={setInsurer}>
-                    <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 max-h-[200px]">
-                      {KNOWN_INSURERS.map((ins) => (
-                        <SelectItem key={ins} value={ins} className="text-slate-100 focus:bg-slate-800">
-                          {ins}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               
               {installment.policy?.company && (
