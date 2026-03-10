@@ -107,7 +107,6 @@ export const SeguradosTab: React.FC = () => {
   
   // Clear all PF filters
   const clearPFFilters = () => {
-    setInsurerFilterPF('all');
     setStateFilterPF('all');
     setOverdueStatusPF('all');
     setOverdueRangePF('all');
