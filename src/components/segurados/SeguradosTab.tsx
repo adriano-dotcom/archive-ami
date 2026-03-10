@@ -172,7 +172,7 @@ export const SeguradosTab: React.FC = () => {
   };
 
   const handleSelectSegurado = (segurado: SeguradoPF) => {
-    toast.info(`Detalhes do segurado: ${segurado.name}`);
+    toast.info(`Detalhes do tutor: ${segurado.name}`);
   };
 
   const handleDeleteCompany = async () => {
