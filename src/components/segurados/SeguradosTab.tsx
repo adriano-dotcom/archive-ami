@@ -558,7 +558,7 @@ export const SeguradosTab: React.FC = () => {
             className="bg-emerald-600 hover:bg-emerald-700 gap-2"
           >
             <Plus className="w-4 h-4" />
-            Novo Segurado PF
+            Novo Tutor
           </Button>
         )}
       </div>
