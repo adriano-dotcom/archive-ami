@@ -404,7 +404,7 @@ export const SeguradosTab: React.FC = () => {
       loadData();
     } catch (error) {
       console.error('Error in bulk delete segurados:', error);
-      toast.error('Erro ao excluir segurados');
+      toast.error('Erro ao excluir tutores');
     } finally {
       setBulkDeleteSeguradosLoading(false);
     }
