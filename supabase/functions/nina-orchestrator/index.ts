@@ -3551,76 +3551,7 @@ Agradeço pela compreensão! 🙏`;
 
   // (Cargo email capture and qualification blocks removed - not applicable for OrbePet)
 
-  // ===== QUALIFICATION COMPLETE CHECK - ASK FOR EMAIL FIRST =====
-  // Check if all essential qualification fields are collected - if so, ask for email before handoff
-  const qualificationComplete = shouldRunCargoQualification ? isQualificationComplete(conversation.contact, mergedQA) : false;
-  
-  if (qualificationComplete && ninaContext.awaiting_qualification_email !== true) {
-    console.log(`[Nina] ✅ Qualificação completa! Dados coletados:`, mergedQA);
-    
-    const contactName = conversation.contact?.call_name || conversation.contact?.name || '';
-    const existingEmail = conversation.contact?.email;
-    
-    let askEmailMessage: string;
-    
-    if (existingEmail) {
-      // Already has email - confirm it
-      askEmailMessage = contactName 
-        ? `Perfeito, ${contactName}! 🎯 Tenho todas as informações para a cotação. Posso enviar para ${existingEmail}? Se preferir outro email, me passa!`
-        : `Perfeito! 🎯 Tenho todas as informações para a cotação. Posso enviar para ${existingEmail}? Se preferir outro email, me passa!`;
-    } else {
-      // No email - ask for it
-      askEmailMessage = contactName 
-        ? `Ótimo, ${contactName}! 🎯 Tenho todas as informações para montar sua cotação. Qual seu melhor email para eu enviar?`
-        : `Ótimo! 🎯 Tenho todas as informações para montar sua cotação. Qual seu melhor email para eu enviar?`;
-    }
-    
-    // Calculate delay
-    const delayMin = settings?.response_delay_min || 1000;
-    const delayMax = settings?.response_delay_max || 3000;
-    const delay = Math.random() * (delayMax - delayMin) + delayMin;
-    
-    // Get AI settings for metadata
-    const aiSettings = getModelSettings(settings, conversationHistory, message, conversation.contact, clientMemory);
-    
-    // Queue the email request message
-    await queueTextResponse(supabase, conversation, message, askEmailMessage, settings, aiSettings, delay, agent);
-    
-    // Mark message as processed
-    const responseTime = Date.now() - new Date(message.sent_at).getTime();
-    await markMessagesAsProcessed(supabase, message.id, aggregatedMessageIds, responseTime);
-    
-    // Set awaiting_qualification_email flag
-    await supabase
-      .from('conversations')
-      .update({
-        nina_context: {
-          ...ninaContext,
-          qualification_answers: mergedQA,
-          awaiting_qualification_email: true
-        }
-      })
-      .eq('id', conversation.id);
-    
-    // Trigger whatsapp-sender
-    try {
-      const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-        body: JSON.stringify({ triggered_by: 'nina-orchestrator-ask-email' })
-      }).catch(err => console.error('[Nina] Error triggering whatsapp-sender:', err));
-    } catch (e) {
-      console.error('[Nina] Failed to trigger whatsapp-sender:', e);
-    }
-    
-    console.log(`[Nina] 📧 Qualification complete - asking for email before handoff`);
-    return;
-  }
-  // ===== END QUALIFICATION COMPLETE CHECK =====
+  // (Cargo qualification complete check removed - not applicable for OrbePet)
 
   // Check if this is the first interaction (only 1 user message, no assistant messages yet)
   const userMessages = conversationHistory.filter((m: any) => m.role === 'user');
