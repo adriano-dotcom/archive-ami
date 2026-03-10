@@ -70,7 +70,7 @@ export interface InstallmentHistory {
   metadata: Record<string, any>;
 }
 
-export type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'seguradora' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
+export type SortColumn = 'empresa' | 'cnpj' | 'contato' | 'apolice' | 'parcela' | 'valor' | 'vencimento' | 'days_overdue';
 export type SortDirection = 'asc' | 'desc';
 
 interface UseInstallmentsOptions {
