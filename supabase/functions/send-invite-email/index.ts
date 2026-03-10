@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: "OrbePet CRM <onboarding@resend.dev>",
       to: [email],
-      subject: `${inviter_name} convidou você para o Jacometo CRM`,
+      subject: `${inviter_name} convidou você para o OrbePet CRM`,
       html: `
         <!DOCTYPE html>
         <html>
