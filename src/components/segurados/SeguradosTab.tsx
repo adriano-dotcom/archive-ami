@@ -618,17 +618,6 @@ export const SeguradosTab: React.FC = () => {
           </>
         ) : (
           <>
-            <Select value={insurerFilterPF} onValueChange={setInsurerFilterPF}>
-              <SelectTrigger className="w-[160px] h-8 bg-slate-900/50 border-slate-600 text-sm">
-                <SelectValue placeholder="Seguradora" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700 max-h-[300px]">
-                <SelectItem value="all">Todas Seguradoras</SelectItem>
-                {KNOWN_INSURERS.map(insurer => (
-                  <SelectItem key={insurer} value={insurer}>{insurer}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
             <Select value={stateFilterPF} onValueChange={setStateFilterPF}>
               <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
