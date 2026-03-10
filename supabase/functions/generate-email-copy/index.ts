@@ -391,8 +391,8 @@ ESTRUTURA HTML BASE (USE ESTE TEMPLATE):
 <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;background:#ffffff;">
   <!-- HEADER -->
   <div style="background:#1e3a5f;padding:24px;text-align:center;">
-    <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:0.5px;">Jacometo Seguros</span>
-  </div>
+     <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:0.5px;">OrbePet</span>
+   </div>
   
   <!-- CORPO -->
   <div style="padding:32px;background:#ffffff;">
