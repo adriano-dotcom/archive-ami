@@ -995,7 +995,7 @@ export const SeguradosTab: React.FC = () => {
             <AlertDialogDescription className="text-slate-400">
               Tem certeza que deseja excluir <strong className="text-slate-200">{selectedCompanyIds.length} empresa(s)</strong>? 
               <br /><br />
-              <span className="text-red-400">⚠️ Atenção:</span> Apólices, parcelas e vínculos com contatos serão removidos junto com as empresas.
+              <span className="text-red-400">⚠️ Atenção:</span> Planos, parcelas e vínculos com contatos serão removidos junto com as clínicas/petshops.
               <br /><br />
               <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
             </AlertDialogDescription>
