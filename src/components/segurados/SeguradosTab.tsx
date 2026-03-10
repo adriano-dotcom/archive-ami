@@ -725,7 +725,7 @@ export const SeguradosTab: React.FC = () => {
             className="gap-2 text-slate-300 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
           >
             <Building2 className="w-4 h-4" />
-            Empresas (PJ)
+            Clínicas/Petshops
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredCompanies.length}
             </span>
@@ -735,7 +735,7 @@ export const SeguradosTab: React.FC = () => {
             className="gap-2 text-slate-300 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400"
           >
             <User className="w-4 h-4" />
-            Pessoas (PF)
+            Tutores
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
               {filteredSeguradosPF.length}
             </span>
