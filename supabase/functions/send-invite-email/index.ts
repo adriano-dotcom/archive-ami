@@ -69,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
               </p>
               
               <p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-                ${inviter_name} convidou você para fazer parte da equipe no Jacometo CRM como <strong style="color: #22d3ee;">${roleDisplay}</strong>.
+                ${inviter_name} convidou você para fazer parte da equipe no OrbePet CRM como <strong style="color: #22d3ee;">${roleDisplay}</strong>.
               </p>
               
               <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
