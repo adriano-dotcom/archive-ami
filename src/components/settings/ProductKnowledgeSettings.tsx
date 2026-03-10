@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Upload, FileText, Trash2, Eye, Plus, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 
 interface ProductKnowledge {
   id: string;
