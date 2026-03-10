@@ -2570,7 +2570,7 @@ async function processQueueItem(
           .eq('id', conversation.id);
         
         // Generate Sofia's greeting based on insurance type
-        let sofiaGreeting = `Olá! Sou a Sofia, especialista em ${outOfScopeCheck.friendlyName} da Jacometo. `;
+        let sofiaGreeting = `Olá! Sou especialista em ${outOfScopeCheck.friendlyName}. `;
         
         // Add first qualification question based on type
         switch (outOfScopeCheck.insuranceType) {
