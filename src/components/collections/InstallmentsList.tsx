@@ -15,7 +15,7 @@ import {
   ChevronUp, ChevronDown, ArrowUpDown, Truck, History, Copy, MessageCircle, Clock,
   AlertOctagon
 } from 'lucide-react';
-import { KNOWN_INSURERS } from '@/constants/insurers';
+
 import {
   AlertDialog,
   AlertDialogAction,
