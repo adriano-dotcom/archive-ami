@@ -1,50 +1,37 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Plano: Remover Seguradoras — Transição para OrbePet
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+O `KNOWN_INSURERS` e toda a lógica de "seguradora" são resquícios do CRM de seguros (Jacometo). Para a OrbePet, isso não faz sentido. Vou remover referências em 6 arquivos.
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+### Alterações
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+**1. Esvaziar `src/constants/insurers.ts`**
+- Substituir a lista por um array vazio ou remover o arquivo
+- Manter o export para não quebrar imports pendentes: `export const KNOWN_INSURERS: string[] = [];`
 
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+**2. `src/components/collections/InstallmentsList.tsx`**
+- Remover o filtro de seguradora (dropdown `insurerFilter`)
+- Remover o import de `KNOWN_INSURERS`
+- Remover a coluna "Seguradora" da tabela e o inline editing de seguradora
+- Remover o `bulkUpdateInsurerMutation` do modal de ações em massa
 
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+**3. `src/components/collections/installments/EditInstallmentModal.tsx`**
+- Remover o campo "Seguradora" do formulário de edição de parcela
 
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+**4. `src/components/collections/installments/useInstallments.ts`**
+- Remover `insurerFilter` das options e da query
+- Remover `updateInsurerMutation` e `bulkUpdateInsurerMutation`
 
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
+**5. `src/components/settings/ProductKnowledgeSettings.tsx`**
+- Remover dropdown de seguradora do formulário de conhecimento de produto
 
-### Tarefas de Implementação
+**6. `src/components/segurados/SeguradosTab.tsx`**
+- Remover filtro `insurerFilterPF` e dropdown de seguradora
 
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+**7. `src/components/segurados/ImportDocumentAIModal.tsx`**
+- Remover dropdown de seguradora do modal de importação AI
 
-### Detalhes Técnicos
-
-```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
-
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
-```
+### Nota
+Os dados existentes no banco (coluna `insurer` em `policies`) permanecem intactos — apenas a UI é limpa. Nenhuma migração SQL necessária.
 
