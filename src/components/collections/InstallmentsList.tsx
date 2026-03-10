@@ -163,7 +163,6 @@ export const InstallmentsList: React.FC = () => {
     selectedTotal,
     overdue30Count,
     incompleteCount,
-    atmRiskCount,
     uniqueContactsCount,
     markAsPaidMutation,
     deleteMutation,
