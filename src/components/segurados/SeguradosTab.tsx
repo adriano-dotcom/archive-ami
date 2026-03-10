@@ -966,9 +966,9 @@ export const SeguradosTab: React.FC = () => {
       <AlertDialog open={!!deletingSegurado} onOpenChange={() => setDeletingSegurado(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Excluir Segurado</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-100">Excluir Tutor</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Tem certeza que deseja excluir o segurado <strong className="text-slate-200">{deletingSegurado?.name}</strong>? 
+              Tem certeza que deseja excluir o tutor <strong className="text-slate-200">{deletingSegurado?.name}</strong>?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
