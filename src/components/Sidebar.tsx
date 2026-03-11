@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
+import orbepetLogo from '@/assets/orbepet-logo.png';
 
 const allMenuItems = [{
   id: 'dashboard',
