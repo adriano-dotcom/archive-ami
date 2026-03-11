@@ -55,13 +55,12 @@ serve(async (req) => {
       });
     }
 
-    // Convert to base64 for Gemini (chunk to avoid stack overflow)
+    // Convert to base64 for Gemini (byte-by-byte to avoid stack overflow)
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
     const base64 = btoa(binary);
 
