@@ -244,7 +244,7 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-2 sm:p-3 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-              <span className="text-2xl sm:text-3xl">🐾</span>
+              <img src="/src/assets/orbepet-logo.png" alt="OrbePet" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
             </div>
           </div>
           
