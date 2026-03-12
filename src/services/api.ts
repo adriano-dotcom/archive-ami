@@ -398,6 +398,8 @@ export const api = {
     email?: string | null;
     company?: string | null;
     cnpj?: string | null;
+    cpf?: string | null;
+    pet_name?: string | null;
     fleet_size?: number | null;
     cep?: string | null;
     street?: string | null;

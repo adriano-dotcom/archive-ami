@@ -245,18 +245,18 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
         <div className="space-y-6 pb-6">
           {/* Dados de Contato */}
           <section>
-            <SectionHeader icon={User} title="Dados de Contato" />
+            <SectionHeader icon={User} title="Dados do Tutor" />
             <div className="space-y-2">
               <InfoRow icon={Phone} label="Telefone" value={displayPhoneInternational(contact.phone)} />
               {(contact.city || contact.state) && (
                 <InfoRow icon={MapPin} label="Região" value={[contact.city, contact.state].filter(Boolean).join(' - ')} />
               )}
               <InfoRow icon={Mail} label="Email" value={contact.email || '-'} isLink={!!contact.email} />
-              {contact.cnpj && (
-                <InfoRow icon={FileText} label="CNPJ" value={formatCNPJ(contact.cnpj)} />
+              {contact.cpf && (
+                <InfoRow icon={FileText} label="CPF" value={formatCPF(contact.cpf)} />
               )}
-              {contact.company && (
-                <InfoRow icon={Building2} label="Empresa" value={contact.company} />
+              {contact.pet_name && (
+                <InfoRow icon={User} label="Nome do Pet" value={contact.pet_name} />
               )}
             </div>
           </section>

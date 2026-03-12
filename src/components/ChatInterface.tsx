@@ -2611,7 +2611,7 @@ const ChatInterface: React.FC = () => {
                           type="email"
                           value={editEmail}
                           onChange={(e) => setEditEmail(e.target.value)}
-                          placeholder="email@empresa.com"
+                          placeholder="email@exemplo.com"
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : activeChat.contactEmail ? (
