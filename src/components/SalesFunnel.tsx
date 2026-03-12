@@ -88,8 +88,8 @@ const FunnelCard: React.FC<{
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-          {contact.company && (
-            <p className="text-[11px] text-muted-foreground truncate">{contact.company}</p>
+          {contact.pet_name && (
+            <p className="text-[11px] text-muted-foreground truncate">🐾 {contact.pet_name}</p>
           )}
         </div>
       </div>
