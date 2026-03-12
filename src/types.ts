@@ -357,8 +357,8 @@ export function transformDBToUIConversation(
     ninaContext: conv.nina_context || null,
     notes: conv.contact?.notes || null,
     // Use linked company data as fallback if contact fields are null
-    contactCnpj: conv.contact?.cnpj || (conv.contact as any)?.linked_company?.cnpj || null,
-    contactCompany: conv.contact?.company || (conv.contact as any)?.linked_company?.razao_social || (conv.contact as any)?.linked_company?.nome_fantasia || null,
+    contactCpf: conv.contact?.cpf || null,
+    contactPetName: (conv.contact as any)?.pet_name || null,
     agentId: conv.agent?.id || null,
     agentName: conv.agent?.name || null,
     agentSlug: conv.agent?.slug || null,
