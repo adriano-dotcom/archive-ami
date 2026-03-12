@@ -1,50 +1,32 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Métricas de Conversão do Funil
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+Adicionar um painel de métricas acima do Kanban com taxa de conversão entre estágios e um gráfico de barras horizontal.
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+### Implementação
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+**1. Painel de métricas colapsável** no `SalesFunnel.tsx`:
+- Toggle "Métricas" no top bar (ícone BarChart3) que expande/colapsa uma seção acima do Kanban
+- Calculado client-side a partir dos dados já carregados (`contactsByStage`)
 
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+**2. Métricas exibidas:**
+- **KPI cards em linha**: Total de leads, Taxa geral de conversão (new→customer), Taxa de perda
+- **Conversão entre estágios adjacentes** (5 transições): Novo→Qualificado, Qualificado→Proposta, Proposta→Negociação, Negociação→Vendido, e taxa de perda (churned/total)
+- Cada transição mostra: contagem do estágio anterior, contagem do próximo, e % de passagem
 
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+**3. Gráfico de barras horizontal** usando Recharts (já instalado):
+- Eixo Y: as 5 transições ("Novo → Qualificado", etc.)
+- Eixo X: percentual de conversão (0-100%)
+- Barras coloridas com a cor do estágio de destino
+- Tooltip com detalhes (X de Y leads passaram)
 
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+**4. Cálculo da taxa:**
+- Para cada par de estágios consecutivos: `taxa = (soma dos leads no estágio atual + todos os estágios posteriores) / (soma do estágio anterior + todos os posteriores)`
+- Ou seja, conta quantos leads "passaram" daquele ponto em diante vs o total que chegou até ali
 
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
+### Arquivos modificados
+- `src/components/SalesFunnel.tsx` — adicionar seção de métricas com toggle, KPI cards e gráfico Recharts
 
-### Tarefas de Implementação
-
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
-
-### Detalhes Técnicos
-
-```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
-
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
-```
+Sem novas tabelas, sem novas dependências. Tudo calculado client-side com os dados existentes.
 
