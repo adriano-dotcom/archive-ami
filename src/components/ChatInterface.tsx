@@ -510,7 +510,7 @@ const ChatInterface: React.FC = () => {
       setEditPhone(activeChat.contactPhone || '');
       setIsEditingContact(false);
     }
-  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCnpj, activeChat?.contactCompany, activeChat?.contactPhone]);
+  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone]);
 
   // Deal/pipeline logic removed - system now focused on collections and claims
 
