@@ -49,7 +49,7 @@ interface FunnelContact {
 const fetchFunnelContacts = async (): Promise<FunnelContact[]> => {
   const { data, error } = await supabase
     .from('contacts')
-    .select('id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, company')
+    .select('id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, pet_name')
     .order('last_activity', { ascending: false })
     .limit(500);
 
