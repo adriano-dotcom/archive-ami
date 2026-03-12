@@ -912,44 +912,6 @@ const ChatInterface: React.FC = () => {
     await updateStatus(activeChat.id, status, user?.id, userName);
   };
 
-  // CNPJ Lookup via BrasilAPI
-  const handleCnpjLookup = async () => {
-    const cleanCnpj = editCnpj.replace(/\D/g, '');
-    if (cleanCnpj.length !== 14) {
-      toast.error('CNPJ inválido. Digite 14 dígitos.');
-      return;
-    }
-
-    setIsLookingUpCnpj(true);
-    try {
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-      if (!response.ok) {
-        throw new Error('CNPJ não encontrado');
-      }
-      const data = await response.json();
-      
-      // Auto-fill company name
-      const companyName = data.nome_fantasia || data.razao_social || '';
-      setEditCompany(companyName);
-      
-      // Auto-save CNPJ and company after lookup
-      if (activeChat) {
-        await api.updateContact(activeChat.contactId, {
-          cnpj: cleanCnpj,
-          company: companyName || null
-        });
-        // Refresh conversations to update UI with saved data
-        await refetch();
-        toast.success(`Empresa encontrada e salva: ${companyName}`);
-      }
-    } catch (error) {
-      console.error('CNPJ lookup error:', error);
-      toast.error('CNPJ não encontrado na Receita Federal');
-    } finally {
-      setIsLookingUpCnpj(false);
-    }
-  };
-
   // Save contact data
   const handleSaveContactData = async () => {
     if (!activeChat) return;
