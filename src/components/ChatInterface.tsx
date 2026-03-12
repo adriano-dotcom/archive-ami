@@ -2556,7 +2556,7 @@ const ChatInterface: React.FC = () => {
                 {/* Details List */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados de Contato</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Tutor</h4>
                     <button 
                       onClick={() => setIsEditingContact(!isEditingContact)}
                       className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
