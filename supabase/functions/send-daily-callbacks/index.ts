@@ -227,7 +227,7 @@ serve(async (req) => {
             </div>
             
             <div style="margin-top: 24px; text-align: center;">
-              <a href="https://app.jacometo.com.br/scheduling" 
+              <a href="https://app.orbepet.com.br/scheduling" 
                  style="display: inline-block; background: #3b82f6; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">
                 Ver Agenda Completa
               </a>
@@ -235,7 +235,7 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; padding: 16px; color: #94a3b8; font-size: 12px;">
-            <p style="margin: 0;">Jacometo CRM • Enviado automaticamente às 8h</p>
+            <p style="margin: 0;">OrbePet CRM • Enviado automaticamente às 8h</p>
           </div>
         </div>
       `;
@@ -243,7 +243,7 @@ serve(async (req) => {
       if (resend) {
         try {
           const { error: emailError } = await resend.emails.send({
-            from: 'Jacometo CRM <notificacoes@resend.dev>',
+            from: 'OrbePet CRM <notificacoes@resend.dev>',
             to: [assignee.email],
             subject: `📞 ${tasks.length} callback${tasks.length > 1 ? 's' : ''} agendado${tasks.length > 1 ? 's' : ''} para hoje`,
             html: emailHtml

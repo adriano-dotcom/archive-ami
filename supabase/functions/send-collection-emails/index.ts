@@ -53,8 +53,8 @@ serve(async (req) => {
       .select('collection_email_from, collection_email_bcc')
       .single();
 
-    const emailFrom = settings?.collection_email_from || 'Jacometo Seguros <jacometo@jacometo.com.br>';
-    const emailBcc = settings?.collection_email_bcc || ['joao.pedro@jacometo.com.br'];
+    const emailFrom = settings?.collection_email_from || 'OrbePet <contato@orbepet.com.br>';
+    const emailBcc = settings?.collection_email_bcc || ['contato@orbepet.com.br'];
 
     const { batchId, emails, ccSeller }: SendEmailsRequest = await req.json();
 

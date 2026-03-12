@@ -26,96 +26,27 @@ function getGreetingByTime(): string {
 
 // Conhecimento especializado por vertical
 const VERTICAL_KNOWLEDGE: Record<string, string> = {
-  transporte: `
-PRODUTOS DE SEGURO DE TRANSPORTE:
-- RCTR-C (Responsabilidade Civil do Transportador Rodoviário de Cargas): Cobre danos à carga durante o transporte
-- RC-DC (Responsabilidade Civil Desaparecimento de Carga): Cobre roubo e furto de carga
-- RC-V (Responsabilidade Civil Veicular): Cobre danos a terceiros
+  pet: `
+PRODUTOS DE SAÚDE PET - ORBEPET:
+- Órbita Essencial: Plano básico com consultas, vacinas e urgências
+- Órbita Plus: Plano intermediário com exames, internações e cirurgias
+- Órbita Total: Plano completo com cobertura ampla incluindo especialidades
+- Órbita Galáxia: Plano premium com cobertura máxima e benefícios exclusivos
 
-CONTEXTO DO TRANSPORTADOR:
-- O seguro de carga é proteção essencial para operações profissionais de transporte
-- Empresas bem estruturadas mantêm suas coberturas em dia para operar com tranquilidade
-- O CT-e é o documento usado para vincular a apólice ao transporte
-- Uma operação organizada inclui RCTR-C, RC-DC e RC-V para proteção completa
+CONTEXTO DO TUTOR DE PET:
+- Tutores buscam proteção e tranquilidade para seus animais de estimação
+- Planos de saúde pet evitam gastos inesperados com veterinário
+- Cobertura preventiva (vacinas, check-ups) mantém o pet saudável
+- Emergências veterinárias podem custar milhares de reais sem plano
 
-COBERTURAS ACESSÓRIAS RCTR-C:
-- Limpeza de Pista
-- Avarias (danos físicos à carga)
-- Despesas Emergenciais/Salvamento
-- Operações de Carga e Descarga
-- Cobertura de Frete
+DIFERENCIAIS ORBEPET:
+- Rede credenciada ampla de clínicas e hospitais veterinários
+- Cobertura desde filhotes até pets idosos
+- Planos flexíveis para cães e gatos
+- Atendimento humanizado e suporte dedicado
+- Reembolso rápido para consultas fora da rede
 
-COBERTURAS ACESSÓRIAS RC-DC:
-- Desaparecimento de Carga
-- Roubo em Depósitos
-- Despesas Extraordinárias
-- Impostos Suspensos e Benefícios Fiscais
-- Cobertura de Frete
-
-TOM: Profissional, técnico mas acessível, sem emojis, foco em proteção do patrimônio e tranquilidade operacional.
-`,
-  frotas: `
-PRODUTOS DE SEGURO DE FROTA EMPRESARIAL:
-- Seguro de Frota: Proteção completa para todos os veículos da empresa
-- Auto Empresarial: Casco (colisão, incêndio, roubo), RCF-V (danos a terceiros), APP (acidentes pessoais)
-- Rastreamento e Monitoramento: Integração com sistemas de telemetria
-- Assistência 24h: Guincho, socorro mecânico, carro reserva
-
-BENEFÍCIOS DO SEGURO DE FROTA:
-- Proteção do patrimônio empresarial (veículos são ativos importantes)
-- Desconto por volume (quanto mais veículos, melhor o preço por unidade)
-- Cobertura personalizada por tipo de uso (comercial, serviço, carga leve)
-- Gestão centralizada de sinistros e renovações
-- Continuidade operacional em caso de perda total
-- Redução de impacto financeiro em acidentes
-
-CONTEXTO PARA AUTOMOTORES/CONCESSIONÁRIAS/LOCADORAS:
-- Concessionárias têm veículos em estoque de alto valor agregado
-- Veículos de test-drive e demonstração precisam de cobertura específica
-- Transporte de veículos entre unidades ou clientes
-- Proteção contra roubo de veículos em pátio (alta concentração de valor)
-- Locadoras precisam de cobertura para frota rotativa com alto giro
-
-DIFERENCIAL COMPETITIVO:
-- Apólice única para toda a frota (simplifica gestão)
-- Renovação centralizada com negociação anual
-- Perfil de risco empresarial geralmente melhor que pessoa física
-
-TOM: Profissional, foco em proteção patrimonial, segurança operacional, continuidade do negócio e redução de custos.
-`,
-  ambos: `
-PRODUTOS DE SEGURO - SOLUÇÃO COMPLETA PARA TRANSPORTADORES:
-
-**SEGURO DE TRANSPORTE (RCTR-C/RC-DC/RC-V):**
-- Proteção essencial para operações de transporte profissional
-- RCTR-C: Cobre danos à carga durante transporte
-- RC-DC: Cobre roubo e furto de carga
-- RC-V: Cobre danos a terceiros
-- Cobertura completa para a operação do dia a dia
-- CT-e vinculado à apólice para controle
-
-**SEGURO DE FROTA EMPRESARIAL:**
-- Proteção completa para veículos da empresa (cavalos, carretas, caminhões)
-- Casco (colisão, incêndio, roubo), RCF-V (danos a terceiros), APP (acidentes pessoais)
-- Desconto por volume (economia significativa ao segurar toda a frota)
-- Assistência 24h: guincho, socorro mecânico
-- Gestão centralizada de sinistros
-
-DIFERENCIAL JACOMETO - SOLUÇÃO COMPLETA:
-- Especialista em transportadores = entende todas as necessidades
-- Carga protegida + Veículos protegidos = Operação 100% segura
-- Economia ao contratar ambos com mesmo corretor (condições especiais)
-- Gestão unificada de renovações, sinistros e documentação
-- Proteção total da operação em um só lugar
-- Único ponto de contato para todas as questões de seguros
-
-ABORDAGEM RECOMENDADA:
-- Focar na proteção TOTAL do negócio do transportador
-- Enfatizar a simplificação: um corretor para todas as necessidades
-- Destacar economia ao centralizar os seguros
-- Mencionar a experiência específica com transportadores
-
-TOM: Consultivo, foco em solução completa, economia e simplificação. Profissional sem emojis.
+TOM: Acolhedor, empático, focado no bem-estar do pet e tranquilidade do tutor. Profissional sem emojis.
 `,
   saude: `
 PRODUTOS DE PLANOS DE SAÚDE:

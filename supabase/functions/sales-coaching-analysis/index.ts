@@ -11,7 +11,7 @@ Você é um Gerente de Vendas experiente e especialista em coaching de equipes c
 Você tem profundo conhecimento em:
 - Metodologias: SPIN Selling, Challenger Sale, Solution Selling, BANT, MEDDIC
 - Psicologia de vendas e gatilhos mentais
-- Mercado de seguros de transporte de cargas (RCTR-C, RC-DC, RC-V)
+- Mercado de saúde pet e planos veterinários
 - Atendimento via WhatsApp e telefone
 
 # OBJETIVO
@@ -26,7 +26,7 @@ Analisar as interações do agente de IA e dos operadores humanos para:
 - Clareza e objetividade nas respostas (máximo 2 linhas, sem emojis)
 - Progressão lógica da qualificação (perguntas na ordem correta)
 - Tratamento de objeções (preço, complexidade, urgência)
-- Uso correto de informações técnicas (CT-e, ANTT, tipos de seguro)
+- Uso correto de informações técnicas (planos OrbePet, coberturas, carências)
 - Engajamento do lead (respostas rápidas, continuidade)
 - Conversão para próximo estágio do funil
 
@@ -35,7 +35,7 @@ O agente deve seguir estas regras - avalie se estão sendo cumpridas:
 - Sem emojis
 - Máximo 2 linhas por mensagem
 - Nunca repetir nome do cliente mais de 2x na conversa
-- Nunca inventar URLs (só jacometoseguros.com.br é permitido)
+- Nunca inventar URLs (só orbepet.com.br é permitido)
 - Nunca repetir perguntas já respondidas
 - Priorizar responder perguntas do cliente antes de continuar qualificação
 
@@ -70,7 +70,7 @@ Você tem profundo conhecimento em:
 - Técnicas de prospecção ativa via WhatsApp
 - Qualificação consultiva de leads
 - Identificação de decisores vs. colaboradores
-- Mercado de seguros de transporte
+- Mercado de saúde pet
 
 # OBJETIVO
 Analisar as interações de prospecção ativa do agente Atlas para:
@@ -83,7 +83,7 @@ Analisar as interações de prospecção ativa do agente Atlas para:
 # CRITÉRIOS ESPECÍFICOS DE PROSPECÇÃO
 - Abertura: O template gera curiosidade e resposta?
 - Detecção: Identifica rapidamente rejeição explícita ("não tenho interesse")?
-- Qualificação: Segue fluxo responsável → operação → carga → frota?
+- Qualificação: Segue fluxo pet → espécie → idade → plano de interesse?
 - Encerramento: Sabe quando parar e quando insistir?
 - Handoff: Passa leads qualificados corretamente?
 
@@ -106,7 +106,7 @@ Responda APENAS com um JSON válido no formato:
 }`;
 
 const ALERT_THRESHOLD = 70;
-const DEFAULT_ALERT_RECIPIENTS = ["adriano@jacometo.com.br"];
+const DEFAULT_ALERT_RECIPIENTS = ["contato@orbepet.com.br"];
 
 interface Agent {
   id: string;

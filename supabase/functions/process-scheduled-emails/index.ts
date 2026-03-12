@@ -72,7 +72,7 @@ serve(async (req) => {
           .select('company_name')
           .maybeSingle();
 
-        const fromName = settings?.company_name || 'Jacometo Seguros';
+        const fromName = settings?.company_name || 'OrbePet';
         const fromEmail = `${fromName} <onboarding@resend.dev>`;
 
         const emailResponse = await resend.emails.send({
