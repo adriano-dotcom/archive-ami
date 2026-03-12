@@ -235,7 +235,7 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; padding: 16px; color: #94a3b8; font-size: 12px;">
-            <p style="margin: 0;">Jacometo CRM • Enviado automaticamente às 8h</p>
+            <p style="margin: 0;">OrbePet CRM • Enviado automaticamente às 8h</p>
           </div>
         </div>
       `;
