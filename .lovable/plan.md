@@ -1,50 +1,71 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Revisão do Prompt do Agente Orbi vs Site Oficial orbepet.com.br
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+### Discrepâncias Encontradas
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+Comparei o site oficial com o prompt do agente no banco de dados e encontrei **5 problemas significativos**:
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+---
 
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+### 1. PIX vs Conta Bancária (CRÍTICO - informação conflitante)
 
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+- **Site oficial:** "Reembolso rápido direto na sua conta via PIX" — PIX é destaque principal
+- **Prompt do agente:** "⚠️ Nunca fale em PIX como forma de reembolso. É conta bancária."
+- **Impacto:** O agente está CONTRADIZENDO o site da empresa. Clientes que leram o site e perguntarem sobre PIX receberão uma resposta errada.
+- **Ação:** Atualizar o prompt para confirmar PIX como forma de reembolso
 
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+### 2. Prazo de Reembolso (MODERADO)
 
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
+- **Site oficial:** "até 7 dias úteis"
+- **Prompt do agente:** "até 10 dias úteis"
+- **Ação:** Atualizar para 7 dias úteis conforme site
 
-### Tarefas de Implementação
+### 3. Plano Órbita Galáxia Ausente (CRÍTICO)
 
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+- **Site oficial:** Lista 4 planos, incluindo **Órbita Galáxia** (R$ 138,32/mês, limite anual R$ 6.000)
+  - Inclui tudo do Total + Castração (até R$500) + Acupuntura e fisioterapia (até R$500)
+- **Prompt do agente:** Só lista 3 planos (Essencial, Plus, Total)
+- **Ação:** Adicionar o Galáxia ao prompt com tabela de coberturas e ajustar a estratégia de ancoragem
 
-### Detalhes Técnicos
+### 4. Promoção 15% OFF + Carência Zero para Emergências (IMPORTANTE)
 
-```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
+- **Site oficial:** Promoção ativa com 15% OFF para novas contratações + carência zero para emergências (acidentes, intoxicações, quadros agudos)
+- **Prompt do agente:** Não menciona nenhuma promoção
+- **Ação:** Adicionar seção de promoção ativa ao prompt (pode ser desativada depois)
 
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
-```
+### 5. Preços Desatualizados
+
+Os preços no prompt são os com desconto. O site mostra preço cheio riscado + preço promocional:
+- Essencial: ~~R$44,00~~ → R$37,40 (site) vs R$37,62 (prompt)
+- Plus: ~~R$106,00~~ → R$89,82 (ok)
+- Total: ~~R$127,00~~ → R$107,82 (ok)
+- Galáxia: ~~R$163,00~~ → R$138,32 (falta no prompt)
+
+**Ação:** Ajustar preço do Essencial e incluir referência ao preço cheio para ancoragem
+
+---
+
+### Plano de Implementação
+
+**Método:** Atualização SQL direta na tabela `agents` (coluna `system_prompt`) para o agente Orbi
+
+As alterações no prompt incluem:
+1. **Trocar regra anti-PIX** por regra pró-PIX ("Reembolso via PIX em até 7 dias úteis")
+2. **Atualizar prazo** de 10 para 7 dias úteis em todas as menções
+3. **Adicionar tabela do Galáxia** com coberturas completas (castração R$500, acupuntura/fisioterapia R$500)
+4. **Adicionar seção de promoção** com 15% OFF e carência zero para emergências
+5. **Atualizar estratégia de ancoragem** para incluir 4 planos na ordem: Plus → Essencial → Total → Galáxia
+6. **Corrigir preço Essencial** para R$37,40 (com desconto)
+7. **Adicionar social proof** ("5.000+ pets protegidos, avaliação 4.9/5")
+8. **Atualizar FAQ** com informações do site (carência zero emergência, PIX)
+
+**Também no `nina-orchestrator`** (`buildEnhancedPrompt`):
+- Nenhuma alteração necessária — o prompt é injetado diretamente do banco e as seções de conhecimento especializado já estão genéricas
+
+### Resultado
+- Agente 100% alinhado com o site oficial orbepet.com.br
+- Sem contradições sobre PIX, prazos ou planos disponíveis
+- Promoção ativa disponível para uso em vendas
+- 4 planos completos no repertório do agente
 
