@@ -922,8 +922,8 @@ const ChatInterface: React.FC = () => {
         name: editName.trim() || undefined,
         phone_number: editPhone.replace(/\D/g, '') || undefined,
         email: editEmail.trim() || undefined,
-        cnpj: editCnpj.replace(/\D/g, '') || undefined,
-        company: editCompany.trim() || null
+        cpf: editCpf.replace(/\D/g, '') || undefined,
+        pet_name: editPetName.trim() || null
       });
       
       // Refresh conversations to update UI with saved data
