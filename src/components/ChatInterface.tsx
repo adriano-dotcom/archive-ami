@@ -3077,7 +3077,7 @@ const ChatInterface: React.FC = () => {
           
           contactEmail={activeChat.contactEmail || ''}
           contactName={activeChat.contactName}
-          company={activeChat.contactCompany || ''}
+          company={activeChat.contactPetName || ''}
           value={0}
           ninaContext={activeChat.ninaContext as Record<string, any> | null}
           clientMemory={activeChat.clientMemory}
