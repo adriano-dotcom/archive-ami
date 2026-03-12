@@ -35,7 +35,7 @@ O agente deve seguir estas regras - avalie se estão sendo cumpridas:
 - Sem emojis
 - Máximo 2 linhas por mensagem
 - Nunca repetir nome do cliente mais de 2x na conversa
-- Nunca inventar URLs (só jacometoseguros.com.br é permitido)
+- Nunca inventar URLs (só orbepet.com.br é permitido)
 - Nunca repetir perguntas já respondidas
 - Priorizar responder perguntas do cliente antes de continuar qualificação
 
