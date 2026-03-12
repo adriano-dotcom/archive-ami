@@ -225,7 +225,7 @@ const ProductKnowledgeSettings: React.FC = () => {
                 <div>
                   <Label>Nome do Produto *</Label>
                   <Input
-                    placeholder="Ex: RCTR-C Porto Seguro"
+                    placeholder="Ex: Órbita Plus"
                     value={newProduct.name}
                     onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
                   />
