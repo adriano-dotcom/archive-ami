@@ -1,71 +1,52 @@
 
 
-## Revisão do Prompt do Agente Orbi vs Site Oficial orbepet.com.br
+## Funil de Vendas — Kanban para Leads WhatsApp
 
-### Discrepâncias Encontradas
+### Visão Geral
 
-Comparei o site oficial com o prompt do agente no banco de dados e encontrei **5 problemas significativos**:
+Criar um quadro Kanban funcional na rota `/funil` que exibe os contatos vindos do WhatsApp organizados por estágio do funil. Os cards mostram nome, telefone, último contato, lead score e plano de interesse. Suporte a drag-and-drop para mover leads entre colunas.
 
----
+### Estágios do Funil
 
-### 1. PIX vs Conta Bancária (CRÍTICO - informação conflitante)
+Os estágios usam o campo `lead_status` já existente na tabela `contacts`:
 
-- **Site oficial:** "Reembolso rápido direto na sua conta via PIX" — PIX é destaque principal
-- **Prompt do agente:** "⚠️ Nunca fale em PIX como forma de reembolso. É conta bancária."
-- **Impacto:** O agente está CONTRADIZENDO o site da empresa. Clientes que leram o site e perguntarem sobre PIX receberão uma resposta errada.
-- **Ação:** Atualizar o prompt para confirmar PIX como forma de reembolso
+| Coluna | lead_status | Cor |
+|--------|------------|-----|
+| Novo Lead | `new` | Azul |
+| Qualificado | `qualified` | Amarelo |
+| Proposta | `proposal` | Laranja |
+| Negociação | `negotiation` | Roxo |
+| Vendido | `customer` | Verde |
+| Perdido | `churned` | Vermelho |
 
-### 2. Prazo de Reembolso (MODERADO)
+### Arquitetura
 
-- **Site oficial:** "até 7 dias úteis"
-- **Prompt do agente:** "até 10 dias úteis"
-- **Ação:** Atualizar para 7 dias úteis conforme site
+**Arquivo principal:** `src/components/SalesFunnel.tsx` — reescrito completo
 
-### 3. Plano Órbita Galáxia Ausente (CRÍTICO)
+**Dados:** Query direta ao Supabase buscando contatos com campos: `id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, company`. Sem criar tabelas novas — usa `lead_status` existente.
 
-- **Site oficial:** Lista 4 planos, incluindo **Órbita Galáxia** (R$ 138,32/mês, limite anual R$ 6.000)
-  - Inclui tudo do Total + Castração (até R$500) + Acupuntura e fisioterapia (até R$500)
-- **Prompt do agente:** Só lista 3 planos (Essencial, Plus, Total)
-- **Ação:** Adicionar o Galáxia ao prompt com tabela de coberturas e ajustar a estratégia de ancoragem
+**Drag-and-drop:** Implementação nativa com HTML5 Drag API (sem dependência extra). Ao soltar um card em outra coluna, faz `UPDATE contacts SET lead_status = '...' WHERE id = '...'`.
 
-### 4. Promoção 15% OFF + Carência Zero para Emergências (IMPORTANTE)
+### Componentes
 
-- **Site oficial:** Promoção ativa com 15% OFF para novas contratações + carência zero para emergências (acidentes, intoxicações, quadros agudos)
-- **Prompt do agente:** Não menciona nenhuma promoção
-- **Ação:** Adicionar seção de promoção ativa ao prompt (pode ser desativada depois)
+1. **SalesFunnel** — container principal com 6 colunas horizontais em scroll
+2. **FunnelColumn** — coluna com header (nome, contagem, valor) e lista de cards
+3. **FunnelCard** — card do contato com avatar, nome, telefone, lead score badge, tempo desde último contato, tags
 
-### 5. Preços Desatualizados
+### Funcionalidades
 
-Os preços no prompt são os com desconto. O site mostra preço cheio riscado + preço promocional:
-- Essencial: ~~R$44,00~~ → R$37,40 (site) vs R$37,62 (prompt)
-- Plus: ~~R$106,00~~ → R$89,82 (ok)
-- Total: ~~R$127,00~~ → R$107,82 (ok)
-- Galáxia: ~~R$163,00~~ → R$138,32 (falta no prompt)
+- Filtro por busca (nome/telefone)
+- Contagem de leads por coluna no header
+- Drag-and-drop entre colunas atualiza `lead_status` no banco
+- Click no card abre link para conversa (`/chat?contact=id`) ou drawer de detalhes
+- Lead score badge reutilizando `LeadScoreBadge` existente
+- Indicador de plano de interesse (extraído de `client_memory.lead_profile.products_discussed`)
+- Responsivo: scroll horizontal no mobile
 
-**Ação:** Ajustar preço do Essencial e incluir referência ao preço cheio para ancoragem
+### Detalhes Técnicos
 
----
-
-### Plano de Implementação
-
-**Método:** Atualização SQL direta na tabela `agents` (coluna `system_prompt`) para o agente Orbi
-
-As alterações no prompt incluem:
-1. **Trocar regra anti-PIX** por regra pró-PIX ("Reembolso via PIX em até 7 dias úteis")
-2. **Atualizar prazo** de 10 para 7 dias úteis em todas as menções
-3. **Adicionar tabela do Galáxia** com coberturas completas (castração R$500, acupuntura/fisioterapia R$500)
-4. **Adicionar seção de promoção** com 15% OFF e carência zero para emergências
-5. **Atualizar estratégia de ancoragem** para incluir 4 planos na ordem: Plus → Essencial → Total → Galáxia
-6. **Corrigir preço Essencial** para R$37,40 (com desconto)
-7. **Adicionar social proof** ("5.000+ pets protegidos, avaliação 4.9/5")
-8. **Atualizar FAQ** com informações do site (carência zero emergência, PIX)
-
-**Também no `nina-orchestrator`** (`buildEnhancedPrompt`):
-- Nenhuma alteração necessária — o prompt é injetado diretamente do banco e as seções de conhecimento especializado já estão genéricas
-
-### Resultado
-- Agente 100% alinhado com o site oficial orbepet.com.br
-- Sem contradições sobre PIX, prazos ou planos disponíveis
-- Promoção ativa disponível para uso em vendas
-- 4 planos completos no repertório do agente
+- React Query para fetch e cache dos contatos
+- Optimistic update no drag-and-drop
+- Sem novas tabelas — apenas `contacts.lead_status`
+- Sem novas dependências npm
 
