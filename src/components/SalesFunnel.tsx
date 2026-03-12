@@ -228,7 +228,7 @@ const SalesFunnel: React.FC = () => {
         (c.name || '').toLowerCase().includes(q) ||
         (c.call_name || '').toLowerCase().includes(q) ||
         c.phone_number.includes(q) ||
-        (c.company || '').toLowerCase().includes(q)
+        (c.pet_name || '').toLowerCase().includes(q)
     );
   }, [contacts, debouncedSearch]);
 
