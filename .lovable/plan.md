@@ -1,50 +1,67 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Auditoria Final: Referências Legadas de Seguro de Carga e Jacometo
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+Encontrei referências significativas em **8 arquivos** que precisam ser limpas. Aqui está o inventário completo:
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+---
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+### 1. `supabase/functions/generate-email-copy/index.ts` (CRÍTICO)
+- Linhas 30-118: Blocos inteiros sobre RCTR-C, RC-DC, RC-V, seguro de transporte, frotas, "DIFERENCIAL JACOMETO"
+- Contextos `carga`, `frotas`, `ambos` com conteúdo 100% de seguros de transporte
+- **Ação:** Remover os contextos `carga`, `frotas`, `ambos` e substituir por contexto `pet` (saúde pet, planos OrbePet)
 
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+### 2. `supabase/functions/sales-coaching-analysis/index.ts`
+- Linha 38: `jacometoseguros.com.br` como URL permitida
+- Linha 109: `adriano@jacometo.com.br` como destinatário padrão de alertas
+- **Ação:** Trocar URL para domínio OrbePet, atualizar email padrão
 
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+### 3. `supabase/functions/send-email/index.ts`
+- Linha 102: `"Jacometo Seguros <noreply@jacometo.com.br>"` como remetente padrão
+- **Ação:** Trocar para `"OrbePet <noreply@orbepet.com.br>"` (ou similar)
 
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+### 4. `supabase/functions/send-collection-emails/index.ts`
+- Linha 56-57: `'Jacometo Seguros <jacometo@jacometo.com.br>'` e `'joao.pedro@jacometo.com.br'` como fallbacks
+- **Ação:** Trocar fallbacks para OrbePet
 
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
+### 5. `supabase/functions/process-scheduled-emails/index.ts`
+- Linha 75: `'Jacometo Seguros'` como nome padrão do remetente
+- **Ação:** Trocar para `'OrbePet'`
 
-### Tarefas de Implementação
+### 6. `supabase/functions/send-daily-callbacks/index.ts`
+- Linha 230: URL `https://app.jacometo.com.br/scheduling`
+- Linha 238: `"Jacometo CRM"` no rodapé do email
+- Linha 246: `'Jacometo CRM <notificacoes@resend.dev>'` como remetente
+- **Ação:** Trocar todas as referências para OrbePet CRM
 
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+### 7. `src/components/Team.tsx`
+- Linha 169: `'Equipe Jacometo'` como nome do inviter fallback
+- **Ação:** Trocar para `'Equipe OrbePet'`
 
-### Detalhes Técnicos
+### 8. `src/components/settings/ProductKnowledgeSettings.tsx`
+- Linha 228: Placeholder `"Ex: RCTR-C Porto Seguro"`
+- Linha 272: Header `"Seguradora"` na tabela
+- **Ação:** Trocar placeholder para `"Ex: Órbita Plus"`, header para `"Categoria"` ou remover
 
-```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
+### 9. `nina_settings` no banco de dados
+- Colunas `collection_email_from` e `collection_email_bcc` têm defaults com `jacometo.com.br`
+- **Ação:** Migração SQL para atualizar os defaults dessas colunas
 
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
-```
+---
+
+### Resumo de alterações
+
+| Arquivo | Tipo | Ação |
+|---------|------|------|
+| `generate-email-copy/index.ts` | Edge function | Substituir contextos de seguro por pet |
+| `sales-coaching-analysis/index.ts` | Edge function | Atualizar URL e email |
+| `send-email/index.ts` | Edge function | Trocar remetente padrão |
+| `send-collection-emails/index.ts` | Edge function | Trocar fallbacks |
+| `process-scheduled-emails/index.ts` | Edge function | Trocar nome padrão |
+| `send-daily-callbacks/index.ts` | Edge function | Trocar URL, nome e remetente |
+| `src/components/Team.tsx` | Frontend | Trocar nome fallback |
+| `src/components/settings/ProductKnowledgeSettings.tsx` | Frontend | Trocar placeholder e header |
+| Migração SQL | Banco | Atualizar defaults de email |
+
+Total: 9 arquivos + 1 migração SQL. Deploy de 6 edge functions após alterações.
 
