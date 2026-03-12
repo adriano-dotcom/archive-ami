@@ -106,11 +106,10 @@ const ChatInterface: React.FC = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editCnpj, setEditCnpj] = useState('');
-  const [editCompany, setEditCompany] = useState('');
+  const [editCpf, setEditCpf] = useState('');
+  const [editPetName, setEditPetName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
-  const [isLookingUpCnpj, setIsLookingUpCnpj] = useState(false);
   
   
   // Call modal state
