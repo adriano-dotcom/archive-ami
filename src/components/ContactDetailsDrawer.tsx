@@ -42,11 +42,11 @@ interface ContactDetailsDrawerProps {
   onContactUpdate?: (updatedContact: ContactData) => void;
 }
 
-const formatCNPJ = (cnpj: string | undefined) => {
-  if (!cnpj) return '-';
-  const digits = cnpj.replace(/\D/g, '');
-  if (digits.length !== 14) return cnpj;
-  return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12,14)}`;
+const formatCPF = (cpf: string | undefined) => {
+  if (!cpf) return '-';
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return cpf;
+  return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9,11)}`;
 };
 
 const formatCEP = (cep: string | undefined) => {
