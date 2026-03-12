@@ -83,7 +83,7 @@ Analisar as interações de prospecção ativa do agente Atlas para:
 # CRITÉRIOS ESPECÍFICOS DE PROSPECÇÃO
 - Abertura: O template gera curiosidade e resposta?
 - Detecção: Identifica rapidamente rejeição explícita ("não tenho interesse")?
-- Qualificação: Segue fluxo responsável → operação → carga → frota?
+- Qualificação: Segue fluxo pet → espécie → idade → plano de interesse?
 - Encerramento: Sabe quando parar e quando insistir?
 - Handoff: Passa leads qualificados corretamente?
 
