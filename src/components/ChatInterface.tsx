@@ -2927,7 +2927,7 @@ const ChatInterface: React.FC = () => {
             name: activeChat.contactName,
             phone: activeChat.contactPhone,
             avatar: activeChat.contactAvatar,
-            company: activeChat.contactCompany,
+            company: activeChat.contactPetName,
             tags: activeChat.tags,
           }}
           conversationId={activeChat.id}
