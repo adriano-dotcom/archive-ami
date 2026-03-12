@@ -3083,7 +3083,7 @@ const ChatInterface: React.FC = () => {
           clientMemory={activeChat.clientMemory}
           agentSlug={activeChat.agentSlug}
           contactPhone={activeChat.contactPhone}
-          contactCnpj={activeChat.contactCnpj}
+          contactCnpj={activeChat.contactCpf}
           conversationHistory={activeChat.messages?.slice(-10).map(m => 
             `${m.direction === 'incoming' ? 'Lead' : 'Agente'}: ${m.content}`
           ).join('\n')}
