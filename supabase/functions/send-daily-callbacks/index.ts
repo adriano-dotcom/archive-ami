@@ -227,7 +227,7 @@ serve(async (req) => {
             </div>
             
             <div style="margin-top: 24px; text-align: center;">
-              <a href="https://app.jacometo.com.br/scheduling" 
+              <a href="https://app.orbepet.com.br/scheduling" 
                  style="display: inline-block; background: #3b82f6; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">
                 Ver Agenda Completa
               </a>
