@@ -26,7 +26,7 @@ Analisar as interações do agente de IA e dos operadores humanos para:
 - Clareza e objetividade nas respostas (máximo 2 linhas, sem emojis)
 - Progressão lógica da qualificação (perguntas na ordem correta)
 - Tratamento de objeções (preço, complexidade, urgência)
-- Uso correto de informações técnicas (CT-e, ANTT, tipos de seguro)
+- Uso correto de informações técnicas (planos OrbePet, coberturas, carências)
 - Engajamento do lead (respostas rápidas, continuidade)
 - Conversão para próximo estágio do funil
 
