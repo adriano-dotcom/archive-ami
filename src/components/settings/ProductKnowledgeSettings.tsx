@@ -304,7 +304,7 @@ const ProductKnowledgeSettings: React.FC = () => {
                             <Eye className="w-4 h-4" />
                           </Button>
                         )}
-                        {(product.extraction_status === 'error' || product.extraction_status === 'pending') && (
+                        {(product.extraction_status === 'error' || product.extraction_status === 'pending' || product.extraction_status === 'processing') && (
                           <Button
                             variant="ghost"
                             size="sm"

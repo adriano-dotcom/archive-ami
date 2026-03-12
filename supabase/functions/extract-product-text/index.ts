@@ -13,14 +13,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  let productId: string | null = null;
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const { productId, fileUrl } = await req.json();
+    const body = await req.json();
+    productId = body.productId;
+    const fileUrl = body.fileUrl;
 
     if (!productId || !fileUrl) {
       return new Response(JSON.stringify({ error: 'productId and fileUrl are required' }), {
@@ -38,7 +41,6 @@ serve(async (req) => {
       .eq('id', productId);
 
     // Download the PDF from storage
-    // The fileUrl is a path like "product-docs/filename.pdf"
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('whatsapp-media')
       .download(fileUrl);
@@ -180,7 +182,20 @@ RESUMO: [resumo breve do documento]
     });
 
   } catch (error) {
-    console.error('[extract-product-text] Error:', error);
+    console.error('[extract-product-text] Fatal error:', error);
+
+    // Safety net: mark as error so it doesn't stay stuck in "processing"
+    if (productId) {
+      try {
+        await supabase
+          .from('product_knowledge')
+          .update({ extraction_status: 'error' })
+          .eq('id', productId);
+      } catch (e) {
+        console.error('[extract-product-text] Failed to update status to error:', e);
+      }
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
