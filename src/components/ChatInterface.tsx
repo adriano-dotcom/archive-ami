@@ -2648,59 +2648,47 @@ const ChatInterface: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* CNPJ */}
+                  {/* CPF */}
                   <div className="flex items-center gap-3 text-sm">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
                       <FileText className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">CNPJ</span>
+                      <span className="text-xs text-slate-500">CPF</span>
                       {isEditingContact ? (
-                        <div className="flex gap-2">
-                          <Input
-                            type="text"
-                            value={editCnpj}
-                            onChange={(e) => setEditCnpj(e.target.value)}
-                            placeholder="00.000.000/0000-00"
-                            className="h-8 text-sm bg-slate-950/50 border-slate-700 flex-1"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCnpjLookup}
-                            disabled={isLookingUpCnpj || editCnpj.replace(/\D/g, '').length < 14}
-                            className="h-8 px-2"
-                            title="Buscar empresa pelo CNPJ"
-                          >
-                            {isLookingUpCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                          </Button>
-                        </div>
+                        <Input
+                          type="text"
+                          value={editCpf}
+                          onChange={(e) => setEditCpf(e.target.value)}
+                          placeholder="000.000.000-00"
+                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
+                        />
                       ) : (
                         <span className="text-slate-200 font-medium">
-                          {activeChat.contactCnpj ? formatCnpj(activeChat.contactCnpj) : <span className="text-slate-500 italic">Não informado</span>}
+                          {activeChat.contactCpf ? formatCpf(activeChat.contactCpf) : <span className="text-slate-500 italic">Não informado</span>}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Company */}
+                  {/* Nome do Pet */}
                   <div className="flex items-center gap-3 text-sm">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      <Building2 className="w-4 h-4" />
+                      🐾
                     </div>
                     <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">Empresa</span>
+                      <span className="text-xs text-slate-500">Nome do Pet</span>
                       {isEditingContact ? (
                         <Input
                           type="text"
-                          value={editCompany}
-                          onChange={(e) => setEditCompany(e.target.value)}
-                          placeholder="Nome da empresa"
+                          value={editPetName}
+                          onChange={(e) => setEditPetName(e.target.value)}
+                          placeholder="Nome do animal"
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : (
                         <span className="text-slate-200 font-medium">
-                          {activeChat.contactCompany || <span className="text-slate-500 italic">Não informado</span>}
+                          {activeChat.contactPetName || <span className="text-slate-500 italic">Não informado</span>}
                         </span>
                       )}
                     </div>
