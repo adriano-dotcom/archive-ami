@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag } from 'lucide-react';
+import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag, BarChart3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { LeadScoreBadge } from '@/components/chat/LeadScoreBadge';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import FunnelMetricsPanel from '@/components/funnel/FunnelMetricsPanel';
 
 // ─── Stage definitions ───────────────────────────────────────────
 interface Stage {
@@ -187,6 +188,7 @@ const SalesFunnel: React.FC = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [showMetrics, setShowMetrics] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['funnel-contacts'],
@@ -273,6 +275,17 @@ const SalesFunnel: React.FC = () => {
           <Badge variant="secondary" className="text-xs">
             {totalLeads} leads
           </Badge>
+          <button
+            onClick={() => setShowMetrics(!showMetrics)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              showMetrics
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Métricas
+          </button>
         </div>
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -284,6 +297,15 @@ const SalesFunnel: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Metrics panel */}
+      {showMetrics && !isLoading && (
+        <FunnelMetricsPanel
+          contactsByStage={contactsByStage}
+          stages={STAGES}
+          totalLeads={totalLeads}
+        />
+      )}
 
       {/* Kanban board */}
       {isLoading ? (
