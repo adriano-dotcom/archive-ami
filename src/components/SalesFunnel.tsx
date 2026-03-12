@@ -275,6 +275,17 @@ const SalesFunnel: React.FC = () => {
           <Badge variant="secondary" className="text-xs">
             {totalLeads} leads
           </Badge>
+          <button
+            onClick={() => setShowMetrics(!showMetrics)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              showMetrics
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Métricas
+          </button>
         </div>
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -286,6 +297,15 @@ const SalesFunnel: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Metrics panel */}
+      {showMetrics && !isLoading && (
+        <FunnelMetricsPanel
+          contactsByStage={contactsByStage}
+          stages={STAGES}
+          totalLeads={totalLeads}
+        />
+      )}
 
       {/* Kanban board */}
       {isLoading ? (
