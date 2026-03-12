@@ -632,6 +632,7 @@ export type Database = {
           neighborhood: string | null
           notes: string | null
           number: string | null
+          pet_name: string | null
           phone_number: string
           profile_picture_url: string | null
           role: string | null
@@ -675,6 +676,7 @@ export type Database = {
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
+          pet_name?: string | null
           phone_number: string
           profile_picture_url?: string | null
           role?: string | null
@@ -718,6 +720,7 @@ export type Database = {
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
+          pet_name?: string | null
           phone_number?: string
           profile_picture_url?: string | null
           role?: string | null
