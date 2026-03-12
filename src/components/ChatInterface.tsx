@@ -940,11 +940,11 @@ const ChatInterface: React.FC = () => {
 
   // Deal/pipeline functionality removed - system focused on collections and claims
 
-  // Format CNPJ for display
-  const formatCnpj = (cnpj: string) => {
-    const clean = cnpj.replace(/\D/g, '');
-    if (clean.length !== 14) return cnpj;
-    return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  // Format CPF for display
+  const formatCpf = (cpf: string) => {
+    const clean = cpf.replace(/\D/g, '');
+    if (clean.length !== 11) return cpf;
+    return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
   };
 
   // Calculate conversation counts for filters

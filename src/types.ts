@@ -232,8 +232,8 @@ export interface UIConversation {
   contactPhone: string;
   contactAvatar: string;
   contactEmail: string | null;
-  contactCnpj: string | null;
-  contactCompany: string | null;
+  contactCpf: string | null;
+  contactPetName: string | null;
   status: ConversationStatus;
   isActive: boolean;
   assignedTeam: string | null;
