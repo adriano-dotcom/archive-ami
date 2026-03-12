@@ -2944,7 +2944,7 @@ const ChatInterface: React.FC = () => {
           contactId={activeChat.contactId}
           conversationId={activeChat.id}
           contactName={activeChat.contactName}
-          contactCompany={activeChat.contactCompany ?? undefined}
+          contactCompany={activeChat.contactPetName ?? undefined}
           onSent={() => setShowTemplateModal(false)}
         />
       )}
