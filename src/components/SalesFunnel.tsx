@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag } from 'lucide-react';
+import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag, BarChart3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { LeadScoreBadge } from '@/components/chat/LeadScoreBadge';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import FunnelMetricsPanel from '@/components/funnel/FunnelMetricsPanel';
 
 // ─── Stage definitions ───────────────────────────────────────────
 interface Stage {
