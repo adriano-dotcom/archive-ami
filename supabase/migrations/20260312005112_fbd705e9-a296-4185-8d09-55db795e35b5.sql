@@ -1,0 +1,2 @@
+ALTER TABLE nina_settings ALTER COLUMN collection_email_from SET DEFAULT 'OrbePet <contato@orbepet.com.br>';
+ALTER TABLE nina_settings ALTER COLUMN collection_email_bcc SET DEFAULT ARRAY['contato@orbepet.com.br']::text[];
