@@ -188,6 +188,7 @@ const SalesFunnel: React.FC = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [showMetrics, setShowMetrics] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['funnel-contacts'],
