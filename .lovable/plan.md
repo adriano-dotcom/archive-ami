@@ -1,50 +1,52 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Revisão do Prompt do Agente Orbi
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+### Diagnóstico
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+Após análise do prompt do agente (banco de dados) e da função `buildEnhancedPrompt` no `nina-orchestrator`, identifiquei **2 problemas críticos** e **1 lacuna de conteúdo**:
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+---
 
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+### Problema 1: Bloco de seguros de transporte ainda no código (CRÍTICO)
 
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+O `nina-orchestrator` (linhas 4219-4293) injeta automaticamente ~75 linhas de "CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE" em **toda conversa**. Contém ATM, CT-e, averbação de carga, regra dos 15 dias — conteúdo da antiga corretora Jacometo, completamente irrelevante para saúde pet. Isso:
+- Desperdiça tokens da janela de contexto
+- Pode confundir o modelo e gerar respostas sobre seguros de carga
 
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+**Ação:** Remover todo o bloco de seguros de transporte (linhas 4219-4293) e substituir por uma seção curta e genérica sobre saúde pet.
 
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
+---
 
-### Tarefas de Implementação
+### Problema 2: Campos de qualificação obsoletos (MODERADO)
 
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+Os campos de qualificação (linhas 4450-4465) ainda referenciam `tipo_carga`, `viagens_mes`, `valor_medio`, `antt`, `cte` — todos de transporte. Devem ser atualizados para campos pet.
 
-### Detalhes Técnicos
+**Ação:** Substituir os `fieldLabels` por campos relevantes:
+- `pet_nome`, `pet_especie`, `pet_idade`, `pet_raca`
+- `plano_interesse`, `preocupacao_principal`, `ja_tem_plano`
 
-```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
+---
 
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
-```
+### Lacuna: Plano Órbita Galáxia não está no prompt do agente
+
+O banco tem 4 produtos com extração completa: Essencial, Plus, Total e **Galáxia**. Porém, o prompt do agente no banco lista apenas 3 planos. O Galáxia não aparece na tabela de planos nem no script de ancoragem.
+
+**Ação:** Não alterar o prompt do agente agora — o conteúdo completo do Galáxia já é injetado automaticamente via `product_knowledge`. A base de conhecimento cobre as perguntas detalhadas. Se quiser adicionar o Galáxia à tabela de planos do prompt, isso pode ser feito pelo painel de Agentes.
+
+---
+
+### Resumo das alterações
+
+**Arquivo:** `supabase/functions/nina-orchestrator/index.ts`
+
+1. **Remover** o bloco `CONHECIMENTO ESPECIALIZADO - SEGUROS DE TRANSPORTE` (linhas 4219-4293)
+2. **Atualizar** os `fieldLabels` da qualificação (linhas 4450-4465) para campos pet
+3. **Deploy** da edge function atualizada
+
+### Resultado
+- Prompt mais limpo e focado em saúde pet
+- ~75 linhas de contexto irrelevante removidas = mais espaço para product knowledge
+- Qualificação coerente com o negócio OrbePet
+- As 4 condições gerais (Essencial, Plus, Total, Galáxia) continuam sendo injetadas automaticamente via product_knowledge
 
