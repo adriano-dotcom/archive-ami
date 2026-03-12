@@ -42,7 +42,7 @@ interface FunnelContact {
   client_memory: any;
   profile_picture_url: string | null;
   tags: string[] | null;
-  company: string | null;
+  pet_name: string | null;
 }
 
 // ─── Data fetching ───────────────────────────────────────────────
