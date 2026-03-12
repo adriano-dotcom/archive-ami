@@ -269,7 +269,7 @@ const ProductKnowledgeSettings: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Seguradora</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Conteúdo</TableHead>
                   <TableHead>Ativo</TableHead>

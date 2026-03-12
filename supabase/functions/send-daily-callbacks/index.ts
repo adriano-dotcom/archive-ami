@@ -243,7 +243,7 @@ serve(async (req) => {
       if (resend) {
         try {
           const { error: emailError } = await resend.emails.send({
-            from: 'Jacometo CRM <notificacoes@resend.dev>',
+            from: 'OrbePet CRM <notificacoes@resend.dev>',
             to: [assignee.email],
             subject: `📞 ${tasks.length} callback${tasks.length > 1 ? 's' : ''} agendado${tasks.length > 1 ? 's' : ''} para hoje`,
             html: emailHtml

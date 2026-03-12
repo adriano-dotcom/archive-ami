@@ -106,7 +106,7 @@ Responda APENAS com um JSON válido no formato:
 }`;
 
 const ALERT_THRESHOLD = 70;
-const DEFAULT_ALERT_RECIPIENTS = ["adriano@jacometo.com.br"];
+const DEFAULT_ALERT_RECIPIENTS = ["contato@orbepet.com.br"];
 
 interface Agent {
   id: string;
