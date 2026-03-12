@@ -1,52 +1,50 @@
 
 
-## Funil de Vendas — Kanban para Leads WhatsApp
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Visão Geral
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-Criar um quadro Kanban funcional na rota `/funil` que exibe os contatos vindos do WhatsApp organizados por estágio do funil. Os cards mostram nome, telefone, último contato, lead score e plano de interesse. Suporte a drag-and-drop para mover leads entre colunas.
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-### Estágios do Funil
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
 
-Os estágios usam o campo `lead_status` já existente na tabela `contacts`:
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
 
-| Coluna | lead_status | Cor |
-|--------|------------|-----|
-| Novo Lead | `new` | Azul |
-| Qualificado | `qualified` | Amarelo |
-| Proposta | `proposal` | Laranja |
-| Negociação | `negotiation` | Roxo |
-| Vendido | `customer` | Verde |
-| Perdido | `churned` | Vermelho |
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
 
-### Arquitetura
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
 
-**Arquivo principal:** `src/components/SalesFunnel.tsx` — reescrito completo
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
 
-**Dados:** Query direta ao Supabase buscando contatos com campos: `id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, company`. Sem criar tabelas novas — usa `lead_status` existente.
+### Tarefas de Implementação
 
-**Drag-and-drop:** Implementação nativa com HTML5 Drag API (sem dependência extra). Ao soltar um card em outra coluna, faz `UPDATE contacts SET lead_status = '...' WHERE id = '...'`.
-
-### Componentes
-
-1. **SalesFunnel** — container principal com 6 colunas horizontais em scroll
-2. **FunnelColumn** — coluna com header (nome, contagem, valor) e lista de cards
-3. **FunnelCard** — card do contato com avatar, nome, telefone, lead score badge, tempo desde último contato, tags
-
-### Funcionalidades
-
-- Filtro por busca (nome/telefone)
-- Contagem de leads por coluna no header
-- Drag-and-drop entre colunas atualiza `lead_status` no banco
-- Click no card abre link para conversa (`/chat?contact=id`) ou drawer de detalhes
-- Lead score badge reutilizando `LeadScoreBadge` existente
-- Indicador de plano de interesse (extraído de `client_memory.lead_profile.products_discussed`)
-- Responsivo: scroll horizontal no mobile
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
 
 ### Detalhes Técnicos
 
-- React Query para fetch e cache dos contatos
-- Optimistic update no drag-and-drop
-- Sem novas tabelas — apenas `contacts.lead_status`
-- Sem novas dependências npm
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
+```
 
