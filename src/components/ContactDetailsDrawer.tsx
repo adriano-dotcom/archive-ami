@@ -14,8 +14,8 @@ interface ContactData {
   name: string;
   phone: string;
   email: string;
-  company?: string;
-  cnpj?: string;
+  pet_name?: string;
+  cpf?: string;
   fleet_size?: number;
   cep?: string;
   street?: string;
