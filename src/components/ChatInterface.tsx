@@ -505,8 +505,8 @@ const ChatInterface: React.FC = () => {
     if (activeChat) {
       setEditName(activeChat.contactName || '');
       setEditEmail(activeChat.contactEmail || '');
-      setEditCnpj(activeChat.contactCnpj || '');
-      setEditCompany(activeChat.contactCompany || '');
+      setEditCpf(activeChat.contactCpf || '');
+      setEditPetName(activeChat.contactPetName || '');
       setEditPhone(activeChat.contactPhone || '');
       setIsEditingContact(false);
     }
