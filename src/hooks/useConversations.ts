@@ -266,8 +266,8 @@ export function useConversations() {
                   contactName: updated.name || updated.call_name || conv.contactName,
                   contactPhone: updated.phone_number || conv.contactPhone,
                   contactEmail: updated.email || null,
-                  contactCnpj: updated.cnpj || null,
-                  contactCompany: updated.company || null,
+                  contactCpf: updated.cpf || null,
+                  contactPetName: updated.pet_name || null,
                   notes: updated.notes || null,
                   clientMemory: updated.client_memory || conv.clientMemory,
                   tags: updated.tags || []

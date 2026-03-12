@@ -106,11 +106,10 @@ const ChatInterface: React.FC = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editCnpj, setEditCnpj] = useState('');
-  const [editCompany, setEditCompany] = useState('');
+  const [editCpf, setEditCpf] = useState('');
+  const [editPetName, setEditPetName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
-  const [isLookingUpCnpj, setIsLookingUpCnpj] = useState(false);
   
   
   // Call modal state
@@ -506,12 +505,12 @@ const ChatInterface: React.FC = () => {
     if (activeChat) {
       setEditName(activeChat.contactName || '');
       setEditEmail(activeChat.contactEmail || '');
-      setEditCnpj(activeChat.contactCnpj || '');
-      setEditCompany(activeChat.contactCompany || '');
+      setEditCpf(activeChat.contactCpf || '');
+      setEditPetName(activeChat.contactPetName || '');
       setEditPhone(activeChat.contactPhone || '');
       setIsEditingContact(false);
     }
-  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCnpj, activeChat?.contactCompany, activeChat?.contactPhone]);
+  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone]);
 
   // Deal/pipeline logic removed - system now focused on collections and claims
 
@@ -913,44 +912,6 @@ const ChatInterface: React.FC = () => {
     await updateStatus(activeChat.id, status, user?.id, userName);
   };
 
-  // CNPJ Lookup via BrasilAPI
-  const handleCnpjLookup = async () => {
-    const cleanCnpj = editCnpj.replace(/\D/g, '');
-    if (cleanCnpj.length !== 14) {
-      toast.error('CNPJ inválido. Digite 14 dígitos.');
-      return;
-    }
-
-    setIsLookingUpCnpj(true);
-    try {
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-      if (!response.ok) {
-        throw new Error('CNPJ não encontrado');
-      }
-      const data = await response.json();
-      
-      // Auto-fill company name
-      const companyName = data.nome_fantasia || data.razao_social || '';
-      setEditCompany(companyName);
-      
-      // Auto-save CNPJ and company after lookup
-      if (activeChat) {
-        await api.updateContact(activeChat.contactId, {
-          cnpj: cleanCnpj,
-          company: companyName || null
-        });
-        // Refresh conversations to update UI with saved data
-        await refetch();
-        toast.success(`Empresa encontrada e salva: ${companyName}`);
-      }
-    } catch (error) {
-      console.error('CNPJ lookup error:', error);
-      toast.error('CNPJ não encontrado na Receita Federal');
-    } finally {
-      setIsLookingUpCnpj(false);
-    }
-  };
-
   // Save contact data
   const handleSaveContactData = async () => {
     if (!activeChat) return;
@@ -961,8 +922,8 @@ const ChatInterface: React.FC = () => {
         name: editName.trim() || undefined,
         phone_number: editPhone.replace(/\D/g, '') || undefined,
         email: editEmail.trim() || undefined,
-        cnpj: editCnpj.replace(/\D/g, '') || undefined,
-        company: editCompany.trim() || null
+        cpf: editCpf.replace(/\D/g, '') || undefined,
+        pet_name: editPetName.trim() || null
       });
       
       // Refresh conversations to update UI with saved data
@@ -979,11 +940,11 @@ const ChatInterface: React.FC = () => {
 
   // Deal/pipeline functionality removed - system focused on collections and claims
 
-  // Format CNPJ for display
-  const formatCnpj = (cnpj: string) => {
-    const clean = cnpj.replace(/\D/g, '');
-    if (clean.length !== 14) return cnpj;
-    return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  // Format CPF for display
+  const formatCpf = (cpf: string) => {
+    const clean = cpf.replace(/\D/g, '');
+    if (clean.length !== 11) return cpf;
+    return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
   };
 
   // Calculate conversation counts for filters
@@ -2595,7 +2556,7 @@ const ChatInterface: React.FC = () => {
                 {/* Details List */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados de Contato</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Tutor</h4>
                     <button 
                       onClick={() => setIsEditingContact(!isEditingContact)}
                       className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
@@ -2650,7 +2611,7 @@ const ChatInterface: React.FC = () => {
                           type="email"
                           value={editEmail}
                           onChange={(e) => setEditEmail(e.target.value)}
-                          placeholder="email@empresa.com"
+                          placeholder="email@exemplo.com"
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : activeChat.contactEmail ? (
@@ -2687,59 +2648,47 @@ const ChatInterface: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* CNPJ */}
+                  {/* CPF */}
                   <div className="flex items-center gap-3 text-sm">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
                       <FileText className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">CNPJ</span>
+                      <span className="text-xs text-slate-500">CPF</span>
                       {isEditingContact ? (
-                        <div className="flex gap-2">
-                          <Input
-                            type="text"
-                            value={editCnpj}
-                            onChange={(e) => setEditCnpj(e.target.value)}
-                            placeholder="00.000.000/0000-00"
-                            className="h-8 text-sm bg-slate-950/50 border-slate-700 flex-1"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCnpjLookup}
-                            disabled={isLookingUpCnpj || editCnpj.replace(/\D/g, '').length < 14}
-                            className="h-8 px-2"
-                            title="Buscar empresa pelo CNPJ"
-                          >
-                            {isLookingUpCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                          </Button>
-                        </div>
+                        <Input
+                          type="text"
+                          value={editCpf}
+                          onChange={(e) => setEditCpf(e.target.value)}
+                          placeholder="000.000.000-00"
+                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
+                        />
                       ) : (
                         <span className="text-slate-200 font-medium">
-                          {activeChat.contactCnpj ? formatCnpj(activeChat.contactCnpj) : <span className="text-slate-500 italic">Não informado</span>}
+                          {activeChat.contactCpf ? formatCpf(activeChat.contactCpf) : <span className="text-slate-500 italic">Não informado</span>}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Company */}
+                  {/* Nome do Pet */}
                   <div className="flex items-center gap-3 text-sm">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      <Building2 className="w-4 h-4" />
+                      🐾
                     </div>
                     <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">Empresa</span>
+                      <span className="text-xs text-slate-500">Nome do Pet</span>
                       {isEditingContact ? (
                         <Input
                           type="text"
-                          value={editCompany}
-                          onChange={(e) => setEditCompany(e.target.value)}
-                          placeholder="Nome da empresa"
+                          value={editPetName}
+                          onChange={(e) => setEditPetName(e.target.value)}
+                          placeholder="Nome do animal"
                           className="h-8 text-sm bg-slate-950/50 border-slate-700"
                         />
                       ) : (
                         <span className="text-slate-200 font-medium">
-                          {activeChat.contactCompany || <span className="text-slate-500 italic">Não informado</span>}
+                          {activeChat.contactPetName || <span className="text-slate-500 italic">Não informado</span>}
                         </span>
                       )}
                     </div>
@@ -2978,7 +2927,7 @@ const ChatInterface: React.FC = () => {
             name: activeChat.contactName,
             phone: activeChat.contactPhone,
             avatar: activeChat.contactAvatar,
-            company: activeChat.contactCompany,
+            company: activeChat.contactPetName,
             tags: activeChat.tags,
           }}
           conversationId={activeChat.id}
@@ -2995,7 +2944,7 @@ const ChatInterface: React.FC = () => {
           contactId={activeChat.contactId}
           conversationId={activeChat.id}
           contactName={activeChat.contactName}
-          contactCompany={activeChat.contactCompany ?? undefined}
+          contactCompany={activeChat.contactPetName ?? undefined}
           onSent={() => setShowTemplateModal(false)}
         />
       )}
@@ -3128,13 +3077,13 @@ const ChatInterface: React.FC = () => {
           
           contactEmail={activeChat.contactEmail || ''}
           contactName={activeChat.contactName}
-          company={activeChat.contactCompany || ''}
+          company={activeChat.contactPetName || ''}
           value={0}
           ninaContext={activeChat.ninaContext as Record<string, any> | null}
           clientMemory={activeChat.clientMemory}
           agentSlug={activeChat.agentSlug}
           contactPhone={activeChat.contactPhone}
-          contactCnpj={activeChat.contactCnpj}
+          contactCnpj={activeChat.contactCpf}
           conversationHistory={activeChat.messages?.slice(-10).map(m => 
             `${m.direction === 'incoming' ? 'Lead' : 'Agente'}: ${m.content}`
           ).join('\n')}

@@ -1,37 +1,50 @@
 
 
-## De Contato para Tutor: CPF, Nome do Pet, sem CNPJ/Empresa
+## Plano: Base de Conhecimento com PDFs de Condições Gerais
 
-### Alterações necessárias
+### Contexto
+Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
 
-**1. Migração SQL** — Adicionar coluna `pet_name` na tabela `contacts` (CPF já existe na tabela)
+### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
 
-```sql
-ALTER TABLE contacts ADD COLUMN IF NOT EXISTS pet_name text;
+Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
+
+1. **Criar tabela `product_knowledge`** no banco com campos:
+   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
+
+2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
+   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
+   - Extrair texto do PDF via IA (Gemini) ao fazer upload
+   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
+
+3. **Integrar no nina-orchestrator**:
+   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
+   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
+   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
+
+### Por que NÃO usar RAG (pgvector)?
+- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
+- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
+- Abordagem mais simples = menos pontos de falha
+
+### Tarefas de Implementação
+
+1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
+2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
+3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
+4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
+
+### Detalhes Técnicos
+
+```text
+Fluxo de Upload:
+  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
+                       → Edge function extrai texto do PDF
+                       → Salva na tabela product_knowledge (full_content)
+
+Fluxo de Resposta:
+  Mensagem recebida → nina-orchestrator busca product_knowledge
+                    → Injeta no system prompt como contexto
+                    → Agente responde com base no conteúdo real
 ```
-
-**2. `src/components/ChatInterface.tsx`** — Painel lateral do chat:
-- Substituir bloco CNPJ (linhas 2690-2723) por bloco **CPF** com campo `cpf` (já existe na tabela)
-- Substituir bloco Empresa (linhas 2725-2746) por bloco **Nome do Pet** com campo `pet_name`
-- Atualizar estados: `editCnpj` → `editCpf`, `editCompany` → `editPetName`
-- Remover `handleCnpjLookup` (busca BrasilAPI)
-- Atualizar `handleSaveContactData` para salvar `cpf` e `pet_name` ao invés de `cnpj` e `company`
-- Placeholder email: `email@empresa.com` → `email@exemplo.com`
-- Seção header: "Dados de Contato" → "Dados do Tutor"
-
-**3. `src/components/ContactDetailsDrawer.tsx`** — Drawer de detalhes:
-- Substituir `CNPJ` por `CPF` (com formatação `000.000.000-00`)
-- Substituir `Empresa` por `Nome do Pet` (ícone de pata ou similar)
-- Remover `formatCNPJ`, adicionar `formatCPF`
-- Seção header: "Dados de Contato" → "Dados do Tutor"
-
-**4. `src/types.ts`** — Tipo Conversation:
-- `contactCnpj` → `contactCpf`
-- `contactCompany` → `contactPetName`
-- Atualizar `mapConversation` para mapear os novos campos
-
-**5. Componentes dependentes** (ajustes de referência):
-- `EmailComposeModal.tsx`: trocar referências cnpj/company
-- `SendWhatsAppTemplateModal.tsx`: trocar `contactCompany`
-- `Contacts.tsx`: ajustar busca por CPF ao invés de CNPJ
 

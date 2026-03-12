@@ -42,14 +42,14 @@ interface FunnelContact {
   client_memory: any;
   profile_picture_url: string | null;
   tags: string[] | null;
-  company: string | null;
+  pet_name: string | null;
 }
 
 // ─── Data fetching ───────────────────────────────────────────────
 const fetchFunnelContacts = async (): Promise<FunnelContact[]> => {
   const { data, error } = await supabase
     .from('contacts')
-    .select('id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, company')
+    .select('id, name, call_name, phone_number, email, lead_status, last_activity, client_memory, profile_picture_url, tags, pet_name')
     .order('last_activity', { ascending: false })
     .limit(500);
 
@@ -88,8 +88,8 @@ const FunnelCard: React.FC<{
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-          {contact.company && (
-            <p className="text-[11px] text-muted-foreground truncate">{contact.company}</p>
+          {contact.pet_name && (
+            <p className="text-[11px] text-muted-foreground truncate">🐾 {contact.pet_name}</p>
           )}
         </div>
       </div>
@@ -228,7 +228,7 @@ const SalesFunnel: React.FC = () => {
         (c.name || '').toLowerCase().includes(q) ||
         (c.call_name || '').toLowerCase().includes(q) ||
         c.phone_number.includes(q) ||
-        (c.company || '').toLowerCase().includes(q)
+        (c.pet_name || '').toLowerCase().includes(q)
     );
   }, [contacts, debouncedSearch]);
 
