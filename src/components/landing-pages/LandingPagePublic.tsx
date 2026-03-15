@@ -111,6 +111,7 @@ export const LandingPagePublic: React.FC = () => {
       if (result.success) {
         setSubmitted(true);
         if (result.lead_magnet_url) setLeadMagnetUrl(result.lead_magnet_url);
+        (window as any).fbq?.('track', 'Lead');
       }
     } catch (err) {
       console.error('Submission error:', err);
