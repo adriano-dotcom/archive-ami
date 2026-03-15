@@ -92,6 +92,9 @@ const App: React.FC = () => {
                 {/* Auth Route */}
                 <Route path="/auth" element={<Auth />} />
                 
+                {/* Public Landing Pages (no auth, no sidebar) */}
+                <Route path="/lp/:slug" element={<LandingPagePublic />} />
+                
                 {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
                 <Route path="/meeting/:id" element={<MeetingRoom />} />
 
