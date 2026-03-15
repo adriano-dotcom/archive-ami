@@ -122,6 +122,7 @@ const App: React.FC = () => {
                   <Route path="/collections" element={<CollectionsDashboard />} />
                   <Route path="/calls" element={<CallsPage />} />
                   <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
+                  <Route path="/landing-pages" element={<LandingPagesAdmin />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Routes>

@@ -44,6 +44,11 @@ const allMenuItems = [{
   icon: BarChart3,
   adminOnly: false
 }, {
+  id: 'landing-pages',
+  label: 'Landing Pages',
+  icon: Megaphone,
+  adminOnly: false
+}, {
   id: 'settings',
   label: 'Configurações',
   icon: SettingsIcon,
