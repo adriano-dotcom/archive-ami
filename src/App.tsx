@@ -29,6 +29,8 @@ const SalesFunnel = lazy(() => import('./components/SalesFunnel'));
 const BotFlows = lazy(() => import('./components/BotFlows'));
 const Reports = lazy(() => import('./components/Reports'));
 const Auth = lazy(() => import('./pages/Auth'));
+const LandingPagePublic = lazy(() => import('./components/landing-pages/LandingPagePublic'));
+const LandingPagesAdmin = lazy(() => import('./components/landing-pages/LandingPagesAdmin'));
 
 const queryClient = new QueryClient();
 
@@ -90,6 +92,9 @@ const App: React.FC = () => {
                 {/* Auth Route */}
                 <Route path="/auth" element={<Auth />} />
                 
+                {/* Public Landing Pages (no auth, no sidebar) */}
+                <Route path="/lp/:slug" element={<LandingPagePublic />} />
+                
                 {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
                 <Route path="/meeting/:id" element={<MeetingRoom />} />
 
@@ -117,6 +122,7 @@ const App: React.FC = () => {
                   <Route path="/collections" element={<CollectionsDashboard />} />
                   <Route path="/calls" element={<CallsPage />} />
                   <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
+                  <Route path="/landing-pages" element={<LandingPagesAdmin />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Routes>

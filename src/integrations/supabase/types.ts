@@ -1335,6 +1335,142 @@ export type Database = {
           },
         ]
       }
+      landing_pages: {
+        Row: {
+          benefits: Json | null
+          created_at: string
+          cta_text: string
+          form_fields: Json
+          hero_image_url: string | null
+          id: string
+          is_active: boolean
+          lead_magnet_file_url: string | null
+          lead_magnet_title: string | null
+          lead_magnet_type: string
+          slug: string
+          subtitle: string | null
+          testimonials: Json | null
+          thank_you_message: string | null
+          title: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          benefits?: Json | null
+          created_at?: string
+          cta_text?: string
+          form_fields?: Json
+          hero_image_url?: string | null
+          id?: string
+          is_active?: boolean
+          lead_magnet_file_url?: string | null
+          lead_magnet_title?: string | null
+          lead_magnet_type?: string
+          slug: string
+          subtitle?: string | null
+          testimonials?: Json | null
+          thank_you_message?: string | null
+          title: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          benefits?: Json | null
+          created_at?: string
+          cta_text?: string
+          form_fields?: Json
+          hero_image_url?: string | null
+          id?: string
+          is_active?: boolean
+          lead_magnet_file_url?: string | null
+          lead_magnet_title?: string | null
+          lead_magnet_type?: string
+          slug?: string
+          subtitle?: string | null
+          testimonials?: Json | null
+          thank_you_message?: string | null
+          title?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
+      lead_captures: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          landing_page_id: string | null
+          lead_magnet_downloaded: boolean | null
+          name: string | null
+          pet_name: string | null
+          pet_species: string | null
+          phone: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          landing_page_id?: string | null
+          lead_magnet_downloaded?: boolean | null
+          name?: string | null
+          pet_name?: string | null
+          pet_species?: string | null
+          phone?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          landing_page_id?: string | null
+          lead_magnet_downloaded?: boolean | null
+          name?: string | null
+          pet_name?: string | null
+          pet_species?: string | null
+          phone?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_captures_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_captures_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_captures_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_insights: {
         Row: {
           agent_id: string | null

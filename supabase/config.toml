@@ -51,3 +51,6 @@ verify_jwt = false
 
 [functions.extract-product-text]
 verify_jwt = false
+
+[functions.capture-lead]
+verify_jwt = false
