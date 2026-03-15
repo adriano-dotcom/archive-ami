@@ -54,3 +54,6 @@ verify_jwt = false
 
 [functions.capture-lead]
 verify_jwt = false
+
+[functions.process-nurture]
+verify_jwt = false
