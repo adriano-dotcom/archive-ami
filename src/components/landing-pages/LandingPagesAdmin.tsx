@@ -194,13 +194,23 @@ export const LandingPagesAdmin: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Landing Pages</h1>
-          <p className="text-sm text-muted-foreground">Gerencie suas páginas de captura de leads</p>
+          <p className="text-sm text-muted-foreground">Gerencie suas páginas de captura e nutrição de leads</p>
         </div>
-        <button onClick={openCreate}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors">
-          <Plus className="w-4 h-4" /> Nova Landing Page
-        </button>
       </div>
+
+      <Tabs defaultValue="pages">
+        <TabsList>
+          <TabsTrigger value="pages">Páginas</TabsTrigger>
+          <TabsTrigger value="nurture">Nutrição</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pages">
+          <div className="flex justify-end mb-4">
+            <button onClick={openCreate}
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+              <Plus className="w-4 h-4" /> Nova Landing Page
+            </button>
+          </div>
 
       {pages.length === 0 ? (
         <Card>
