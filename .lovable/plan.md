@@ -1,23 +1,34 @@
 
 
-## Landing Pages de Captura + Nutrição de Leads
+## Adicionar Meta Pixel nas Landing Pages
 
-### ✅ Fase 1 — Implementada
-- Tabelas `landing_pages` e `lead_captures` com RLS
-- Edge Function `capture-lead` (público, sem JWT)
-- Página pública `/lp/:slug` com formulário de captura
-- Painel admin `/landing-pages` com CRUD e visualização de leads
-- Menu "Landing Pages" no sidebar
+O Pixel ID (`1235863101537115`) é uma chave pública — pode ser armazenado diretamente no código, sem necessidade de secrets.
 
-### Fase 2 — Nutrição Automatizada (próximo)
-- Tabela `nurture_sequences` com steps JSONB
-- Edge Function `process-nurture` (cron diário)
-- Sequência: WhatsApp boas-vindas → emails educativos → oferta
+### Implementação
 
-### Fase 3 — Webhook de Compra do Site
-- Edge Function `website-purchase-webhook`
-- Integrar com orbepet.com.br
+**1. `src/components/landing-pages/LandingPagePublic.tsx`**
+- Adicionar `useEffect` que injeta o script do Meta Pixel no `<head>` ao montar o componente
+- Dispara `fbq('track', 'PageView')` automaticamente
+- Dispara `fbq('track', 'Lead')` após submissão bem-sucedida do formulário
+- Remove o script ao desmontar (cleanup)
 
-### Fase 4 — Dashboard de Performance
-- Métricas por landing page
-- Funil de nutrição
+**2. Evento de conversão no submit**
+- Após o formulário ser enviado com sucesso (quando `submitted = true`), chamar `fbq('track', 'Lead')` para rastrear a conversão no Meta Ads
+
+### Código resumido
+
+```typescript
+// No useEffect de mount:
+const script = document.createElement('script');
+script.innerHTML = `!function(f,b,e,v,n,t,s){...}('1235863101537115');fbq('track','PageView');`;
+document.head.appendChild(script);
+
+// No handler de submit (após sucesso):
+window.fbq?.('track', 'Lead');
+```
+
+### Arquivo modificado
+- `src/components/landing-pages/LandingPagePublic.tsx`
+
+Sem novas tabelas, sem secrets, sem novas dependências.
+
