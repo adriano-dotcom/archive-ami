@@ -275,7 +275,12 @@ export const LandingPagesAdmin: React.FC = () => {
           ))}
         </div>
       )}
+        </TabsContent>
 
+        <TabsContent value="nurture">
+          <NurtureSequencesSettings />
+        </TabsContent>
+      </Tabs>
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">

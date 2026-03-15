@@ -130,7 +130,7 @@ export const NurtureSequencesSettings: React.FC = () => {
         await supabase.from('nurture_sequences').update(payload).eq('id', editing.id);
         toast.success('Sequência atualizada');
       } else {
-        await supabase.from('nurture_sequences').insert(payload);
+        await supabase.from('nurture_sequences').insert([payload]);
         toast.success('Sequência criada');
       }
       setDialogOpen(false);
