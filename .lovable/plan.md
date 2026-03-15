@@ -1,50 +1,84 @@
 
 
-## Plano: Base de Conhecimento com PDFs de Condições Gerais
+## Landing Pages de Captura + Nutrição de Leads — Plano Completo
 
-### Contexto
-Hoje o `nina-orchestrator` monta o prompt do agente usando: system_prompt do agente + memória do cliente + parcelas + histórico. Não existe nenhuma base de conhecimento de produtos. Precisamos criar uma forma de armazenar o conteúdo dos PDFs e injetá-lo no contexto do agente.
+Este é um sistema grande. Vou dividir em fases incrementais para construir de forma sólida.
 
-### Abordagem Recomendada: Tabela Estruturada + Texto Extraído
+### Fase 1 — Landing Pages de Captura (prioridade)
 
-Como são apenas ~3 produtos, a abordagem mais simples e eficaz é:
-
-1. **Criar tabela `product_knowledge`** no banco com campos:
-   - `id`, `name` (nome do produto), `insurer` (seguradora), `summary` (resumo curto), `full_content` (texto completo extraído do PDF), `source_file_url` (link do PDF no storage), `is_active`, `created_at`, `updated_at`
-
-2. **Criar interface no painel de Configurações** (nova aba "Produtos"):
-   - Upload de PDF → armazenar no bucket `whatsapp-media` (pasta `product-docs/`)
-   - Extrair texto do PDF via IA (Gemini) ao fazer upload
-   - CRUD dos documentos de produto (nome, seguradora, conteúdo editável)
-
-3. **Integrar no nina-orchestrator**:
-   - Antes de chamar a IA, buscar todos os `product_knowledge` ativos
-   - Injetar o conteúdo como contexto adicional no `buildEnhancedPrompt`
-   - Como são poucos produtos (~3), o texto cabe no contexto do modelo
-
-### Por que NÃO usar RAG (pgvector)?
-- Com apenas 3 documentos, o overhead de embeddings e busca semântica não compensa
-- O conteúdo total dos 3 PDFs cabe dentro da janela de contexto do Gemini 2.5 Flash
-- Abordagem mais simples = menos pontos de falha
-
-### Tarefas de Implementação
-
-1. **Migration SQL**: Criar tabela `product_knowledge` com RLS
-2. **Edge function `extract-product-text`**: Recebe PDF do storage, extrai texto via Gemini
-3. **Componente `ProductKnowledgeSettings`**: Aba em Configurações para upload/gerenciamento
-4. **Atualizar `nina-orchestrator`**: Buscar e injetar conteúdo dos produtos no prompt
-
-### Detalhes Técnicos
-
+**Nova tabela `landing_pages`:**
 ```text
-Fluxo de Upload:
-  Admin faz upload PDF → Storage (whatsapp-media/product-docs/)
-                       → Edge function extrai texto do PDF
-                       → Salva na tabela product_knowledge (full_content)
-
-Fluxo de Resposta:
-  Mensagem recebida → nina-orchestrator busca product_knowledge
-                    → Injeta no system prompt como contexto
-                    → Agente responde com base no conteúdo real
+id, slug, title, subtitle, cta_text, hero_image_url,
+lead_magnet_type (ebook|guide|checklist|webinar),
+lead_magnet_title, lead_magnet_file_url,
+thank_you_message, is_active, utm_source, utm_campaign,
+created_at, updated_at
 ```
+
+**Nova tabela `lead_captures`:**
+```text
+id, landing_page_id, contact_id, name, email, phone,
+pet_name, pet_species, lead_magnet_downloaded,
+utm_source, utm_campaign, utm_content, utm_term,
+created_at
+```
+
+**Rotas públicas (sem autenticação):**
+- `/lp/:slug` — Página pública de captura com formulário (nome, email, WhatsApp, nome do pet)
+- Design alinhado com identidade OrbePet (azul/branco, logo, fotos de pets)
+
+**Rota admin:**
+- `/landing-pages` — CRUD de landing pages no painel (criar, editar, ativar/desativar, ver leads capturados)
+
+**Edge Function `capture-lead`:**
+- Recebe dados do formulário (público, sem JWT)
+- Cria/atualiza contato na tabela `contacts` com `lead_source = 'landing_page'` e UTMs
+- Registra em `lead_captures`
+- Dispara template WhatsApp de boas-vindas (se tiver telefone)
+- Agenda email de entrega do material
+
+### Fase 2 — Nutrição Automatizada
+
+**Nova tabela `nurture_sequences`:**
+```text
+id, name, trigger_type (lead_capture|tag_added|manual),
+landing_page_id, is_active, steps (jsonb[])
+```
+
+Cada step: `{ day: 1, channel: 'email'|'whatsapp', template_id, subject, content }`
+
+**Edge Function `process-nurture` (cron diário):**
+- Verifica leads capturados e avança na sequência
+- Dia 0: entrega material + boas-vindas WhatsApp
+- Dia 2: email com conteúdo educativo
+- Dia 5: WhatsApp com depoimento/caso de sucesso
+- Dia 7: email com comparativo de planos
+- Dia 10: WhatsApp com oferta especial
+
+### Fase 3 — Webhook de Compra do Site
+
+**Edge Function `website-purchase-webhook`:**
+- Endpoint público que o site orbepet.com.br chama ao processar uma compra
+- Cria contato como `lead_status = 'customer'`
+- Dispara template WhatsApp de boas-vindas do cliente
+- Remove da sequência de nutrição (se existir)
+
+### Fase 4 — Dashboard de Performance
+
+- Métricas por landing page: visitas, conversões, taxa de conversão
+- Funil de nutrição: quantos em cada etapa, taxa de abertura
+- Integração com o funil Kanban existente
+
+### Implementação Imediata (Fase 1)
+
+Vou começar criando:
+
+1. **Migração SQL** — Tabelas `landing_pages` e `lead_captures` com RLS
+2. **Edge Function `capture-lead`** — Endpoint público para receber formulários
+3. **Componente `LandingPagePublic`** — Página pública responsiva com formulário de captura
+4. **Componente `LandingPagesAdmin`** — Painel de gestão no admin
+5. **Rotas no App.tsx** — `/lp/:slug` (pública) e `/landing-pages` (protegida)
+6. **Menu lateral** — Nova entrada "Landing Pages" no Sidebar
+
+A landing page terá design profissional com: hero section, benefícios do material, formulário de captura, depoimentos, e footer com logo OrbePet. Totalmente responsiva para mobile.
 
