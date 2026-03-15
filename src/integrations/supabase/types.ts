@@ -1471,6 +1471,74 @@ export type Database = {
           },
         ]
       }
+      lead_nurture_enrollments: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          current_step: number
+          enrolled_at: string
+          id: string
+          last_step_sent_at: string | null
+          lead_capture_id: string | null
+          sequence_id: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          current_step?: number
+          enrolled_at?: string
+          id?: string
+          last_step_sent_at?: string | null
+          lead_capture_id?: string | null
+          sequence_id: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          current_step?: number
+          enrolled_at?: string
+          id?: string
+          last_step_sent_at?: string | null
+          lead_capture_id?: string | null
+          sequence_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_nurture_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_nurture_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_nurture_enrollments_lead_capture_id_fkey"
+            columns: ["lead_capture_id"]
+            isOneToOne: false
+            referencedRelation: "lead_captures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_nurture_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "nurture_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_insights: {
         Row: {
           agent_id: string | null
@@ -1901,6 +1969,91 @@ export type Database = {
           whatsapp_waba_id?: string | null
         }
         Relationships: []
+      }
+      nurture_sequences: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          landing_page_id: string | null
+          name: string
+          steps: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          landing_page_id?: string | null
+          name: string
+          steps?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          landing_page_id?: string | null
+          name?: string
+          steps?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_sequences_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nurture_step_logs: {
+        Row: {
+          channel: string
+          created_at: string
+          enrollment_id: string
+          error_message: string | null
+          id: string
+          sent_at: string
+          status: string
+          step_index: number
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          enrollment_id: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          step_index: number
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          enrollment_id?: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          step_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_step_logs_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "lead_nurture_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pending_invites: {
         Row: {

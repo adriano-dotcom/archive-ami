@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     }
 
     // Register lead capture
-    await supabase.from("lead_captures").insert({
+    const { data: leadCapture } = await supabase.from("lead_captures").insert({
       landing_page_id: landingPageId,
       contact_id: contactId,
       name,
@@ -125,7 +125,26 @@ Deno.serve(async (req) => {
       utm_campaign,
       utm_content,
       utm_term,
-    });
+    }).select("id").single();
+
+    // Auto-enroll in nurture sequences linked to this landing page
+    if (landingPageId && contactId) {
+      const { data: sequences } = await supabase
+        .from("nurture_sequences")
+        .select("id")
+        .eq("landing_page_id", landingPageId)
+        .eq("is_active", true);
+
+      if (sequences && sequences.length > 0) {
+        for (const seq of sequences) {
+          await supabase.from("lead_nurture_enrollments").upsert({
+            sequence_id: seq.id,
+            contact_id: contactId,
+            lead_capture_id: leadCapture?.id || null,
+          }, { onConflict: "sequence_id,contact_id", ignoreDuplicates: true });
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({
