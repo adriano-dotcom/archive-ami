@@ -124,7 +124,7 @@ export const NurtureSequencesSettings: React.FC = () => {
         trigger_type: 'lead_capture',
         landing_page_id: formLandingPageId === 'none' ? null : formLandingPageId,
         is_active: formIsActive,
-        steps: formSteps,
+        steps: formSteps as unknown as any,
       };
       if (editing) {
         await supabase.from('nurture_sequences').update(payload).eq('id', editing.id);
