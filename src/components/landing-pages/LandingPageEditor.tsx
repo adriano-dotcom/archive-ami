@@ -446,6 +446,29 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Cor de Fundo Hero</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" value={form.hero_bg_color}
+                      onChange={e => setForm(f => ({ ...f, hero_bg_color: e.target.value }))}
+                      className="w-10 h-10 rounded cursor-pointer border border-border" />
+                    <Input value={form.hero_bg_color} onChange={e => setForm(f => ({ ...f, hero_bg_color: e.target.value }))}
+                      className="flex-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Cor de Fundo Seções</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" value={form.section_bg_color}
+                      onChange={e => setForm(f => ({ ...f, section_bg_color: e.target.value }))}
+                      className="w-10 h-10 rounded cursor-pointer border border-border" />
+                    <Input value={form.section_bg_color} onChange={e => setForm(f => ({ ...f, section_bg_color: e.target.value }))}
+                      className="flex-1" />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <Label>Estilo do Botão</Label>
                 <Select value={form.button_style} onValueChange={v => setForm(f => ({ ...f, button_style: v }))}>
