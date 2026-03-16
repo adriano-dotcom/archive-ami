@@ -167,7 +167,7 @@ export const LandingPagePublic: React.FC = () => {
       </header>
 
       {/* Hero */}
-      <section className="py-12 md:py-20 px-4" style={{ background: `linear-gradient(135deg, ${pc}08, white, ${sc})` }}>
+      <section className="py-12 md:py-20 px-4" style={{ backgroundColor: heroBg, background: `linear-gradient(135deg, ${pc}08, ${heroBg}, ${sc})` }}>
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
             {page.hero_image_url && (
