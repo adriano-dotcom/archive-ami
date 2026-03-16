@@ -1338,6 +1338,7 @@ export type Database = {
       landing_pages: {
         Row: {
           benefits: Json | null
+          button_style: string | null
           created_at: string
           cta_text: string
           form_fields: Json
@@ -1347,6 +1348,8 @@ export type Database = {
           lead_magnet_file_url: string | null
           lead_magnet_title: string | null
           lead_magnet_type: string
+          primary_color: string | null
+          secondary_color: string | null
           slug: string
           subtitle: string | null
           testimonials: Json | null
@@ -1358,6 +1361,7 @@ export type Database = {
         }
         Insert: {
           benefits?: Json | null
+          button_style?: string | null
           created_at?: string
           cta_text?: string
           form_fields?: Json
@@ -1367,6 +1371,8 @@ export type Database = {
           lead_magnet_file_url?: string | null
           lead_magnet_title?: string | null
           lead_magnet_type?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           slug: string
           subtitle?: string | null
           testimonials?: Json | null
@@ -1378,6 +1384,7 @@ export type Database = {
         }
         Update: {
           benefits?: Json | null
+          button_style?: string | null
           created_at?: string
           cta_text?: string
           form_fields?: Json
@@ -1387,6 +1394,8 @@ export type Database = {
           lead_magnet_file_url?: string | null
           lead_magnet_title?: string | null
           lead_magnet_type?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           slug?: string
           subtitle?: string | null
           testimonials?: Json | null
