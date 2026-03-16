@@ -1,28 +1,23 @@
 
 
-## Configurar Subdomínio `lp.orbepet.com.br` para Landing Pages
+## Landing Pages de Captura + Nutrição de Leads
 
-Como o domínio principal `orbepet.com.br` já é usado no site, vamos configurar um subdomínio fixo `lp.orbepet.com.br` para todas as landing pages.
+### ✅ Fase 1 — Implementada
+- Tabelas `landing_pages` e `lead_captures` com RLS
+- Edge Function `capture-lead` (público, sem JWT)
+- Página pública `/lp/:slug` com formulário de captura
+- Painel admin `/landing-pages` com CRUD e visualização de leads
+- Menu "Landing Pages" no sidebar
 
-### O que você precisa fazer (DNS)
+### Fase 2 — Nutrição Automatizada (próximo)
+- Tabela `nurture_sequences` com steps JSONB
+- Edge Function `process-nurture` (cron diário)
+- Sequência: WhatsApp boas-vindas → emails educativos → oferta
 
-No seu registrador de domínio, adicionar:
-- **Registro A**: Nome: `lp` → Valor: `185.158.133.1`
+### Fase 3 — Webhook de Compra do Site
+- Edge Function `website-purchase-webhook`
+- Integrar com orbepet.com.br
 
-Depois, nas configurações do projeto Lovable → **Domains** → conectar `lp.orbepet.com.br`.
-
-### O que vamos implementar no código
-
-**1. Rota alternativa no `App.tsx`**
-- Adicionar rota `/:slug` que renderiza `LandingPagePublic` **apenas** quando o hostname é `lp.orbepet.com.br`
-- Criar um componente wrapper `SubdomainLandingPage` que verifica o hostname antes de renderizar
-
-**2. Atualizar URL no admin (`LandingPagesAdmin.tsx`)**
-- Alterar `copyLink()` para gerar `https://lp.orbepet.com.br/nome-da-pagina`
-- Atualizar o link de visualização externa para usar o mesmo domínio
-
-**3. Manter rota `/lp/:slug` como fallback**
-- A rota existente continua funcionando para desenvolvimento e preview
-
-Nenhuma mudança de banco de dados necessária.
-
+### Fase 4 — Dashboard de Performance
+- Métricas por landing page
+- Funil de nutrição
