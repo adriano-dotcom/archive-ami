@@ -134,7 +134,7 @@ export const LandingPagesAdmin: React.FC = () => {
   };
 
   const copyLink = (slug: string) => {
-    const url = `https://lp.orbepet.com.br/${slug}`;
+    const url = `${window.location.origin}/lp/${slug}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copiado!');
   };
@@ -224,7 +224,7 @@ export const LandingPagesAdmin: React.FC = () => {
                         className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                         <Copy className="w-4 h-4" />
                       </button>
-                      <a href={`https://lp.orbepet.com.br/${page.slug}`} target="_blank" rel="noopener noreferrer" title="Visualizar"
+                      <a href={`/lp/${page.slug}`} target="_blank" rel="noopener noreferrer" title="Visualizar"
                         className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                         <ExternalLink className="w-4 h-4" />
                       </a>
