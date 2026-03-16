@@ -211,7 +211,7 @@ export const LandingPagesAdmin: React.FC = () => {
                           {page.is_active ? 'Ativa' : 'Inativa'}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">/lp/{page.slug}</p>
+                      <p className="text-sm text-muted-foreground truncate">lp.orbepet.com.br/lp/{page.slug}</p>
                       <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users className="w-4 h-4" /> {leadCounts[page.id] || 0} leads
