@@ -23,6 +23,9 @@ interface LandingPage {
   primary_color: string | null;
   secondary_color: string | null;
   button_style: string | null;
+  form_fields: string[] | null;
+  hero_bg_color: string | null;
+  section_bg_color: string | null;
 }
 
 const defaultBenefits = [
