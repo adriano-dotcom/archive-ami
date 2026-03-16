@@ -1342,6 +1342,7 @@ export type Database = {
           created_at: string
           cta_text: string
           form_fields: Json
+          hero_bg_color: string | null
           hero_image_url: string | null
           id: string
           is_active: boolean
@@ -1350,6 +1351,7 @@ export type Database = {
           lead_magnet_type: string
           primary_color: string | null
           secondary_color: string | null
+          section_bg_color: string | null
           slug: string
           subtitle: string | null
           testimonials: Json | null
@@ -1365,6 +1367,7 @@ export type Database = {
           created_at?: string
           cta_text?: string
           form_fields?: Json
+          hero_bg_color?: string | null
           hero_image_url?: string | null
           id?: string
           is_active?: boolean
@@ -1373,6 +1376,7 @@ export type Database = {
           lead_magnet_type?: string
           primary_color?: string | null
           secondary_color?: string | null
+          section_bg_color?: string | null
           slug: string
           subtitle?: string | null
           testimonials?: Json | null
@@ -1388,6 +1392,7 @@ export type Database = {
           created_at?: string
           cta_text?: string
           form_fields?: Json
+          hero_bg_color?: string | null
           hero_image_url?: string | null
           id?: string
           is_active?: boolean
@@ -1396,6 +1401,7 @@ export type Database = {
           lead_magnet_type?: string
           primary_color?: string | null
           secondary_color?: string | null
+          section_bg_color?: string | null
           slug?: string
           subtitle?: string | null
           testimonials?: Json | null

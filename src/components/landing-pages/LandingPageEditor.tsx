@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,9 @@ export interface LandingPageForm {
   button_style: string;
   benefits: { icon: string; title: string; description: string }[];
   testimonials: { name: string; text: string; avatar: string }[];
+  form_fields: string[];
+  hero_bg_color: string;
+  section_bg_color: string;
 }
 
 export const emptyForm: LandingPageForm = {
@@ -63,6 +67,9 @@ export const emptyForm: LandingPageForm = {
   button_style: 'rounded',
   benefits: [],
   testimonials: [],
+  form_fields: ['name', 'email', 'phone', 'pet_name'],
+  hero_bg_color: '#FFFFFF',
+  section_bg_color: '#F9FAFB',
 };
 
 interface Props {
@@ -100,6 +107,9 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
         button_style: form.button_style,
         benefits: form.benefits as any,
         testimonials: form.testimonials as any,
+        form_fields: form.form_fields as any,
+        hero_bg_color: form.hero_bg_color,
+        section_bg_color: form.section_bg_color,
       };
 
       if (editingId) {
@@ -248,6 +258,38 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
                 <Label>Mensagem de Agradecimento</Label>
                 <Textarea value={form.thank_you_message} onChange={e => setForm(f => ({ ...f, thank_you_message: e.target.value }))}
                   className="mt-1" rows={2} />
+              </div>
+
+              {/* Form Fields */}
+              <div>
+                <Label className="text-base font-semibold">Campos do Formulário</Label>
+                <p className="text-xs text-muted-foreground mb-3">Selecione quais campos aparecem no formulário da LP</p>
+                <div className="space-y-3">
+                  {[
+                    { key: 'name', label: 'Nome' },
+                    { key: 'email', label: 'E-mail', required: true },
+                    { key: 'phone', label: 'WhatsApp' },
+                    { key: 'pet_name', label: 'Nome do Pet' },
+                  ].map(field => (
+                    <label key={field.key} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={form.form_fields.includes(field.key)}
+                        disabled={field.required}
+                        onCheckedChange={(checked) => {
+                          if (field.required) return;
+                          setForm(f => ({
+                            ...f,
+                            form_fields: checked
+                              ? [...f.form_fields, field.key]
+                              : f.form_fields.filter(ff => ff !== field.key)
+                          }));
+                        }}
+                      />
+                      <span className="text-sm text-foreground">{field.label}</span>
+                      {field.required && <span className="text-xs text-muted-foreground">(obrigatório)</span>}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -404,6 +446,29 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Cor de Fundo Hero</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" value={form.hero_bg_color}
+                      onChange={e => setForm(f => ({ ...f, hero_bg_color: e.target.value }))}
+                      className="w-10 h-10 rounded cursor-pointer border border-border" />
+                    <Input value={form.hero_bg_color} onChange={e => setForm(f => ({ ...f, hero_bg_color: e.target.value }))}
+                      className="flex-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Cor de Fundo Seções</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" value={form.section_bg_color}
+                      onChange={e => setForm(f => ({ ...f, section_bg_color: e.target.value }))}
+                      className="w-10 h-10 rounded cursor-pointer border border-border" />
+                    <Input value={form.section_bg_color} onChange={e => setForm(f => ({ ...f, section_bg_color: e.target.value }))}
+                      className="flex-1" />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <Label>Estilo do Botão</Label>
                 <Select value={form.button_style} onValueChange={v => setForm(f => ({ ...f, button_style: v }))}>
@@ -467,7 +532,7 @@ const LivePreview: React.FC<{ form: LandingPageForm }> = ({ form }) => {
       </header>
 
       {/* Hero */}
-      <section className="py-12 px-4" style={{ background: `linear-gradient(135deg, ${pc}08, white, ${sc})` }}>
+      <section className="py-12 px-4" style={{ backgroundColor: form.hero_bg_color || '#FFFFFF', background: `linear-gradient(135deg, ${pc}08, ${form.hero_bg_color || 'white'}, ${sc})` }}>
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
             {form.hero_image_url && (
@@ -493,7 +558,7 @@ const LivePreview: React.FC<{ form: LandingPageForm }> = ({ form }) => {
       </section>
 
       {/* Benefits */}
-      <section className="py-12 px-4 bg-gray-50">
+      <section className="py-12 px-4" style={{ backgroundColor: form.section_bg_color || '#F9FAFB' }}>
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">Por que cuidar da saúde do seu pet?</h2>
           <div className="grid md:grid-cols-3 gap-6">

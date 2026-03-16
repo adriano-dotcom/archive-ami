@@ -103,6 +103,9 @@ export const LandingPagesAdmin: React.FC = () => {
       button_style: page.button_style || 'rounded',
       benefits: Array.isArray(page.benefits) ? page.benefits : [],
       testimonials: Array.isArray(page.testimonials) ? page.testimonials : [],
+      form_fields: Array.isArray((page as any).form_fields) ? (page as any).form_fields : ['name', 'email', 'phone', 'pet_name'],
+      hero_bg_color: (page as any).hero_bg_color || '#FFFFFF',
+      section_bg_color: (page as any).section_bg_color || '#F9FAFB',
     });
     setEditorOpen(true);
   };

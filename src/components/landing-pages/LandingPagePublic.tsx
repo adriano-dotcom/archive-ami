@@ -23,6 +23,9 @@ interface LandingPage {
   primary_color: string | null;
   secondary_color: string | null;
   button_style: string | null;
+  form_fields: string[] | null;
+  hero_bg_color: string | null;
+  section_bg_color: string | null;
 }
 
 const defaultBenefits = [
@@ -143,6 +146,9 @@ export const LandingPagePublic: React.FC = () => {
   const buttonRadius = page.button_style === 'pill' ? '9999px' : page.button_style === 'square' ? '8px' : '12px';
   const benefits = (page.benefits && page.benefits.length > 0) ? page.benefits : defaultBenefits;
   const testimonials = Array.isArray(page.testimonials) ? page.testimonials : [];
+  const formFields = Array.isArray(page.form_fields) ? page.form_fields : ['name', 'email', 'phone', 'pet_name'];
+  const heroBg = page.hero_bg_color || '#FFFFFF';
+  const sectionBg = page.section_bg_color || '#F9FAFB';
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
@@ -161,7 +167,7 @@ export const LandingPagePublic: React.FC = () => {
       </header>
 
       {/* Hero */}
-      <section className="py-12 md:py-20 px-4" style={{ background: `linear-gradient(135deg, ${pc}08, white, ${sc})` }}>
+      <section className="py-12 md:py-20 px-4" style={{ backgroundColor: heroBg, background: `linear-gradient(135deg, ${pc}08, ${heroBg}, ${sc})` }}>
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
             {page.hero_image_url && (
@@ -209,27 +215,35 @@ export const LandingPagePublic: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-1">{page.cta_text}</h3>
                 <p className="text-sm text-gray-500 mb-4">Preencha seus dados para receber o material gratuitamente.</p>
 
-                <div>
-                  <Label htmlFor="name" className="text-gray-700">Seu nome</Label>
-                  <Input id="name" placeholder="Maria Silva" value={name} onChange={e => setName(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
-                    style={{ '--tw-ring-color': `${pc}33` } as any} required />
-                </div>
-                <div>
-                  <Label htmlFor="email" className="text-gray-700">E-mail</Label>
-                  <Input id="email" type="email" placeholder="maria@email.com" value={email} onChange={e => setEmail(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" required />
-                </div>
-                <div>
-                  <Label htmlFor="phone" className="text-gray-700">WhatsApp</Label>
-                  <PhoneInput id="phone" placeholder="+55 11 99999-9999" value={phone} onChange={setPhone}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
-                </div>
-                <div>
-                  <Label htmlFor="petName" className="text-gray-700">Nome do seu pet 🐾</Label>
-                  <Input id="petName" placeholder="Rex, Luna, Mimi..." value={petName} onChange={e => setPetName(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
-                </div>
+                {formFields.includes('name') && (
+                  <div>
+                    <Label htmlFor="name" className="text-gray-700">Seu nome</Label>
+                    <Input id="name" placeholder="Maria Silva" value={name} onChange={e => setName(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
+                      style={{ '--tw-ring-color': `${pc}33` } as any} required />
+                  </div>
+                )}
+                {formFields.includes('email') && (
+                  <div>
+                    <Label htmlFor="email" className="text-gray-700">E-mail</Label>
+                    <Input id="email" type="email" placeholder="maria@email.com" value={email} onChange={e => setEmail(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" required />
+                  </div>
+                )}
+                {formFields.includes('phone') && (
+                  <div>
+                    <Label htmlFor="phone" className="text-gray-700">WhatsApp</Label>
+                    <PhoneInput id="phone" placeholder="+55 11 99999-9999" value={phone} onChange={setPhone}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
+                  </div>
+                )}
+                {formFields.includes('pet_name') && (
+                  <div>
+                    <Label htmlFor="petName" className="text-gray-700">Nome do seu pet 🐾</Label>
+                    <Input id="petName" placeholder="Rex, Luna, Mimi..." value={petName} onChange={e => setPetName(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
+                  </div>
+                )}
 
                 <button type="submit" disabled={submitting}
                   className="w-full text-white font-bold py-3.5 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -248,7 +262,7 @@ export const LandingPagePublic: React.FC = () => {
       </section>
 
       {/* Benefits */}
-      <section className="py-16 px-4 bg-gray-50">
+      <section className="py-16 px-4" style={{ backgroundColor: sectionBg }}>
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-10">
             Por que cuidar da saúde do seu pet?
