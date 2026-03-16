@@ -558,7 +558,7 @@ const LivePreview: React.FC<{ form: LandingPageForm }> = ({ form }) => {
       </section>
 
       {/* Benefits */}
-      <section className="py-12 px-4 bg-gray-50">
+      <section className="py-12 px-4" style={{ backgroundColor: form.section_bg_color || '#F9FAFB' }}>
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">Por que cuidar da saúde do seu pet?</h2>
           <div className="grid md:grid-cols-3 gap-6">

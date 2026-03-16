@@ -262,7 +262,7 @@ export const LandingPagePublic: React.FC = () => {
       </section>
 
       {/* Benefits */}
-      <section className="py-16 px-4 bg-gray-50">
+      <section className="py-16 px-4" style={{ backgroundColor: sectionBg }}>
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-10">
             Por que cuidar da saúde do seu pet?
