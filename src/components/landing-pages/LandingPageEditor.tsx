@@ -259,6 +259,38 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
                 <Textarea value={form.thank_you_message} onChange={e => setForm(f => ({ ...f, thank_you_message: e.target.value }))}
                   className="mt-1" rows={2} />
               </div>
+
+              {/* Form Fields */}
+              <div>
+                <Label className="text-base font-semibold">Campos do Formulário</Label>
+                <p className="text-xs text-muted-foreground mb-3">Selecione quais campos aparecem no formulário da LP</p>
+                <div className="space-y-3">
+                  {[
+                    { key: 'name', label: 'Nome' },
+                    { key: 'email', label: 'E-mail', required: true },
+                    { key: 'phone', label: 'WhatsApp' },
+                    { key: 'pet_name', label: 'Nome do Pet' },
+                  ].map(field => (
+                    <label key={field.key} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={form.form_fields.includes(field.key)}
+                        disabled={field.required}
+                        onCheckedChange={(checked) => {
+                          if (field.required) return;
+                          setForm(f => ({
+                            ...f,
+                            form_fields: checked
+                              ? [...f.form_fields, field.key]
+                              : f.form_fields.filter(ff => ff !== field.key)
+                          }));
+                        }}
+                      />
+                      <span className="text-sm text-foreground">{field.label}</span>
+                      {field.required && <span className="text-xs text-muted-foreground">(obrigatório)</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </TabsContent>
 
