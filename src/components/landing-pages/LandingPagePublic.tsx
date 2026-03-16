@@ -215,27 +215,35 @@ export const LandingPagePublic: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-1">{page.cta_text}</h3>
                 <p className="text-sm text-gray-500 mb-4">Preencha seus dados para receber o material gratuitamente.</p>
 
-                <div>
-                  <Label htmlFor="name" className="text-gray-700">Seu nome</Label>
-                  <Input id="name" placeholder="Maria Silva" value={name} onChange={e => setName(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
-                    style={{ '--tw-ring-color': `${pc}33` } as any} required />
-                </div>
-                <div>
-                  <Label htmlFor="email" className="text-gray-700">E-mail</Label>
-                  <Input id="email" type="email" placeholder="maria@email.com" value={email} onChange={e => setEmail(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" required />
-                </div>
-                <div>
-                  <Label htmlFor="phone" className="text-gray-700">WhatsApp</Label>
-                  <PhoneInput id="phone" placeholder="+55 11 99999-9999" value={phone} onChange={setPhone}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
-                </div>
-                <div>
-                  <Label htmlFor="petName" className="text-gray-700">Nome do seu pet 🐾</Label>
-                  <Input id="petName" placeholder="Rex, Luna, Mimi..." value={petName} onChange={e => setPetName(e.target.value)}
-                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
-                </div>
+                {formFields.includes('name') && (
+                  <div>
+                    <Label htmlFor="name" className="text-gray-700">Seu nome</Label>
+                    <Input id="name" placeholder="Maria Silva" value={name} onChange={e => setName(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
+                      style={{ '--tw-ring-color': `${pc}33` } as any} required />
+                  </div>
+                )}
+                {formFields.includes('email') && (
+                  <div>
+                    <Label htmlFor="email" className="text-gray-700">E-mail</Label>
+                    <Input id="email" type="email" placeholder="maria@email.com" value={email} onChange={e => setEmail(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" required />
+                  </div>
+                )}
+                {formFields.includes('phone') && (
+                  <div>
+                    <Label htmlFor="phone" className="text-gray-700">WhatsApp</Label>
+                    <PhoneInput id="phone" placeholder="+55 11 99999-9999" value={phone} onChange={setPhone}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
+                  </div>
+                )}
+                {formFields.includes('pet_name') && (
+                  <div>
+                    <Label htmlFor="petName" className="text-gray-700">Nome do seu pet 🐾</Label>
+                    <Input id="petName" placeholder="Rex, Luna, Mimi..." value={petName} onChange={e => setPetName(e.target.value)}
+                      className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
+                  </div>
+                )}
 
                 <button type="submit" disabled={submitting}
                   className="w-full text-white font-bold py-3.5 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
