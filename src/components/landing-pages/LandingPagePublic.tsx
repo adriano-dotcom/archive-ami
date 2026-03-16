@@ -146,6 +146,9 @@ export const LandingPagePublic: React.FC = () => {
   const buttonRadius = page.button_style === 'pill' ? '9999px' : page.button_style === 'square' ? '8px' : '12px';
   const benefits = (page.benefits && page.benefits.length > 0) ? page.benefits : defaultBenefits;
   const testimonials = Array.isArray(page.testimonials) ? page.testimonials : [];
+  const formFields = Array.isArray(page.form_fields) ? page.form_fields : ['name', 'email', 'phone', 'pet_name'];
+  const heroBg = page.hero_bg_color || '#FFFFFF';
+  const sectionBg = page.section_bg_color || '#F9FAFB';
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
