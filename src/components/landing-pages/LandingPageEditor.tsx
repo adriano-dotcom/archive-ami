@@ -532,7 +532,7 @@ const LivePreview: React.FC<{ form: LandingPageForm }> = ({ form }) => {
       </header>
 
       {/* Hero */}
-      <section className="py-12 px-4" style={{ background: `linear-gradient(135deg, ${pc}08, white, ${sc})` }}>
+      <section className="py-12 px-4" style={{ backgroundColor: form.hero_bg_color || '#FFFFFF', background: `linear-gradient(135deg, ${pc}08, ${form.hero_bg_color || 'white'}, ${sc})` }}>
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
             {form.hero_image_url && (
