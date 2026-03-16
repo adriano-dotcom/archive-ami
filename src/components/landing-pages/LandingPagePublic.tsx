@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { CheckCircle, Heart, Shield, Star, PawPrint, Loader2 } from 'lucide-react';
+import { CheckCircle, Heart, Shield, Star, PawPrint, Loader2, Award } from 'lucide-react';
 import orbepetLogo from '@/assets/orbepet-logo.png';
 
 interface LandingPage {
@@ -20,6 +20,9 @@ interface LandingPage {
   thank_you_message: string | null;
   benefits: any[];
   testimonials: any[];
+  primary_color: string | null;
+  secondary_color: string | null;
+  button_style: string | null;
 }
 
 const defaultBenefits = [
@@ -33,6 +36,8 @@ const iconMap: Record<string, React.ReactNode> = {
   heart: <Heart className="w-6 h-6" />,
   star: <Star className="w-6 h-6" />,
   paw: <PawPrint className="w-6 h-6" />,
+  check: <CheckCircle className="w-6 h-6" />,
+  award: <Award className="w-6 h-6" />,
 };
 
 export const LandingPagePublic: React.FC = () => {
@@ -55,18 +60,13 @@ export const LandingPagePublic: React.FC = () => {
     const script = document.createElement('script');
     script.innerHTML = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','1235863101537115');fbq('track','PageView');`;
     document.head.appendChild(script);
-
     const noscript = document.createElement('noscript');
     const img = document.createElement('img');
     img.height = 1; img.width = 1; img.style.display = 'none';
     img.src = 'https://www.facebook.com/tr?id=1235863101537115&ev=PageView&noscript=1';
     noscript.appendChild(img);
     document.head.appendChild(noscript);
-
-    return () => {
-      document.head.removeChild(script);
-      document.head.removeChild(noscript);
-    };
+    return () => { document.head.removeChild(script); document.head.removeChild(noscript); };
   }, []);
 
   useEffect(() => {
@@ -138,7 +138,11 @@ export const LandingPagePublic: React.FC = () => {
     );
   }
 
+  const pc = page.primary_color || '#6A0DAD';
+  const sc = page.secondary_color || '#F3E8FF';
+  const buttonRadius = page.button_style === 'pill' ? '9999px' : page.button_style === 'square' ? '8px' : '12px';
   const benefits = (page.benefits && page.benefits.length > 0) ? page.benefits : defaultBenefits;
+  const testimonials = Array.isArray(page.testimonials) ? page.testimonials : [];
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
@@ -147,20 +151,24 @@ export const LandingPagePublic: React.FC = () => {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src={orbepetLogo} alt="OrbePet" className="w-10 h-10" />
-            <span className="font-bold text-lg text-[#6A0DAD]">OrbePet</span>
+            <span className="font-bold text-lg" style={{ color: pc }}>OrbePet</span>
           </div>
           <a href="https://orbepet.com.br" target="_blank" rel="noopener noreferrer"
-            className="text-sm text-[#6A0DAD] hover:underline font-medium">
+            className="text-sm font-medium hover:underline" style={{ color: pc }}>
             Conheça nossos planos →
           </a>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-[#6A0DAD]/5 via-white to-purple-50 py-12 md:py-20 px-4">
+      <section className="py-12 md:py-20 px-4" style={{ background: `linear-gradient(135deg, ${pc}08, white, ${sc})` }}>
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 bg-[#6A0DAD]/10 text-[#6A0DAD] text-sm font-semibold px-3 py-1 rounded-full mb-4">
+            {page.hero_image_url && (
+              <img src={page.hero_image_url} alt={page.title} className="rounded-xl mb-6 max-h-72 object-cover w-full" />
+            )}
+            <div className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-1 rounded-full mb-4"
+              style={{ backgroundColor: `${pc}15`, color: pc }}>
               <PawPrint className="w-4 h-4" />
               {page.lead_magnet_type === 'ebook' ? 'E-book Gratuito' :
                page.lead_magnet_type === 'guide' ? 'Guia Gratuito' :
@@ -173,7 +181,7 @@ export const LandingPagePublic: React.FC = () => {
               <p className="text-lg text-gray-600 mb-6 leading-relaxed">{page.subtitle}</p>
             )}
             {page.lead_magnet_title && (
-              <p className="text-md font-medium text-[#6A0DAD] mb-4">
+              <p className="text-md font-medium mb-4" style={{ color: pc }}>
                 📖 {page.lead_magnet_title}
               </p>
             )}
@@ -190,41 +198,42 @@ export const LandingPagePublic: React.FC = () => {
                 <p className="text-gray-600 mb-4">{page.thank_you_message}</p>
                 {leadMagnetUrl && (
                   <a href={leadMagnetUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-[#6A0DAD] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#5a0b91] transition-colors">
+                    className="inline-flex items-center gap-2 text-white px-6 py-3 font-semibold transition-colors"
+                    style={{ backgroundColor: pc, borderRadius: buttonRadius }}>
                     Baixar Material
                   </a>
                 )}
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  {page.cta_text}
-                </h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">{page.cta_text}</h3>
                 <p className="text-sm text-gray-500 mb-4">Preencha seus dados para receber o material gratuitamente.</p>
 
                 <div>
                   <Label htmlFor="name" className="text-gray-700">Seu nome</Label>
                   <Input id="name" placeholder="Maria Silva" value={name} onChange={e => setName(e.target.value)}
-                    className="mt-1 border-gray-200 focus:border-[#6A0DAD] focus:ring-[#6A0DAD]/20 bg-white text-gray-900 placeholder:text-gray-400" required />
+                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
+                    style={{ '--tw-ring-color': `${pc}33` } as any} required />
                 </div>
                 <div>
                   <Label htmlFor="email" className="text-gray-700">E-mail</Label>
                   <Input id="email" type="email" placeholder="maria@email.com" value={email} onChange={e => setEmail(e.target.value)}
-                    className="mt-1 border-gray-200 focus:border-[#6A0DAD] focus:ring-[#6A0DAD]/20 bg-white text-gray-900 placeholder:text-gray-400" required />
+                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" required />
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-gray-700">WhatsApp</Label>
                   <PhoneInput id="phone" placeholder="+55 11 99999-9999" value={phone} onChange={setPhone}
-                    className="mt-1 border-gray-200 focus:border-[#6A0DAD] focus:ring-[#6A0DAD]/20 bg-white text-gray-900 placeholder:text-gray-400" />
+                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
                 </div>
                 <div>
                   <Label htmlFor="petName" className="text-gray-700">Nome do seu pet 🐾</Label>
                   <Input id="petName" placeholder="Rex, Luna, Mimi..." value={petName} onChange={e => setPetName(e.target.value)}
-                    className="mt-1 border-gray-200 focus:border-[#6A0DAD] focus:ring-[#6A0DAD]/20 bg-white text-gray-900 placeholder:text-gray-400" />
+                    className="mt-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400" />
                 </div>
 
                 <button type="submit" disabled={submitting}
-                  className="w-full bg-[#6A0DAD] hover:bg-[#5a0b91] text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#6A0DAD]/30 disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="w-full text-white font-bold py-3.5 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: pc, borderRadius: buttonRadius, boxShadow: `0 8px 24px -8px ${pc}50` }}>
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                   {submitting ? 'Enviando...' : page.cta_text}
                 </button>
@@ -247,7 +256,8 @@ export const LandingPagePublic: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-6">
             {benefits.map((b: any, i: number) => (
               <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-[#6A0DAD]/10 rounded-xl flex items-center justify-center text-[#6A0DAD] mb-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: `${pc}15`, color: pc }}>
                   {iconMap[b.icon] || <PawPrint className="w-6 h-6" />}
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">{b.title}</h3>
@@ -257,6 +267,35 @@ export const LandingPagePublic: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Testimonials */}
+      {testimonials.length > 0 && (
+        <section className="py-16 px-4">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-10">
+              O que dizem nossos clientes
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {testimonials.map((t: any, i: number) => (
+                <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                  <p className="text-gray-600 mb-4 italic leading-relaxed">"{t.text}"</p>
+                  <div className="flex items-center gap-3">
+                    {t.avatar ? (
+                      <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        style={{ backgroundColor: pc }}>
+                        {(t.name || '?')[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className="font-semibold text-gray-900">{t.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-8 px-4">
