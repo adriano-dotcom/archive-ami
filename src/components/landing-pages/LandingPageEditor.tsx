@@ -46,6 +46,9 @@ export interface LandingPageForm {
   button_style: string;
   benefits: { icon: string; title: string; description: string }[];
   testimonials: { name: string; text: string; avatar: string }[];
+  form_fields: string[];
+  hero_bg_color: string;
+  section_bg_color: string;
 }
 
 export const emptyForm: LandingPageForm = {
@@ -64,6 +67,9 @@ export const emptyForm: LandingPageForm = {
   button_style: 'rounded',
   benefits: [],
   testimonials: [],
+  form_fields: ['name', 'email', 'phone', 'pet_name'],
+  hero_bg_color: '#FFFFFF',
+  section_bg_color: '#F9FAFB',
 };
 
 interface Props {
