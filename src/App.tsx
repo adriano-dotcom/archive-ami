@@ -96,6 +96,9 @@ const App: React.FC = () => {
                 {/* Public Landing Pages (no auth, no sidebar) */}
                 <Route path="/lp/:slug" element={<LandingPagePublic />} />
                 
+                {/* Subdomain landing pages: lp.orbepet.com.br/:slug */}
+                <Route path="/:slug" element={<SubdomainLandingPage />} />
+                
                 {/* Rota Externa: Sala de Reunião (Sem Sidebar) */}
                 <Route path="/meeting/:id" element={<MeetingRoom />} />
 
