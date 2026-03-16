@@ -31,7 +31,7 @@ const Reports = lazy(() => import('./components/Reports'));
 const Auth = lazy(() => import('./pages/Auth'));
 const LandingPagePublic = lazy(() => import('./components/landing-pages/LandingPagePublic'));
 const LandingPagesAdmin = lazy(() => import('./components/landing-pages/LandingPagesAdmin'));
-const SubdomainLandingPage = lazy(() => import('./components/landing-pages/SubdomainLandingPage'));
+
 
 const queryClient = new QueryClient();
 
