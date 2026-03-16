@@ -107,6 +107,9 @@ export const LandingPageEditor: React.FC<Props> = ({ form, setForm, editingId, o
         button_style: form.button_style,
         benefits: form.benefits as any,
         testimonials: form.testimonials as any,
+        form_fields: form.form_fields as any,
+        hero_bg_color: form.hero_bg_color,
+        section_bg_color: form.section_bg_color,
       };
 
       if (editingId) {
