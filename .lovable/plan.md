@@ -1,14 +1,23 @@
 
 
-## Atualizar Favicon com Logo OrbePet
+## Landing Pages de Captura + Nutrição de Leads
 
-A logo `orbepet-logo.png` já existe em `src/assets/`. O favicon atual é um `.ico` genérico.
+### ✅ Fase 1 — Implementada
+- Tabelas `landing_pages` e `lead_captures` com RLS
+- Edge Function `capture-lead` (público, sem JWT)
+- Página pública `/lp/:slug` com formulário de captura
+- Painel admin `/landing-pages` com CRUD e visualização de leads
+- Menu "Landing Pages" no sidebar
 
-### Implementação
+### Fase 2 — Nutrição Automatizada (próximo)
+- Tabela `nurture_sequences` com steps JSONB
+- Edge Function `process-nurture` (cron diário)
+- Sequência: WhatsApp boas-vindas → emails educativos → oferta
 
-1. **Copiar** `src/assets/orbepet-logo.png` para `public/favicon.png` (substituindo o existente)
-2. **Atualizar `index.html`**: trocar a referência do favicon de `.ico` para `.png` apontando para a logo OrbePet
-3. **Landing pages (`LandingPagePublic.tsx`)**: adicionar `useEffect` para setar o favicon dinamicamente com a logo OrbePet, garantindo que mesmo acessando só a landing page o favicon apareça correto
+### Fase 3 — Webhook de Compra do Site
+- Edge Function `website-purchase-webhook`
+- Integrar com orbepet.com.br
 
-Resultado: todas as páginas (app + landing pages) exibirão a logo OrbePet como favicon.
-
+### Fase 4 — Dashboard de Performance
+- Métricas por landing page
+- Funil de nutrição
