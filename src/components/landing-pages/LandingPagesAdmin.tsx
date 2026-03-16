@@ -134,7 +134,7 @@ export const LandingPagesAdmin: React.FC = () => {
   };
 
   const copyLink = (slug: string) => {
-    const url = `${window.location.origin}/lp/${slug}`;
+    const url = `https://lp.orbepet.com.br/${slug}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copiado!');
   };
