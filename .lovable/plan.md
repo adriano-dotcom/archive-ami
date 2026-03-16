@@ -1,23 +1,14 @@
 
 
-## Landing Pages de Captura + Nutrição de Leads
+## Atualizar links no Admin para usar `lp.orbepet.com.br`
 
-### ✅ Fase 1 — Implementada
-- Tabelas `landing_pages` e `lead_captures` com RLS
-- Edge Function `capture-lead` (público, sem JWT)
-- Página pública `/lp/:slug` com formulário de captura
-- Painel admin `/landing-pages` com CRUD e visualização de leads
-- Menu "Landing Pages" no sidebar
+O subdomínio está funcionando. Agora preciso atualizar o painel admin para gerar os links corretos.
 
-### Fase 2 — Nutrição Automatizada (próximo)
-- Tabela `nurture_sequences` com steps JSONB
-- Edge Function `process-nurture` (cron diário)
-- Sequência: WhatsApp boas-vindas → emails educativos → oferta
+### Mudanças em `src/components/landing-pages/LandingPagesAdmin.tsx`
 
-### Fase 3 — Webhook de Compra do Site
-- Edge Function `website-purchase-webhook`
-- Integrar com orbepet.com.br
+1. **`copyLink()`**: Trocar `window.location.origin` por `https://lp.orbepet.com.br`
+2. **Link de preview externo**: Atualizar `href` para `https://lp.orbepet.com.br/lp/${slug}`
+3. **Texto do slug exibido**: Mostrar `lp.orbepet.com.br/lp/{slug}` em vez de `/lp/{slug}`
 
-### Fase 4 — Dashboard de Performance
-- Métricas por landing page
-- Funil de nutrição
+Um arquivo, 3 linhas alteradas.
+
