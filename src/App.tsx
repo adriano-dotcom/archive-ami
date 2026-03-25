@@ -33,7 +33,16 @@ const LandingPagePublic = lazy(() => import('./components/landing-pages/LandingP
 const LandingPagesAdmin = lazy(() => import('./components/landing-pages/LandingPagesAdmin'));
 
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      gcTime: 10 * 60 * 1000, // 10 minutos
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Loading fallback component
 const PageLoader: React.FC = () => (
