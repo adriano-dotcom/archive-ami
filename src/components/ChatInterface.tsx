@@ -48,7 +48,7 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel } from './chat';
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -2492,402 +2492,41 @@ const ChatInterface: React.FC = () => {
           </div>
 
           {/* Right Profile Sidebar (CRM View) - Hidden on mobile */}
-          {!isMobile && (
-          <div 
-            className={`${showProfileInfo ? 'w-80 border-l border-border opacity-100' : 'w-0 opacity-0 border-none'} transition-all duration-300 ease-in-out bg-card/95 flex-shrink-0 flex flex-col overflow-hidden`}
-          >
-            <div className="w-80 h-full flex flex-col">
-              {/* Header */}
-              <div className="h-16 flex items-center justify-between px-6 border-b border-border flex-shrink-0">
-                <span className="font-semibold text-foreground">Informações do Lead</span>
-                <div className="flex items-center gap-1">
-                  {/* Botão de Fixar */}
-                  <button 
-                    onClick={() => {
-                      const newValue = !isPinnedProfileInfo;
-                      setIsPinnedProfileInfo(newValue);
-                      localStorage.setItem('pinnedProfileInfo', String(newValue));
-                    }}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      isPinnedProfileInfo 
-                        ? 'bg-primary/20 text-primary' 
-                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-                    }`}
-                    title={isPinnedProfileInfo ? 'Desafixar painel' : 'Fixar painel'}
-                  >
-                    <Pin className="w-4 h-4" />
-                  </button>
-                  
-                  {/* Botão de Fechar */}
-                  <button 
-                    onClick={() => setShowProfileInfo(false)}
-                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-                {/* Identity */}
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-cyan-500 to-teal-600 shadow-xl mb-4">
-                    <img src={activeChat.contactAvatar} alt={activeChat.contactName} className="w-full h-full rounded-full object-cover border-2 border-slate-900" />
-                  </div>
-                  {isEditingContact ? (
-                    <Input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Nome do lead"
-                      className="text-xl font-bold text-center bg-slate-950/50 border-slate-700 mb-1 max-w-[200px]"
-                    />
-                  ) : (
-                    <h3 className="text-xl font-bold text-white mb-1">{activeChat.contactName}</h3>
-                  )}
-                  <p className="text-sm text-slate-400 mb-4">
-                    {activeChat.clientMemory.lead_profile.lead_stage === 'new' ? 'Novo Lead' : 
-                     activeChat.clientMemory.lead_profile.lead_stage === 'qualified' ? 'Lead Qualificado' :
-                     activeChat.clientMemory.lead_profile.lead_stage}
-                  </p>
-                </div>
-
-                {/* Details List */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Tutor</h4>
-                    <button 
-                      onClick={() => setIsEditingContact(!isEditingContact)}
-                      className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
-                      title={isEditingContact ? "Cancelar edição" : "Editar dados"}
-                    >
-                      {isEditingContact ? <X className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  
-                  {/* Phone */}
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      <Phone className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">Telefone</span>
-                      {isEditingContact ? (
-                        <PhoneInput
-                          value={editPhone}
-                          onChange={setEditPhone}
-                          placeholder="+55 (00) 00000-0000"
-                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
-                        />
-                      ) : (
-                        <span className="text-slate-200 font-medium">{activeChat.contactPhone}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Region (derived from DDD) */}
-                  {formatRegionFromPhone(activeChat.contactPhone) && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="flex flex-col flex-1">
-                        <span className="text-xs text-slate-500">Região</span>
-                        <span className="text-slate-200 font-medium">{formatRegionFromPhone(activeChat.contactPhone)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Email */}
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">Email</span>
-                      {isEditingContact ? (
-                        <Input
-                          type="email"
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          placeholder="email@exemplo.com"
-                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
-                        />
-                      ) : activeChat.contactEmail ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-cyan-400 font-medium">{activeChat.contactEmail}</span>
-                          <button
-                            onClick={() => setShowEmailModal(true)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 
-                                       bg-gradient-to-r from-cyan-500/20 to-blue-500/20 
-                                       border border-cyan-500/40 rounded-md
-                                       text-cyan-400 text-xs font-medium
-                                       hover:from-cyan-500/30 hover:to-blue-500/30 
-                                       hover:border-cyan-400/60 transition-all"
-                            title="Enviar email"
-                          >
-                            <Send className="w-3 h-3" />
-                            Enviar
-                          </button>
-                          {emailsSentCount !== undefined && emailsSentCount > 0 && (
-                            <span 
-                              className="flex items-center gap-1 px-2 py-0.5 
-                                         bg-emerald-500/20 border border-emerald-500/30 
-                                         rounded-full text-emerald-400 text-xs"
-                              title={`${emailsSentCount} email(s) já enviado(s) para este contato`}
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              {emailsSentCount}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-slate-500 italic">Não informado</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* CPF */}
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">CPF</span>
-                      {isEditingContact ? (
-                        <Input
-                          type="text"
-                          value={editCpf}
-                          onChange={(e) => setEditCpf(e.target.value)}
-                          placeholder="000.000.000-00"
-                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
-                        />
-                      ) : (
-                        <span className="text-slate-200 font-medium">
-                          {activeChat.contactCpf ? formatCpf(activeChat.contactCpf) : <span className="text-slate-500 italic">Não informado</span>}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Nome do Pet */}
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-                      🐾
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-xs text-slate-500">Nome do Pet</span>
-                      {isEditingContact ? (
-                        <Input
-                          type="text"
-                          value={editPetName}
-                          onChange={(e) => setEditPetName(e.target.value)}
-                          placeholder="Nome do animal"
-                          className="h-8 text-sm bg-slate-950/50 border-slate-700"
-                        />
-                      ) : (
-                        <span className="text-slate-200 font-medium">
-                          {activeChat.contactPetName || <span className="text-slate-500 italic">Não informado</span>}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Save Button */}
-                  {isEditingContact && (
-                    <Button
-                      onClick={handleSaveContactData}
-                      disabled={isSavingContact}
-                      className="w-full bg-cyan-600 hover:bg-cyan-700"
-                    >
-                      {isSavingContact ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Save className="w-4 h-4 mr-2" />
-                      )}
-                      Salvar Alterações
-                    </Button>
-                  )}
-                </div>
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* Call History */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <PhoneCall className="w-4 h-4" />
-                    Histórico de Ligações
-                  </h4>
-                  <CallHistoryPanel 
-                    calls={callHistory} 
-                    loading={callHistoryLoading}
-                    contactId={activeChat.contactId}
-                    contactName={activeChat.contactName}
-                    onNotesUpdate={(notes) => {
-                      console.log('Notas atualizadas via ligação:', notes.length, 'chars');
-                    }}
-                  />
-                </div>
-
-                {/* WhatsApp Call History */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Chamadas WhatsApp
-                  </h4>
-                  <WhatsAppCallHistoryPanel 
-                    calls={whatsappCallHistory} 
-                    loading={whatsappCallsLoading}
-                  />
-                </div>
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* Deal/Pipeline functionality removed - system focused on collections and claims */}
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* Handoff Summary Card - Resumo do Contato */}
-                <HandoffSummaryCard 
-                  ninaContext={activeChat.ninaContext} 
-                  agentSlug={activeChat.agentSlug}
-                  contactId={activeChat.contactId}
-                  contactEmail={activeChat.contactEmail}
-                  onOpenEmailModal={() => setShowEmailModal(true)}
-                />
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* AI Memory Section */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <Brain className="w-4 h-4" />
-                    Memória do(a) {sdrName}
-                  </h4>
-                  
-                  {activeChat.clientMemory.lead_profile.interests.length > 0 && (
-                    <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                      <span className="text-xs text-slate-400">Interesses</span>
-                      <p className="text-sm text-slate-200 mt-1">
-                        {activeChat.clientMemory.lead_profile.interests.join(', ')}
-                      </p>
-                    </div>
-                  )}
-
-                  {activeChat.clientMemory.sales_intelligence.pain_points.length > 0 && (
-                    <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                      <span className="text-xs text-slate-400">Dores Identificadas</span>
-                      <p className="text-sm text-slate-200 mt-1">
-                        {activeChat.clientMemory.sales_intelligence.pain_points.join(', ')}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                    <span className="text-xs text-slate-400">Próxima Ação Sugerida</span>
-                    <p className="text-sm text-slate-200 mt-1">
-                      {activeChat.clientMemory.sales_intelligence.next_best_action === 'qualify' ? 'Qualificar lead' :
-                       activeChat.clientMemory.sales_intelligence.next_best_action === 'demo' ? 'Agendar demonstração' :
-                       activeChat.clientMemory.sales_intelligence.next_best_action}
-                    </p>
-                  </div>
-
-                  <div className="text-xs text-slate-500 text-center">
-                    Total de conversas: {activeChat.clientMemory.interaction_summary.total_conversations}
-                  </div>
-                </div>
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* Assigned User */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Responsável
-                  </h4>
-                  <select
-                    value={activeChat.assignedUserId || ''}
-                    onChange={(e) => {
-                      const userId = e.target.value || null;
-                      assignConversation(activeChat.id, userId);
-                      toast.success('Conversa atribuída com sucesso!');
-                    }}
-                    className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none transition-all"
-                  >
-                    <option value="">Não atribuído</option>
-                    {teamMembers.map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} ({member.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="h-px bg-slate-800/50 w-full"></div>
-
-                {/* Tags */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                    Tags
-                    <Popover open={isTagSelectorOpen} onOpenChange={setIsTagSelectorOpen}>
-                      <PopoverTrigger asChild>
-                        <button className="text-cyan-500 hover:text-cyan-400 transition-colors">
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-0 bg-slate-900 border-slate-700" align="end">
-                        <TagSelector 
-                          availableTags={availableTags}
-                          selectedTags={activeChat.tags || []}
-                          onToggleTag={handleToggleTag}
-                          onCreateTag={handleCreateTag}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {activeChat.tags && activeChat.tags.length > 0 ? (
-                      activeChat.tags.map(tagKey => {
-                        const tagDef = availableTags.find(t => t.key === tagKey);
-                        return (
-                          <span 
-                            key={tagKey}
-                            style={{ 
-                              backgroundColor: tagDef?.color ? `${tagDef.color}20` : 'rgba(59, 130, 246, 0.2)',
-                              borderColor: tagDef?.color || '#3b82f6'
-                            }}
-                            className="px-2.5 py-1 rounded-md border text-xs font-medium flex items-center gap-1.5 group hover:brightness-110 transition-all"
-                          >
-                            <span className="text-slate-200">{tagDef?.label || tagKey}</span>
-                            <button
-                              onClick={() => handleToggleTag(tagKey)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3 h-3 text-slate-400 hover:text-slate-200" />
-                            </button>
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <p className="text-xs text-slate-500 italic">Nenhuma tag adicionada</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes Area with AI Summary */}
-                <ConversationSummaryNotes
-                  conversationId={activeChat.id}
-                  contactId={activeChat.contactId}
-                  messages={activeChat.messages}
-                  callHistory={callHistory}
-                  initialNotes={activeChat.notes}
-                  contactName={activeChat.contactName}
-                  agentName={activeChat.agentName || 'Adri'}
-                />
-              </div>
-            </div>
-          </div>
+          {!isMobile && showProfileInfo && (
+            <ContactProfilePanel
+              activeChat={activeChat}
+              sdrName={sdrName}
+              isEditingContact={isEditingContact}
+              setIsEditingContact={setIsEditingContact}
+              editName={editName}
+              setEditName={setEditName}
+              editEmail={editEmail}
+              setEditEmail={setEditEmail}
+              editCpf={editCpf}
+              setEditCpf={setEditCpf}
+              editPetName={editPetName}
+              setEditPetName={setEditPetName}
+              editPhone={editPhone}
+              setEditPhone={setEditPhone}
+              isSavingContact={isSavingContact}
+              handleSaveContactData={handleSaveContactData}
+              availableTags={availableTags}
+              isTagSelectorOpen={isTagSelectorOpen}
+              setIsTagSelectorOpen={setIsTagSelectorOpen}
+              handleToggleTag={handleToggleTag}
+              handleCreateTag={handleCreateTag}
+              isPinnedProfileInfo={isPinnedProfileInfo}
+              setIsPinnedProfileInfo={setIsPinnedProfileInfo}
+              onClose={() => setShowProfileInfo(false)}
+              callHistory={callHistory}
+              callHistoryLoading={callHistoryLoading}
+              whatsappCallHistory={whatsappCallHistory}
+              whatsappCallsLoading={whatsappCallsLoading}
+              teamMembers={teamMembers}
+              assignConversation={assignConversation}
+              emailsSentCount={emailsSentCount}
+              onOpenEmailModal={() => setShowEmailModal(true)}
+            />
           )}
 
         </motion.div>
