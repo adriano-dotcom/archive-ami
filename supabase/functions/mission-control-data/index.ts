@@ -10,6 +10,8 @@ const ALLOWED_VIEWS = [
   'support_tickets',
   'support_daily',
   'support_weekly',
+  'reembolsos',
+  'reembolsos_daily',
 ] as const;
 
 type ViewName = typeof ALLOWED_VIEWS[number];
@@ -18,6 +20,8 @@ const VIEW_MAP: Record<ViewName, string> = {
   support_tickets: 'orbe_support_tickets_v',
   support_daily: 'orbe_support_daily_metrics_v',
   support_weekly: 'orbe_support_weekly_metrics_v',
+  reembolsos: 'orbe_reembolsos_v',
+  reembolsos_daily: 'orbe_reembolsos_daily_metrics_v',
 };
 
 serve(async (req) => {

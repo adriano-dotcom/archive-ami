@@ -2310,6 +2310,75 @@ export type Database = {
         }
         Relationships: []
       }
+      reimbursement_claims: {
+        Row: {
+          amount_paid: number | null
+          amount_requested: number
+          clinic_name: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          pet_name: string | null
+          receipt_url: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          amount_requested?: number
+          clinic_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          pet_name?: string | null
+          receipt_url?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number | null
+          amount_requested?: number
+          clinic_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          pet_name?: string | null
+          receipt_url?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_claims_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_claims_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_coaching_reports: {
         Row: {
           agent_id: string | null
@@ -3047,6 +3116,34 @@ export type Database = {
           updated_at: string | null
           user_messages: number | null
           whatsapp_id: string | null
+        }
+        Relationships: []
+      }
+      orbe_reembolsos_daily_metrics_v: {
+        Row: {
+          amount_paid_today: number | null
+          amount_requested_today: number | null
+          date_local: string | null
+          reembolsos_over_7d: number | null
+          reembolsos_paid_today: number | null
+          reembolsos_pending_now: number | null
+          reembolsos_submitted_today: number | null
+        }
+        Relationships: []
+      }
+      orbe_reembolsos_v: {
+        Row: {
+          amount_paid: number | null
+          amount_requested: number | null
+          clinic_name: string | null
+          created_at: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string | null
+          paid_at: string | null
+          pet_name: string | null
+          status: string | null
+          updated_at: string | null
         }
         Relationships: []
       }
