@@ -265,6 +265,13 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "call_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "orbe_support_tickets_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       campaigns: {
@@ -790,6 +797,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: true
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_states_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "orbe_support_tickets_v"
             referencedColumns: ["id"]
           },
         ]
@@ -1770,6 +1784,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "orbe_support_tickets_v"
             referencedColumns: ["id"]
           },
           {
@@ -2930,6 +2951,13 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_calls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "orbe_support_tickets_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_templates: {
@@ -3019,6 +3047,53 @@ export type Database = {
           updated_at: string | null
           user_messages: number | null
           whatsapp_id: string | null
+        }
+        Relationships: []
+      }
+      orbe_support_daily_metrics_v: {
+        Row: {
+          by_assigned_to_json: Json | null
+          by_status_json: Json | null
+          date_local: string | null
+          tickets_closed_today: number | null
+          tickets_new_today: number | null
+          tickets_open_now: number | null
+          tickets_pending_now: number | null
+          tickets_sla_over_24h: number | null
+          tickets_waiting_customer: number | null
+        }
+        Relationships: []
+      }
+      orbe_support_tickets_v: {
+        Row: {
+          assigned_to: string | null
+          channel: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string | null
+          last_message_at: string | null
+          last_message_from: string | null
+          priority: string | null
+          status: string | null
+          tags: string[] | null
+          unread_count: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      orbe_support_weekly_metrics_v: {
+        Row: {
+          by_assigned_to_json: Json | null
+          by_status_json: Json | null
+          date_range: string | null
+          tickets_closed_week: number | null
+          tickets_new_week: number | null
+          tickets_open_now: number | null
+          tickets_pending_now: number | null
+          tickets_sla_over_24h: number | null
+          tickets_waiting_customer: number | null
         }
         Relationships: []
       }
