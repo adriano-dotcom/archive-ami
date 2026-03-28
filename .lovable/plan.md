@@ -1,23 +1,37 @@
 
 
-## Landing Pages de Captura + Nutrição de Leads
+## Configurar Cron Job para process-followups
 
-### ✅ Fase 1 — Implementada
-- Tabelas `landing_pages` e `lead_captures` com RLS
-- Edge Function `capture-lead` (público, sem JWT)
-- Página pública `/lp/:slug` com formulário de captura
-- Painel admin `/landing-pages` com CRUD e visualização de leads
-- Menu "Landing Pages" no sidebar
+### Problema
+A Edge Function `process-followups` existe e funciona, mas não há nenhum cron job que a invoque. Resultado: nenhum follow-up automático é disparado.
 
-### Fase 2 — Nutrição Automatizada (próximo)
-- Tabela `nurture_sequences` com steps JSONB
-- Edge Function `process-nurture` (cron diário)
-- Sequência: WhatsApp boas-vindas → emails educativos → oferta
+### Solução
+Criar um cron job via SQL (usando `cron.schedule` + `net.http_post`) que chame `process-followups` a cada 5 minutos durante o horário comercial.
 
-### Fase 3 — Webhook de Compra do Site
-- Edge Function `website-purchase-webhook`
-- Integrar com orbepet.com.br
+### Detalhes
 
-### Fase 4 — Dashboard de Performance
-- Métricas por landing page
-- Funil de nutrição
+**Cron job a criar** (via read_query/insert, NÃO migration — contém dados sensíveis):
+```sql
+SELECT cron.schedule(
+  'process-followups-every-5min',
+  '*/5 * * * *',  -- a cada 5 minutos, 24/7
+  $$
+  SELECT net.http_post(
+    url:='https://bbllbsbcogngjfrhhggq.supabase.co/functions/v1/process-followups',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer <anon_key>"}'::jsonb,
+    body:='{"triggered_by": "cron"}'::jsonb
+  ) as request_id;
+  $$
+);
+```
+
+A função já tem lógica interna de `active_hours` e `active_days`, então rodar a cada 5 min é seguro — ela fará skip fora do horário configurado na automação.
+
+**Também recomendado**: Criar cron jobs para as outras funções órfãs:
+- `process-scheduled-emails` — verificar e enviar emails agendados (1x por hora)
+- `send-daily-callbacks` — enviar lembretes de callback (1x às 8h)
+- `cleanup-queues` — limpar filas processadas (1x por dia às 3h)
+
+### Arquivos
+Nenhum arquivo modificado. Apenas execução de SQL para criar os cron jobs.
+
