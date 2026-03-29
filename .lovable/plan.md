@@ -1,31 +1,42 @@
 
 
-## Atualizar Reembolso: Consultas e Exames Veterinários
+## Corrigir Incompatibilidade de Campos entre Orbe Plano Pet e Webhook
 
-### Contexto
-O sistema de reembolso é para **tutores de pets** que pagaram consultas ou exames veterinários e solicitam reembolso do plano de saúde pet. Não é "refund de e-commerce".
-
-### Mudanças
-
-**1. Database — Adicionar coluna `claim_type`**
-```sql
-ALTER TABLE reimbursement_claims 
-  ADD COLUMN claim_type text DEFAULT 'consulta';
--- Valores: 'consulta', 'exame', 'cirurgia', 'internacao', 'outro'
+### Problema
+O projeto **Orbe Plano Pet** envia dados neste formato:
+```json
+{ "nome": "...", "telefone": "...", "email": "...", "tipo": "compra" }
 ```
-Atualizar a view `orbe_reembolsos_v` para incluir `claim_type`.
 
-**2. Edge Function `receive-ecommerce-webhook`**
-- No evento `refund_request`, aceitar campo `claim_type` (consulta, exame, etc.)
-- Salvar na coluna `claim_type` da `reimbursement_claims`
-- Atualizar descrição padrão para "Reembolso de {tipo} veterinário(a)"
+Mas o webhook `receive-ecommerce-webhook` espera:
+```json
+{ "event": "purchase_paid", "phone": "...", "name": "...", "email": "..." }
+```
 
-**3. UI — `ReimbursementFunnel.tsx`**
-- Adicionar `claim_type` ao tipo `ReimbursementClaim` e à query
-- Mostrar badge colorido no card com o tipo (🩺 Consulta, 🔬 Exame, etc.)
-- Adicionar filtro por tipo no topo (tabs ou dropdown)
-- KPI adicional: breakdown por tipo
+Os campos `tipo`/`event` e `telefone`/`phone` e `nome`/`name` não batem, resultando em erro 400 "Missing required fields: event, phone".
 
-**4. Textos e labels**
-- Trocar referências genéricas para contexto veterinário (tutor, pet, clínica, consulta/exame)
+### Solução
+
+**Arquivo: `supabase/functions/receive-ecommerce-webhook/index.ts`**
+
+Adicionar mapeamento automático dos campos do Orbe Plano Pet logo após o `req.json()`:
+
+1. Detectar se o payload usa o formato Orbe (`tipo`, `telefone`, `nome`) e mapear para o formato esperado:
+   - `tipo: "compra"` → `event: "purchase_paid"`
+   - `tipo: "reembolso"` → `event: "refund_request"`
+   - `telefone` → `phone`
+   - `nome` → `name`
+
+2. Manter compatibilidade com o formato original (`event`, `phone`, `name`) para outros integradores.
+
+### Detalhe Técnico
+
+```text
+Payload Orbe:  { tipo, telefone, nome, email }
+                    ↓ mapeamento automático
+Formato interno: { event, phone, name, email }
+                    ↓ fluxo existente continua igual
+```
+
+Nenhuma mudança no projeto Orbe Plano Pet é necessária. Apenas o webhook deste projeto será atualizado.
 
