@@ -887,6 +887,54 @@ export type Database = {
           },
         ]
       }
+      ecommerce_orders: {
+        Row: {
+          amount: number
+          contact_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          order_id: string
+          status: string
+        }
+        Insert: {
+          amount?: number
+          contact_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          order_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          contact_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_orders_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body_html: string

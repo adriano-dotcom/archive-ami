@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, Filter, FileText, GitBranch, BarChart3, Megaphone } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, Filter, FileText, GitBranch, BarChart3, Megaphone, ReceiptText } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
@@ -47,6 +47,11 @@ const allMenuItems = [{
   id: 'landing-pages',
   label: 'Landing Pages',
   icon: Megaphone,
+  adminOnly: false
+}, {
+  id: 'reembolsos',
+  label: 'Reembolsos',
+  icon: ReceiptText,
   adminOnly: false
 }, {
   id: 'settings',

@@ -1,0 +1,214 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-ecommerce-secret",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Authenticate via x-ecommerce-secret header
+    const secret = req.headers.get("x-ecommerce-secret");
+    const expectedSecret = Deno.env.get("ECOMMERCE_WEBHOOK_SECRET");
+    if (!expectedSecret || secret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const { event, phone, name, email, pet_name, amount, order_id, reason } = body;
+
+    if (!event || !phone) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: event, phone" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Normalize phone number (ensure has 55 prefix)
+    const normalizedPhone = phone.replace(/\D/g, "").replace(/^(?!55)/, "55");
+
+    if (event === "purchase_paid") {
+      // 1. Upsert contact
+      const { data: existingContacts } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("phone_number", normalizedPhone)
+        .limit(1);
+
+      let contactId: string;
+
+      if (existingContacts && existingContacts.length > 0) {
+        contactId = existingContacts[0].id;
+        await supabase
+          .from("contacts")
+          .update({
+            name: name || undefined,
+            email: email || undefined,
+            pet_name: pet_name || undefined,
+            lead_status: "customer",
+            lead_source: "ecommerce",
+            last_activity: new Date().toISOString(),
+          })
+          .eq("id", contactId);
+      } else {
+        const { data: newContact, error: insertError } = await supabase
+          .from("contacts")
+          .insert({
+            phone_number: normalizedPhone,
+            name: name || null,
+            email: email || null,
+            pet_name: pet_name || null,
+            lead_status: "customer",
+            lead_source: "ecommerce",
+          })
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+        contactId = newContact.id;
+      }
+
+      // 2. Log ecommerce order
+      await supabase.from("ecommerce_orders").insert({
+        contact_id: contactId,
+        order_id: order_id || `auto_${Date.now()}`,
+        event_type: "purchase_paid",
+        amount: amount || 0,
+        metadata: { name, email, pet_name, phone: normalizedPhone },
+      });
+
+      // 3. Create/find conversation
+      const { data: existingConvs } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("contact_id", contactId)
+        .eq("is_active", true)
+        .limit(1);
+
+      let conversationId: string;
+      if (existingConvs && existingConvs.length > 0) {
+        conversationId = existingConvs[0].id;
+      } else {
+        const { data: newConv, error: convError } = await supabase
+          .from("conversations")
+          .insert({
+            contact_id: contactId,
+            status: "nina",
+            is_active: true,
+          })
+          .select("id")
+          .single();
+        if (convError) throw convError;
+        conversationId = newConv.id;
+      }
+
+      // 4. Send welcome template via WhatsApp
+      try {
+        const templateResponse = await fetch(
+          `${supabaseUrl}/functions/v1/send-whatsapp-template`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              phone_number: normalizedPhone,
+              template_name: "boas_vindas",
+              contact_id: contactId,
+              conversation_id: conversationId,
+            }),
+          }
+        );
+        const templateResult = await templateResponse.text();
+        console.log("[ecommerce-webhook] Template sent:", templateResult);
+      } catch (templateErr) {
+        console.error("[ecommerce-webhook] Template send error:", templateErr);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          event: "purchase_paid",
+          contact_id: contactId,
+          conversation_id: conversationId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } else if (event === "refund_request") {
+      // Find existing contact
+      const { data: contacts } = await supabase
+        .from("contacts")
+        .select("id, name, pet_name")
+        .eq("phone_number", normalizedPhone)
+        .limit(1);
+
+      if (!contacts || contacts.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Contact not found for this phone number" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const contact = contacts[0];
+
+      // Log ecommerce order
+      await supabase.from("ecommerce_orders").insert({
+        contact_id: contact.id,
+        order_id: order_id || `refund_${Date.now()}`,
+        event_type: "refund_request",
+        amount: amount || 0,
+        metadata: { reason, phone: normalizedPhone },
+      });
+
+      // Create reimbursement claim
+      const { data: claim, error: claimError } = await supabase
+        .from("reimbursement_claims")
+        .insert({
+          contact_id: contact.id,
+          status: "submitted",
+          amount_requested: amount || 0,
+          pet_name: contact.pet_name || pet_name || null,
+          description: reason || "Solicitação de reembolso via e-commerce",
+          metadata: { order_id, source: "ecommerce_webhook" },
+        })
+        .select("id")
+        .single();
+
+      if (claimError) throw claimError;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          event: "refund_request",
+          contact_id: contact.id,
+          claim_id: claim.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ error: `Unknown event type: ${event}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+  } catch (err) {
+    console.error("[ecommerce-webhook] Error:", err);
+    return new Response(
+      JSON.stringify({ error: err.message || "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
