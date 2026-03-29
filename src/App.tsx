@@ -28,6 +28,7 @@ const CallsPage = lazy(() => import('./components/CallsPage'));
 const SalesFunnel = lazy(() => import('./components/SalesFunnel'));
 const BotFlows = lazy(() => import('./components/BotFlows'));
 const Reports = lazy(() => import('./components/Reports'));
+const ReimbursementFunnel = lazy(() => import('./components/ReimbursementFunnel'));
 const Auth = lazy(() => import('./pages/Auth'));
 const LandingPagePublic = lazy(() => import('./components/landing-pages/LandingPagePublic'));
 const LandingPagesAdmin = lazy(() => import('./components/landing-pages/LandingPagesAdmin'));
