@@ -64,13 +64,22 @@ serve(async (req) => {
 
     console.log(`Auth check: token_len=${token.length}, secret_len=${bridgeSecret.length}`);
 
-    // Normalize comparison: trim both and compare. If secret has trailing junk, compare first N chars
+    // Normalize: strip all whitespace
     const secretNorm = bridgeSecret.replace(/[\s\n\r]/g, '');
     const tokenNorm = token.replace(/[\s\n\r]/g, '');
-    const isMatch = tokenNorm.length >= 32 && secretNorm.startsWith(tokenNorm);
+    
+    // Debug: find first mismatch position
+    let mismatchPos = -1;
+    const minLen = Math.min(tokenNorm.length, secretNorm.length);
+    for (let i = 0; i < minLen; i++) {
+      if (tokenNorm[i] !== secretNorm[i]) { mismatchPos = i; break; }
+    }
+    console.log(`Comparison: mismatchPos=${mismatchPos}, minLen=${minLen}, secretNorm_len=${secretNorm.length}`);
+
+    const isMatch = tokenNorm.length >= 32 && (tokenNorm === secretNorm || secretNorm.startsWith(tokenNorm));
 
     if (!token || !isMatch) {
-      console.error(`Unauthorized: token mismatch (tokenNorm=${tokenNorm.length}, secretNorm=${secretNorm.length})`);
+      console.error(`Unauthorized: mismatch at pos ${mismatchPos}`);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
