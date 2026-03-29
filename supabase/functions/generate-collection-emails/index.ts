@@ -484,10 +484,9 @@ REGRAS:
 8. SEM emojis
 9. Assinatura:
    Atenciosamente,
-   João Pedro
-   WhatsApp: +55 43 99156-2099
+   Equipe OrbePet
    
-   Jacometo Seguros - Equipe de Cobrança
+   OrbePet - Equipe de Cobrança
    À disposição para esclarecimento
 
 Retorne APENAS um JSON válido no formato:

@@ -2091,6 +2091,57 @@ export type Database = {
           },
         ]
       }
+      orbe_plans_catalog: {
+        Row: {
+          annual_limit: number | null
+          coverages: Json
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          limits_per_event: Json | null
+          max_pet_age_years: number | null
+          monthly_price: number
+          plan_name: string
+          preexisting_conditions_rule: string | null
+          species_allowed: string[] | null
+          updated_at: string | null
+          waiting_period_days: number | null
+        }
+        Insert: {
+          annual_limit?: number | null
+          coverages?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          limits_per_event?: Json | null
+          max_pet_age_years?: number | null
+          monthly_price: number
+          plan_name: string
+          preexisting_conditions_rule?: string | null
+          species_allowed?: string[] | null
+          updated_at?: string | null
+          waiting_period_days?: number | null
+        }
+        Update: {
+          annual_limit?: number | null
+          coverages?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          limits_per_event?: Json | null
+          max_pet_age_years?: number | null
+          monthly_price?: number
+          plan_name?: string
+          preexisting_conditions_rule?: string | null
+          species_allowed?: string[] | null
+          updated_at?: string | null
+          waiting_period_days?: number | null
+        }
+        Relationships: []
+      }
       pending_invites: {
         Row: {
           app_role: Database["public"]["Enums"]["app_role"]

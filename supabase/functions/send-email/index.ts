@@ -98,7 +98,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending email to: ${to}, subject: ${subject}, bcc: ${bcc?.join(', ') || 'none'}`);
 
-    // Usar domínio verificado da Jacometo
     const fromEmail = from || "OrbePet <noreply@orbepet.com.br>";
 
     const emailResponse = await resend.emails.send({
