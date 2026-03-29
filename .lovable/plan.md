@@ -1,34 +1,26 @@
 
 
-## Definir novo BRIDGE_SECRET
+## Fix mission-control-data 401 Error
 
-### Ação
-Gerar e configurar um novo `BRIDGE_SECRET` seguro para autenticação da Edge Function `mission-control-data`.
+### Diagnosis
+- `supabase/config.toml` already has `verify_jwt = false` for `mission-control-data` — config is correct.
+- `index.ts` already validates `BRIDGE_SECRET` manually via `Deno.env.get("BRIDGE_SECRET")` — code is correct.
+- The `BRIDGE_SECRET` secret exists in the project.
+- **Most likely cause**: The function needs a fresh deploy to pick up the latest config/code, OR there's a token parsing issue (no `.trim()`).
 
-### Passos
+### Changes
 
-1. **Gerar valor seguro**: Um token aleatório de 64 caracteres (hex) será gerado
-2. **Configurar como secret**: Usar a ferramenta `add_secret` para salvar o novo valor como `BRIDGE_SECRET` no projeto
-3. **Entregar ao usuário**: Fornecer o valor para configuração nos scripts do Mac
+**1. Harden token parsing in `supabase/functions/mission-control-data/index.ts`**
+- Add `.trim()` to both the secret and the extracted token to eliminate invisible characters.
+- Make `Bearer` parsing case-insensitive.
+- Add `x-bridge-secret` header as fallback.
+- Add safe debug logging (token lengths only, no values).
 
-### Variáveis para os scripts
+**2. Redeploy the function**
+- Use the deploy tool to ensure the latest code + config are live.
 
-Após a configuração, você usará nos scripts do Mac:
+**3. Test the endpoint**
+- Invoke the function with the correct BRIDGE_SECRET to confirm 200 response.
 
-```text
-export ORBE_SUPABASE_URL="https://bbllbsbcogngjfrhhggq.supabase.co"
-export ORBE_BRIDGE_SECRET="<valor_gerado>"
-```
-
-### Teste
-
-```bash
-curl -s -X POST "$ORBE_SUPABASE_URL/functions/v1/mission-control-data" \
-  -H "Authorization: Bearer $ORBE_BRIDGE_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"view":"support_daily"}' | jq .
-```
-
-### Nenhum arquivo modificado
-Apenas atualização do secret via ferramenta interna.
+### No database changes needed.
 
