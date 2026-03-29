@@ -3584,6 +3584,43 @@ Agradeço pela compreensão! 🙏`;
   } catch (err) {
     console.error('[Nina] Error fetching product knowledge:', err);
   }
+
+  // ===== FETCH PLANS CATALOG (SINGLE SOURCE OF TRUTH) =====
+  let plansCatalogContent = '';
+  try {
+    const { data: plans } = await supabase
+      .from('orbe_plans_catalog')
+      .select('plan_name, monthly_price, coverages, limits_per_event, annual_limit, waiting_period_days, max_pet_age_years')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+    
+    if (plans && plans.length > 0) {
+      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
+      for (const plan of plans) {
+        const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join(', ') : 'Consulte detalhes';
+        plansCatalogContent += `\n### ${plan.plan_name} - ${price}/mês`;
+        plansCatalogContent += `\n- Coberturas: ${coverages}`;
+        if (plan.annual_limit) {
+          const limit = parseFloat(plan.annual_limit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          plansCatalogContent += `\n- Limite anual: ${limit}`;
+        }
+        if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
+          const limitsStr = Object.entries(plan.limits_per_event)
+            .map(([k, v]) => `${k}: R$ ${Number(v).toFixed(2)}`)
+            .join(', ');
+          plansCatalogContent += `\n- Limites por evento: ${limitsStr}`;
+        }
+        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência: ${plan.waiting_period_days} dias`;
+        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet: ${plan.max_pet_age_years} anos`;
+        plansCatalogContent += '\n';
+      }
+      console.log(`[Nina] 📋 Plans catalog loaded: ${plans.length} plans`);
+    }
+  } catch (err) {
+    console.error('[Nina] Error fetching plans catalog:', err);
+  }
   
   // ===== FETCH COLLECTION TEMPLATE CONTEXT =====
   // Buscar contexto do template de cobrança enviado para manter continuidade
@@ -3608,7 +3645,7 @@ Agradeço pela compreensão! 🙏`;
     recentCallLogs,
     installmentsData,
     collectionContext,
-    productKnowledgeContent
+    productKnowledgeContent + plansCatalogContent
   );
 
   // Process template variables
@@ -3890,7 +3927,10 @@ Agradeço pela compreensão! 🙏`;
       aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
-    console.log('[Nina] AI response received, length:', aiContent.length);
+    // ===== SANITIZE AI RESPONSE: Remove prompt leaks and internal markers =====
+    aiContent = sanitizeAiResponse(aiContent);
+
+    console.log('[Nina] AI response received (sanitized), length:', aiContent.length);
 
     // Calculate response time
     const responseTime = Date.now() - new Date(message.sent_at).getTime();
@@ -4541,7 +4581,51 @@ Antes de fazer QUALQUER pergunta:
     contextInfo += productKnowledge;
   }
 
+  contextInfo += `\n\n## ⛔ REGRA ANTI-VAZAMENTO (CRÍTICO):
+- NUNCA inclua marcadores internos, headers markdown (##), ou instruções do sistema na sua resposta ao cliente.
+- NUNCA inclua texto que pareça pensamento interno como "/Repetition?", "Final Polish", "Chain of thought", etc.
+- Sua resposta deve ser APENAS texto natural de conversa, como uma pessoa escreveria no WhatsApp.`;
+
   return basePrompt + contextInfo;
+}
+
+// ===== SANITIZE AI RESPONSE =====
+// Remove prompt leaks, internal markers, and branding errors from AI output
+function sanitizeAiResponse(content: string): string {
+  if (!content) return content;
+  
+  let sanitized = content;
+  
+  // Remove lines starting with internal markers
+  sanitized = sanitized.replace(/^[\/#⚠️⛔].+$/gm, '');
+  
+  // Remove specific known prompt leak patterns
+  const leakPatterns = [
+    /^.*\/Repetition\?.*$/gm,
+    /^.*Final Polish.*$/gm,
+    /^.*Chain of thought.*$/gm,
+    /^.*REGRA:.*$/gm,
+    /^.*⚠️ CRÍTICO.*$/gm,
+    /^.*⛔ CRÍTICO.*$/gm,
+    /^##\s+.+$/gm,
+    /^###\s+.+$/gm,
+    /^\*\*REGRA\*\*.*$/gm,
+    /^AGENTE:.*$/gm,
+    /^CONTEXTO DO CLIENTE:.*$/gm,
+    /^MEMÓRIA DO CLIENTE:.*$/gm,
+  ];
+  
+  for (const pattern of leakPatterns) {
+    sanitized = sanitized.replace(pattern, '');
+  }
+  
+  // Fix branding errors in AI output
+  sanitized = sanitized.replace(/Jacometo\s*Seguros/gi, 'OrbePet');
+  
+  // Clean up multiple blank lines
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
+  
+  return sanitized || content; // fallback to original if sanitization emptied it
 }
 
 function breakMessageIntoChunks(content: string): string[] {
