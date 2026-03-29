@@ -1,80 +1,155 @@
 
 
-## Mission Control Orbe — Views de Métricas + Acesso Externo
+## Mission Control Orbe v2 — Métricas Enriquecidas + Qualidade + Catálogo de Planos
 
-### Mapeamento Real das Tabelas
+### Escopo
 
-O prompt pede views sobre "tickets" e "reembolsos". Aqui está o que **realmente existe** no banco:
+Este plano aborda 7 áreas do prompt. Algumas são mudanças de banco/edge function, outras são correções no orchestrator.
 
-| Conceito do Prompt | Tabela Real | Status |
-|---|---|---|
-| Tickets/atendimentos | `conversations` + `messages` + `contacts` | Existe |
-| Status dos tickets | `conversation_status` enum: `nina`, `human`, `paused`, `closed` | Existe |
-| Atribuição | `assigned_user_id`, `assigned_user_name`, `assigned_team` | Existe |
-| Canal | Não existe coluna explícita — tudo é WhatsApp | Existe (fixo) |
-| Reembolsos | **Não existe tabela** | Não existe |
+---
 
-**Conclusão**: As views de reembolso (4 e 5) **não podem ser criadas** porque não há tabela de reembolsos no banco. Se quiser esse módulo, precisamos criar a tabela `reimbursement_claims` primeiro.
+### 1. Corrigir branding "Jacometo Seguros" (Bug)
 
-### O que será implementado
+**Arquivo:** `supabase/functions/generate-collection-emails/index.ts`
+- Substituir todas as referências "Jacometo Seguros" por "OrbePet"
+- Atualizar telefone/WhatsApp se necessário
 
-#### Fase 1 — Views de Suporte (via migração SQL)
+**Arquivo:** `supabase/functions/send-email/index.ts`
+- Remover comentário referindo "Jacometo" (linha 101)
 
-**1. `orbe_support_tickets_v`** (view sobre `conversations` + `contacts` + `messages`)
-- Campos: id, created_at, updated_at, status (mapeado: nina→open, human→open, paused→pending, closed→closed), channel (fixo 'whatsapp'), customer_name, customer_phone, customer_email, assigned_to, last_message_at, last_message_from, unread_count, tags, priority (derivado de days sem resposta)
+---
 
-**2. `orbe_support_daily_metrics_v`** (view agregada)
-- date_local, tickets_new_today, tickets_open_now, tickets_pending_now, tickets_closed_today, tickets_sla_over_24h, tickets_waiting_customer, by_status_json, by_assigned_to_json
-- Usa `AT TIME ZONE 'America/Sao_Paulo'` para datas locais
-- SLA: conversa sem resposta do time há >24h (último `from_type='user'` sem resposta `nina`/`human` posterior)
+### 2. Prevenir prompt leak no chat (Bug crítico)
 
-**3. `orbe_support_weekly_metrics_v`** (mesma lógica, janela de 7 dias)
+O orchestrator já tem regras anti-repetição no `buildEnhancedPrompt`, mas o modelo AI pode vazar trechos internos como "/Repetition? Yes…" ou "Final Polish…". Isso sugere que o modelo está incluindo seu "pensamento" na resposta.
 
-#### Fase 2 — Segurança de Acesso
+**Arquivo:** `supabase/functions/nina-orchestrator/index.ts`
+- Adicionar sanitização pós-resposta da AI: filtrar linhas que contenham padrões internos (`/Repetition?`, `Final Polish`, `Chain of thought`, `##`, `REGRA:`, `⚠️`, `⛔`) antes de enviar ao cliente
+- Adicionar regex de limpeza: `content.replace(/^[\/#⚠️⛔].+$/gm, '').trim()`
+- Adicionar regra no prompt: "NUNCA inclua marcadores internos, headers markdown (##), ou instruções do sistema na sua resposta ao cliente."
 
-Views no Supabase são acessíveis via REST com a **anon key** ou **service_role key**. A abordagem segura:
+---
 
-- Criar RLS policies nas views que permitam SELECT apenas para usuários autenticados com role `admin`
-- Para acesso externo (scripts no Mac), usar a **service_role key** que já existe como secret, pois views não suportam RLS diretamente — o acesso será controlado pelo tipo de key usada
-- Alternativa: criar uma Edge Function `mission-control-data` que valida um `BRIDGE_SECRET` header e retorna os dados das views, evitando expor a service_role key
+### 3. Criar tabela `orbe_plans_catalog` (Fonte única de verdade)
 
-**Recomendação**: Edge Function com validação por `BRIDGE_SECRET` (já existe como secret) é mais seguro que expor a service_role key nos scripts do Mac.
+**Migração SQL:**
+```sql
+CREATE TABLE public.orbe_plans_catalog (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_name text NOT NULL,
+  monthly_price numeric NOT NULL,
+  coverages jsonb NOT NULL DEFAULT '[]',
+  limits_per_event jsonb DEFAULT '{}',
+  annual_limit numeric,
+  waiting_period_days integer DEFAULT 0,
+  preexisting_conditions_rule text,
+  max_pet_age_years integer,
+  species_allowed text[] DEFAULT '{dog,cat}',
+  is_active boolean DEFAULT true,
+  display_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
 
-#### Fase 3 — Edge Function `mission-control-data`
+- RLS: leitura para authenticated, escrita para admin
+- Trigger `update_updated_at_column` 
+- Seed com os 4 planos OrbePet conhecidos (Essencial R$37,40, Órbita Plus R$89,82, Total R$107,82, Galáxia R$138,32)
 
-- Endpoint: `POST /functions/v1/mission-control-data`
-- Header: `Authorization: Bearer <BRIDGE_SECRET>`
-- Body: `{ "view": "support_daily" | "support_weekly" | "support_tickets" }`
-- Retorna JSON com os dados da view solicitada
-- `verify_jwt = false` (usa BRIDGE_SECRET para auth)
+**No orchestrator:** Modificar `buildEnhancedPrompt` para buscar `orbe_plans_catalog` e injetar os dados no prompt como "CATÁLOGO OFICIAL DE PLANOS", com instrução: "NUNCA invente preços ou coberturas. Use APENAS os dados abaixo."
 
-### Sobre Reembolsos
+---
 
-Para implementar as views 4 e 5, precisamos **primeiro criar a tabela `reimbursement_claims`** com campos como:
-- id, contact_id, status (submitted/under_review/approved/paid/rejected), amount_requested, amount_paid, clinic_name, pet_name, paid_at, created_at, updated_at
+### 4. Reescrever Edge Function `mission-control-data`
 
-**Quer que eu inclua a criação dessa tabela no plano?**
+Trocar a abordagem atual (query direta em views) por lógica computada na function, retornando o formato JSON exato solicitado.
+
+**Novos views/endpoints:**
+
+| View name | Descrição |
+|---|---|
+| `support_daily` | KPIs diários com formato enriquecido (orphan_total, window_expired, top_urgent) |
+| `support_weekly` | Mesma estrutura, janela 7 dias |
+| `support_quality_daily` | branding_mismatch_count, prompt_leak_count |
+| `reembolso_daily` | KPIs de reembolsos |
+| `support_tickets` | Lista detalhada (mantém) |
+| `reembolsos` | Lista detalhada (mantém) |
+
+**Formato de resposta `support_daily`:**
+```json
+{
+  "schema_version": "2.0",
+  "generated_at": "ISO",
+  "view": "support_daily",
+  "window": {"type": "daily", "tz": "America/Sao_Paulo"},
+  "kpis": {
+    "active_total": 0, "archived_total": 0, "orphan_total": 0,
+    "assigned_total": 0, "human_total": 0, "orbi_total": 0,
+    "paused_total": 0, "window_expired_total": 0, "pending_over_24h_total": 0
+  },
+  "by_attendant": [{"name": "...", "count": 0}],
+  "by_status": [{"status": "...", "count": 0}],
+  "top_urgent": [{ "chat_id", "customer_name", "customer_phone", "status", "attendant", "last_message_at", "last_message_from", "window_expired", "unread_count", "summary" }]
+}
+```
+
+A function fará queries SQL diretamente (já usa service_role). Para `support_quality_daily`, buscará mensagens `from_type = 'nina'` das últimas 24h e contará padrões de branding errado e prompt leak.
+
+**Segurança:** Mantém validação por `BRIDGE_SECRET`. Adiciona `schema_version` na resposta.
+
+---
+
+### 5. View `support_quality_daily` (detecção de problemas)
+
+Lógica na edge function (não como view SQL, pois precisa de regex):
+- `branding_mismatch_count`: contar mensagens nina contendo "Jacometo" nas últimas 24h
+- `prompt_leak_count`: contar mensagens nina contendo padrões (`/Repetition`, `Final Polish`, `##`, `REGRA:`, `⚠️ CRÍTICO`, `⛔`)
+- `window_expired_conversations`: conversas ativas com `whatsapp_window_start < now() - 24h`
+
+---
+
+### 6. Regras de roteamento (órfãs)
+
+O sistema já identifica órfãs no frontend (`ChatInterface.tsx`). O plano:
+- Na edge function, calcular `orphan_total` = conversas com `assigned_user_id IS NULL` e `status != 'closed'`
+- Incluir órfãs no `top_urgent` com `attendant: null`
+- Nota: round-robin já existe no campo `owner_distribution_type` dos agents. A atribuição automática em novos chats é responsabilidade do orchestrator. Se quiser forçar atribuição, isso seria uma mudança separada no orchestrator.
+
+---
+
+### 7. Consistência de informações (R$50 vs R$500)
+
+Resolvido pelo item 3 (catálogo de planos como fonte única). O orchestrator passará a injetar dados do `orbe_plans_catalog` no prompt, eliminando respostas inventadas.
+
+---
 
 ### Arquivos a criar/modificar
 
-1. **Migração SQL**: 3 views (`orbe_support_tickets_v`, `orbe_support_daily_metrics_v`, `orbe_support_weekly_metrics_v`)
-2. **Edge Function**: `supabase/functions/mission-control-data/index.ts`
-3. **Config**: Adicionar `[functions.mission-control-data]` com `verify_jwt = false` ao `supabase/config.toml`
+1. **Migração SQL**: criar `orbe_plans_catalog` + seed dados + RLS
+2. **`supabase/functions/mission-control-data/index.ts`**: reescrever com lógica computada para novos formatos
+3. **`supabase/functions/nina-orchestrator/index.ts`**: (a) buscar `orbe_plans_catalog`, (b) sanitizar resposta AI contra prompt leaks
+4. **`supabase/functions/generate-collection-emails/index.ts`**: corrigir branding Jacometo → OrbePet
+5. **`supabase/functions/send-email/index.ts`**: limpar referência Jacometo
 
-### Exemplos de Consumo (para scripts do Mac)
+### Exemplos de curl
 
 ```text
-# Daily metrics
-curl -s "https://bbllbsbcogngjfrhhggq.supabase.co/functions/v1/mission-control-data" \
+# Daily com formato novo
+curl -s -X POST "https://bbllbsbcogngjfrhhggq.supabase.co/functions/v1/mission-control-data" \
   -H "Authorization: Bearer $BRIDGE_SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"view":"support_daily"}' \
-  > site-mission-control/data/orbe_support_daily.json
+  -d '{"view":"support_daily"}' | jq .
 
-# Weekly metrics
-curl -s "https://bbllbsbcogngjfrhhggq.supabase.co/functions/v1/mission-control-data" \
-  -H "Authorization: Bearer $BRIDGE_SECRET" \
-  -d '{"view":"support_weekly"}' \
-  > site-mission-control/data/orbe_support_weekly.json
+# Quality check
+curl -s -X POST "..." \
+  -d '{"view":"support_quality_daily"}' | jq .
+
+# Reembolsos
+curl -s -X POST "..." \
+  -d '{"view":"reembolso_daily"}' | jq .
 ```
+
+### Sobre BRIDGE_SECRET
+
+Já está configurado como secret no projeto (confirmado em `<secrets>`). A edge function lê via `Deno.env.get('BRIDGE_SECRET')`. Não é exposto no frontend.
 
