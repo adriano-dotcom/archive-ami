@@ -3584,6 +3584,43 @@ Agradeço pela compreensão! 🙏`;
   } catch (err) {
     console.error('[Nina] Error fetching product knowledge:', err);
   }
+
+  // ===== FETCH PLANS CATALOG (SINGLE SOURCE OF TRUTH) =====
+  let plansCatalogContent = '';
+  try {
+    const { data: plans } = await supabase
+      .from('orbe_plans_catalog')
+      .select('plan_name, monthly_price, coverages, limits_per_event, annual_limit, waiting_period_days, max_pet_age_years')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+    
+    if (plans && plans.length > 0) {
+      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
+      for (const plan of plans) {
+        const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join(', ') : 'Consulte detalhes';
+        plansCatalogContent += `\n### ${plan.plan_name} - ${price}/mês`;
+        plansCatalogContent += `\n- Coberturas: ${coverages}`;
+        if (plan.annual_limit) {
+          const limit = parseFloat(plan.annual_limit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          plansCatalogContent += `\n- Limite anual: ${limit}`;
+        }
+        if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
+          const limitsStr = Object.entries(plan.limits_per_event)
+            .map(([k, v]) => `${k}: R$ ${Number(v).toFixed(2)}`)
+            .join(', ');
+          plansCatalogContent += `\n- Limites por evento: ${limitsStr}`;
+        }
+        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência: ${plan.waiting_period_days} dias`;
+        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet: ${plan.max_pet_age_years} anos`;
+        plansCatalogContent += '\n';
+      }
+      console.log(`[Nina] 📋 Plans catalog loaded: ${plans.length} plans`);
+    }
+  } catch (err) {
+    console.error('[Nina] Error fetching plans catalog:', err);
+  }
   
   // ===== FETCH COLLECTION TEMPLATE CONTEXT =====
   // Buscar contexto do template de cobrança enviado para manter continuidade
@@ -3608,7 +3645,7 @@ Agradeço pela compreensão! 🙏`;
     recentCallLogs,
     installmentsData,
     collectionContext,
-    productKnowledgeContent
+    productKnowledgeContent + plansCatalogContent
   );
 
   // Process template variables
