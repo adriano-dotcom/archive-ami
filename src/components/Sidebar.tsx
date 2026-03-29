@@ -49,6 +49,11 @@ const allMenuItems = [{
   icon: Megaphone,
   adminOnly: false
 }, {
+  id: 'reembolsos',
+  label: 'Reembolsos',
+  icon: ReceiptText,
+  adminOnly: false
+}, {
   id: 'settings',
   label: 'Configurações',
   icon: SettingsIcon,

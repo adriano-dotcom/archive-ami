@@ -135,6 +135,7 @@ const App: React.FC = () => {
                   <Route path="/calls" element={<CallsPage />} />
                   <Route path="/whatsapp" element={<AdminRoute><WhatsAppDashboard /></AdminRoute>} />
                   <Route path="/landing-pages" element={<LandingPagesAdmin />} />
+                  <Route path="/reembolsos" element={<ReimbursementFunnel />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Routes>
