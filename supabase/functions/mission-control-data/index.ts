@@ -40,18 +40,33 @@ serve(async (req) => {
 
   try {
     // Validate BRIDGE_SECRET
-    const authHeader = req.headers.get('Authorization');
-    const bridgeSecret = Deno.env.get('BRIDGE_SECRET');
+    const bridgeSecret = Deno.env.get('BRIDGE_SECRET')?.trim();
 
     if (!bridgeSecret) {
+      console.error('BRIDGE_SECRET not configured');
       return new Response(
         JSON.stringify({ error: 'Server misconfigured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const token = authHeader?.replace('Bearer ', '');
+    // Extract token: Authorization: Bearer <token> (case-insensitive) or x-bridge-secret header
+    const authHeader = req.headers.get('Authorization');
+    let token = '';
+    if (authHeader) {
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+        token = parts[1].trim();
+      }
+    }
+    if (!token) {
+      token = req.headers.get('x-bridge-secret')?.trim() ?? '';
+    }
+
+    console.log(`Auth check: token_len=${token.length}, secret_len=${bridgeSecret.length}`);
+
     if (!token || token !== bridgeSecret) {
+      console.error('Unauthorized: token mismatch');
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
