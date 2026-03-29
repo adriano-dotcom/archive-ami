@@ -2413,6 +2413,7 @@ export type Database = {
         Row: {
           amount_paid: number | null
           amount_requested: number
+          claim_type: string | null
           clinic_name: string | null
           contact_id: string | null
           created_at: string
@@ -2430,6 +2431,7 @@ export type Database = {
         Insert: {
           amount_paid?: number | null
           amount_requested?: number
+          claim_type?: string | null
           clinic_name?: string | null
           contact_id?: string | null
           created_at?: string
@@ -2447,6 +2449,7 @@ export type Database = {
         Update: {
           amount_paid?: number | null
           amount_requested?: number
+          claim_type?: string | null
           clinic_name?: string | null
           contact_id?: string | null
           created_at?: string
@@ -3234,6 +3237,7 @@ export type Database = {
         Row: {
           amount_paid: number | null
           amount_requested: number | null
+          claim_type: string | null
           clinic_name: string | null
           created_at: string | null
           customer_name: string | null

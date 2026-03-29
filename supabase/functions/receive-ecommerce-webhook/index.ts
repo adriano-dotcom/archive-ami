@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { event, phone, name, email, pet_name, amount, order_id, reason } = body;
+    const { event, phone, name, email, pet_name, amount, order_id, reason, claim_type } = body;
 
     if (!event || !phone) {
       return new Response(
@@ -174,6 +174,15 @@ Deno.serve(async (req) => {
       });
 
       // Create reimbursement claim
+      const validTypes = ['consulta', 'exame', 'cirurgia', 'internacao', 'outro'];
+      const resolvedType = validTypes.includes(claim_type) ? claim_type : 'consulta';
+      const typeLabels: Record<string, string> = {
+        consulta: 'consulta veterinária',
+        exame: 'exame veterinário',
+        cirurgia: 'cirurgia veterinária',
+        internacao: 'internação veterinária',
+        outro: 'procedimento veterinário',
+      };
       const { data: claim, error: claimError } = await supabase
         .from("reimbursement_claims")
         .insert({
@@ -181,7 +190,8 @@ Deno.serve(async (req) => {
           status: "submitted",
           amount_requested: amount || 0,
           pet_name: contact.pet_name || pet_name || null,
-          description: reason || "Solicitação de reembolso via e-commerce",
+          claim_type: resolvedType,
+          description: reason || `Solicitação de reembolso de ${typeLabels[resolvedType]}`,
           metadata: { order_id, source: "ecommerce_webhook" },
         })
         .select("id")

@@ -1,13 +1,22 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, GripVertical, DollarSign, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Search, Users, GripVertical, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// ─── Claim type definitions ─────────────────────────────────────
+const CLAIM_TYPES: Record<string, { label: string; emoji: string; color: string; textColor: string }> = {
+  consulta:   { label: 'Consulta',   emoji: '🩺', color: 'bg-blue-500/10',   textColor: 'text-blue-600' },
+  exame:      { label: 'Exame',      emoji: '🔬', color: 'bg-purple-500/10', textColor: 'text-purple-600' },
+  cirurgia:   { label: 'Cirurgia',   emoji: '🏥', color: 'bg-red-500/10',    textColor: 'text-red-600' },
+  internacao: { label: 'Internação', emoji: '🛏️', color: 'bg-orange-500/10', textColor: 'text-orange-600' },
+  outro:      { label: 'Outro',      emoji: '📋', color: 'bg-muted',         textColor: 'text-muted-foreground' },
+};
 
 // ─── Stage definitions ───────────────────────────────────────────
 interface Stage {
@@ -20,11 +29,11 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
-  { key: 'submitted',   label: 'Submetido',   color: 'bg-blue-500/10',   textColor: 'text-blue-600',   borderColor: 'border-blue-500/30',   dotColor: 'bg-blue-500' },
-  { key: 'in_review',   label: 'Em Revisão',  color: 'bg-yellow-500/10', textColor: 'text-yellow-600', borderColor: 'border-yellow-500/30', dotColor: 'bg-yellow-500' },
-  { key: 'approved',    label: 'Aprovado',     color: 'bg-green-500/10',  textColor: 'text-green-600',  borderColor: 'border-green-500/30',  dotColor: 'bg-green-500' },
+  { key: 'submitted',   label: 'Submetido',   color: 'bg-blue-500/10',    textColor: 'text-blue-600',    borderColor: 'border-blue-500/30',    dotColor: 'bg-blue-500' },
+  { key: 'in_review',   label: 'Em Revisão',  color: 'bg-yellow-500/10',  textColor: 'text-yellow-600',  borderColor: 'border-yellow-500/30',  dotColor: 'bg-yellow-500' },
+  { key: 'approved',    label: 'Aprovado',     color: 'bg-green-500/10',   textColor: 'text-green-600',   borderColor: 'border-green-500/30',   dotColor: 'bg-green-500' },
   { key: 'paid',        label: 'Pago',         color: 'bg-emerald-500/10', textColor: 'text-emerald-600', borderColor: 'border-emerald-500/30', dotColor: 'bg-emerald-500' },
-  { key: 'rejected',    label: 'Rejeitado',    color: 'bg-red-500/10',    textColor: 'text-red-600',    borderColor: 'border-red-500/30',    dotColor: 'bg-red-500' },
+  { key: 'rejected',    label: 'Rejeitado',    color: 'bg-red-500/10',     textColor: 'text-red-600',     borderColor: 'border-red-500/30',     dotColor: 'bg-red-500' },
 ];
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -32,6 +41,7 @@ interface ReimbursementClaim {
   id: string;
   contact_id: string | null;
   status: string;
+  claim_type: string | null;
   amount_requested: number;
   amount_paid: number | null;
   pet_name: string | null;
@@ -70,6 +80,7 @@ const ClaimCard: React.FC<{
   const timeAgo = formatDistanceToNow(new Date(claim.created_at), { addSuffix: true, locale: ptBR });
   const daysSinceCreation = Math.floor((Date.now() - new Date(claim.created_at).getTime()) / (1000 * 60 * 60 * 24));
   const isOverSLA = daysSinceCreation > 7 && !['paid', 'rejected'].includes(claim.status);
+  const typeInfo = CLAIM_TYPES[claim.claim_type || 'consulta'] || CLAIM_TYPES.outro;
 
   return (
     <div
@@ -92,6 +103,17 @@ const ClaimCard: React.FC<{
         )}
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${typeInfo.color} ${typeInfo.textColor} border-0`}>
+          {typeInfo.emoji} {typeInfo.label}
+        </Badge>
+        {claim.clinic_name && (
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+            {claim.clinic_name}
+          </Badge>
+        )}
+      </div>
+
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1 font-medium text-foreground">
           <DollarSign className="w-3 h-3" />
@@ -107,12 +129,6 @@ const ClaimCard: React.FC<{
         <p className="text-[11px] text-muted-foreground truncate">
           {claim.description}
         </p>
-      )}
-
-      {claim.clinic_name && (
-        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-          {claim.clinic_name}
-        </Badge>
       )}
     </div>
   );
@@ -153,7 +169,7 @@ const FunnelColumn: React.FC<{
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-260px)]">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-300px)]">
         {claims.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30 mb-2" />
@@ -174,6 +190,7 @@ FunnelColumn.displayName = 'FunnelColumn';
 const ReimbursementFunnel: React.FC = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const debouncedSearch = useDebounce(search, 300);
 
   const { data: claims = [], isLoading } = useQuery({
@@ -213,16 +230,22 @@ const ReimbursementFunnel: React.FC = () => {
   });
 
   const filteredClaims = useMemo(() => {
-    if (!debouncedSearch) return claims;
-    const q = debouncedSearch.toLowerCase();
-    return claims.filter(
-      (c) =>
-        (c.contacts?.name || '').toLowerCase().includes(q) ||
-        (c.contacts?.call_name || '').toLowerCase().includes(q) ||
-        (c.pet_name || '').toLowerCase().includes(q) ||
-        (c.description || '').toLowerCase().includes(q)
-    );
-  }, [claims, debouncedSearch]);
+    let result = claims;
+    if (typeFilter !== 'all') {
+      result = result.filter((c) => (c.claim_type || 'consulta') === typeFilter);
+    }
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(
+        (c) =>
+          (c.contacts?.name || '').toLowerCase().includes(q) ||
+          (c.contacts?.call_name || '').toLowerCase().includes(q) ||
+          (c.pet_name || '').toLowerCase().includes(q) ||
+          (c.description || '').toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [claims, debouncedSearch, typeFilter]);
 
   const claimsByStage = useMemo(() => {
     const map: Record<string, ReimbursementClaim[]> = {};
@@ -262,6 +285,16 @@ const ReimbursementFunnel: React.FC = () => {
     return days > 7 && !['paid', 'rejected'].includes(c.status);
   }).length;
 
+  // Type breakdown
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    claims.filter((c) => !['paid', 'rejected'].includes(c.status)).forEach((c) => {
+      const t = c.claim_type || 'consulta';
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return counts;
+  }, [claims]);
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Top bar */}
@@ -272,19 +305,43 @@ const ReimbursementFunnel: React.FC = () => {
             {filteredClaims.length} solicitações
           </Badge>
         </div>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, pet..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9"
-          />
+        <div className="flex items-center gap-3">
+          {/* Type filter */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTypeFilter('all')}
+              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+                typeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Todos
+            </button>
+            {Object.entries(CLAIM_TYPES).map(([key, info]) => (
+              <button
+                key={key}
+                onClick={() => setTypeFilter(key)}
+                className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+                  typeFilter === key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {info.emoji} {info.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar tutor, pet..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
         </div>
       </div>
 
       {/* KPI bar */}
-      <div className="grid grid-cols-3 gap-3 p-4 border-b border-border">
+      <div className="grid grid-cols-4 gap-3 p-4 border-b border-border">
         <div className="rounded-lg border border-border bg-card p-3 flex items-center gap-3">
           <div className="rounded-md bg-primary/10 p-2">
             <Users className="w-4 h-4 text-primary" />
@@ -312,6 +369,22 @@ const ReimbursementFunnel: React.FC = () => {
           <div>
             <p className="text-xs text-muted-foreground">Fora do SLA (&gt;7 dias)</p>
             <p className="text-xl font-bold text-foreground">{overSLACount}</p>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-3">
+          <p className="text-xs text-muted-foreground mb-1">Por Tipo</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(typeCounts).map(([type, count]) => {
+              const info = CLAIM_TYPES[type] || CLAIM_TYPES.outro;
+              return (
+                <span key={type} className={`text-[10px] px-1.5 py-0.5 rounded ${info.color} ${info.textColor} font-medium`}>
+                  {info.emoji} {count}
+                </span>
+              );
+            })}
+            {Object.keys(typeCounts).length === 0 && (
+              <span className="text-[10px] text-muted-foreground">—</span>
+            )}
           </div>
         </div>
       </div>
