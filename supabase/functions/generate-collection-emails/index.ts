@@ -457,7 +457,7 @@ serve(async (req) => {
 
         const timeGreeting = getTimeGreeting();
         
-        const prompt = `Você é um assistente de cobrança da Jacometo Seguros.
+        const prompt = `Você é um assistente de cobrança da OrbePet.
 Gere um email de cobrança com ${getToneInstructions(emailTone)}
 
 DADOS DO SEGURADO:
