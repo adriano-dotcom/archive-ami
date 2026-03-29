@@ -3890,7 +3890,10 @@ Agradeço pela compreensão! 🙏`;
       aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
-    console.log('[Nina] AI response received, length:', aiContent.length);
+    // ===== SANITIZE AI RESPONSE: Remove prompt leaks and internal markers =====
+    aiContent = sanitizeAiResponse(aiContent);
+
+    console.log('[Nina] AI response received (sanitized), length:', aiContent.length);
 
     // Calculate response time
     const responseTime = Date.now() - new Date(message.sent_at).getTime();
