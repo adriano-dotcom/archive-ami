@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { event, phone, name, email, pet_name, amount, order_id, reason } = body;
+    const { event, phone, name, email, pet_name, amount, order_id, reason, claim_type } = body;
 
     if (!event || !phone) {
       return new Response(
