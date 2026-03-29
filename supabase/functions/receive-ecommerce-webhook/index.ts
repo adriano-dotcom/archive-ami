@@ -12,10 +12,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate via x-ecommerce-secret header
-    const secret = req.headers.get("x-ecommerce-secret");
+    // Authenticate via multiple methods: x-ecommerce-secret, x-api-key, Authorization: Bearer, or query string ?token=
     const expectedSecret = Deno.env.get("ECOMMERCE_WEBHOOK_SECRET");
+    const url = new URL(req.url);
+    const secret =
+      req.headers.get("x-ecommerce-secret") ||
+      req.headers.get("x-api-key") ||
+      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      url.searchParams.get("token");
+
     if (!expectedSecret || secret !== expectedSecret) {
+      console.error("[ecommerce-webhook] Auth failed. Received secret:", secret ? `${secret.substring(0, 4)}...` : "none");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
