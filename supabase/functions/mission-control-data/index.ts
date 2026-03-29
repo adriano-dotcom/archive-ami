@@ -50,20 +50,19 @@ serve(async (req) => {
       );
     }
 
-    // Extract token: Authorization: Bearer <token> (case-insensitive) or x-bridge-secret header
-    const authHeader = req.headers.get('Authorization');
-    let token = '';
-    if (authHeader) {
-      const parts = authHeader.split(' ');
-      if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
-        token = parts[1].trim();
+    // Extract token: prefer x-bridge-secret, then Authorization: Bearer <token>
+    let token = req.headers.get('x-bridge-secret')?.trim() ?? '';
+    if (!token) {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const parts = authHeader.split(' ');
+        if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+          token = parts[1].trim();
+        }
       }
     }
-    if (!token) {
-      token = req.headers.get('x-bridge-secret')?.trim() ?? '';
-    }
 
-    console.log(`Auth check: token_len=${token.length}, secret_len=${bridgeSecret.length}`);
+    console.log(`Auth check: token_len=${token.length}, secret_len=${bridgeSecret.length}, token_start=${token.substring(0,4)}, secret_start=${bridgeSecret.substring(0,4)}, token_end=${token.substring(token.length-4)}, secret_end=${bridgeSecret.substring(bridgeSecret.length-4)}`);
 
     if (!token || token !== bridgeSecret) {
       console.error('Unauthorized: token mismatch');
