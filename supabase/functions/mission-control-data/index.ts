@@ -62,24 +62,12 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Auth check: token_len=${token.length}, secret_len=${bridgeSecret.length}`);
-
-    // Normalize: strip all whitespace
+    // Normalize: strip whitespace from both sides
     const secretNorm = bridgeSecret.replace(/[\s\n\r]/g, '');
     const tokenNorm = token.replace(/[\s\n\r]/g, '');
-    
-    // Debug: find first mismatch position
-    let mismatchPos = -1;
-    const minLen = Math.min(tokenNorm.length, secretNorm.length);
-    for (let i = 0; i < minLen; i++) {
-      if (tokenNorm[i] !== secretNorm[i]) { mismatchPos = i; break; }
-    }
-    console.log(`Comparison: mismatchPos=${mismatchPos}, minLen=${minLen}, secretNorm_len=${secretNorm.length}`);
 
-    const isMatch = tokenNorm.length >= 32 && (tokenNorm === secretNorm || secretNorm.startsWith(tokenNorm));
-
-    if (!token || !isMatch) {
-      console.error(`Unauthorized: mismatch at pos ${mismatchPos}`);
+    if (!tokenNorm || tokenNorm !== secretNorm) {
+      console.error(`Unauthorized: token_len=${tokenNorm.length}, secret_len=${secretNorm.length}`);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
