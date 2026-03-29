@@ -29,7 +29,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const raw = await req.json();
+
+    // Map Orbe Plano Pet format (tipo/telefone/nome) to internal format
+    const tipoMap: Record<string, string> = { compra: "purchase_paid", reembolso: "refund_request" };
+    const body = {
+      ...raw,
+      event: raw.event || tipoMap[raw.tipo] || raw.tipo,
+      phone: raw.phone || raw.telefone,
+      name: raw.name || raw.nome,
+    };
+
     const { event, phone, name, email, pet_name, amount, order_id, reason, claim_type } = body;
 
     if (!event || !phone) {
