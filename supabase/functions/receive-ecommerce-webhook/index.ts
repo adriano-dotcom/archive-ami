@@ -143,7 +143,8 @@ Deno.serve(async (req) => {
             },
             body: JSON.stringify({
               phone_number: normalizedPhone,
-              template_name: "boas_vindas",
+              template_name: "_bemvindo__famlia_orbe_pet",
+              language: "en",
               contact_id: contactId,
               conversation_id: conversationId,
             }),
