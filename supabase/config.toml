@@ -63,3 +63,6 @@ verify_jwt = false
 
 [functions.receive-ecommerce-webhook]
 verify_jwt = false
+
+[functions.jarvis-sync]
+verify_jwt = false

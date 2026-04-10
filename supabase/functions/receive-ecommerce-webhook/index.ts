@@ -6,6 +6,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-ecommerce-secret",
 };
 
+// Fire-and-forget notification to Jarvis
+function notifyJarvis(event: string, data: Record<string, any>) {
+  const url = Deno.env.get("JARVIS_WEBHOOK_URL");
+  const secret = Deno.env.get("JARVIS_SYNC_SECRET");
+  if (!url) return;
+  try {
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(secret ? { "x-jarvis-secret": secret } : {}),
+      },
+      body: JSON.stringify({ event, timestamp: new Date().toISOString(), ...data }),
+    }).catch((e) => console.error("[ecommerce-webhook] Jarvis notify error:", e));
+  } catch (e) {
+    console.error("[ecommerce-webhook] Jarvis notify error:", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -156,6 +175,16 @@ Deno.serve(async (req) => {
         console.error("[ecommerce-webhook] Template send error:", templateErr);
       }
 
+      // Fire-and-forget: notify Jarvis
+      notifyJarvis("nova_venda", {
+        contact_id: contactId,
+        contact_name: name || null,
+        phone: normalizedPhone,
+        amount: amount || 0,
+        order_id: order_id || null,
+        conversation_id: conversationId,
+      });
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -216,6 +245,16 @@ Deno.serve(async (req) => {
         .single();
 
       if (claimError) throw claimError;
+
+      // Fire-and-forget: notify Jarvis
+      notifyJarvis("novo_reembolso", {
+        contact_id: contact.id,
+        contact_name: contact.name || null,
+        phone: normalizedPhone,
+        amount: amount || 0,
+        claim_id: claim.id,
+        reason: reason || null,
+      });
 
       return new Response(
         JSON.stringify({
