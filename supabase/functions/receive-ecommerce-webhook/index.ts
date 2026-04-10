@@ -156,6 +156,16 @@ Deno.serve(async (req) => {
         console.error("[ecommerce-webhook] Template send error:", templateErr);
       }
 
+      // Fire-and-forget: notify Jarvis
+      notifyJarvis("nova_venda", {
+        contact_id: contactId,
+        contact_name: name || null,
+        phone: normalizedPhone,
+        amount: amount || 0,
+        order_id: order_id || null,
+        conversation_id: conversationId,
+      });
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -216,6 +226,16 @@ Deno.serve(async (req) => {
         .single();
 
       if (claimError) throw claimError;
+
+      // Fire-and-forget: notify Jarvis
+      notifyJarvis("novo_reembolso", {
+        contact_id: contact.id,
+        contact_name: contact.name || null,
+        phone: normalizedPhone,
+        amount: amount || 0,
+        claim_id: claim.id,
+        reason: reason || null,
+      });
 
       return new Response(
         JSON.stringify({
