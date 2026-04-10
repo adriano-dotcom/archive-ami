@@ -1,42 +1,55 @@
 
 
-## Corrigir Disparo Automático do Template de Boas-Vindas
+## Criar Edge Function `jarvis-sync` + Notificações em Tempo Real no Webhook
 
-### Problema Identificado
+### Visão Geral
 
-O fluxo já está montado: quando uma venda chega pelo webhook, ele já tenta enviar o template `boas_vindas`. Porém, está falhando com o erro:
+Criar uma nova edge function `jarvis-sync` que o Jarvis chama para puxar dados operacionais, e atualizar o `receive-ecommerce-webhook` para notificar o Jarvis em tempo real quando vendas e reembolsos ocorrem.
 
-> **"Template boas_vindas não encontrado ou não aprovado"**
+### 1. Criar `supabase/functions/jarvis-sync/index.ts`
 
-O template aprovado no WhatsApp tem um nome diferente:
-- **Nome real:** `_bemvindo__famlia_orbe_pet`
-- **Idioma real:** `en`
-- **O webhook tenta:** `boas_vindas` com idioma `pt_BR`
+Nova edge function autenticada via `JARVIS_SYNC_SECRET` (header `x-jarvis-secret` ou `Authorization: Bearer`). Suporta 7 views:
 
-### Solução
+| View | Dados |
+|------|-------|
+| `dashboard` | Resumo geral: vendas hoje/mês, reembolsos pendentes, leads ativos, conversas ativas, inadimplência, MRR estimado |
+| `vendas_hoje` | Lista de vendas pagas hoje (ecommerce_orders + contato com UTM) |
+| `vendas_mes` | Vendas agrupadas por dia + receita total do mês |
+| `vendas_por_utm` | Cruzamento utm_source x utm_campaign com contagem de vendas |
+| `reembolsos` | Funil completo (submitted → under_review → paid/rejected) + métricas |
+| `leads_por_origem` | Leads agrupados por lead_source com taxa de conversão (lead → customer) |
+| `cobranca` | Inadimplência por faixas (1-30d, 31-60d, 61-90d, 90d+) usando tabela installments |
 
-Atualizar o webhook `receive-ecommerce-webhook` para usar o nome e idioma corretos do template aprovado.
+Autenticação: mesma pattern do `mission-control-data` (secret compartilhado via header).
 
-### Mudança
+### 2. Atualizar `receive-ecommerce-webhook`
 
-**Arquivo:** `supabase/functions/receive-ecommerce-webhook/index.ts`
+Após processar `purchase_paid` e `refund_request`, fazer POST fire-and-forget para `JARVIS_WEBHOOK_URL` com os dados do evento. Envolvido em try/catch para não bloquear o fluxo principal.
 
-- Trocar `template_name: "boas_vindas"` por `template_name: "_bemvindo__famlia_orbe_pet"`
-- Adicionar `language: "en"` no payload
+```text
+purchase_paid → POST jarvis { event: "nova_venda", contact, amount, order_id }
+refund_request → POST jarvis { event: "novo_reembolso", contact, amount, claim_id }
+```
 
-Também ajustar o `send-whatsapp-template` para aceitar o campo `language` vindo do webhook (já aceita via interface, só precisa garantir que está sendo passado).
+### 3. Secrets Necessários
+
+Solicitar ao usuário via `add_secret`:
+- `JARVIS_WEBHOOK_URL` = `https://jarvis.jacometo.com.br`
+- `JARVIS_SYNC_SECRET` = token compartilhado para autenticação
+
+### 4. Config
+
+Adicionar ao `supabase/config.toml`:
+```toml
+[functions.jarvis-sync]
+verify_jwt = false
+```
 
 ### Detalhes Técnicos
 
-```text
-Webhook recebe venda → cria contato → cria conversa
-  → chama send-whatsapp-template com:
-     template_name: "_bemvindo__famlia_orbe_pet"
-     language: "en"
-     contact_id, conversation_id
-  → template é encontrado na tabela → WhatsApp envia mensagem
-  → agente Orbi é ativado para responder
-```
-
-Nenhuma mudança de banco de dados é necessária. Apenas o código da edge function será atualizado e re-deployado.
+- Queries usam tabelas existentes: `ecommerce_orders`, `contacts`, `reimbursement_claims`, `installments`, `conversations`
+- UTM vem de `contacts.utm_source`, `contacts.utm_campaign`
+- MRR estimado = contagem de customers ativos × valor médio (ou soma de installments pending do mês)
+- Cobrança usa `installments.days_overdue` + `installments.status` para faixas
+- Notificação ao Jarvis é assíncrona (fire-and-forget), não impacta latência do webhook
 
