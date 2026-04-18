@@ -151,6 +151,8 @@ Deno.serve(async (req) => {
       }
 
       // 4. Send welcome template via WhatsApp
+      // Template _bemvindo__famlia_orbe_pet requires 1 BODY var: customer first name
+      const firstName = (name || "").trim().split(/\s+/)[0] || "tutor";
       try {
         const templateResponse = await fetch(
           `${supabaseUrl}/functions/v1/send-whatsapp-template`,
@@ -161,16 +163,19 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${serviceRoleKey}`,
             },
             body: JSON.stringify({
-              phone_number: normalizedPhone,
               template_name: "_bemvindo__famlia_orbe_pet",
               language: "en",
               contact_id: contactId,
               conversation_id: conversationId,
+              variables: [firstName],
             }),
           }
         );
         const templateResult = await templateResponse.text();
         console.log("[ecommerce-webhook] Template sent:", templateResult);
+        if (!templateResponse.ok) {
+          console.error("[ecommerce-webhook] Template send failed:", templateResponse.status, templateResult);
+        }
       } catch (templateErr) {
         console.error("[ecommerce-webhook] Template send error:", templateErr);
       }
