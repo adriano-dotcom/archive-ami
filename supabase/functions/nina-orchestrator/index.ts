@@ -3590,13 +3590,16 @@ Agradeço pela compreensão! 🙏`;
   try {
     const { data: plans } = await supabase
       .from('orbe_plans_catalog')
-      .select('plan_name, monthly_price, coverages, limits_per_event, annual_limit, waiting_period_days, max_pet_age_years')
+      .select('plan_name, monthly_price, coverages, limits_per_event, annual_limit, waiting_period_days, max_pet_age_years, preexisting_conditions_rule')
       .eq('is_active', true)
       .order('display_order', { ascending: true });
     
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
+      plansCatalogContent += '\nℹ️ Limite anual é o teto financeiro do plano; cada serviço respeita também o limite por evento e a carência indicada.\n';
+      const formatLimitKey = (key: string) =>
+        key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coverages = Array.isArray(plan.coverages) ? plan.coverages.join(', ') : 'Consulte detalhes';
@@ -3607,13 +3610,36 @@ Agradeço pela compreensão! 🙏`;
           plansCatalogContent += `\n- Limite anual: ${limit}`;
         }
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
-          const limitsStr = Object.entries(plan.limits_per_event)
-            .map(([k, v]) => `${k}: R$ ${Number(v).toFixed(2)}`)
-            .join(', ');
-          plansCatalogContent += `\n- Limites por evento: ${limitsStr}`;
+          plansCatalogContent += `\n- Limites por evento (com carência):`;
+          for (const [key, raw] of Object.entries(plan.limits_per_event)) {
+            const label = formatLimitKey(key);
+            // New rich format: { valor, carencia_dias, limite, observacao }
+            if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+              const obj = raw as Record<string, any>;
+              const valorRaw = obj.valor;
+              let valorStr: string;
+              if (typeof valorRaw === 'number') {
+                valorStr = `R$ ${valorRaw.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              } else {
+                valorStr = String(valorRaw ?? '—');
+              }
+              const parts: string[] = [];
+              if (typeof obj.carencia_dias === 'number') {
+                parts.push(obj.carencia_dias === 0 ? 'sem carência' : `carência ${obj.carencia_dias} dias`);
+              }
+              if (obj.limite) parts.push(String(obj.limite));
+              if (obj.observacao) parts.push(String(obj.observacao));
+              const suffix = parts.length ? ` (${parts.join(', ')})` : '';
+              plansCatalogContent += `\n  • ${label}: ${valorStr}${suffix}`;
+            } else {
+              // Legacy numeric format
+              plansCatalogContent += `\n  • ${label}: R$ ${Number(raw).toFixed(2)}`;
+            }
+          }
         }
-        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência: ${plan.waiting_period_days} dias`;
-        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet: ${plan.max_pet_age_years} anos`;
+        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência geral padrão: ${plan.waiting_period_days} dias`;
+        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet na contratação: ${plan.max_pet_age_years} anos`;
+        if (plan.preexisting_conditions_rule) plansCatalogContent += `\n- Doenças preexistentes: ${plan.preexisting_conditions_rule}`;
         plansCatalogContent += '\n';
       }
       console.log(`[Nina] 📋 Plans catalog loaded: ${plans.length} plans`);
