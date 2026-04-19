@@ -138,6 +138,7 @@ const ChatInterface: React.FC = () => {
   // Close conversation state
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeReason, setCloseReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
   const [isClosingConversation, setIsClosingConversation] = useState(false);
   const [isReopeningConversation, setIsReopeningConversation] = useState(false);
   
@@ -540,29 +541,75 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  // Categorize close reason for analytics/reporting
+  const getCloseCategory = (reason: string): 'vendas' | 'pos_venda' | 'cobranca' | 'outros' => {
+    const vendas = [
+      'Plano contratado', 'Aguardando pagamento', 'Sem interesse no momento',
+      'Preço acima do orçamento', 'Já tem plano em outra empresa',
+      'Pet fora do perfil', 'Apenas dúvida / pesquisa', 'Sem resposta (3+ tentativas)',
+      'Número inválido / não é o tutor'
+    ];
+    const posVenda = [
+      'Dúvida resolvida', 'Reembolso encaminhado', 'Atendimento veterinário direcionado',
+      'Reclamação registrada', 'Cancelamento solicitado'
+    ];
+    const cobranca = [
+      'Pagamento confirmado', 'Acordo de regularização firmado', 'Renegociação de prazo',
+      'Inadimplente — sem retorno', 'Inadimplente — recusa de pagamento',
+      'Cancelamento por inadimplência'
+    ];
+    if (vendas.includes(reason)) return 'vendas';
+    if (posVenda.includes(reason)) return 'pos_venda';
+    if (cobranca.includes(reason)) return 'cobranca';
+    return 'outros';
+  };
+
   // Handle close conversation
   const handleCloseConversation = async () => {
     if (!activeChat || isClosingConversation) return;
+
+    // Resolve final reason (handle "Outro" custom text)
+    const finalReason = closeReason === 'Outro'
+      ? (customReason.trim() || 'Outro')
+      : closeReason;
+
+    if (!finalReason) {
+      toast.error('Selecione um motivo de encerramento');
+      return;
+    }
+
     setIsClosingConversation(true);
-    
+
     try {
-      // Mark conversation as closed and inactive
+      const existingMetadata = (activeChat as any).metadata && typeof (activeChat as any).metadata === 'object'
+        ? (activeChat as any).metadata
+        : {};
+
+      // Mark conversation as closed and inactive, persist reason in metadata
       const { error: convError } = await supabase
         .from('conversations')
-        .update({ 
+        .update({
           status: 'closed' as any,
-          is_active: false
+          is_active: false,
+          metadata: {
+            ...existingMetadata,
+            close_reason: finalReason,
+            close_category: getCloseCategory(finalReason),
+            closed_at: new Date().toISOString(),
+            closed_by: user?.id ?? null,
+          },
         })
         .eq('id', activeChat.id);
-      
+
       if (convError) throw convError;
-      
+
       toast.success('Atendimento encerrado', {
-        description: 'Conversa encerrada'
+        description: finalReason
       });
-      
+
       setShowCloseModal(false);
       setCloseReason('');
+      setCustomReason('');
       setSelectedChatId(null);
       refetch();
     } catch (error) {
@@ -2603,19 +2650,25 @@ const ChatInterface: React.FC = () => {
       />
 
       {/* Close Conversation Modal */}
-      {showCloseModal && (
+      {showCloseModal && (() => {
+        const successReasons = ['Plano contratado', 'Pagamento confirmado', 'Dúvida resolvida'];
+        const isSuccess = successReasons.includes(closeReason);
+        return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6 border-b border-slate-700">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <X className="w-5 h-5 text-orange-400" />
+                {isSuccess ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <X className="w-5 h-5 text-orange-400" />
+                )}
                 Encerrar Atendimento
               </h3>
               <p className="text-sm text-slate-400 mt-1">
-                {closeReason === 'Enviado ao Pipedrive' 
-                  ? 'O lead será movido para "Enviado Pipedrive" e o atendimento continuará por lá.'
-                  : 'O lead será marcado como "Perdido" e não receberá mais automações.'
-                }
+                {isSuccess
+                  ? '✅ Atendimento concluído com sucesso. O motivo será registrado no histórico.'
+                  : 'O lead será marcado como encerrado e não receberá mais automações.'}
               </p>
             </div>
             <div className="p-6 space-y-4">
@@ -2629,29 +2682,40 @@ const ChatInterface: React.FC = () => {
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none"
                 >
                   <option value="">Selecione um motivo...</option>
-                  
-                  <optgroup label="Vendas">
-                    <option value="Lead desqualificado">Lead desqualificado</option>
-                    <option value="Fora do perfil">Fora do perfil</option>
-                    <option value="Não tem interesse">Não tem interesse</option>
-                    <option value="Número errado/inválido">Número errado/inválido</option>
-                    <option value="Já tem corretor">Já tem corretor</option>
-                    <option value="Sem resposta">Sem resposta</option>
-                    <option value="Enviado ao Pipedrive">Enviado ao Pipedrive</option>
+
+                  <optgroup label="Vendas (Tutores em prospecção)">
+                    <option value="Plano contratado">Plano contratado ✅</option>
+                    <option value="Aguardando pagamento">Aguardando pagamento (PIX/cartão pendente)</option>
+                    <option value="Sem interesse no momento">Sem interesse no momento</option>
+                    <option value="Preço acima do orçamento">Preço acima do orçamento</option>
+                    <option value="Já tem plano em outra empresa">Já tem plano em outra empresa</option>
+                    <option value="Pet fora do perfil">Pet fora do perfil (idade {'>'} 10 anos / pré-existência)</option>
+                    <option value="Apenas dúvida / pesquisa">Apenas dúvida / pesquisa</option>
+                    <option value="Sem resposta (3+ tentativas)">Sem resposta (3+ tentativas)</option>
+                    <option value="Número inválido / não é o tutor">Número inválido / não é o tutor</option>
                   </optgroup>
-                  
-                  <optgroup label="Cobrança">
-                    <option value="Pagamento realizado">Pagamento realizado</option>
-                    <option value="Acordo firmado">Acordo firmado</option>
-                    <option value="Boleto reenviado">Boleto reenviado</option>
-                    <option value="Prazo renegociado">Prazo renegociado</option>
-                    <option value="Inadimplência - Sem retorno">Inadimplência - Sem retorno</option>
-                    <option value="Inadimplência - Recusa">Inadimplência - Recusa</option>
-                    <option value="Cobrança judicial">Cobrança judicial</option>
-                    <option value="Baixa por insolvência">Baixa por insolvência</option>
+
+                  <optgroup label="Pós-venda / Suporte">
+                    <option value="Dúvida resolvida">Dúvida resolvida ✅</option>
+                    <option value="Reembolso encaminhado">Reembolso encaminhado</option>
+                    <option value="Atendimento veterinário direcionado">Atendimento veterinário direcionado (orbepet.com.br)</option>
+                    <option value="Reclamação registrada">Reclamação registrada</option>
+                    <option value="Cancelamento solicitado">Cancelamento solicitado</option>
                   </optgroup>
-                  
-                  <option value="Outro">Outro</option>
+
+                  <optgroup label="Cobrança (mensalidade em atraso)">
+                    <option value="Pagamento confirmado">Pagamento confirmado ✅</option>
+                    <option value="Acordo de regularização firmado">Acordo de regularização firmado</option>
+                    <option value="Renegociação de prazo">Renegociação de prazo</option>
+                    <option value="Inadimplente — sem retorno">Inadimplente — sem retorno</option>
+                    <option value="Inadimplente — recusa de pagamento">Inadimplente — recusa de pagamento</option>
+                    <option value="Cancelamento por inadimplência">Cancelamento por inadimplência</option>
+                  </optgroup>
+
+                  <optgroup label="Outros">
+                    <option value="Spam / engano">Spam / engano</option>
+                    <option value="Outro">Outro (especificar)</option>
+                  </optgroup>
                 </select>
               </div>
               {closeReason === 'Outro' && (
@@ -2661,8 +2725,8 @@ const ChatInterface: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value=""
-                    onChange={(e) => setCloseReason(e.target.value)}
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
                     placeholder="Descreva o motivo..."
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none"
                   />
@@ -2675,6 +2739,7 @@ const ChatInterface: React.FC = () => {
                 onClick={() => {
                   setShowCloseModal(false);
                   setCloseReason('');
+                  setCustomReason('');
                 }}
                 className="text-slate-400 hover:text-white"
               >
@@ -2682,11 +2747,15 @@ const ChatInterface: React.FC = () => {
               </ShadcnButton>
               <ShadcnButton
                 onClick={handleCloseConversation}
-                disabled={isClosingConversation}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
+                disabled={isClosingConversation || !closeReason || (closeReason === 'Outro' && !customReason.trim())}
+                className={isSuccess
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-orange-600 hover:bg-orange-700 text-white"}
               >
                 {isClosingConversation ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : isSuccess ? (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
                 ) : (
                   <X className="w-4 h-4 mr-2" />
                 )}
@@ -2695,7 +2764,8 @@ const ChatInterface: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Keyboard Shortcuts Hint Button */}
       {!isMobile && (
