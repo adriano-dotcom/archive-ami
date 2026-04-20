@@ -239,6 +239,9 @@ async function fetchSeguradosPFOptimized(): Promise<SeguradoPF[]> {
     .map(contact => {
       const policies = policiesByContact.get(contact.id) || { ids: [], insurers: new Set() };
       const overdue = overdueByContact.get(contact.id) || { value: 0, maxDays: 0 };
+      const memory = (contact as any).client_memory || {};
+      const subscription = memory.subscription || null;
+      const petName = memory.pet_profile?.name || memory.pet?.name || null;
 
       return {
         id: contact.id,
@@ -252,7 +255,9 @@ async function fetchSeguradosPFOptimized(): Promise<SeguradoPF[]> {
         policies_count: policies.ids.length,
         insurers: [...policies.insurers],
         overdue_value: overdue.value,
-        max_days_overdue: overdue.maxDays
+        max_days_overdue: overdue.maxDays,
+        subscription,
+        pet_name: petName,
       };
     });
 }
