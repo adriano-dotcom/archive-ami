@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag, BarChart3 } from 'lucide-react';
+import { Search, Users, GripVertical, Phone, Clock, MessageSquare, Tag, BarChart3, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -68,6 +68,17 @@ const FunnelCard: React.FC<{
   const initials = (displayName || '?').slice(0, 2).toUpperCase();
   const clientMemory = contact.client_memory as any;
   const products = clientMemory?.lead_profile?.products_discussed || [];
+  const subscription = clientMemory?.subscription;
+  const paymentLabels: Record<string, string> = {
+    cartao: 'Cartão',
+    cartao_credito: 'Cartão',
+    pix_mensal: 'PIX mensal',
+    pix_anual: 'PIX anual',
+    pix: 'PIX',
+  };
+  const startedAtTooltip = subscription?.started_at
+    ? `Cliente desde ${new Date(subscription.started_at).toLocaleDateString('pt-BR')}`
+    : undefined;
   const timeAgo = formatDistanceToNow(new Date(contact.last_activity), { addSuffix: true, locale: ptBR });
 
   return (
@@ -106,6 +117,29 @@ const FunnelCard: React.FC<{
           {timeAgo}
         </span>
       </div>
+
+      {/* Subscription badge (Vendido) */}
+      {subscription?.plan_name && (
+        <div
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-green-500/10 border border-green-500/30"
+          title={startedAtTooltip}
+        >
+          <Sparkles className="w-3 h-3 text-green-600 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-green-600 truncate">
+              {subscription.plan_name}
+            </p>
+            <p className="text-[10px] text-green-600/80 truncate">
+              {subscription.monthly_amount_formatted ||
+                (typeof subscription.monthly_amount === 'number'
+                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subscription.monthly_amount)
+                  : '—')}
+              {' / mês'}
+              {subscription.payment_method && ` • ${paymentLabels[subscription.payment_method] ?? subscription.payment_method}`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Lead score + products */}
       <div className="flex items-center gap-1.5 flex-wrap">
