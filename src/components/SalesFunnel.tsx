@@ -118,6 +118,29 @@ const FunnelCard: React.FC<{
         </span>
       </div>
 
+      {/* Subscription badge (Vendido) */}
+      {subscription?.plan_name && (
+        <div
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-green-500/10 border border-green-500/30"
+          title={startedAtTooltip}
+        >
+          <Sparkles className="w-3 h-3 text-green-600 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-green-600 truncate">
+              {subscription.plan_name}
+            </p>
+            <p className="text-[10px] text-green-600/80 truncate">
+              {subscription.monthly_amount_formatted ||
+                (typeof subscription.monthly_amount === 'number'
+                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subscription.monthly_amount)
+                  : '—')}
+              {' / mês'}
+              {subscription.payment_method && ` • ${paymentLabels[subscription.payment_method] ?? subscription.payment_method}`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Lead score + products */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {clientMemory && (
