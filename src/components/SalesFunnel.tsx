@@ -68,6 +68,17 @@ const FunnelCard: React.FC<{
   const initials = (displayName || '?').slice(0, 2).toUpperCase();
   const clientMemory = contact.client_memory as any;
   const products = clientMemory?.lead_profile?.products_discussed || [];
+  const subscription = clientMemory?.subscription;
+  const paymentLabels: Record<string, string> = {
+    cartao: 'Cartão',
+    cartao_credito: 'Cartão',
+    pix_mensal: 'PIX mensal',
+    pix_anual: 'PIX anual',
+    pix: 'PIX',
+  };
+  const startedAtTooltip = subscription?.started_at
+    ? `Cliente desde ${new Date(subscription.started_at).toLocaleDateString('pt-BR')}`
+    : undefined;
   const timeAgo = formatDistanceToNow(new Date(contact.last_activity), { addSuffix: true, locale: ptBR });
 
   return (
