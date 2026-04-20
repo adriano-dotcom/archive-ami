@@ -59,7 +59,19 @@ Deno.serve(async (req) => {
       name: raw.name || raw.nome,
     };
 
-    const { event, phone, name, email, pet_name, amount, order_id, reason, claim_type } = body;
+    const { event, phone, name, email, pet_name, order_id, reason, claim_type } = body;
+
+    // Monthly subscription value (multi-name compatibility)
+    const rawMonthly =
+      raw.valor_mensalidade ?? raw.monthly_amount ?? raw.valor ?? raw.amount ?? body.amount;
+    const monthlyAmount =
+      rawMonthly === null || rawMonthly === undefined || rawMonthly === ""
+        ? null
+        : Number(rawMonthly);
+    const planName: string | null = raw.plano ?? raw.plan ?? raw.plan_name ?? null;
+    const paymentMethod: string | null = raw.forma_pagamento ?? raw.payment_method ?? null;
+    // Legacy `amount` kept for refund_request (claim amount)
+    const amount = body.amount ?? rawMonthly ?? 0;
 
     if (!event || !phone) {
       return new Response(
@@ -67,6 +79,22 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // For purchases, monthly value is required and must be > 0
+    if (event === "purchase_paid") {
+      if (monthlyAmount === null || Number.isNaN(monthlyAmount) || monthlyAmount <= 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Missing or invalid monthly value. Send `valor_mensalidade` (or `monthly_amount`/`valor`/`amount`) as a positive number.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const formatBRL = (v: number) =>
+      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
