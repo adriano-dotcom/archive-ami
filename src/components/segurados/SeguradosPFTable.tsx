@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
