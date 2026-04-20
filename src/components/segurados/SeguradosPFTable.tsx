@@ -20,7 +20,23 @@ interface SeguradoPF {
   overdue_value: number;
   max_days_overdue: number;
   tags?: string[] | null;
+  subscription?: {
+    plan_name?: string;
+    monthly_amount?: number;
+    monthly_amount_formatted?: string;
+    payment_method?: string;
+    started_at?: string;
+  } | null;
+  pet_name?: string | null;
 }
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cartao: 'Cartão',
+  cartao_credito: 'Cartão',
+  pix: 'PIX',
+  pix_mensal: 'PIX mensal',
+  pix_anual: 'PIX anual',
+};
 
 interface SeguradosPFTableProps {
   segurados: SeguradoPF[];
