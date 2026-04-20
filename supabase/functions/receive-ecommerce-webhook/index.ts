@@ -238,7 +238,11 @@ Deno.serve(async (req) => {
         contact_id: contactId,
         contact_name: name || null,
         phone: normalizedPhone,
-        amount: amount || 0,
+        amount: monthlyAmount || 0,
+        monthly_amount: monthlyAmount,
+        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+        plan_name: planName,
+        payment_method: paymentMethod,
         order_id: order_id || null,
         conversation_id: conversationId,
       });
@@ -249,6 +253,8 @@ Deno.serve(async (req) => {
           event: "purchase_paid",
           contact_id: contactId,
           conversation_id: conversationId,
+          monthly_amount: monthlyAmount,
+          plan_name: planName,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
