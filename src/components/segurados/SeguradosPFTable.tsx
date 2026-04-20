@@ -342,10 +342,30 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <FileText className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-300">{segurado.policies_count}</span>
-                  </div>
+                  {segurado.subscription?.plan_name ? (
+                    <div className="inline-flex flex-col items-start gap-0.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/30 text-left">
+                      <div className="flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-green-400 shrink-0" />
+                        <span className="text-xs font-semibold text-green-400 truncate max-w-[140px]">
+                          {segurado.subscription.plan_name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-green-400/80 pl-4">
+                        {segurado.subscription.monthly_amount_formatted ||
+                          (segurado.subscription.monthly_amount
+                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(segurado.subscription.monthly_amount)
+                            : '—')}
+                        {' / mês'}
+                      </span>
+                    </div>
+                  ) : segurado.policies_count > 0 ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      <span className="text-slate-300">{segurado.policies_count}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   {segurado.overdue_value > 0 ? (
