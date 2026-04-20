@@ -1,74 +1,54 @@
 
-## Atualizar "Encerrar Atendimento" para a operação OrbePet
+## Adicionar valor da mensalidade nas vendas e enviar ao Jarvis
 
-### Diagnóstico
-- Modal está em `src/components/ChatInterface.tsx` (linhas 2606–2698).
-- Lista atual tem opções legadas de **seguro/corretor/Pipedrive** que não fazem sentido na OrbePet (memória `pipedrive-removal`, `orbepet-crm-strategy`).
-- **Bug crítico**: o `closeReason` é coletado mas **nunca gravado no banco**. A função `handleCloseConversation` só atualiza `status='closed'` e `is_active=false` — o motivo é descartado.
-- Campo "Outro" tem `value=""` hardcoded (não funciona — bug).
-- Não existe coluna ou campo em `conversations.metadata` para motivo de encerramento.
+### O que muda
 
-### Nova lista de motivos (alinhada à operação Orbe Pet)
+Quando a plataforma Orbe Plano Pet enviar uma compra (`tipo: "compra"`), o webhook passa a:
 
-**Vendas (Tutores em prospecção)**
-- Plano contratado ✅ (sucesso — saiu pelo checkout)
-- Aguardando pagamento (PIX/cartão pendente)
-- Sem interesse no momento
-- Preço acima do orçamento
-- Já tem plano em outra empresa
-- Pet fora do perfil (idade > 10 anos / pré-existência grave)
-- Apenas dúvida / pesquisa
-- Sem resposta (3+ tentativas)
-- Número inválido / não é o tutor
+1. **Aceitar o valor da mensalidade** em campos novos (compatível com vários nomes que a plataforma pode usar).
+2. **Persistir** esse valor no pedido (`ecommerce_orders`) e no contato (memória/metadata).
+3. **Enviar para o Jarvis** o valor formatado, junto com o plano contratado (se a plataforma mandar).
+4. **Disparar o template de boas-vindas** já incluindo o valor (se o template tiver variável `{{2}}`; senão mantém só nome — confirmar abaixo).
 
-**Pós-venda / Suporte**
-- Dúvida resolvida
-- Reembolso encaminhado
-- Atendimento veterinário direcionado (orbepet.com.br)
-- Reclamação registrada
-- Cancelamento solicitado
+### Payload aceito (Orbe Plano Pet → webhook)
 
-**Cobrança (mensalidade em atraso)**
-- Pagamento confirmado
-- Acordo de regularização firmado
-- Renegociação de prazo
-- Inadimplente — sem retorno
-- Inadimplente — recusa de pagamento
-- Cancelamento por inadimplência
+Aceita qualquer um destes campos, na ordem de prioridade:
+- `valor_mensalidade` (recomendado) ou `monthly_amount` ou `valor` ou `amount`
+- `plano` (nome do plano: "Órbita Plus", "Órbita Total", "Órbita Galáxia") — opcional
+- `forma_pagamento` (cartão / pix mensal / pix anual) — opcional
 
-**Outros**
-- Spam / engano
-- Outro (campo livre)
+Exemplo:
+```json
+{
+  "tipo": "compra",
+  "telefone": "5511999999999",
+  "nome": "Gabriel Seguchi",
+  "email": "gabriel@email.com",
+  "pet_name": "Thor",
+  "plano": "Órbita Plus",
+  "valor_mensalidade": 89.82,
+  "forma_pagamento": "cartao",
+  "order_id": "ORD-12345"
+}
+```
 
 ### Mudanças técnicas
 
-**1. `src/components/ChatInterface.tsx`**
-- Substituir o `<select>` (linhas 2626–2655) pelas novas categorias acima.
-- Atualizar a mensagem condicional (linhas 2615–2618):
-  - "Plano contratado" / "Pagamento confirmado" / "Dúvida resolvida" → mensagem positiva ("Atendimento concluído com sucesso").
-  - Demais motivos → "Lead será marcado como encerrado e não receberá mais automações."
-  - Remover o caso `Enviado ao Pipedrive`.
-- Corrigir o bug do campo "Outro": adicionar state separado `customReason` em vez de sobrescrever `closeReason` com `""`.
-- Em `handleCloseConversation` (linhas 544–574): gravar o motivo em `conversations.metadata.close_reason`, `metadata.closed_at`, `metadata.closed_by` (auth.uid).
+**`supabase/functions/receive-ecommerce-webhook/index.ts`**
 
-**2. Persistência (sem mudança de schema)**
-Aproveitar `conversations.metadata jsonb`:
-```ts
-metadata: {
-  ...activeChat.metadata,
-  close_reason: closeReason,
-  close_category: 'vendas' | 'pos_venda' | 'cobranca' | 'outros',
-  closed_at: new Date().toISOString(),
-  closed_by: user.id
-}
-```
-Sem migração de banco — JSONB já existe e é flexível.
+- Mapear novos campos: `monthly_amount = raw.valor_mensalidade ?? raw.monthly_amount ?? raw.valor ?? raw.amount`, `plan_name = raw.plano ?? raw.plan ?? raw.plan_name`, `payment_method = raw.forma_pagamento ?? raw.payment_method`.
+- Validar: se `event === "purchase_paid"` e `monthly_amount` ausente/inválido → 400 com mensagem clara.
+- Gravar em `ecommerce_orders.metadata`: `{ ..., monthly_amount, plan_name, payment_method }` e em `amount` o próprio `monthly_amount`.
+- Atualizar `contacts.client_memory` (jsonb) acrescentando `subscription: { plan_name, monthly_amount, payment_method, started_at }` sem sobrescrever o restante.
+- Notificar Jarvis (`notifyJarvis("nova_venda", …)`) acrescentando: `plan_name`, `monthly_amount`, `monthly_amount_formatted` (ex: "R$ 89,82"), `payment_method`.
 
-**3. Reabertura**
-A lógica `handleReopenConversation` (linha 577+) continua funcionando; opcionalmente registrar `metadata.reopened_at` para auditoria (pode ficar para depois).
+**Template de boas-vindas (`_bemvindo__famlia_orbe_pet`)**
+- Hoje só passa 1 variável (nome). Antes de eu modificar isso, preciso confirmar: o template aceita uma 2ª variável com valor? (ver "Pendências" abaixo).
 
-### Pontos abertos para confirmar
+### Pendências antes de executar
 
-1. Manter "Outro" com campo livre? (sim, recomendado para casos atípicos)
-2. Quer que motivos de **sucesso** (Plano contratado / Pagamento confirmado / Dúvida resolvida) também movam o contato para uma `lead_status` específica? (ex: `customer`, `paid`, `resolved`). Hoje não faço esse cross-update — posso adicionar se quiser.
-3. Quer um relatório futuro de motivos de encerramento (Reports)? Agora só persisto o dado; o painel pode vir depois.
+1. **A plataforma Orbe Plano Pet vai mesmo enviar o valor?** (presumo que sim, já que você quer registrar)
+2. **Template WhatsApp**: incluir o valor no corpo da mensagem de boas-vindas? Se sim, o template precisa ter `{{2}}` no body — você tem isso configurado na Meta? (se não, mantenho só o nome e gravo o valor só no banco/Jarvis)
+3. **Compra existente**: se chegar uma 2ª compra do mesmo telefone (upgrade/downgrade), atualizo `client_memory.subscription` por cima ou registro histórico separado? (recomendo: sobrescrever subscription atual + manter histórico via `ecommerce_orders`)
+
+Posso seguir com defaults (sim, sim se template aceita, sobrescrever subscription) caso prefira não detalhar.
