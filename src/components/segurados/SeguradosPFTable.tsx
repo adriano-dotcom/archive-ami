@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { User, Phone, Mail, ChevronRight, AlertTriangle, MessageSquare, FileText, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,7 +20,23 @@ interface SeguradoPF {
   overdue_value: number;
   max_days_overdue: number;
   tags?: string[] | null;
+  subscription?: {
+    plan_name?: string;
+    monthly_amount?: number;
+    monthly_amount_formatted?: string;
+    payment_method?: string;
+    started_at?: string;
+  } | null;
+  pet_name?: string | null;
 }
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cartao: 'Cartão',
+  cartao_credito: 'Cartão',
+  pix: 'PIX',
+  pix_mensal: 'PIX mensal',
+  pix_anual: 'PIX anual',
+};
 
 interface SeguradosPFTableProps {
   segurados: SeguradoPF[];
@@ -88,8 +104,8 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
           compareB = (b.insurers[0] || '').toLowerCase();
           break;
         case 'apolices':
-          compareA = a.policies_count;
-          compareB = b.policies_count;
+          compareA = a.policies_count + (a.subscription?.plan_name ? 1 : 0);
+          compareB = b.policies_count + (b.subscription?.plan_name ? 1 : 0);
           break;
         case 'valor':
           compareA = a.overdue_value;
@@ -326,10 +342,30 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <FileText className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-300">{segurado.policies_count}</span>
-                  </div>
+                  {segurado.subscription?.plan_name ? (
+                    <div className="inline-flex flex-col items-start gap-0.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/30 text-left">
+                      <div className="flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-green-400 shrink-0" />
+                        <span className="text-xs font-semibold text-green-400 truncate max-w-[140px]">
+                          {segurado.subscription.plan_name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-green-400/80 pl-4">
+                        {segurado.subscription.monthly_amount_formatted ||
+                          (segurado.subscription.monthly_amount
+                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(segurado.subscription.monthly_amount)
+                            : '—')}
+                        {' / mês'}
+                      </span>
+                    </div>
+                  ) : segurado.policies_count > 0 ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      <span className="text-slate-300">{segurado.policies_count}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   {segurado.overdue_value > 0 ? (
