@@ -104,17 +104,31 @@ Deno.serve(async (req) => {
     const normalizedPhone = phone.replace(/\D/g, "").replace(/^(?!55)/, "55");
 
     if (event === "purchase_paid") {
-      // 1. Upsert contact
+      // 1. Upsert contact (preserving and merging client_memory.subscription)
       const { data: existingContacts } = await supabase
         .from("contacts")
-        .select("id")
+        .select("id, client_memory")
         .eq("phone_number", normalizedPhone)
         .limit(1);
 
       let contactId: string;
 
+      const subscriptionPatch = {
+        plan_name: planName,
+        monthly_amount: monthlyAmount,
+        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+        payment_method: paymentMethod,
+        started_at: new Date().toISOString(),
+        order_id: order_id || null,
+      };
+
       if (existingContacts && existingContacts.length > 0) {
         contactId = existingContacts[0].id;
+        const prevMemory = (existingContacts[0].client_memory as Record<string, any>) || {};
+        const mergedMemory = {
+          ...prevMemory,
+          subscription: subscriptionPatch,
+        };
         await supabase
           .from("contacts")
           .update({
@@ -124,6 +138,7 @@ Deno.serve(async (req) => {
             lead_status: "customer",
             lead_source: "ecommerce",
             last_activity: new Date().toISOString(),
+            client_memory: mergedMemory,
           })
           .eq("id", contactId);
       } else {
@@ -136,6 +151,7 @@ Deno.serve(async (req) => {
             pet_name: pet_name || null,
             lead_status: "customer",
             lead_source: "ecommerce",
+            client_memory: { subscription: subscriptionPatch },
           })
           .select("id")
           .single();
@@ -144,13 +160,22 @@ Deno.serve(async (req) => {
         contactId = newContact.id;
       }
 
-      // 2. Log ecommerce order
+      // 2. Log ecommerce order (amount = monthly value)
       await supabase.from("ecommerce_orders").insert({
         contact_id: contactId,
         order_id: order_id || `auto_${Date.now()}`,
         event_type: "purchase_paid",
-        amount: amount || 0,
-        metadata: { name, email, pet_name, phone: normalizedPhone },
+        amount: monthlyAmount || 0,
+        metadata: {
+          name,
+          email,
+          pet_name,
+          phone: normalizedPhone,
+          monthly_amount: monthlyAmount,
+          monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+          plan_name: planName,
+          payment_method: paymentMethod,
+        },
       });
 
       // 3. Create/find conversation
