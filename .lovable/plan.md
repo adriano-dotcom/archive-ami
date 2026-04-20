@@ -1,54 +1,78 @@
 
-## Adicionar valor da mensalidade nas vendas e enviar ao Jarvis
+## Mostrar plano e mensalidade no card "Vendido" do funil
 
-### O que muda
+### Onde alterar
+`src/components/SalesFunnel.tsx` → componente `FunnelCard` (linhas 62–135).
 
-Quando a plataforma Orbe Plano Pet enviar uma compra (`tipo: "compra"`), o webhook passa a:
-
-1. **Aceitar o valor da mensalidade** em campos novos (compatível com vários nomes que a plataforma pode usar).
-2. **Persistir** esse valor no pedido (`ecommerce_orders`) e no contato (memória/metadata).
-3. **Enviar para o Jarvis** o valor formatado, junto com o plano contratado (se a plataforma mandar).
-4. **Disparar o template de boas-vindas** já incluindo o valor (se o template tiver variável `{{2}}`; senão mantém só nome — confirmar abaixo).
-
-### Payload aceito (Orbe Plano Pet → webhook)
-
-Aceita qualquer um destes campos, na ordem de prioridade:
-- `valor_mensalidade` (recomendado) ou `monthly_amount` ou `valor` ou `amount`
-- `plano` (nome do plano: "Órbita Plus", "Órbita Total", "Órbita Galáxia") — opcional
-- `forma_pagamento` (cartão / pix mensal / pix anual) — opcional
-
-Exemplo:
-```json
+### O dado já existe
+Quando uma compra entra pelo webhook `receive-ecommerce-webhook`, gravamos em `contacts.client_memory.subscription`:
+```ts
 {
-  "tipo": "compra",
-  "telefone": "5511999999999",
-  "nome": "Gabriel Seguchi",
-  "email": "gabriel@email.com",
-  "pet_name": "Thor",
-  "plano": "Órbita Plus",
-  "valor_mensalidade": 89.82,
-  "forma_pagamento": "cartao",
-  "order_id": "ORD-12345"
+  plan_name: "Órbita Plus",
+  monthly_amount: 89.82,
+  monthly_amount_formatted: "R$ 89,82",
+  payment_method: "cartao",
+  started_at: "...",
+  order_id: "..."
 }
 ```
+O `FunnelCard` já lê `client_memory` (linha 69). Falta só renderizar.
 
-### Mudanças técnicas
+### O que muda no card
 
-**`supabase/functions/receive-ecommerce-webhook/index.ts`**
+Quando `contact.lead_status === 'customer'` E existir `client_memory.subscription`, adicionar um bloco visível logo abaixo da linha de telefone/tempo:
 
-- Mapear novos campos: `monthly_amount = raw.valor_mensalidade ?? raw.monthly_amount ?? raw.valor ?? raw.amount`, `plan_name = raw.plano ?? raw.plan ?? raw.plan_name`, `payment_method = raw.forma_pagamento ?? raw.payment_method`.
-- Validar: se `event === "purchase_paid"` e `monthly_amount` ausente/inválido → 400 com mensagem clara.
-- Gravar em `ecommerce_orders.metadata`: `{ ..., monthly_amount, plan_name, payment_method }` e em `amount` o próprio `monthly_amount`.
-- Atualizar `contacts.client_memory` (jsonb) acrescentando `subscription: { plan_name, monthly_amount, payment_method, started_at }` sem sobrescrever o restante.
-- Notificar Jarvis (`notifyJarvis("nova_venda", …)`) acrescentando: `plan_name`, `monthly_amount`, `monthly_amount_formatted` (ex: "R$ 89,82"), `payment_method`.
+```text
+┌─────────────────────────────┐
+│ GA  Gabriel Seguchi Goes    │
+│ 📞 (41) 99559-0302  🕐 1d   │
+│ ┌─────────────────────────┐ │
+│ │ ✨ Órbita Plus          │ │  ← novo bloco
+│ │ R$ 89,82 / mês • Cartão │ │
+│ └─────────────────────────┘ │
+│ [score] [tags]              │
+└─────────────────────────────┘
+```
 
-**Template de boas-vindas (`_bemvindo__famlia_orbe_pet`)**
-- Hoje só passa 1 variável (nome). Antes de eu modificar isso, preciso confirmar: o template aceita uma 2ª variável com valor? (ver "Pendências" abaixo).
+Estilo: badge destacado com `bg-green-500/10 border-green-500/30 text-green-600` para combinar com a coluna "Vendido". Ícone de selo/estrela (`Sparkles` do lucide). Forma de pagamento traduzida (`cartao` → "Cartão", `pix_mensal` → "PIX mensal", `pix_anual` → "PIX anual").
 
-### Pendências antes de executar
+### Snippet a inserir (após a linha de telefone/tempo, antes do bloco de score)
 
-1. **A plataforma Orbe Plano Pet vai mesmo enviar o valor?** (presumo que sim, já que você quer registrar)
-2. **Template WhatsApp**: incluir o valor no corpo da mensagem de boas-vindas? Se sim, o template precisa ter `{{2}}` no body — você tem isso configurado na Meta? (se não, mantenho só o nome e gravo o valor só no banco/Jarvis)
-3. **Compra existente**: se chegar uma 2ª compra do mesmo telefone (upgrade/downgrade), atualizo `client_memory.subscription` por cima ou registro histórico separado? (recomendo: sobrescrever subscription atual + manter histórico via `ecommerce_orders`)
+```tsx
+const subscription = clientMemory?.subscription;
+const paymentLabels: Record<string, string> = {
+  cartao: 'Cartão',
+  pix_mensal: 'PIX mensal',
+  pix_anual: 'PIX anual',
+  cartao_credito: 'Cartão',
+  pix: 'PIX',
+};
 
-Posso seguir com defaults (sim, sim se template aceita, sobrescrever subscription) caso prefira não detalhar.
+{subscription?.plan_name && (
+  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-green-500/10 border border-green-500/30">
+    <Sparkles className="w-3 h-3 text-green-600 shrink-0" />
+    <div className="min-w-0 flex-1">
+      <p className="text-[11px] font-semibold text-green-600 truncate">
+        {subscription.plan_name}
+      </p>
+      <p className="text-[10px] text-green-600/80 truncate">
+        {subscription.monthly_amount_formatted ||
+          (subscription.monthly_amount
+            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                .format(subscription.monthly_amount)
+            : '—')}
+        {' / mês'}
+        {subscription.payment_method && ` • ${paymentLabels[subscription.payment_method] ?? subscription.payment_method}`}
+      </p>
+    </div>
+  </div>
+)}
+```
+
+E adicionar `Sparkles` ao import de `lucide-react` (linha 4).
+
+### Bônus opcional (sem custo extra)
+- Mostrar o mesmo bloco também na coluna **Negociação** se a venda já tiver sido registrada (caso raro de status fora de sincronia).
+- Se `subscription.started_at` existir, exibir tooltip "Cliente desde DD/MM/AAAA" no hover do badge.
+
+Posso seguir só com o bloco principal (sem bônus) se preferir manter mínimo.
