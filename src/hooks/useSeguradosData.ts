@@ -158,7 +158,9 @@ async function fetchSeguradosPFOptimized(): Promise<SeguradoPF[]> {
       cpf,
       city,
       state,
-      lead_source
+      lead_source,
+      lead_status,
+      client_memory
     `)
     .is('company_id', null)
     .order('name');
@@ -219,7 +221,10 @@ async function fetchSeguradosPFOptimized(): Promise<SeguradoPF[]> {
     .filter(contact => {
       const hasPolicies = policiesByContact.has(contact.id);
       const isCobrancaImport = contact.lead_source === 'import_cobranca';
-      return hasPolicies || isCobrancaImport;
+      const isCustomer = (contact as any).lead_status === 'customer';
+      const hasSubscription = !!((contact as any).client_memory?.subscription?.plan_name);
+      const isEcommerce = contact.lead_source === 'ecommerce';
+      return hasPolicies || isCobrancaImport || isCustomer || hasSubscription || isEcommerce;
     })
     .map(contact => {
       const policies = policiesByContact.get(contact.id) || { ids: [], insurers: new Set() };
