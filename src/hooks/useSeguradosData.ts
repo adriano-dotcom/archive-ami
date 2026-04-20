@@ -17,6 +17,14 @@ export interface Company {
   seller_name: string | null;
 }
 
+export interface SeguradoSubscription {
+  plan_name?: string;
+  monthly_amount?: number;
+  monthly_amount_formatted?: string;
+  payment_method?: string;
+  started_at?: string;
+}
+
 export interface SeguradoPF {
   id: string;
   name: string | null;
@@ -30,6 +38,8 @@ export interface SeguradoPF {
   insurers: string[];
   overdue_value: number;
   max_days_overdue: number;
+  subscription?: SeguradoSubscription | null;
+  pet_name?: string | null;
 }
 
 // Helper para detectar se nome parece ser de empresa
