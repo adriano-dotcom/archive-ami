@@ -104,8 +104,8 @@ export const SeguradosPFTable: React.FC<SeguradosPFTableProps> = ({
           compareB = (b.insurers[0] || '').toLowerCase();
           break;
         case 'apolices':
-          compareA = a.policies_count;
-          compareB = b.policies_count;
+          compareA = a.policies_count + (a.subscription?.plan_name ? 1 : 0);
+          compareB = b.policies_count + (b.subscription?.plan_name ? 1 : 0);
           break;
         case 'valor':
           compareA = a.overdue_value;
