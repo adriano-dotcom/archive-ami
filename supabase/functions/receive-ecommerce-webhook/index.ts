@@ -59,7 +59,19 @@ Deno.serve(async (req) => {
       name: raw.name || raw.nome,
     };
 
-    const { event, phone, name, email, pet_name, amount, order_id, reason, claim_type } = body;
+    const { event, phone, name, email, pet_name, order_id, reason, claim_type } = body;
+
+    // Monthly subscription value (multi-name compatibility)
+    const rawMonthly =
+      raw.valor_mensalidade ?? raw.monthly_amount ?? raw.valor ?? raw.amount ?? body.amount;
+    const monthlyAmount =
+      rawMonthly === null || rawMonthly === undefined || rawMonthly === ""
+        ? null
+        : Number(rawMonthly);
+    const planName: string | null = raw.plano ?? raw.plan ?? raw.plan_name ?? null;
+    const paymentMethod: string | null = raw.forma_pagamento ?? raw.payment_method ?? null;
+    // Legacy `amount` kept for refund_request (claim amount)
+    const amount = body.amount ?? rawMonthly ?? 0;
 
     if (!event || !phone) {
       return new Response(
@@ -67,6 +79,22 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // For purchases, monthly value is required and must be > 0
+    if (event === "purchase_paid") {
+      if (monthlyAmount === null || Number.isNaN(monthlyAmount) || monthlyAmount <= 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Missing or invalid monthly value. Send `valor_mensalidade` (or `monthly_amount`/`valor`/`amount`) as a positive number.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const formatBRL = (v: number) =>
+      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -76,17 +104,31 @@ Deno.serve(async (req) => {
     const normalizedPhone = phone.replace(/\D/g, "").replace(/^(?!55)/, "55");
 
     if (event === "purchase_paid") {
-      // 1. Upsert contact
+      // 1. Upsert contact (preserving and merging client_memory.subscription)
       const { data: existingContacts } = await supabase
         .from("contacts")
-        .select("id")
+        .select("id, client_memory")
         .eq("phone_number", normalizedPhone)
         .limit(1);
 
       let contactId: string;
 
+      const subscriptionPatch = {
+        plan_name: planName,
+        monthly_amount: monthlyAmount,
+        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+        payment_method: paymentMethod,
+        started_at: new Date().toISOString(),
+        order_id: order_id || null,
+      };
+
       if (existingContacts && existingContacts.length > 0) {
         contactId = existingContacts[0].id;
+        const prevMemory = (existingContacts[0].client_memory as Record<string, any>) || {};
+        const mergedMemory = {
+          ...prevMemory,
+          subscription: subscriptionPatch,
+        };
         await supabase
           .from("contacts")
           .update({
@@ -96,6 +138,7 @@ Deno.serve(async (req) => {
             lead_status: "customer",
             lead_source: "ecommerce",
             last_activity: new Date().toISOString(),
+            client_memory: mergedMemory,
           })
           .eq("id", contactId);
       } else {
@@ -108,6 +151,7 @@ Deno.serve(async (req) => {
             pet_name: pet_name || null,
             lead_status: "customer",
             lead_source: "ecommerce",
+            client_memory: { subscription: subscriptionPatch },
           })
           .select("id")
           .single();
@@ -116,13 +160,22 @@ Deno.serve(async (req) => {
         contactId = newContact.id;
       }
 
-      // 2. Log ecommerce order
+      // 2. Log ecommerce order (amount = monthly value)
       await supabase.from("ecommerce_orders").insert({
         contact_id: contactId,
         order_id: order_id || `auto_${Date.now()}`,
         event_type: "purchase_paid",
-        amount: amount || 0,
-        metadata: { name, email, pet_name, phone: normalizedPhone },
+        amount: monthlyAmount || 0,
+        metadata: {
+          name,
+          email,
+          pet_name,
+          phone: normalizedPhone,
+          monthly_amount: monthlyAmount,
+          monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+          plan_name: planName,
+          payment_method: paymentMethod,
+        },
       });
 
       // 3. Create/find conversation
@@ -185,7 +238,11 @@ Deno.serve(async (req) => {
         contact_id: contactId,
         contact_name: name || null,
         phone: normalizedPhone,
-        amount: amount || 0,
+        amount: monthlyAmount || 0,
+        monthly_amount: monthlyAmount,
+        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
+        plan_name: planName,
+        payment_method: paymentMethod,
         order_id: order_id || null,
         conversation_id: conversationId,
       });
@@ -196,6 +253,8 @@ Deno.serve(async (req) => {
           event: "purchase_paid",
           contact_id: contactId,
           conversation_id: conversationId,
+          monthly_amount: monthlyAmount,
+          plan_name: planName,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
