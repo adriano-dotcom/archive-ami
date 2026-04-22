@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, Filter, FileText, GitBranch, BarChart3, Megaphone, ReceiptText } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, Filter, FileText, GitBranch, BarChart3, Megaphone, ReceiptText, UserCog } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
@@ -53,6 +53,11 @@ const allMenuItems = [{
   label: 'Reembolsos',
   icon: ReceiptText,
   adminOnly: false
+}, {
+  id: 'team',
+  label: 'Equipe',
+  icon: UserCog,
+  adminOnly: true
 }, {
   id: 'settings',
   label: 'Configurações',
