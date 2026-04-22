@@ -1524,26 +1524,31 @@ export const api = {
 
     console.log(`[API] Found ${conversations.length} archived conversations`);
 
-    // Fetch messages for each conversation
-    const conversationsWithMessages: UIConversation[] = await Promise.all(
-      conversations.map(async (conv) => {
-        const { data: messages, error: msgError } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', conv.id)
-          .order('sent_at', { ascending: true })
-          .limit(100);
+    // OPTIMIZED: single batch query for all messages instead of N+1
+    const conversationIds = conversations.map(c => c.id);
+    const { data: allMessages, error: msgError } = await supabase
+      .from('messages')
+      .select('*')
+      .in('conversation_id', conversationIds)
+      .order('sent_at', { ascending: true });
 
-        if (msgError) {
-          console.error(`[API] Error fetching messages for ${conv.id}:`, msgError);
-        }
+    if (msgError) {
+      console.error('[API] Error fetching archived messages batch:', msgError);
+    }
 
-        return transformDBToUIConversation(
-          conv as unknown as DBConversation,
-          (messages || []) as unknown as DBMessage[]
-        );
-      })
-    );
+    const messagesByConv = new Map<string, DBMessage[]>();
+    for (const msg of (allMessages || []) as unknown as DBMessage[]) {
+      const arr = messagesByConv.get(msg.conversation_id) || [];
+      arr.push(msg);
+      messagesByConv.set(msg.conversation_id, arr);
+    }
+
+    const conversationsWithMessages: UIConversation[] = conversations.map((conv) => {
+      return transformDBToUIConversation(
+        conv as unknown as DBConversation,
+        messagesByConv.get(conv.id) || []
+      );
+    });
 
     return conversationsWithMessages;
   },
