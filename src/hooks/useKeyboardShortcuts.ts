@@ -42,7 +42,7 @@ export const useKeyboardShortcuts = (handlers: ShortcutHandlers, enabled = true)
     }
 
     // Prevent default for handled keys
-    const handledKeys = ['j', 'k', '/', 'm', '1', '2', '3', 'i', 'c', 't', 'a', '?', 'ArrowDown', 'ArrowUp'];
+    const handledKeys = ['j', 'k', 'n', '/', 'm', '1', '2', '3', 'i', 'c', 't', 'a', '?', 'ArrowDown', 'ArrowUp'];
     
     if (handledKeys.includes(e.key)) {
       e.preventDefault();
@@ -54,6 +54,10 @@ export const useKeyboardShortcuts = (handlers: ShortcutHandlers, enabled = true)
     }
     if (e.key === 'k' || e.key === 'ArrowUp') {
       handlers.onPrevConversation?.();
+    }
+    // Next unread - critical for high-volume operators
+    if (e.key === 'n') {
+      handlers.onNextUnread?.();
     }
 
     // Focus
