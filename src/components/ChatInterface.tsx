@@ -93,9 +93,16 @@ const ChatInterface: React.FC = () => {
   // Agents for filter (fetched from DB)
   const [filterAgents, setFilterAgents] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   
-  // Owner filter state
+  // Owner filter state - persist "Meus Atendimentos" toggle
   const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
-  const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
+  const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(() => {
+    return localStorage.getItem('showOnlyMyConversations') === 'true';
+  });
+  
+  // Persist toggle changes
+  useEffect(() => {
+    localStorage.setItem('showOnlyMyConversations', String(showOnlyMyConversations));
+  }, [showOnlyMyConversations]);
   
   // Collection status filter state
   const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'omega' | 'semResposta' | null>(null);
@@ -1069,9 +1076,24 @@ const ChatInterface: React.FC = () => {
     return conversations.filter(c => c.assignedUserId === currentUserTeamMemberId).length;
   }, [conversations, currentUserTeamMemberId]);
   
+  // Unread count in "Minhas conversas" — for badge
+  const myUnreadCount = useMemo(() => {
+    if (!currentUserTeamMemberId) return 0;
+    return conversations
+      .filter(c => c.assignedUserId === currentUserTeamMemberId)
+      .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  }, [conversations, currentUserTeamMemberId]);
+  
   // Count of orphan conversations (no assigned user, not closed)
   const orphanConversationsCount = useMemo(() => {
     return conversations.filter(c => !c.assignedUserId && c.status !== 'closed').length;
+  }, [conversations]);
+  
+  // Unread count in orphan conversations — for badge
+  const orphanUnreadCount = useMemo(() => {
+    return conversations
+      .filter(c => !c.assignedUserId && c.status !== 'closed')
+      .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
   }, [conversations]);
 
   // Collection status counts for filter pills
@@ -1620,6 +1642,11 @@ const ChatInterface: React.FC = () => {
                 <UserCheck className="w-4 h-4" />
                 Minhas
                 <span className={`text-[10px] ${showOnlyMyConversations ? 'text-white/80' : 'opacity-60'}`}>({myConversationsCount})</span>
+                {myUnreadCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold animate-pulse">
+                    {myUnreadCount > 99 ? '99+' : myUnreadCount}
+                  </span>
+                )}
               </button>
               
               {/* Conversas órfãs - sem atribuição */}
@@ -1634,6 +1661,11 @@ const ChatInterface: React.FC = () => {
                 <UserX className="w-4 h-4" />
                 Órfãs
                 <span className={`text-[10px] ${selectedOwnerFilter === 'orphan' ? 'text-white/80' : 'opacity-60'}`}>({orphanConversationsCount})</span>
+                {orphanUnreadCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold animate-pulse">
+                    {orphanUnreadCount > 99 ? '99+' : orphanUnreadCount}
+                  </span>
+                )}
               </button>
               
               {/* Lista de team members */}
@@ -2137,6 +2169,21 @@ const ChatInterface: React.FC = () => {
                   </div>
                 )}
                 <div className="h-6 w-px bg-border mx-1"></div>
+                {/* Skip to next unread conversation */}
+                {!isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10 relative"
+                    onClick={handleNextUnread}
+                    title="Próxima conversa não-lida (N)"
+                  >
+                    <ArrowLeft className="w-5 h-5 rotate-180" />
+                    {conversations.some(c => c.id !== activeChat.id && c.unreadCount > 0) && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    )}
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   size="icon" 
