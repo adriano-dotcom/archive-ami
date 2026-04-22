@@ -1661,6 +1661,11 @@ const ChatInterface: React.FC = () => {
                 <UserX className="w-4 h-4" />
                 Órfãs
                 <span className={`text-[10px] ${selectedOwnerFilter === 'orphan' ? 'text-white/80' : 'opacity-60'}`}>({orphanConversationsCount})</span>
+                {orphanUnreadCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold animate-pulse">
+                    {orphanUnreadCount > 99 ? '99+' : orphanUnreadCount}
+                  </span>
+                )}
               </button>
               
               {/* Lista de team members */}
