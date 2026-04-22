@@ -1208,10 +1208,31 @@ const ChatInterface: React.FC = () => {
     }
   }, [filteredConversations, selectedChatId]);
 
+  // Jump to next conversation with unread messages (skip current)
+  const handleNextUnread = useCallback(() => {
+    const currentIndex = filteredConversations.findIndex(c => c.id === selectedChatId);
+    // Search forward from current
+    for (let i = currentIndex + 1; i < filteredConversations.length; i++) {
+      if (filteredConversations[i].unreadCount > 0) {
+        setSelectedChatId(filteredConversations[i].id);
+        return;
+      }
+    }
+    // Wrap around: search from start to current
+    for (let i = 0; i < currentIndex; i++) {
+      if (filteredConversations[i].unreadCount > 0) {
+        setSelectedChatId(filteredConversations[i].id);
+        return;
+      }
+    }
+    toast.info('Nenhuma conversa não-lida');
+  }, [filteredConversations, selectedChatId]);
+
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
     onNextConversation: handleNextConversation,
     onPrevConversation: handlePrevConversation,
+    onNextUnread: handleNextUnread,
     onFocusSearch: () => searchInputRef.current?.focus(),
     onFocusMessage: () => messageInputRef.current?.focus(),
     onSetStatusNina: () => activeChat && handleStatusChange('nina'),
