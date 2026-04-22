@@ -110,6 +110,7 @@ export const useKeyboardShortcuts = (handlers: ShortcutHandlers, enabled = true)
 export const shortcuts = [
   { key: 'J / ↓', action: 'Próxima conversa' },
   { key: 'K / ↑', action: 'Conversa anterior' },
+  { key: 'N', action: 'Próxima não-lida' },
   { key: '/', action: 'Buscar conversas' },
   { key: 'M', action: 'Escrever mensagem' },
   { key: '1', action: 'Ativar IA' },
