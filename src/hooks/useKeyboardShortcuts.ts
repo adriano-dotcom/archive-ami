@@ -3,6 +3,7 @@ import { useEffect, useCallback } from 'react';
 interface ShortcutHandlers {
   onNextConversation?: () => void;
   onPrevConversation?: () => void;
+  onNextUnread?: () => void;
   onFocusSearch?: () => void;
   onFocusMessage?: () => void;
   onSetStatusNina?: () => void;
