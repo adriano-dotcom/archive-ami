@@ -13,6 +13,7 @@ import { Checkbox } from './ui/checkbox';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +75,7 @@ const ChatInterface: React.FC = () => {
     return saved === 'true';
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
   const [availableTags, setAvailableTags] = useState<TagDefinition[]>([]);
   const [isTagSelectorOpen, setIsTagSelectorOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -585,20 +587,26 @@ const ChatInterface: React.FC = () => {
         ? (activeChat as any).metadata
         : {};
 
-      // Mark conversation as closed and inactive, persist reason in metadata
+      // Mark conversation as closed and inactive, persist in dedicated columns + metadata (back-compat)
+      const closedAtIso = new Date().toISOString();
+      const closedCategory = getCloseCategory(finalReason);
       const { error: convError } = await supabase
         .from('conversations')
         .update({
           status: 'closed' as any,
           is_active: false,
+          closed_reason: finalReason,
+          closed_category: closedCategory,
+          closed_at: closedAtIso,
+          closed_by: user?.id ?? null,
           metadata: {
             ...existingMetadata,
             close_reason: finalReason,
-            close_category: getCloseCategory(finalReason),
-            closed_at: new Date().toISOString(),
+            close_category: closedCategory,
+            closed_at: closedAtIso,
             closed_by: user?.id ?? null,
           },
-        })
+        } as any)
         .eq('id', activeChat.id);
 
       if (convError) throw convError;
@@ -610,7 +618,13 @@ const ChatInterface: React.FC = () => {
       setShowCloseModal(false);
       setCloseReason('');
       setCustomReason('');
-      setSelectedChatId(null);
+
+      // Auto-jump to next unread conversation (skip current closed one)
+      const nextUnread = conversations.find(
+        c => c.id !== activeChat.id && c.unreadCount > 0
+      );
+      setSelectedChatId(nextUnread ? nextUnread.id : null);
+
       refetch();
     } catch (error) {
       console.error('Error closing conversation:', error);
@@ -1118,9 +1132,9 @@ const ChatInterface: React.FC = () => {
         }
       }
       
-      // Text search filter
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
+      // Text search filter (debounced for perf)
+      if (!debouncedSearchQuery) return true;
+      const query = debouncedSearchQuery.toLowerCase();
       return (
         chat.contactName.toLowerCase().includes(query) ||
         chat.contactPhone.includes(query) ||
@@ -1194,10 +1208,31 @@ const ChatInterface: React.FC = () => {
     }
   }, [filteredConversations, selectedChatId]);
 
+  // Jump to next conversation with unread messages (skip current)
+  const handleNextUnread = useCallback(() => {
+    const currentIndex = filteredConversations.findIndex(c => c.id === selectedChatId);
+    // Search forward from current
+    for (let i = currentIndex + 1; i < filteredConversations.length; i++) {
+      if (filteredConversations[i].unreadCount > 0) {
+        setSelectedChatId(filteredConversations[i].id);
+        return;
+      }
+    }
+    // Wrap around: search from start to current
+    for (let i = 0; i < currentIndex; i++) {
+      if (filteredConversations[i].unreadCount > 0) {
+        setSelectedChatId(filteredConversations[i].id);
+        return;
+      }
+    }
+    toast.info('Nenhuma conversa não-lida');
+  }, [filteredConversations, selectedChatId]);
+
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
     onNextConversation: handleNextConversation,
     onPrevConversation: handlePrevConversation,
+    onNextUnread: handleNextUnread,
     onFocusSearch: () => searchInputRef.current?.focus(),
     onFocusMessage: () => messageInputRef.current?.focus(),
     onSetStatusNina: () => activeChat && handleStatusChange('nina'),

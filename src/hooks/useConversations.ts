@@ -233,7 +233,9 @@ export function useConversations() {
                     whatsappWindowStart: updated.whatsapp_window_start || conv.whatsappWindowStart,
                     isWhatsAppWindowOpen: updated.whatsapp_window_start !== undefined ? isWindowOpen : conv.isWhatsAppWindowOpen,
                     windowHoursRemaining: updated.whatsapp_window_start !== undefined ? hoursRemaining : conv.windowHoursRemaining,
-                    lastMessageAt: updated.last_message_at || conv.lastMessageAt
+                    lastMessageAt: updated.last_message_at || conv.lastMessageAt,
+                    // Sync denormalized unread_count from DB trigger
+                    unreadCount: typeof updated.unread_count === 'number' ? updated.unread_count : conv.unreadCount
                   };
                 }
                 return conv;

@@ -813,6 +813,10 @@ export type Database = {
           assigned_team: Database["public"]["Enums"]["team_assignment"] | null
           assigned_user_id: string | null
           assigned_user_name: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_category: string | null
+          closed_reason: string | null
           contact_id: string
           created_at: string
           current_agent_id: string | null
@@ -824,6 +828,7 @@ export type Database = {
           started_at: string
           status: Database["public"]["Enums"]["conversation_status"]
           tags: string[] | null
+          unread_count: number
           updated_at: string
           whatsapp_window_start: string | null
         }
@@ -831,6 +836,10 @@ export type Database = {
           assigned_team?: Database["public"]["Enums"]["team_assignment"] | null
           assigned_user_id?: string | null
           assigned_user_name?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_category?: string | null
+          closed_reason?: string | null
           contact_id: string
           created_at?: string
           current_agent_id?: string | null
@@ -842,6 +851,7 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: string[] | null
+          unread_count?: number
           updated_at?: string
           whatsapp_window_start?: string | null
         }
@@ -849,6 +859,10 @@ export type Database = {
           assigned_team?: Database["public"]["Enums"]["team_assignment"] | null
           assigned_user_id?: string | null
           assigned_user_name?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_category?: string | null
+          closed_reason?: string | null
           contact_id?: string
           created_at?: string
           current_agent_id?: string | null
@@ -860,6 +874,7 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: string[] | null
+          unread_count?: number
           updated_at?: string
           whatsapp_window_start?: string | null
         }
