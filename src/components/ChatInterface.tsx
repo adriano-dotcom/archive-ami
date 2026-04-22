@@ -2169,6 +2169,21 @@ const ChatInterface: React.FC = () => {
                   </div>
                 )}
                 <div className="h-6 w-px bg-border mx-1"></div>
+                {/* Skip to next unread conversation */}
+                {!isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10 relative"
+                    onClick={handleNextUnread}
+                    title="Próxima conversa não-lida (N)"
+                  >
+                    <ArrowLeft className="w-5 h-5 rotate-180" />
+                    {conversations.some(c => c.id !== activeChat.id && c.unreadCount > 0) && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    )}
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   size="icon" 
