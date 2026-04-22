@@ -1642,6 +1642,11 @@ const ChatInterface: React.FC = () => {
                 <UserCheck className="w-4 h-4" />
                 Minhas
                 <span className={`text-[10px] ${showOnlyMyConversations ? 'text-white/80' : 'opacity-60'}`}>({myConversationsCount})</span>
+                {myUnreadCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold animate-pulse">
+                    {myUnreadCount > 99 ? '99+' : myUnreadCount}
+                  </span>
+                )}
               </button>
               
               {/* Conversas órfãs - sem atribuição */}
