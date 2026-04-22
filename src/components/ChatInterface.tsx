@@ -1132,9 +1132,9 @@ const ChatInterface: React.FC = () => {
         }
       }
       
-      // Text search filter
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
+      // Text search filter (debounced for perf)
+      if (!debouncedSearchQuery) return true;
+      const query = debouncedSearchQuery.toLowerCase();
       return (
         chat.contactName.toLowerCase().includes(query) ||
         chat.contactPhone.includes(query) ||
