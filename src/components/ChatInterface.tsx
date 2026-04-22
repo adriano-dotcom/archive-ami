@@ -93,9 +93,16 @@ const ChatInterface: React.FC = () => {
   // Agents for filter (fetched from DB)
   const [filterAgents, setFilterAgents] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   
-  // Owner filter state
+  // Owner filter state - persist "Meus Atendimentos" toggle
   const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
-  const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(false);
+  const [showOnlyMyConversations, setShowOnlyMyConversations] = useState(() => {
+    return localStorage.getItem('showOnlyMyConversations') === 'true';
+  });
+  
+  // Persist toggle changes
+  useEffect(() => {
+    localStorage.setItem('showOnlyMyConversations', String(showOnlyMyConversations));
+  }, [showOnlyMyConversations]);
   
   // Collection status filter state
   const [selectedCollectionFilter, setSelectedCollectionFilter] = useState<'cobranca' | 'omega' | 'semResposta' | null>(null);
