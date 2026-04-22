@@ -1076,9 +1076,24 @@ const ChatInterface: React.FC = () => {
     return conversations.filter(c => c.assignedUserId === currentUserTeamMemberId).length;
   }, [conversations, currentUserTeamMemberId]);
   
+  // Unread count in "Minhas conversas" — for badge
+  const myUnreadCount = useMemo(() => {
+    if (!currentUserTeamMemberId) return 0;
+    return conversations
+      .filter(c => c.assignedUserId === currentUserTeamMemberId)
+      .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  }, [conversations, currentUserTeamMemberId]);
+  
   // Count of orphan conversations (no assigned user, not closed)
   const orphanConversationsCount = useMemo(() => {
     return conversations.filter(c => !c.assignedUserId && c.status !== 'closed').length;
+  }, [conversations]);
+  
+  // Unread count in orphan conversations — for badge
+  const orphanUnreadCount = useMemo(() => {
+    return conversations
+      .filter(c => !c.assignedUserId && c.status !== 'closed')
+      .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
   }, [conversations]);
 
   // Collection status counts for filter pills
