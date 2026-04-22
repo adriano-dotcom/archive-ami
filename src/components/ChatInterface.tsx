@@ -585,20 +585,26 @@ const ChatInterface: React.FC = () => {
         ? (activeChat as any).metadata
         : {};
 
-      // Mark conversation as closed and inactive, persist reason in metadata
+      // Mark conversation as closed and inactive, persist in dedicated columns + metadata (back-compat)
+      const closedAtIso = new Date().toISOString();
+      const closedCategory = getCloseCategory(finalReason);
       const { error: convError } = await supabase
         .from('conversations')
         .update({
           status: 'closed' as any,
           is_active: false,
+          closed_reason: finalReason,
+          closed_category: closedCategory,
+          closed_at: closedAtIso,
+          closed_by: user?.id ?? null,
           metadata: {
             ...existingMetadata,
             close_reason: finalReason,
-            close_category: getCloseCategory(finalReason),
-            closed_at: new Date().toISOString(),
+            close_category: closedCategory,
+            closed_at: closedAtIso,
             closed_by: user?.id ?? null,
           },
-        })
+        } as any)
         .eq('id', activeChat.id);
 
       if (convError) throw convError;
@@ -610,7 +616,13 @@ const ChatInterface: React.FC = () => {
       setShowCloseModal(false);
       setCloseReason('');
       setCustomReason('');
-      setSelectedChatId(null);
+
+      // Auto-jump to next unread conversation (skip current closed one)
+      const nextUnread = conversations.find(
+        c => c.id !== activeChat.id && c.unreadCount > 0
+      );
+      setSelectedChatId(nextUnread ? nextUnread.id : null);
+
       refetch();
     } catch (error) {
       console.error('Error closing conversation:', error);
