@@ -141,6 +141,21 @@ const ContactRow = memo(({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <div className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate text-sm">{contact.name}</div>
+              {isCustomer && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 inline-flex items-center gap-0.5 flex-shrink-0">
+                        <Crown className="w-2.5 h-2.5" />
+                        Cliente
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-slate-900 border-emerald-500/30 text-emerald-200">
+                      <p className="text-xs">Cliente ativo (tutor)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {contact.duplicateInfo?.isDuplicate && (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -215,6 +230,63 @@ const ContactRow = memo(({
       {/* Chat Status */}
       <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.chat }}>
         {getChatStatusBadge(contact)}
+      </div>
+      {/* Responsável */}
+      <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.assignee }}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800 hover:border-cyan-500/40 transition-colors w-full max-w-full overflow-hidden">
+              {assignedName ? (
+                <>
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-600 to-teal-700 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                    {initialsAssigned}
+                  </div>
+                  <span className="text-slate-200 truncate flex-1 text-left">{firstNameAssigned}</span>
+                </>
+              ) : (
+                <>
+                  <UserCog className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                  <span className="text-slate-500 italic flex-1 text-left">Atribuir</span>
+                </>
+              )}
+              <ChevronDown className="w-3 h-3 text-slate-500 flex-shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-slate-900 border-slate-700 min-w-[200px] max-h-[300px] overflow-y-auto">
+            {assignedName && (
+              <>
+                <DropdownMenuItem
+                  onClick={() => handleAssignUser?.(contact.id, null)}
+                  className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-red-400 text-xs"
+                >
+                  <X className="w-3.5 h-3.5 mr-2" />
+                  Remover responsável
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-slate-700" />
+              </>
+            )}
+            {teamMembers.length === 0 && (
+              <div className="px-3 py-2 text-xs text-slate-500">Nenhum membro da equipe ativo</div>
+            )}
+            {teamMembers.map(member => {
+              const isSelected = contact.assigned_user_id === member.id;
+              const initials = member.name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+              return (
+                <DropdownMenuItem
+                  key={member.id}
+                  onClick={() => !isSelected && handleAssignUser?.(contact.id, member.id)}
+                  className={`cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs ${isSelected ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'}`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-600 to-teal-700 flex items-center justify-center text-[9px] font-bold text-white mr-2">
+                    {initials}
+                  </div>
+                  <span className="flex-1 truncate">{member.name}</span>
+                  {isSelected && <span className="text-cyan-400 ml-2">✓</span>}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {/* Canais */}
       <div className="px-4 py-4 flex-shrink-0" style={{ width: colWidths.channels }}>
