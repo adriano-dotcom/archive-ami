@@ -26,6 +26,7 @@ type ChatStatusFilter = 'all' | 'active' | 'archived' | 'none';
 type ChannelFilter = 'all' | 'email' | 'phone' | 'both';
 type CnpjFilter = 'all' | 'with' | 'without';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
+type AssigneeFilter = 'all' | 'unassigned' | string; // 'all' | 'unassigned' | team_member_id
 
 interface VirtualizedContactsTableProps {
   contacts: ExtendedContact[];
@@ -34,6 +35,7 @@ interface VirtualizedContactsTableProps {
   toggleContactSelection: (id: string) => void;
   toggleAllContacts: () => void;
   handleStatusChange: (contactId: string, newStatus: string) => void;
+  handleAssignUser?: (contactId: string, userId: string | null) => void;
   handleViewDetails: (contact: ExtendedContact) => void;
   handleEditContact: (contact: ExtendedContact) => void;
   handleDeleteClick: (contact: ExtendedContact) => void;
