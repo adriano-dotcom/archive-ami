@@ -508,3 +508,20 @@ export const useContactFilters = () => {
     isLoading: ownersQuery.isLoading,
   };
 };
+
+// Hook para listar membros ativos da equipe (usado em selects de Responsável)
+export const useTeamMembers = () => {
+  return useQuery({
+    queryKey: ['team-members-active-list'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('id, name, email')
+        .eq('status', 'active')
+        .order('name');
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+};
