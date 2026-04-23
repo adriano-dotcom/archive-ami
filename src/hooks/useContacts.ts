@@ -459,6 +459,9 @@ export const useContactsInfinite = () => {
     isBulkDeleting: bulkDeleteMutation.isPending,
     bulkUpdateCampaign: bulkUpdateCampaignMutation.mutate,
     isBulkUpdatingCampaign: bulkUpdateCampaignMutation.isPending,
+    updateAssignedUser: updateAssignedUserMutation.mutate,
+    updateAssignedUserAsync: updateAssignedUserMutation.mutateAsync,
+    isUpdatingAssignedUser: updateAssignedUserMutation.isPending,
     invalidateContacts: () => queryClient.invalidateQueries({ queryKey: ['contacts-infinite'] }),
   };
 };
