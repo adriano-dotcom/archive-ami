@@ -107,7 +107,7 @@ const fetchContactsPage = async (page: number): Promise<{
 
   const { data: contactsData, error, count } = await supabase
     .from('contacts')
-    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical', { count: 'exact' })
+    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical, tags, assigned_user_id, assigned_user:team_members!contacts_assigned_user_id_fkey(name)', { count: 'exact' })
     .order('last_activity', { ascending: false })
     .range(from, to);
 
