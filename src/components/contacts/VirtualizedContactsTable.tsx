@@ -493,7 +493,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
         style={{ height: 'calc(100vh - 350px)', minHeight: '400px' }}
       >
         {/* Using div-based grid layout for proper virtualization alignment */}
-        <div className="w-full text-sm text-left min-w-[1148px]">
+        <div className="w-full text-sm text-left min-w-[1298px]">
           {/* Header */}
           <div className="bg-slate-900/95 text-slate-400 border-b border-slate-800 font-medium text-xs uppercase tracking-wider sticky top-0 z-20 flex items-center">
             {/* Checkbox Master */}
@@ -766,6 +766,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                   }}
                   toggleSelection={() => toggleContactSelection(contact.id)}
                   handleStatusChange={handleStatusChange}
+                  handleAssignUser={handleAssignUser}
                   handleViewDetails={handleViewDetails}
                   handleEditContact={handleEditContact}
                   handleDeleteClick={handleDeleteClick}
@@ -773,6 +774,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
                   getStatusColor={getStatusColor}
                   getStatusLabel={getStatusLabel}
                   getChatStatusBadge={getChatStatusBadge}
+                  teamMembers={teamMembers}
                   onOpenDuplicatesModal={onOpenDuplicatesModal}
                 />
               );
