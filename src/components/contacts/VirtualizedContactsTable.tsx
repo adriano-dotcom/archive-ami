@@ -396,6 +396,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
   onOpenDuplicatesModal
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
+  const { data: teamMembers = [] } = useTeamMembers();
   
   const allSelected = contacts.length > 0 && selectedContactIds.size === contacts.length;
   const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < contacts.length;
