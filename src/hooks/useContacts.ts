@@ -402,6 +402,42 @@ export const useContactsInfinite = () => {
     },
   });
 
+  // Mutation para atribuir responsável (assigned_user_id)
+  const updateAssignedUserMutation = useMutation({
+    mutationFn: async ({ id, assignedUserId }: { id: string; assignedUserId: string | null }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ assigned_user_id: assignedUserId })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, assignedUserId }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
+      const teamMembers = queryClient.getQueryData<{ id: string; name: string }[]>(['team-members-active-list']) || [];
+      const memberName = assignedUserId ? (teamMembers.find(m => m.id === assignedUserId)?.name || null) : null;
+
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.map((c: ContactLight) =>
+            c.id === id ? { ...c, assigned_user_id: assignedUserId, assigned_user_name: memberName } : c
+          )
+        })) || []
+      }));
+
+      return { previousData };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
+      toast.error('Erro ao atribuir responsável');
+    },
+    onSuccess: (_, { assignedUserId }) => {
+      toast.success(assignedUserId ? 'Responsável atribuído' : 'Responsável removido');
+    },
+  });
+
   return {
     contacts,
     totalCount,
