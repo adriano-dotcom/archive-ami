@@ -612,6 +612,7 @@ export type Database = {
       }
       contacts: {
         Row: {
+          assigned_user_id: string | null
           blocked_at: string | null
           blocked_reason: string | null
           call_name: string | null
@@ -656,6 +657,7 @@ export type Database = {
           whatsapp_id: string | null
         }
         Insert: {
+          assigned_user_id?: string | null
           blocked_at?: string | null
           blocked_reason?: string | null
           call_name?: string | null
@@ -700,6 +702,7 @@ export type Database = {
           whatsapp_id?: string | null
         }
         Update: {
+          assigned_user_id?: string | null
           blocked_at?: string | null
           blocked_reason?: string | null
           call_name?: string | null
@@ -744,6 +747,13 @@ export type Database = {
           whatsapp_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contacts_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contacts_company_id_fkey"
             columns: ["company_id"]
