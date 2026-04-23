@@ -34,6 +34,9 @@ export interface ContactLight {
   utm_term?: string;
   campaign?: string;
   vertical?: 'transporte' | 'frotas';
+  tags?: string[];
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
   // Dados relacionais (carregados sob demanda ou em batch separado)
   conversationActive?: boolean | null;
   conversationStatus?: string;
