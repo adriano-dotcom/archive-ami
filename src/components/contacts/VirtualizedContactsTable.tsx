@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useEffect, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
   Loader2, MessageSquare, Mail, Phone, Building2, Eye, Edit, Trash2, 
-  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive, Copy, UserCog, Crown
+  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive, Copy, UserCog, Crown, X
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -370,6 +370,7 @@ export const VirtualizedContactsTable: React.FC<VirtualizedContactsTableProps> =
   toggleContactSelection,
   toggleAllContacts,
   handleStatusChange,
+  handleAssignUser,
   handleViewDetails,
   handleEditContact,
   handleDeleteClick,
