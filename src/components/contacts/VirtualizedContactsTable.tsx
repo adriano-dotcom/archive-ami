@@ -2,14 +2,14 @@ import React, { useRef, useCallback, useEffect, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
   Loader2, MessageSquare, Mail, Phone, Building2, Eye, Edit, Trash2, 
-  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive, Copy
+  ChevronDown, CheckSquare, Square, Minus, User, CalendarDays, Archive, Copy, UserCog, Crown
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
-import { ContactLight } from '@/hooks/useContacts';
+import { ContactLight, useTeamMembers } from '@/hooks/useContacts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 // Alias para compatibilidade
