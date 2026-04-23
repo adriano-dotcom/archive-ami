@@ -91,6 +91,9 @@ const mapContactToLight = (c: any): ContactLight => ({
   utm_term: c.utm_term || undefined,
   campaign: c.campaign || undefined,
   vertical: c.vertical as 'transporte' | 'frotas' | undefined,
+  tags: c.tags || [],
+  assigned_user_id: c.assigned_user_id || null,
+  assigned_user_name: c.assigned_user?.name || null,
 });
 
 // Função para buscar uma página de contatos
