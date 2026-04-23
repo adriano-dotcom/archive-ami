@@ -51,6 +51,7 @@ const Contacts: React.FC = () => {
     isBulkDeleting,
     bulkUpdateCampaign,
     isBulkUpdatingCampaign: isBulkCampaignUpdating,
+    updateAssignedUser,
     invalidateContacts
   } = useContactsInfinite();
   
@@ -170,6 +171,10 @@ const Contacts: React.FC = () => {
 
   const handleStatusChange = (contactId: string, newStatus: string) => {
     updateStatus({ id: contactId, status: newStatus });
+  };
+
+  const handleAssignUser = (contactId: string, userId: string | null) => {
+    updateAssignedUser({ id: contactId, assignedUserId: userId });
   };
 
   // Filtrar por origem (inbound/segurados) - excluir contatos de cobrança que vão para aba Segurados
@@ -718,6 +723,7 @@ const Contacts: React.FC = () => {
             toggleContactSelection={toggleContactSelection}
             toggleAllContacts={toggleAllContacts}
             handleStatusChange={handleStatusChange}
+            handleAssignUser={handleAssignUser}
             handleViewDetails={handleViewDetails}
             handleEditContact={handleEditContact}
             handleDeleteClick={handleDeleteClick}

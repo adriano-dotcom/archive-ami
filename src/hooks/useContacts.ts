@@ -34,6 +34,9 @@ export interface ContactLight {
   utm_term?: string;
   campaign?: string;
   vertical?: 'transporte' | 'frotas';
+  tags?: string[];
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
   // Dados relacionais (carregados sob demanda ou em batch separado)
   conversationActive?: boolean | null;
   conversationStatus?: string;
@@ -88,6 +91,9 @@ const mapContactToLight = (c: any): ContactLight => ({
   utm_term: c.utm_term || undefined,
   campaign: c.campaign || undefined,
   vertical: c.vertical as 'transporte' | 'frotas' | undefined,
+  tags: c.tags || [],
+  assigned_user_id: c.assigned_user_id || null,
+  assigned_user_name: c.assigned_user?.name || null,
 });
 
 // Função para buscar uma página de contatos
@@ -101,7 +107,7 @@ const fetchContactsPage = async (page: number): Promise<{
 
   const { data: contactsData, error, count } = await supabase
     .from('contacts')
-    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical', { count: 'exact' })
+    .select('id, name, call_name, phone_number, email, company, cnpj, cpf, cep, street, number, complement, neighborhood, city, state, notes, lead_status, last_activity, created_at, lead_source, whatsapp_id, utm_source, utm_campaign, utm_content, utm_term, campaign, vertical, tags, assigned_user_id, assigned_user:team_members!contacts_assigned_user_id_fkey(name)', { count: 'exact' })
     .order('last_activity', { ascending: false })
     .range(from, to);
 
@@ -396,6 +402,42 @@ export const useContactsInfinite = () => {
     },
   });
 
+  // Mutation para atribuir responsável (assigned_user_id)
+  const updateAssignedUserMutation = useMutation({
+    mutationFn: async ({ id, assignedUserId }: { id: string; assignedUserId: string | null }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ assigned_user_id: assignedUserId })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, assignedUserId }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts-infinite'] });
+      const previousData = queryClient.getQueryData(['contacts-infinite']);
+      const teamMembers = queryClient.getQueryData<{ id: string; name: string }[]>(['team-members-active-list']) || [];
+      const memberName = assignedUserId ? (teamMembers.find(m => m.id === assignedUserId)?.name || null) : null;
+
+      queryClient.setQueryData(['contacts-infinite'], (old: any) => ({
+        ...old,
+        pages: old?.pages?.map((page: any) => ({
+          ...page,
+          contacts: page.contacts.map((c: ContactLight) =>
+            c.id === id ? { ...c, assigned_user_id: assignedUserId, assigned_user_name: memberName } : c
+          )
+        })) || []
+      }));
+
+      return { previousData };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(['contacts-infinite'], context?.previousData);
+      toast.error('Erro ao atribuir responsável');
+    },
+    onSuccess: (_, { assignedUserId }) => {
+      toast.success(assignedUserId ? 'Responsável atribuído' : 'Responsável removido');
+    },
+  });
+
   return {
     contacts,
     totalCount,
@@ -417,6 +459,9 @@ export const useContactsInfinite = () => {
     isBulkDeleting: bulkDeleteMutation.isPending,
     bulkUpdateCampaign: bulkUpdateCampaignMutation.mutate,
     isBulkUpdatingCampaign: bulkUpdateCampaignMutation.isPending,
+    updateAssignedUser: updateAssignedUserMutation.mutate,
+    updateAssignedUserAsync: updateAssignedUserMutation.mutateAsync,
+    isUpdatingAssignedUser: updateAssignedUserMutation.isPending,
     invalidateContacts: () => queryClient.invalidateQueries({ queryKey: ['contacts-infinite'] }),
   };
 };
@@ -462,4 +507,21 @@ export const useContactFilters = () => {
     pipelines: [],
     isLoading: ownersQuery.isLoading,
   };
+};
+
+// Hook para listar membros ativos da equipe (usado em selects de Responsável)
+export const useTeamMembers = () => {
+  return useQuery({
+    queryKey: ['team-members-active-list'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('id, name, email')
+        .eq('status', 'active')
+        .order('name');
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
 };
