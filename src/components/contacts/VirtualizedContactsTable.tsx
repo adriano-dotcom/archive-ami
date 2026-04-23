@@ -73,6 +73,7 @@ const ContactRow = memo(({
   style,
   toggleSelection,
   handleStatusChange,
+  handleAssignUser,
   handleViewDetails,
   handleEditContact,
   handleDeleteClick,
@@ -80,13 +81,15 @@ const ContactRow = memo(({
   getStatusColor,
   getStatusLabel,
   getChatStatusBadge,
-  onOpenDuplicatesModal
+  onOpenDuplicatesModal,
+  teamMembers
 }: {
   contact: ExtendedContact;
   isSelected: boolean;
   style: React.CSSProperties;
   toggleSelection: () => void;
   handleStatusChange: (contactId: string, status: string) => void;
+  handleAssignUser?: (contactId: string, userId: string | null) => void;
   handleViewDetails: (contact: ExtendedContact) => void;
   handleEditContact: (contact: ExtendedContact) => void;
   handleDeleteClick: (contact: ExtendedContact) => void;
@@ -95,6 +98,7 @@ const ContactRow = memo(({
   getStatusLabel: (status: string) => string;
   getChatStatusBadge: (contact: ExtendedContact) => React.ReactNode;
   onOpenDuplicatesModal?: (focus: { groupKey: string; contactId: string }) => void;
+  teamMembers: { id: string; name: string }[];
 }) => {
   // Column widths matching header - using grid layout for virtualization
   const colWidths = {
@@ -103,11 +107,17 @@ const ContactRow = memo(({
     status: '130px',
     created: '100px',
     chat: '90px',
+    assignee: '150px',
     channels: '170px',
     cnpj: '140px',
     lastInteraction: '120px',
     actions: '150px'
   };
+
+  const isCustomer = contact.status === 'customer';
+  const assignedName = contact.assigned_user_name || null;
+  const initialsAssigned = assignedName ? assignedName.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() : null;
+  const firstNameAssigned = assignedName ? assignedName.trim().split(/\s+/)[0] : null;
 
   return (
     <div 
