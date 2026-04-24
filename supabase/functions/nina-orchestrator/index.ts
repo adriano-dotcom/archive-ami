@@ -3675,7 +3675,16 @@ Agradeço pela compreensão! 🙏`;
   );
 
   // Process template variables
-  const processedPrompt = processPromptTemplate(enhancedSystemPrompt, conversation.contact);
+  let processedPrompt = processPromptTemplate(enhancedSystemPrompt, conversation.contact);
+
+  // ===== ORBE 360: detecção determinística "lead sem pet / interesse humano" =====
+  // Se detectado, anexa instrução obrigatória ao final do system prompt para forçar
+  // a oferta do Orbe 360 + link, mesmo se o modelo tender a sugerir adoção.
+  const orbe360Intent = detectNoPetIntent(message?.content || '');
+  if (orbe360Intent) {
+    console.log('[Nina][Orbe360] 🎯 Intenção "lead sem pet / saúde humana" detectada — forçando oferta Orbe 360');
+    processedPrompt = processedPrompt + ORBE_360_FORCED_INSTRUCTION;
+  }
 
   console.log('[Nina] Calling Lovable AI...');
 
