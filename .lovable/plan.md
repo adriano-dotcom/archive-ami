@@ -1,52 +1,81 @@
+## Diagnóstico
 
+Logs do `nina-orchestrator` mostram que as respostas da Orbi estão sendo cortadas pela API do Lovable AI Gateway com `finishReason: "length"` e `contentLength: 117–154` caracteres — apesar do `max_tokens: 1000`.
 
-## Cliente badge + Responsável + auto-tags Cliente/Tutor
+Causa raiz: o sistema está configurado em `ai_model_mode = 'pro3'`, que usa **`google/gemini-3-pro-preview`** (modelo de reasoning). Esses modelos consomem 70–90% do orçamento de tokens em raciocínio interno invisível, sobrando muito pouco para o texto visível ao tutor. Resultado: mensagens cortadas no meio (ex: "Por…").
 
-### O que muda
+A função `breakMessageIntoChunks` apenas divide por `\n\n`, ela **não trunca** — o problema está 100% na geração da IA.
 
-**1. Badge "Cliente" mais destacado na tabela de Contatos**
-- Quando `lead_status = 'customer'`, mostrar um badge verde com ícone de coroa/check ao lado do nome (além do dropdown de status atual), tornando visualmente óbvio quais são clientes ativos.
+## Mudanças
 
-**2. Coluna "Responsável" na tabela de Contatos**
-- Adicionar nova coluna `Responsável` mostrando o atendente atribuído (avatar + primeiro nome) ou "—".
-- Permitir trocar o responsável diretamente pela tabela via dropdown com a lista de membros ativos da Equipe.
-- Filtro no header: "Meus contatos / Sem responsável / Todos".
+### 1. `supabase/functions/nina-orchestrator/index.ts` — trocar modelo padrão
 
-**3. Atribuição de responsável também no Drawer de detalhes e no modal de Edição**
-- Campo "Responsável pelo contato" com select dos membros da Equipe.
+Em `getModelSettings` (linha 4823), trocar o caso `'pro3'` para usar **`google/gemini-3-flash-preview`** (recomendado pela Lovable AI):
 
-**4. Auto-tag "Cliente" + "Tutor" ao virar cliente**
-- Quando o status do contato muda para `customer` (via dropdown da tabela, drawer, edição ou criação com status=customer), o sistema adiciona automaticamente as tags `cliente` e `tutor` ao array `contacts.tags`.
-- Se o status sair de `customer`, as tags **permanecem** (cliente continua sendo tutor mesmo se mudar fase).
-- As duas tags são criadas em `tag_definitions` se ainda não existirem (cor verde para `cliente`, cor azul para `tutor`).
-
-### Mudanças técnicas
-
-**Banco (1 migration):**
-- `ALTER TABLE contacts ADD COLUMN assigned_user_id uuid REFERENCES team_members(id) ON DELETE SET NULL;`
-- `CREATE INDEX idx_contacts_assigned_user ON contacts(assigned_user_id) WHERE assigned_user_id IS NOT NULL;`
-- INSERT em `tag_definitions` para `cliente` (verde #10b981) e `tutor` (azul #3b82f6) se não existirem.
-- Trigger `auto_tag_customer_contact()` em `contacts`: após UPDATE/INSERT, se `lead_status='customer'` e tags não contém `cliente`/`tutor`, adiciona via `array_append` (idempotente).
-- Backfill: rodar UPDATE em todos contatos atuais com `lead_status='customer'` para popular as tags.
-
-**Frontend:**
-- `src/hooks/useContacts.ts` — `ContactLight` ganha `assigned_user_id?: string`, `assigned_user_name?: string`, `tags?: string[]`; query passa a selecionar esses campos + JOIN leve em `team_members(name)`.
-- `src/components/contacts/VirtualizedContactsTable.tsx`:
-   - Nova coluna **Responsável** (140px) entre "Chat" e "Canais".
-   - Badge verde "✓ Cliente" no nome quando `status==='customer'`.
-   - Dropdown na coluna Responsável com lista de team members (carregada uma vez via React Query).
-- `src/components/ContactDetailsDrawer.tsx` e `src/components/EditContactModal.tsx` — adicionar select "Responsável".
-- `src/components/CreateContactModal.tsx` — adicionar select "Responsável" no bloco "Dados Pessoais".
-- Filtro de responsável no header da tabela (popover semelhante aos existentes).
-
-### Layout esperado da nova tabela
-
-```text
-[ ☐ ] Nome (+badge ✓Cliente)  Status  Criação  Chat  Responsável  Canais  CNPJ  Última  Ações
+```ts
+case 'pro3':
+  return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
 ```
 
-### Fora do escopo (próxima iteração)
-- Notificação ao atendente quando recebe novo contato atribuído.
-- Histórico de mudanças de responsável.
-- Auto-atribuir contato ao operador que iniciou a primeira conversa.
+Justificativa: rápido (<2s), sem reasoning oculto, mantém qualidade alta para conversação de vendas. O `default` também passa a apontar para `gemini-3-flash-preview` para consistência.
 
+### 2. Aumentar `max_tokens` de 1000 → 2500
+
+Nas duas chamadas principais à IA e seus fallbacks:
+- Linha ~3721 (chamada handoff)
+- Linha ~3759 (fallback handoff)
+- Linha ~3841 (chamada principal)
+- Linha ~3890 (fallback principal)
+
+Margem extra para mensagens mais longas sobre planos sem risco de corte.
+
+### 3. Auto-retry quando `finishReason === 'length'`
+
+No bloco de log "AI Response Debug" (linha ~3862), após verificar a resposta, adicionar:
+
+```ts
+if (aiData.choices?.[0]?.finish_reason === 'length') {
+  console.warn('[Nina] ⚠️ Resposta truncada (finish_reason=length), refazendo com max_tokens=4000');
+  const retryResponse = await fetch(LOVABLE_AI_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: aiSettings.model,
+      messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
+      temperature: aiSettings.temperature,
+      max_tokens: 4000
+    })
+  });
+  if (retryResponse.ok) {
+    const retryData = await retryResponse.json();
+    const retryContent = retryData.choices?.[0]?.message?.content;
+    if (retryContent && retryData.choices[0].finish_reason !== 'length') {
+      aiContent = retryContent;
+      console.log('[Nina] ✅ Retry bem-sucedido, conteúdo completo recuperado');
+    }
+  }
+}
+```
+
+Mesma lógica aplicada após a chamada de handoff (linha ~3739).
+
+### 4. Deploy
+
+Redeploy automático da função `nina-orchestrator` após as edições.
+
+### 5. Validação
+
+Após deploy, testar enviando "quero saber sobre o galáxia" no chat e confirmar nos logs:
+- `model: "google/gemini-3-flash-preview"`
+- `finishReason: "stop"` (não mais `"length"`)
+- `contentLength` > 300
+- Vídeo do plano Galáxia + texto completo chegando ao tutor
+
+## Arquivos editados
+- `supabase/functions/nina-orchestrator/index.ts` (4 ajustes de `max_tokens`, 1 mudança em `getModelSettings`, 2 blocos de auto-retry)
+
+## Não muda
+- Prompt do agente Orbi no banco — continua o mesmo
+- Lógica de chunking / fragmentação de mensagens
+- Lógica de envio de vídeo automático dos planos
+- Configuração de WhatsApp / send_queue
