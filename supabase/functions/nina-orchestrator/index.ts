@@ -4343,7 +4343,6 @@ async function queuePlanVideoIfMentioned(
         from_type: 'nina',
         message_type: 'video',
         media_url: video.file_url,
-        media_id: video.id,
         priority: 2,
         scheduled_at: new Date(Date.now() + videoDelay).toISOString(),
         metadata: {
@@ -4352,6 +4351,7 @@ async function queuePlanVideoIfMentioned(
           plan_label: plan.label,
           plan_category: plan.category,
           video_name: video.name,
+          media_id: video.id,
           agent_id: agent?.id,
           agent_name: agent?.name,
           video_trigger_source: triggerSource,
