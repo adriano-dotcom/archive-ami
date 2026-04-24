@@ -1718,6 +1718,130 @@ export type Database = {
           },
         ]
       }
+      media_library: {
+        Row: {
+          auto_send_enabled: boolean
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_path: string
+          file_size: number | null
+          file_url: string
+          id: string
+          is_active: boolean
+          last_sent_at: string | null
+          media_type: string
+          mime_type: string | null
+          name: string
+          plan_id: string | null
+          send_count: number
+          tags: string[] | null
+          thumbnail_url: string | null
+          trigger_keywords: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          auto_send_enabled?: boolean
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_path: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          media_type: string
+          mime_type?: string | null
+          name: string
+          plan_id?: string | null
+          send_count?: number
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          trigger_keywords?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          auto_send_enabled?: boolean
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_path?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          media_type?: string
+          mime_type?: string | null
+          name?: string
+          plan_id?: string | null
+          send_count?: number
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          trigger_keywords?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_library_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orbe_plans_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_library_usage: {
+        Row: {
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          media_id: string
+          message_id: string | null
+          sent_by_type: string
+          sent_by_user: string | null
+          trigger_reason: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          media_id: string
+          message_id?: string | null
+          sent_by_type?: string
+          sent_by_user?: string | null
+          trigger_reason?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          media_id?: string
+          message_id?: string | null
+          sent_by_type?: string
+          sent_by_user?: string | null
+          trigger_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_library_usage_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_grouping_queue: {
         Row: {
           contacts_data: Json | null
