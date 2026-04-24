@@ -50,10 +50,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const MEDIA_ICON: Record<string, React.ReactNode> = {
-  video: <Video className="w-4 h-4 text-blue-500" />,
-  image: <ImageIcon className="w-4 h-4 text-emerald-500" />,
-  document: <FileText className="w-4 h-4 text-amber-500" />,
-  audio: <Music className="w-4 h-4 text-purple-500" />,
+  video: <Video className="w-4 h-4 text-primary" />,
+  image: <ImageIcon className="w-4 h-4 text-primary" />,
+  document: <FileText className="w-4 h-4 text-primary" />,
+  audio: <Music className="w-4 h-4 text-primary" />,
 };
 
 const detectMediaType = (file: File): 'video' | 'image' | 'document' | 'audio' => {
