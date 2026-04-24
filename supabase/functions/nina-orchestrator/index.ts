@@ -4635,7 +4635,10 @@ async function queueTextResponse(
           chunk_index: i,
           total_chunks: messageChunks.length,
           agent_id: agent?.id,
-          agent_name: agent?.name
+          agent_name: agent?.name,
+          anti_loop_score: Number(maxScore.toFixed(3)),
+          anti_loop_regenerated: antiLoopRegenerated,
+          anti_loop_fallback_used: antiLoopFallbackUsed
         }
       });
 
