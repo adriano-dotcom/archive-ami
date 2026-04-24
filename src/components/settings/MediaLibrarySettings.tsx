@@ -85,7 +85,7 @@ const MediaLibrarySettings: React.FC = () => {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    category: 'general',
+    category: 'geral',
     plan_id: '',
     trigger_keywords: '',
     auto_send_enabled: false,
