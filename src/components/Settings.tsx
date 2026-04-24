@@ -44,7 +44,7 @@ const Settings: React.FC = () => {
     ? agentsRef.current?.isSaving
     : false;
 
-  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic' && activeTab !== 'products';
+  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic' && activeTab !== 'products' && activeTab !== 'media';
   
   return (
     <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-background text-foreground custom-scrollbar">
