@@ -5013,6 +5013,14 @@ ${contact.notes}
     contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias similares!`;
   }
 
+  // ===== NOMENCLATURA DE PLANOS (gatilho de vídeo) =====
+  contextInfo += `\n\n## 📛 NOMES DOS PLANOS — USE SEMPRE O NOME COMPLETO:
+- "Órbita Total" (não "o básico" / "o mais barato")
+- "Órbita Plus" (não "o intermediário" / "o do meio")
+- "Órbita Galáxia" (não "o top" / "o mais completo")
+⚠️ Citar o nome completo dispara o vídeo explicativo correto da biblioteca.
+Se o cliente perguntar sobre UM plano específico, NÃO ofereça outros — responda sobre o solicitado.`;
+
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
   contextInfo += `\n\n## REGRAS CRÍTICAS DE COMUNICAÇÃO:
 
