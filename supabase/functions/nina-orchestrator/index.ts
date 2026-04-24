@@ -3718,7 +3718,8 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 2500
+        max_tokens: 2500,
+        ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
       })
     });
 
@@ -3749,7 +3750,8 @@ Agradeço pela compreensão! 🙏`;
             model: aiSettings.model,
             messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
             temperature: aiSettings.temperature,
-            max_tokens: 4000
+            max_tokens: 4000,
+            ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
           })
         });
         if (retryResponse.ok) {
@@ -3869,7 +3871,8 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 2500
+        max_tokens: 2500,
+        ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
       })
     });
 
@@ -3911,7 +3914,8 @@ Agradeço pela compreensão! 🙏`;
             model: aiSettings.model,
             messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
             temperature: aiSettings.temperature,
-            max_tokens: 4000
+            max_tokens: 4000,
+            ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
           })
         });
         if (retryResponse.ok) {
@@ -4890,8 +4894,8 @@ function getModelSettings(
   message: any,
   contact: any,
   clientMemory: any
-): { model: string; temperature: number } {
-  const modelMode = settings?.ai_model_mode || 'flash';
+): { model: string; temperature: number; reasoning?: { effort: string } } {
+  const modelMode = settings?.ai_model_mode || 'adaptive';
   
   switch (modelMode) {
     case 'flash':
@@ -4899,62 +4903,127 @@ function getModelSettings(
     case 'pro':
       return { model: 'google/gemini-2.5-pro', temperature: 0.7 };
     case 'pro3':
-      // Trocado de gemini-3-pro-preview (reasoning model que truncava respostas)
-      // para gemini-3-flash-preview - mais rápido, sem reasoning oculto, texto completo
-      return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
+      // Modo "pro3" agora usa roteamento adaptativo h\u00edbrido (Flash r\u00e1pido + Pro para casos complexos)
+      return getAdaptiveSettings(conversationHistory, message, contact, clientMemory);
     case 'adaptive':
       return getAdaptiveSettings(conversationHistory, message, contact, clientMemory);
     default:
-      return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
+      return getAdaptiveSettings(conversationHistory, message, contact, clientMemory);
   }
 }
 
+/**
+ * Roteamento h\u00edbrido inteligente focado em VENDAS afiadas:
+ * - Flash (r\u00e1pido, sem reasoning): perguntas simples, sauda\u00e7\u00f5es, primeiras intera\u00e7\u00f5es
+ * - Flash + reasoning low: perguntas de pre\u00e7o/plano espec\u00edfico, qualifica\u00e7\u00e3o ativa
+ * - Pro + reasoning medium: obje\u00e7\u00f5es, compara\u00e7\u00f5es, fechamento, reclama\u00e7\u00f5es
+ *
+ * Foco: detectar momentos cr\u00edticos da venda e investir mais racioc\u00ednio neles.
+ */
 function getAdaptiveSettings(
   conversationHistory: any[], 
   message: any, 
   contact: any,
   clientMemory: any
-): { model: string; temperature: number } {
-  const defaultSettings = {
-    model: 'google/gemini-2.5-flash',
-    temperature: 0.7
-  };
-
+): { model: string; temperature: number; reasoning?: { effort: string } } {
   const messageCount = conversationHistory.length;
-  const userContent = message.content?.toLowerCase() || '';
+  const userContent = (message.content || '').toLowerCase();
   
-  const isComplaintKeywords = ['problema', 'erro', 'não funciona', 'reclamação', 'péssimo', 'horrível'];
-  const isSalesKeywords = ['preço', 'valor', 'desconto', 'comprar', 'contratar', 'plano'];
-  const isTechnicalKeywords = ['como funciona', 'integração', 'api', 'configurar', 'instalar'];
-  const isUrgentKeywords = ['urgente', 'agora', 'rápido', 'emergência'];
-
-  const isComplaint = isComplaintKeywords.some(k => userContent.includes(k));
-  const isSales = isSalesKeywords.some(k => userContent.includes(k));
-  const isTechnical = isTechnicalKeywords.some(k => userContent.includes(k));
-  const isUrgent = isUrgentKeywords.some(k => userContent.includes(k));
+  // ===== Sinais de momentos CR\u00cdTICOS de venda (merecem racioc\u00ednio profundo) =====
   
-  const leadStage = clientMemory?.lead_profile?.lead_stage;
+  // Obje\u00e7\u00f5es e d\u00favidas que precisam de argumenta\u00e7\u00e3o forte
+  const objectionKeywords = [
+    'caro', 'preco alto', 'pre\u00e7o alto', 'muito caro', 'n\u00e3o tenho', 'nao tenho',
+    'pensar', 'depois', 'mais tarde', 'avaliar', 'comparar', 'concorrente',
+    'petlove', 'porto seguro', 'pet love', 'outras', 'outros planos',
+    'desconfio', 'duvida', 'd\u00favida', 'medo', 'receio', 'n\u00e3o sei se',
+    'vale a pena', 'compensa', 'fidelidade', 'multa', 'cancelar'
+  ];
+  
+  // Compara\u00e7\u00f5es entre planos (ancoragem requer racioc\u00ednio)
+  const comparisonKeywords = [
+    'diferen\u00e7a', 'diferenca', 'qual melhor', 'comparar', 'versus', ' vs ',
+    'plus ou', 'plus e total', 'total ou', 'gal\u00e1xia ou', 'galaxia ou',
+    'qual indica', 'qual recomenda', 'qual escolher'
+  ];
+  
+  // Sinais de fechamento (momento de ouro - n\u00e3o errar)
+  const closingKeywords = [
+    'quero contratar', 'quero assinar', 'como contrato', 'como assino',
+    'fechar', 'pagamento', 'cart\u00e3o', 'cartao', 'pix', 'link',
+    'vou contratar', 'me manda o link', 'manda o link', 'como pago'
+  ];
+  
+  // Reclama\u00e7\u00f5es (precisam de empatia + precis\u00e3o)
+  const complaintKeywords = [
+    'problema', 'erro', 'n\u00e3o funciona', 'nao funciona', 'reclama\u00e7\u00e3o',
+    'reclamacao', 'p\u00e9ssimo', 'pessimo', 'horr\u00edvel', 'horrivel',
+    'demorou', 'demorando', 'cad\u00ea', 'cade', 'reembolso', 'reembolsar'
+  ];
+  
+  const hasObjection = objectionKeywords.some(k => userContent.includes(k));
+  const hasComparison = comparisonKeywords.some(k => userContent.includes(k));
+  const hasClosing = closingKeywords.some(k => userContent.includes(k));
+  const hasComplaint = complaintKeywords.some(k => userContent.includes(k));
+  
   const qualificationScore = clientMemory?.lead_profile?.qualification_score || 0;
-
-  if (isComplaint || isUrgent) {
-    return { model: 'google/gemini-2.5-pro', temperature: 0.3 };
+  const leadStage = clientMemory?.lead_profile?.lead_stage || '';
+  
+  // ===== ROTEAMENTO =====
+  
+  // 1. FECHAMENTO ou OBJE\u00c7\u00c3O FORTE: Pro + reasoning medium (n\u00e3o pode errar)
+  if (hasClosing || (hasObjection && qualificationScore > 30)) {
+    console.log('[Nina][Adaptive] \ud83d\udd25 Momento cr\u00edtico detectado (fechamento/obje\u00e7\u00e3o), usando Pro + reasoning medium');
+    return { 
+      model: 'google/gemini-2.5-pro', 
+      temperature: 0.4,
+      reasoning: { effort: 'medium' }
+    };
   }
-
-  if (isSales && qualificationScore > 50) {
-    return { model: 'google/gemini-2.5-flash', temperature: 0.5 };
+  
+  // 2. COMPARA\u00c7\u00c3O DE PLANOS: Pro + reasoning low (ancoragem t\u00e9cnica)
+  if (hasComparison) {
+    console.log('[Nina][Adaptive] \ud83d\udcca Compara\u00e7\u00e3o de planos detectada, usando Pro + reasoning low');
+    return { 
+      model: 'google/gemini-2.5-pro', 
+      temperature: 0.5,
+      reasoning: { effort: 'low' }
+    };
   }
-
-  if (isTechnical) {
-    return { model: 'google/gemini-2.5-pro', temperature: 0.4 };
+  
+  // 3. RECLAMA\u00c7\u00c3O: Pro com temperatura baixa (precis\u00e3o + empatia)
+  if (hasComplaint) {
+    console.log('[Nina][Adaptive] \ud83d\udea8 Reclama\u00e7\u00e3o detectada, usando Pro temp=0.3');
+    return { 
+      model: 'google/gemini-2.5-pro', 
+      temperature: 0.3,
+      reasoning: { effort: 'low' }
+    };
   }
-
-  if (messageCount < 5) {
-    return { model: 'google/gemini-2.5-flash', temperature: 0.8 };
+  
+  // 4. OBJE\u00c7\u00c3O LEVE (lead morno): Flash + reasoning low
+  if (hasObjection) {
+    console.log('[Nina][Adaptive] \u26a1 Obje\u00e7\u00e3o leve, usando Flash + reasoning low');
+    return { 
+      model: 'google/gemini-3-flash-preview', 
+      temperature: 0.6,
+      reasoning: { effort: 'low' }
+    };
   }
-
-  if (messageCount > 15) {
-    return { model: 'google/gemini-2.5-flash', temperature: 0.5 };
+  
+  // 5. PRIMEIRAS INTERA\u00c7\u00d5ES (qualifica\u00e7\u00e3o): Flash r\u00e1pido, mais criativo
+  if (messageCount < 6) {
+    console.log('[Nina][Adaptive] \ud83d\udc4b Qualifica\u00e7\u00e3o inicial, usando Flash temp=0.8');
+    return { model: 'google/gemini-3-flash-preview', temperature: 0.8 };
   }
-
-  return defaultSettings;
+  
+  // 6. CONVERSA LONGA (manter consist\u00eancia): Flash temp baixa
+  if (messageCount > 20) {
+    console.log('[Nina][Adaptive] \ud83d\udcdc Conversa longa, usando Flash temp=0.5 (consist\u00eancia)');
+    return { model: 'google/gemini-3-flash-preview', temperature: 0.5 };
+  }
+  
+  // 7. DEFAULT: Flash equilibrado
+  console.log('[Nina][Adaptive] \u2705 Conversa padr\u00e3o, usando Flash temp=0.7');
+  return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
 }
