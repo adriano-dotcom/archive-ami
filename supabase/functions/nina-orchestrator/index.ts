@@ -4812,12 +4812,41 @@ function buildEnhancedPrompt(
 - Os detalhes completos de cada plano estão na base de conhecimento de produtos (injetada abaixo)
 - Sempre consulte a base de conhecimento antes de responder sobre coberturas, carências e exclusões
 - NUNCA invente coberturas ou condições que não estejam documentadas
+- Quando o lead disser que **NÃO TEM PET**, NÃO encerre a conversa — ofereça o **Orbe 360** (telemedicina humana + assistência funeral) como alternativa contratável isoladamente (ver bloco PRODUTO COMPLEMENTAR abaixo)
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
 - Pergunte sobre o pet (nome, espécie, idade, raça) para personalizar a recomendação
 - Compare os planos de forma objetiva quando o cliente tiver dúvidas
 - Destaque os diferenciais de cada plano sem depreciar os demais
-- Em caso de dúvida sobre cobertura específica, oriente o cliente a consultar as Condições Gerais completas`;
+- Em caso de dúvida sobre cobertura específica, oriente o cliente a consultar as Condições Gerais completas
+
+## PRODUTO COMPLEMENTAR — ORBE 360 (proteção do tutor e família)
+
+O **Orbe 360** é um produto OrbePet voltado ao **tutor e família** (não ao pet), com:
+- 🩺 **Telemedicina humana completa 24h** — consultas médicas para você e família
+- ⚱️ **Cobertura funeral completa** — assessoria 24h e apoio psicológico para toda a família
+
+### Modelo de contratação:
+- **Pode ser contratado isoladamente** (lead sem pet) — alternativa quando o cliente quer proteção pra si mesmo
+- **Como complemento** a qualquer plano pet (cross-sell natural após o fechamento)
+
+### QUANDO OFERTAR (gatilhos):
+1. Lead diz que **NÃO TEM PET** mas demonstra interesse em proteção/saúde → ofereça Orbe 360 ao invés de encerrar
+2. Lead **JÁ FECHOU OU ESTÁ FECHANDO** um plano pet → ofereça como complemento ("aproveita e protege você também")
+3. Lead menciona "telemedicina", "consulta médica humana", "funeral", "luto", "família" → apresente Orbe 360
+4. Em qualquer momento natural da conversa quando fizer sentido para o cliente
+
+### COMO OFERTAR:
+- Texto **CURTO** (2 linhas), sem listas longas
+- Foque em 2 benefícios: telemedicina humana 24h + cobertura funeral
+- **Sempre envie o link:** https://orbepet.com.br/orbe-360
+- Se o lead recusar, **NÃO insista** (máximo 1 oferta por conversa — regra anti-repetição)
+
+### EXEMPLO de oferta para lead sem pet:
+"Mesmo sem pet eu tenho algo pra você! 💙 O **Orbe 360** cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
+
+### EXEMPLO de cross-sell pós-venda pet:
+"Já que vamos cuidar do seu pet, que tal cuidar de você também? O **Orbe 360** traz telemedicina humana 24h e cobertura funeral pra família toda. Dá uma olhada: https://orbepet.com.br/orbe-360"`;
 
   if (contact) {
     contextInfo += `\n\nCONTEXTO DO CLIENTE:`;
