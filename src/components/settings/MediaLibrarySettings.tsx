@@ -40,13 +40,14 @@ interface MediaItem {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  general: 'Geral',
-  plan_start: 'Plano Start',
-  plan_plus: 'Plano Plus',
-  plan_max: 'Plano Max',
+  geral: 'Geral',
+  orbita_plus: 'Órbita Plus',
+  orbita_total: 'Órbita Total',
+  orbita_galaxia: 'Órbita Galáxia',
+  comparativo: 'Comparativo de Planos',
   reembolso: 'Reembolso',
   onboarding: 'Onboarding',
-  objection: 'Objeções',
+  objecao: 'Objeções',
 };
 
 const MEDIA_ICON: Record<string, React.ReactNode> = {
