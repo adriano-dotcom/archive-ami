@@ -4294,13 +4294,14 @@ async function queuePlanVideoIfMentioned(
     const video = videos[0];
 
     // Anti-spam: cooldown padrão 30min — bypass se cliente pediu reenvio explícito
+    // Nota: usa media_url pois a tabela messages não tem coluna media_id
     if (!isResendRequest) {
       const cooldownAgo = new Date(Date.now() - VIDEO_COOLDOWN_MS).toISOString();
       const { data: recentSends } = await supabase
         .from('messages')
         .select('id')
         .eq('conversation_id', conversation.id)
-        .eq('media_id', video.id)
+        .eq('media_url', video.file_url)
         .gte('sent_at', cooldownAgo)
         .limit(1);
 
@@ -4342,7 +4343,6 @@ async function queuePlanVideoIfMentioned(
         from_type: 'nina',
         message_type: 'video',
         media_url: video.file_url,
-        media_id: video.id,
         priority: 2,
         scheduled_at: new Date(Date.now() + videoDelay).toISOString(),
         metadata: {
@@ -4351,6 +4351,7 @@ async function queuePlanVideoIfMentioned(
           plan_label: plan.label,
           plan_category: plan.category,
           video_name: video.name,
+          media_id: video.id,
           agent_id: agent?.id,
           agent_name: agent?.name,
           video_trigger_source: triggerSource,

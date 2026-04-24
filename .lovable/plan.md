@@ -1,61 +1,89 @@
-# Melhorias no Gatilho de Vídeo de Planos
+## 🐛 Diagnóstico confirmado
 
-## Arquivo único editado
-`supabase/functions/nina-orchestrator/index.ts` — função `queuePlanVideoIfMentioned` e prompt do agente.
+A função `queuePlanVideoIfMentioned` em `supabase/functions/nina-orchestrator/index.ts` está **quebrada em dois pontos** porque referencia uma coluna `media_id` que **não existe**:
 
-## Mudanças
+| Local | Linha | Problema |
+|---|---|---|
+| Cooldown anti-spam | `4303` | `.eq('media_id', video.id)` em `messages` → coluna inexistente, query falha/retorna vazio |
+| Insert na fila de envio | `4345` | `media_id: video.id` no insert do `send_queue` → coluna inexistente, **insert inteiro falha silenciosamente** |
 
-### 1. Detecção dupla (input do cliente + resposta da IA)
-Hoje só escaneia `aiContent`. Passar a escanear também `userMessage` para que mesmo respostas genéricas da Orbi disparem o vídeo quando o cliente pergunta explicitamente sobre um plano.
+**Resultado**: vídeo é detectado corretamente (logs mostram `Planos detectados: Órbita Galáxia(user_message)`), mas o `INSERT` no `send_queue` retorna erro PostgreSQL `column "media_id" of relation "send_queue" does not exist` — e como o erro não é propagado, o fluxo segue normal mas **nenhum vídeo é enfileirado**.
 
-```ts
-const detectionText = `${userMessage || ''}\n${aiContent || ''}`.toLowerCase();
-```
+## ✅ Correção proposta
 
-### 2. Padrões mais permissivos + intenções semânticas
-Além de "Órbita Plus/Total/Galáxia", reconhecer:
-- `\bplus\b`, `\btotal\b`, `\bgal[áa]xia\b` isolados
-- "plano intermediário" / "plano do meio" → `orbita_plus`
-- "plano mais completo" / "top de linha" → `orbita_galaxia`
-- "plano mais barato" / "básico" / "entrada" → `orbita_total`
+### 1. Insert no `send_queue` (linha ~4336-4360)
+Mover `media_id` para dentro de `metadata` (JSONB), que é a coluna correta para telemetria:
 
-Mapeamento por regex → categoria do `media_library`.
+```typescript
+const { error: insertErr } = await supabase
+  .from('send_queue')
+  .insert({
+    conversation_id: conversation.id,
+    contact_id: conversation.contact_id,
+    content: '',
+    from_type: 'nina',
+    message_type: 'video',
+    media_url: video.file_url,
+    // ❌ media_id: video.id,   ← REMOVER (coluna não existe)
+    priority: 2,
+    scheduled_at: new Date(Date.now() + videoDelay).toISOString(),
+    metadata: {
+      response_to_message_id: message.id,
+      source: 'auto_plan_video',
+      plan_label: plan.label,
+      plan_category: plan.category,
+      video_name: video.name,
+      media_id: video.id,        // ✅ vai para JSONB
+      agent_id: agent?.id,
+      agent_name: agent?.name,
+      video_trigger_source: triggerSource,
+      video_category_matched: plan.category,
+      video_resend_bypass: isResendRequest,
+    },
+  });
 
-### 3. Cooldown reduzido + bypass para reenvio
-- Reduzir cooldown padrão de **2h → 30min**.
-- Detectar pedido explícito de reenvio (`/manda(r)?\s+(de\s+novo|novamente|outra\s+vez)/i`) → cooldown = 0.
-
-### 4. Comparativo automático (5ª melhoria)
-Quando detectar perguntas como "qual a diferença entre os planos", "comparar planos", "qual escolher" → buscar vídeo da categoria `comparativo` na `media_library` e enviar com prioridade 2.
-
-### 5. Reforço no system prompt
-Acrescentar instrução à Orbi para sempre citar o nome completo do plano ("Órbita Plus", não só "o intermediário"), garantindo consistência mesmo sem a Camada 1.
-
-### 6. Telemetria
-Adicionar ao `metadata` da `send_queue`:
-```ts
-{
-  video_trigger_source: 'user_message' | 'ai_response' | 'comparison_intent',
-  video_skip_reason: 'cooldown' | 'no_media' | null,
-  video_category_matched: 'orbita_plus' | ...
+// 🆕 Logar erro para futura observabilidade
+if (insertErr) {
+  console.error(`[Nina] 🎬 ❌ Falha ao enfileirar vídeo "${video.name}":`, insertErr);
+  continue;
 }
 ```
 
-## Constantes novas
-```ts
-const VIDEO_COOLDOWN_MS = 30 * 60 * 1000; // 30min
-const RESEND_REGEX = /manda(r)?\s+(de\s+novo|novamente|outra\s+vez)/i;
-const COMPARISON_REGEX = /(diferen[çc]a|comparar|comparativo|qual\s+(escolher|melhor)|entre\s+os\s+planos)/i;
+### 2. Query de cooldown (linha ~4297-4310)
+Trocar a busca por `messages.media_id` (que não existe) por uma busca **via `media_url`** (campo que ambas as tabelas têm) ou via `metadata->>'media_id'`:
+
+```typescript
+if (!isResendRequest) {
+  const cooldownAgo = new Date(Date.now() - VIDEO_COOLDOWN_MS).toISOString();
+  const { data: recentSends } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('conversation_id', conversation.id)
+    .eq('media_url', video.file_url)   // ✅ usa media_url
+    .gte('sent_at', cooldownAgo)
+    .limit(1);
+
+  if (recentSends && recentSends.length > 0) {
+    console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nos últimos 30min, pulando`);
+    continue;
+  }
+}
 ```
 
-## Não muda
-- Schema do banco
-- Estrutura `media_library` (já tem categorias certas)
-- Prioridade/scheduled_at do envio
-- Anti-loop, critic pass, roteamento adaptativo (mantidos)
+### 3. Verificar telemetria de erro adicional
+Envolver o loop principal em `try/catch` para garantir que falhas em vídeos **nunca** bloqueiem o envio do texto principal (boa prática defensiva).
 
-## Validação pós-deploy
-Logs esperados:
-- Cliente pergunta "me explica o plus" → `[Nina][Video] ✅ Detectado em user_message: orbita_plus`
-- Cliente pede "manda de novo o vídeo do total" → bypass cooldown + envio
-- Cliente pergunta "qual a diferença entre os planos" → envio de vídeo `comparativo`
+### 4. Redeploy
+Após edição, fazer deploy da edge function `nina-orchestrator` e validar com nova conversa.
+
+## 🧪 Validação pós-deploy
+1. Enviar mensagem de teste mencionando "Órbita Galáxia" em conversa nova
+2. Conferir nos logs: `[Nina] 🎬 Planos detectados: Órbita Galáxia` **e** ausência de erro de insert
+3. Conferir tabela `send_queue` — deve haver registro `message_type='video'` com `media_url` preenchida
+4. Confirmar que o vídeo chega ao WhatsApp **antes** do texto
+
+## 📋 Arquivos a editar
+- `supabase/functions/nina-orchestrator/index.ts` (apenas a função `queuePlanVideoIfMentioned`)
+
+## ⚠️ Nada além disso
+Não há mudanças de schema, migrations, RLS ou prompt. É uma correção pontual de bug de schema mismatch.
