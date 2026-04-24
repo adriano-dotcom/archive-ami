@@ -322,7 +322,7 @@ const MediaLibrarySettings: React.FC = () => {
                       <TableCell className="text-xs">{planName || '—'}</TableCell>
                       <TableCell className="text-center">
                         {item.auto_send_enabled ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">Sim</Badge>
+                          <Badge className="bg-primary/15 text-primary border-primary/30">Sim</Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
