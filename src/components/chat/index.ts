@@ -6,3 +6,4 @@ export { ConversationSummaryNotes } from './ConversationSummaryNotes';
 export { PDFPreviewModal } from './PDFPreviewModal';
 export { VideoThumbnailPreview } from './VideoThumbnailPreview';
 export { default as ContactProfilePanel } from './ContactProfilePanel';
+export { default as MediaLibraryPicker } from './MediaLibraryPicker';
