@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope, BookOpen } from 'lucide-react';
+import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope, BookOpen, FolderOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
 import AgentsSettings, { AgentsSettingsRef } from './settings/AgentsSettings';
