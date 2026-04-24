@@ -4293,19 +4293,23 @@ async function queuePlanVideoIfMentioned(
 
     const video = videos[0];
 
-    // Anti-spam: não reenviar o mesmo vídeo se foi enviado há menos de 2h nessa conversa
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const { data: recentSends } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('conversation_id', conversation.id)
-      .eq('media_id', video.id)
-      .gte('sent_at', twoHoursAgo)
-      .limit(1);
+    // Anti-spam: cooldown padrão 30min — bypass se cliente pediu reenvio explícito
+    if (!isResendRequest) {
+      const cooldownAgo = new Date(Date.now() - VIDEO_COOLDOWN_MS).toISOString();
+      const { data: recentSends } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversation.id)
+        .eq('media_id', video.id)
+        .gte('sent_at', cooldownAgo)
+        .limit(1);
 
-    if (recentSends && recentSends.length > 0) {
-      console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nas últimas 2h, pulando`);
-      continue;
+      if (recentSends && recentSends.length > 0) {
+        console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nos últimos 30min, pulando (sem pedido de reenvio)`);
+        continue;
+      }
+    } else {
+      console.log(`[Nina] 🎬 ↻ Cliente pediu reenvio — cooldown ignorado para "${video.name}"`);
     }
 
     // Verifica se já está na fila pendente
@@ -4325,6 +4329,9 @@ async function queuePlanVideoIfMentioned(
     // Envia o vídeo ANTES do texto: usa priority maior e scheduled_at anterior
     // Cada vídeo subsequente espaçado em 1.5s
     const videoDelay = Math.max(0, baseDelay - 2000) + i * 1500;
+    const triggerSource = (plan as any).source === 'user_message' && plan.category === 'comparativo'
+      ? 'comparison_intent'
+      : (plan as any).source || 'ai_response';
 
     const { error: insertErr } = await supabase
       .from('send_queue')
@@ -4346,6 +4353,9 @@ async function queuePlanVideoIfMentioned(
           video_name: video.name,
           agent_id: agent?.id,
           agent_name: agent?.name,
+          video_trigger_source: triggerSource,
+          video_category_matched: plan.category,
+          video_resend_bypass: isResendRequest,
         },
       });
 
@@ -4355,7 +4365,7 @@ async function queuePlanVideoIfMentioned(
     }
 
     queuedCount++;
-    console.log(`[Nina] 🎬 ✅ Vídeo "${video.name}" (${plan.label}) enfileirado para envio`);
+    console.log(`[Nina] 🎬 ✅ Vídeo "${video.name}" (${plan.label}) enfileirado [origem=${triggerSource}]`);
   }
 
   return queuedCount;
