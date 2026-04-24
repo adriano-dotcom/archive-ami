@@ -4039,6 +4039,13 @@ Agradeço pela compreensão! 🙏`;
     // ===== SANITIZE AI RESPONSE: Remove prompt leaks and internal markers =====
     aiContent = sanitizeAiResponse(aiContent);
 
+    // ===== ORBE 360 SAFETY NET (normal flow) =====
+    // Se a intenção foi detectada mas a LLM não incluiu o link, substitui por resposta determinística.
+    if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
+      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória. Aplicando fallback determinístico Orbe 360.');
+      aiContent = ORBE_360_FALLBACK_RESPONSE;
+    }
+
     console.log('[Nina] AI response received (sanitized), length:', aiContent.length);
 
     // Calculate response time
