@@ -117,7 +117,7 @@ const MediaLibrarySettings: React.FC = () => {
     setForm({
       name: '',
       description: '',
-      category: 'general',
+      category: 'geral',
       plan_id: '',
       trigger_keywords: '',
       auto_send_enabled: false,
