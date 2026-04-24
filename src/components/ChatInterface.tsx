@@ -718,6 +718,28 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  // Send a media item already stored in the media library (no re-upload)
+  const handleSendLibraryMedia = async (item: {
+    id: string;
+    name: string;
+    file_url: string;
+    media_type: string;
+    mime_type: string | null;
+    send_count?: number;
+  }) => {
+    if (!activeChat) return;
+    try {
+      const operatorName = user?.email
+        ? teamMembers.find((m) => m.email === user.email)?.name
+        : undefined;
+      await api.sendLibraryMedia(activeChat.id, item, operatorName);
+      toast.success(`${item.name} enviado!`);
+    } catch (err) {
+      console.error('Erro ao enviar mídia da biblioteca:', err);
+      toast.error('Erro ao enviar mídia');
+    }
+  };
+
   // Mark as read when selecting conversation
   useEffect(() => {
     if (selectedChatId && (activeChat?.unreadCount ?? 0) > 0) {
