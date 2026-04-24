@@ -49,7 +49,7 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker } from './chat';
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -715,6 +715,28 @@ const ChatInterface: React.FC = () => {
       setUploadingFile(false);
       // Reset input to allow selecting same file again
       e.target.value = '';
+    }
+  };
+
+  // Send a media item already stored in the media library (no re-upload)
+  const handleSendLibraryMedia = async (item: {
+    id: string;
+    name: string;
+    file_url: string;
+    media_type: string;
+    mime_type: string | null;
+    send_count?: number;
+  }) => {
+    if (!activeChat) return;
+    try {
+      const operatorName = user?.email
+        ? teamMembers.find((m) => m.email === user.email)?.name
+        : undefined;
+      await api.sendLibraryMedia(activeChat.id, item, operatorName);
+      toast.success(`${item.name} enviado!`);
+    } catch (err) {
+      console.error('Erro ao enviar mídia da biblioteca:', err);
+      toast.error('Erro ao enviar mídia');
     }
   };
 
@@ -2498,6 +2520,10 @@ const ChatInterface: React.FC = () => {
                           <Paperclip className="w-5 h-5" />
                         )}
                       </Button>
+                      <MediaLibraryPicker
+                        disabled={!windowTimeRemaining.isOpen}
+                        onSend={handleSendLibraryMedia}
+                      />
                     </>
                   )}
                   <Button 
