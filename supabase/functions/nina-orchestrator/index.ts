@@ -4253,6 +4253,25 @@ async function queuePlanVideoIfMentioned(
     }
   }
 
+  // 🎯 PRIORIZAÇÃO: se o user mencionou explicitamente algum plano,
+  // descartar planos que apareceram APENAS na resposta da IA (geralmente
+  // citações comparativas como "diferente do Galáxia, o Plus..."). Isso
+  // evita enviar o vídeo errado quando a IA cita outro plano de passagem.
+  const hasUserPlanMention = mentioned.some((m) => m.source === 'user_message');
+  if (hasUserPlanMention) {
+    const beforeCount = mentioned.length;
+    const filtered = mentioned.filter((m) => m.source === 'user_message');
+    if (filtered.length < beforeCount) {
+      const dropped = mentioned
+        .filter((m) => m.source === 'ai_response')
+        .map((m) => m.label)
+        .join(', ');
+      console.log(`[Nina] 🎬 🎯 User pediu plano específico — descartando ${beforeCount - filtered.length} citação(ões) da IA: ${dropped}`);
+    }
+    mentioned.length = 0;
+    mentioned.push(...filtered);
+  }
+
   // Detectar intenção de comparativo (sempre via user message)
   const isComparison = VIDEO_COMPARISON_REGEX.test(userMessage);
   if (isComparison && !seenCategories.has('comparativo')) {
