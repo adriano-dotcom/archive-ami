@@ -5176,6 +5176,59 @@ Antes de fazer QUALQUER pergunta:
 
 // ===== SANITIZE AI RESPONSE =====
 // Remove prompt leaks, internal markers, and branding errors from AI output
+// ============================================================
+// Orbe 360: detecção determinística de intenção "lead sem pet"
+// ou interesse explícito em telemedicina humana / funeral.
+// Usado para forçar oferta do Orbe 360 mesmo se a LLM ignorar.
+// ============================================================
+function detectNoPetIntent(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+
+  const patterns: RegExp[] = [
+    // "não tenho pet/cachorro/gato/bicho/animal"
+    /\bn[aã]o\s+tenho\s+(um\s+|uma\s+)?(pet|bicho|animal|c[aã]o|cachorr[oa]|gat[oa])\b/i,
+    // "sem pet/cachorro/gato"
+    /\bsem\s+(pet|bicho|animal|c[aã]o|cachorr[oa]|gat[oa])\b/i,
+    // "não possuo pet"
+    /\bn[aã]o\s+possuo\s+(um\s+|uma\s+)?(pet|bicho|animal|c[aã]o|cachorr[oa]|gat[oa])\b/i,
+    // "plano pra mim / pra minha família" / "pra você mesmo"
+    /\bplano\s+(pra|para)\s+(mim|eu|minha\s+fam[ií]lia|minha\s+esposa|meu\s+marido|meus\s+filhos)\b/i,
+    // saúde humana / telemedicina humana
+    /\b(sa[uú]de|telemedicina|consulta)\s+human[oa]\b/i,
+    // funeral / luto
+    /\b(funeral|cobertura\s+funeral|assist[eê]ncia\s+funeral|servi[cç]o\s+funeral|luto)\b/i,
+    // "posso contratar pra mim"
+    /\bposso\s+contratar\s+(pra|para)\s+mim\b/i,
+    // "quero algo pra mim/minha família"
+    /\bquero\s+(algo|um\s+plano|cobertura)\s+(pra|para)\s+(mim|minha\s+fam[ií]lia)\b/i,
+  ];
+
+  return patterns.some((rx) => rx.test(t));
+}
+
+const ORBE_360_FORCED_INSTRUCTION = `
+
+🚨 INSTRUÇÃO OBRIGATÓRIA DETECTADA — LEAD SEM PET / INTERESSE HUMANO 🚨
+
+O sistema detectou que o lead:
+- NÃO tem pet, OU
+- Está pedindo proteção para si mesmo / família, OU
+- Mencionou telemedicina humana, funeral, luto ou saúde humana.
+
+REGRAS OBRIGATÓRIAS PARA ESTA RESPOSTA (SEM EXCEÇÃO):
+1. NÃO sugira adotar pet, NÃO diga que o plano é "exclusivo para cães e gatos", NÃO encerre a conversa.
+2. APRESENTE o **Orbe 360** como alternativa contratável de forma ISOLADA (não exige pet).
+3. Cite os 2 benefícios principais: **telemedicina humana 24h** + **cobertura funeral completa com apoio psicológico**.
+4. INCLUA OBRIGATORIAMENTE o link: https://orbepet.com.br/orbe-360
+5. Resposta CURTA (2–3 linhas), tom acolhedor, sem listas longas.
+
+Exemplo de tom esperado:
+"Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
+`;
+
+const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360`;
+
 function sanitizeAiResponse(content: string): string {
   if (!content) return content;
   
