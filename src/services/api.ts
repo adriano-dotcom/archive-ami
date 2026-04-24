@@ -1683,4 +1683,105 @@ export const api = {
 
     return msgData.id;
   },
+
+  /**
+   * Send a media file already stored in the media_library (no re-upload).
+   * Reuses the existing public URL, queues for WhatsApp delivery and
+   * increments the library item's send_count.
+   */
+  sendLibraryMedia: async (
+    conversationId: string,
+    libraryItem: {
+      id: string;
+      name: string;
+      file_url: string;
+      media_type: string;
+      mime_type: string | null;
+      send_count?: number;
+    },
+    operatorName?: string
+  ): Promise<string> => {
+    console.log(`[API] Sending library media ${libraryItem.id} to conversation ${conversationId}`);
+
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .select('contact_id')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError || !conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    const messageType =
+      (['image', 'video', 'audio', 'document'].includes(libraryItem.media_type)
+        ? libraryItem.media_type
+        : 'document') as 'image' | 'video' | 'audio' | 'document';
+
+    const caption = operatorName ? `[${operatorName}] ${libraryItem.name}` : libraryItem.name;
+
+    const { data: msgData, error: msgError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        content: caption,
+        type: messageType,
+        from_type: 'human',
+        status: 'processing',
+        media_url: libraryItem.file_url,
+        media_type: libraryItem.mime_type || messageType,
+        sent_at: new Date().toISOString(),
+        metadata: {
+          ...(operatorName ? { sender_name: operatorName } : {}),
+          source: 'media_library',
+          library_item_id: libraryItem.id,
+        },
+      })
+      .select('id')
+      .single();
+
+    if (msgError || !msgData) {
+      console.error('[API] Error creating library media message:', msgError);
+      throw new Error('Failed to create message record');
+    }
+
+    const { error: sendError } = await supabase
+      .from('send_queue')
+      .insert({
+        conversation_id: conversationId,
+        contact_id: conversation.contact_id,
+        content: caption,
+        media_url: libraryItem.file_url,
+        from_type: 'human',
+        message_type: messageType,
+        priority: 2,
+        message_id: msgData.id,
+      });
+
+    if (sendError) {
+      console.error('[API] Error queuing library media:', sendError);
+      throw sendError;
+    }
+
+    // Increment send_count + last_sent_at (best-effort, don't block UI)
+    supabase
+      .from('media_library')
+      .update({
+        send_count: (libraryItem.send_count ?? 0) + 1,
+        last_sent_at: new Date().toISOString(),
+      })
+      .eq('id', libraryItem.id)
+      .then(({ error }) => {
+        if (error) console.warn('[API] Failed to update media_library counters:', error);
+      });
+
+    // Trigger sender
+    try {
+      await supabase.functions.invoke('whatsapp-sender');
+    } catch (err) {
+      console.error('[API] Failed to trigger whatsapp-sender:', err);
+    }
+
+    return msgData.id;
+  },
 };
