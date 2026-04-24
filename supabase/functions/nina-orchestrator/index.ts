@@ -4323,7 +4323,187 @@ async function queuePlanVideoIfMentioned(
   return queuedCount;
 }
 
-// Helper function to queue text response with chunking and duplicate check
+// ============================================================================
+// ANTI-LOOP: Detecção de respostas repetidas/equivalentes
+// ============================================================================
+const ANTI_LOOP_THRESHOLD = 0.85;
+const ANTI_LOOP_HISTORY_SIZE = 5;
+const ANTI_LOOP_HANDOFF_AT = 3;
+
+function normalizeForComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(vc|voce)\b/g, 'você')
+    .replace(/\b(tb|tbm)\b/g, 'também')
+    .replace(/\b(pra)\b/g, 'para')
+    .replace(/\b(td)\b/g, 'tudo')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function jaccardSimilarity(a: string, b: string): number {
+  const wordsA = new Set(a.split(' ').filter(w => w.length > 2));
+  const wordsB = new Set(b.split(' ').filter(w => w.length > 2));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function trigramSimilarity(a: string, b: string): number {
+  const trigrams = (s: string) => {
+    const set = new Set<string>();
+    const padded = ` ${s} `;
+    for (let i = 0; i <= padded.length - 3; i++) set.add(padded.substring(i, i + 3));
+    return set;
+  };
+  const tA = trigrams(a), tB = trigrams(b);
+  if (tA.size === 0 || tB.size === 0) return 0;
+  const intersection = [...tA].filter(t => tB.has(t)).length;
+  return intersection / Math.max(tA.size, tB.size);
+}
+
+function antiLoopSimilarityScore(candidate: string, existing: string): number {
+  const a = normalizeForComparison(candidate);
+  const b = normalizeForComparison(existing);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const jac = jaccardSimilarity(a, b);
+  const tri = trigramSimilarity(a, b);
+  const lexical = Math.max(jac, tri);
+  const prefixLen = Math.min(40, a.length, b.length);
+  const prefixSim = (prefixLen >= 20 && a.substring(0, prefixLen) === b.substring(0, prefixLen)) ? 1 : 0;
+  return Math.min(1, lexical * 0.7 + prefixSim * 0.3);
+}
+
+function findHighestSimilarity(
+  candidate: string,
+  history: Array<{ content: string }>
+): { maxScore: number; mostSimilar: string | null } {
+  let maxScore = 0;
+  let mostSimilar: string | null = null;
+  for (const h of history) {
+    if (!h?.content) continue;
+    const score = antiLoopSimilarityScore(candidate, h.content);
+    if (score > maxScore) {
+      maxScore = score;
+      mostSimilar = h.content;
+    }
+  }
+  return { maxScore, mostSimilar };
+}
+
+function getAntiLoopFallback(contactName: string | null | undefined, agentName?: string | null): string {
+  const name = (contactName || '').split(' ')[0] || '';
+  const nameSuffix = name ? `, ${name}` : '';
+  const options = [
+    `Quer que eu te explique de outro jeito${nameSuffix}? Posso focar no que mais te interessa.`,
+    `Me conta${nameSuffix}: qual parte ainda ficou em dúvida pra eu te ajudar melhor?`,
+    `Posso te enviar mais detalhes ou prefere que a gente avance pro próximo passo${nameSuffix}?`,
+    `Se preferir${nameSuffix}, posso te chamar pra uma conversa rápida — fica mais fácil tirar dúvidas.`,
+    `Tem alguma informação específica que eu posso te enviar agora${nameSuffix}?`,
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+async function regenerateWithAntiLoop(
+  supabase: any,
+  conversation: any,
+  aiSettings: any,
+  blockedContent: string,
+  similarMessage: string,
+  recentHistory: Array<{ content: string; from_type: string }>,
+  contactName: string | null | undefined
+): Promise<string | null> {
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!lovableApiKey) return null;
+
+  const lastSimilarTrunc = similarMessage.length > 200 ? similarMessage.substring(0, 200) + '...' : similarMessage;
+  const blockedTrunc = blockedContent.length > 200 ? blockedContent.substring(0, 200) + '...' : blockedContent;
+
+  // Build minimal history (last 6 messages) so the model has context
+  const miniHistory = recentHistory.slice(0, 6).reverse().map((m: any) => ({
+    role: m.from_type === 'user' ? 'user' : 'assistant',
+    content: m.content
+  }));
+
+  const antiLoopSystem = `Você é um assistente de vendas brasileiro. Sua última resposta foi BLOQUEADA por estar muito parecida com algo que você já disse.
+
+❌ MENSAGEM BLOQUEADA (não repita): "${blockedTrunc}"
+❌ MENSAGEM ANTERIOR PARECIDA: "${lastSimilarTrunc}"
+
+⛔ REGRAS OBRIGATÓRIAS:
+1. NÃO repita a estrutura, palavras-chave ou pergunta da mensagem bloqueada.
+2. Se você já fez essa pergunta, AVANCE: ofereça o próximo passo (link, plano, agendamento, fechamento).
+3. Mude o ângulo: se perguntou, agora afirme. Se ofereceu A, ofereça B.
+4. Seja curto (1-2 frases), natural e em português brasileiro.
+5. Não comece com "Olá" nem repita o nome do cliente se já o fez.
+${contactName ? `6. Nome do cliente: ${contactName.split(' ')[0]} (use só se fizer sentido).` : ''}
+
+Responda APENAS com a nova mensagem, sem explicações nem aspas.`;
+
+  try {
+    const resp = await fetch(LOVABLE_AI_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: aiSettings?.model || 'google/gemini-3-flash-preview',
+        messages: [
+          { role: 'system', content: antiLoopSystem },
+          ...miniHistory
+        ],
+        temperature: 0.95,
+        max_tokens: 600
+      })
+    });
+
+    if (!resp.ok) {
+      console.warn('[Nina][AntiLoop] Regeneração falhou:', resp.status);
+      return null;
+    }
+    const data = await resp.json();
+    let regenerated = data.choices?.[0]?.message?.content?.trim();
+    if (!regenerated) return null;
+    regenerated = regenerated.replace(/^["']|["']$/g, '').trim();
+    regenerated = sanitizeAiResponse(regenerated);
+    return regenerated || null;
+  } catch (e) {
+    console.warn('[Nina][AntiLoop] Erro na regeneração:', e);
+    return null;
+  }
+}
+
+async function bumpConsecutiveLoops(supabase: any, conversationId: string, increment: boolean) {
+  try {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('nina_context')
+      .eq('id', conversationId)
+      .maybeSingle();
+    const ctx = (conv?.nina_context || {}) as any;
+    const current = Number(ctx.consecutive_loops || 0);
+    const next = increment ? current + 1 : 0;
+    const updated: any = { ...ctx, consecutive_loops: next };
+    if (next >= ANTI_LOOP_HANDOFF_AT) {
+      updated.requires_human_handoff = true;
+      updated.handoff_reason = 'anti_loop_threshold_reached';
+    }
+    await supabase
+      .from('conversations')
+      .update({ nina_context: updated })
+      .eq('id', conversationId);
+  } catch (e) {
+    console.warn('[Nina][AntiLoop] Falha ao atualizar consecutive_loops:', e);
+  }
+}
+// ============================================================================
+
+// Helper function to queue text response with chunking and anti-loop check
 async function queueTextResponse(
   supabase: any,
   conversation: any,
@@ -4334,55 +4514,101 @@ async function queueTextResponse(
   delay: number,
   agent?: Agent | null
 ) {
-  // ===== DUPLICATE MESSAGE CHECK =====
-  // Check if the same message was sent in the last 5 minutes to prevent repetition
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-  
-  const { data: recentMessages } = await supabase
+  // ===== ANTI-LOOP: comparar candidata com últimas mensagens enviadas =====
+  // Pega últimas N mensagens enviadas pela Orbi/humano (independente do tempo)
+  const { data: recentSentMessages } = await supabase
     .from('messages')
-    .select('content')
+    .select('content, from_type, sent_at')
     .eq('conversation_id', conversation.id)
     .in('from_type', ['nina', 'human'])
-    .gte('sent_at', fiveMinutesAgo)
     .order('sent_at', { ascending: false })
-    .limit(5);
+    .limit(ANTI_LOOP_HISTORY_SIZE);
 
-  const normalizedNewContent = aiContent.toLowerCase().trim();
-  const isDuplicate = recentMessages?.some((m: any) => {
-    if (!m.content) return false;
-    const normalizedExisting = m.content.toLowerCase().trim();
-    // Check for exact match or very similar (>90% similarity)
-    return normalizedExisting === normalizedNewContent || 
-           (normalizedExisting.length > 20 && normalizedNewContent.includes(normalizedExisting.substring(0, 50)));
-  });
+  // Também busca histórico completo para regeneração contextual
+  const { data: recentAllMessages } = await supabase
+    .from('messages')
+    .select('content, from_type, sent_at')
+    .eq('conversation_id', conversation.id)
+    .order('sent_at', { ascending: false })
+    .limit(8);
 
-  if (isDuplicate) {
-    console.log('[Nina] ⚠️ Mensagem duplicada detectada, não enviando:', aiContent.substring(0, 50) + '...');
-    return;
+  let { maxScore, mostSimilar } = findHighestSimilarity(aiContent, recentSentMessages || []);
+  let antiLoopRegenerated = false;
+  let antiLoopFallbackUsed = false;
+  let finalContent = aiContent;
+
+  if (maxScore >= ANTI_LOOP_THRESHOLD && mostSimilar) {
+    console.warn(`[Nina][AntiLoop] 🔁 Bloqueado score=${maxScore.toFixed(2)} | candidata="${aiContent.substring(0, 80)}..." | similar="${mostSimilar.substring(0, 80)}..."`);
+
+    // Buscar contato para personalizar fallback/regeneração
+    const { data: contactRow } = await supabase
+      .from('contacts')
+      .select('name')
+      .eq('id', conversation.contact_id)
+      .maybeSingle();
+    const contactName: string | null = contactRow?.name || null;
+
+    // Tentar regenerar uma vez
+    const regenerated = await regenerateWithAntiLoop(
+      supabase,
+      conversation,
+      aiSettings,
+      aiContent,
+      mostSimilar,
+      recentAllMessages || [],
+      contactName
+    );
+
+    if (regenerated) {
+      const recheck = findHighestSimilarity(regenerated, recentSentMessages || []);
+      if (recheck.maxScore < ANTI_LOOP_THRESHOLD) {
+        console.log(`[Nina][AntiLoop] ✅ Regenerado com sucesso (score=${recheck.maxScore.toFixed(2)})`);
+        finalContent = regenerated;
+        antiLoopRegenerated = true;
+        maxScore = recheck.maxScore;
+        await bumpConsecutiveLoops(supabase, conversation.id, false);
+      } else {
+        console.warn(`[Nina][AntiLoop] ⚠️ Regeneração ainda em loop (score=${recheck.maxScore.toFixed(2)}), usando fallback`);
+        finalContent = getAntiLoopFallback(contactName, agent?.name);
+        antiLoopFallbackUsed = true;
+        await bumpConsecutiveLoops(supabase, conversation.id, true);
+      }
+    } else {
+      console.warn('[Nina][AntiLoop] 🆘 Regeneração indisponível, usando fallback');
+      finalContent = getAntiLoopFallback(contactName, agent?.name);
+      antiLoopFallbackUsed = true;
+      await bumpConsecutiveLoops(supabase, conversation.id, true);
+    }
+  } else {
+    // Sem loop: zera contador
+    await bumpConsecutiveLoops(supabase, conversation.id, false);
   }
-  
-  // Also check send_queue for pending duplicates (by content OR by response_to_message_id)
+
+  const normalizedFinalContent = finalContent.toLowerCase().trim();
+
+  // Checa fila pendente (mesmo response_to_message_id ou conteúdo idêntico)
   const { data: pendingMessages } = await supabase
     .from('send_queue')
     .select('content, metadata')
     .eq('conversation_id', conversation.id)
     .in('status', ['pending', 'processing'])
     .limit(10);
-    
+
   const isPendingDuplicate = pendingMessages?.some((m: any) => {
     if (!m.content) return false;
-    // Check exact text match
-    if (m.content.toLowerCase().trim() === normalizedNewContent) return true;
-    // Check if already responding to same message
+    if (m.content.toLowerCase().trim() === normalizedFinalContent) return true;
     if (m.metadata?.response_to_message_id === message.id) return true;
     return false;
   });
-  
+
   if (isPendingDuplicate) {
-    console.log('[Nina] ⚠️ Mensagem já está na fila de envio (conteúdo ou message_id), não duplicando');
+    console.log('[Nina][AntiLoop] ⚠️ Já há mensagem equivalente na fila (conteúdo/message_id), não duplicando');
     return;
   }
-  // ===== END DUPLICATE MESSAGE CHECK =====
+  // ===== FIM ANTI-LOOP =====
+
+  // Substitui aiContent pelo conteúdo final (regenerado/fallback se aplicável)
+  aiContent = finalContent;
 
   const messageChunks = settings?.message_breaking_enabled 
     ? breakMessageIntoChunks(aiContent)
