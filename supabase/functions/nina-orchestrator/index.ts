@@ -3718,7 +3718,8 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 2500
+        max_tokens: 2500,
+        ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
       })
     });
 
@@ -3749,7 +3750,8 @@ Agradeço pela compreensão! 🙏`;
             model: aiSettings.model,
             messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
             temperature: aiSettings.temperature,
-            max_tokens: 4000
+            max_tokens: 4000,
+            ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
           })
         });
         if (retryResponse.ok) {
@@ -3869,7 +3871,8 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 2500
+        max_tokens: 2500,
+        ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
       })
     });
 
@@ -3911,7 +3914,8 @@ Agradeço pela compreensão! 🙏`;
             model: aiSettings.model,
             messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
             temperature: aiSettings.temperature,
-            max_tokens: 4000
+            max_tokens: 4000,
+            ...(aiSettings.reasoning && { reasoning: aiSettings.reasoning })
           })
         });
         if (retryResponse.ok) {
