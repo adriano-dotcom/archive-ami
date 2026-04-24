@@ -308,7 +308,7 @@ async function getReembolsos(supabase: any) {
     .filter((c: any) => c.paid_at)
     .map((c: any) => (new Date(c.paid_at).getTime() - new Date(c.created_at).getTime()) / 86400000);
   const avgDays = avgResolutionDays.length > 0
-    ? Math.round((avgResolutionDays.reduce((a, b) => a + b, 0) / avgResolutionDays.length) * 10) / 10
+    ? Math.round((avgResolutionDays.reduce((a: number, b: number) => a + b, 0) / avgResolutionDays.length) * 10) / 10
     : null;
 
   return {

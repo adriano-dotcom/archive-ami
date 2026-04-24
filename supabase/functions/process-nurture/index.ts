@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
           }
         } catch (sendError) {
           stepStatus = "failed";
-          errorMessage = sendError.message || "Send error";
+          errorMessage = sendError instanceof Error ? sendError.message : "Send error";
         }
 
         // Log the step
