@@ -3849,6 +3849,12 @@ Agradeço pela compreensão! 🙏`;
       console.error('[Nina] All 3 models returned empty response in handoff, using enhanced fallback message');
       aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
+
+    // ===== ORBE 360 SAFETY NET (handoff path) =====
+    if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
+      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória (handoff). Aplicando fallback determinístico.');
+      aiContent = ORBE_360_FALLBACK_RESPONSE;
+    }
     
     // Queue AI response with additional delay after handoff
     const responseTime = Date.now() - new Date(message.sent_at).getTime();
