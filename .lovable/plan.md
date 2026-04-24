@@ -1,89 +1,57 @@
 ## 🐛 Diagnóstico confirmado
 
-A função `queuePlanVideoIfMentioned` em `supabase/functions/nina-orchestrator/index.ts` está **quebrada em dois pontos** porque referencia uma coluna `media_id` que **não existe**:
+Na conversa analisada (17:39-17:40):
 
-| Local | Linha | Problema |
-|---|---|---|
-| Cooldown anti-spam | `4303` | `.eq('media_id', video.id)` em `messages` → coluna inexistente, query falha/retorna vazio |
-| Insert na fila de envio | `4345` | `media_id: video.id` no insert do `send_queue` → coluna inexistente, **insert inteiro falha silenciosamente** |
+| Hora | Evento | Categoria | Source |
+|---|---|---|---|
+| 17:39:43 | User: "Me explica o plus" | — | — |
+| 17:40:17 | 🎬 Vídeo enviado | **orbita_galaxia** | ai_response ❌ |
+| 17:40:19 | 🎬 Vídeo enviado | orbita_plus | user_message ✅ |
+| 17:40:20 | Texto: "O Órbita Plus é o queridinho..." | — | — |
 
-**Resultado**: vídeo é detectado corretamente (logs mostram `Planos detectados: Órbita Galáxia(user_message)`), mas o `INSERT` no `send_queue` retorna erro PostgreSQL `column "media_id" of relation "send_queue" does not exist` — e como o erro não é propagado, o fluxo segue normal mas **nenhum vídeo é enfileirado**.
+**Causa raiz**: A IA respondeu mencionando o Plus, mas no texto explicativo citou comparativamente o Galáxia (*"Diferente do Galáxia, o Plus não cobre castração..."*). O detector `queuePlanVideoIfMentioned` varre **tanto `userMessage` quanto `aiContent`** e marcou:
+- `orbita_plus` (user_message) ✅
+- `orbita_galaxia` (ai_response) ❌ — citação contextual, não pedido
+
+Como o array `planMatchers` lista Galáxia em **primeiro lugar**, o Galáxia foi enfileirado primeiro e enviado antes do Plus.
 
 ## ✅ Correção proposta
 
-### 1. Insert no `send_queue` (linha ~4336-4360)
-Mover `media_id` para dentro de `metadata` (JSONB), que é a coluna correta para telemetria:
+### Regra: prioridade absoluta ao plano que o usuário pediu
+
+Em `supabase/functions/nina-orchestrator/index.ts`, função `queuePlanVideoIfMentioned` (~linha 4193):
+
+**1. Se houver QUALQUER plano detectado em `user_message`, ignorar TODAS as detecções de `ai_response`** (que são quase sempre citações comparativas, não o foco da pergunta).
 
 ```typescript
-const { error: insertErr } = await supabase
-  .from('send_queue')
-  .insert({
-    conversation_id: conversation.id,
-    contact_id: conversation.contact_id,
-    content: '',
-    from_type: 'nina',
-    message_type: 'video',
-    media_url: video.file_url,
-    // ❌ media_id: video.id,   ← REMOVER (coluna não existe)
-    priority: 2,
-    scheduled_at: new Date(Date.now() + videoDelay).toISOString(),
-    metadata: {
-      response_to_message_id: message.id,
-      source: 'auto_plan_video',
-      plan_label: plan.label,
-      plan_category: plan.category,
-      video_name: video.name,
-      media_id: video.id,        // ✅ vai para JSONB
-      agent_id: agent?.id,
-      agent_name: agent?.name,
-      video_trigger_source: triggerSource,
-      video_category_matched: plan.category,
-      video_resend_bypass: isResendRequest,
-    },
-  });
-
-// 🆕 Logar erro para futura observabilidade
-if (insertErr) {
-  console.error(`[Nina] 🎬 ❌ Falha ao enfileirar vídeo "${video.name}":`, insertErr);
-  continue;
+// Após o loop de detecção, antes de checar comparativo:
+const hasUserPlanMention = mentioned.some(m => m.source === 'user_message');
+if (hasUserPlanMention) {
+  // Filtra fora qualquer plano detectado APENAS na resposta da IA
+  const filtered = mentioned.filter(m => m.source === 'user_message');
+  console.log(`[Nina] 🎬 Filtrando ${mentioned.length - filtered.length} plano(s) citado(s) só na resposta IA (priorizando pedido do user)`);
+  mentioned.length = 0;
+  mentioned.push(...filtered);
 }
 ```
 
-### 2. Query de cooldown (linha ~4297-4310)
-Trocar a busca por `messages.media_id` (que não existe) por uma busca **via `media_url`** (campo que ambas as tabelas têm) ou via `metadata->>'media_id'`:
+**2. Reordenar `planMatchers` por especificidade** (Plus primeiro, depois Total, depois Galáxia) — não resolve o bug em si, mas reduz risco quando AMBOS aparecem só na IA. Opcional.
 
-```typescript
-if (!isResendRequest) {
-  const cooldownAgo = new Date(Date.now() - VIDEO_COOLDOWN_MS).toISOString();
-  const { data: recentSends } = await supabase
-    .from('messages')
-    .select('id')
-    .eq('conversation_id', conversation.id)
-    .eq('media_url', video.file_url)   // ✅ usa media_url
-    .gte('sent_at', cooldownAgo)
-    .limit(1);
+**3. Refinar regex do Galáxia**: hoje `\bgalaxia\b` casa qualquer menção solta. Manter, mas a regra #1 já neutraliza falso-positivo no caso comum.
 
-  if (recentSends && recentSends.length > 0) {
-    console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nos últimos 30min, pulando`);
-    continue;
-  }
-}
-```
-
-### 3. Verificar telemetria de erro adicional
-Envolver o loop principal em `try/catch` para garantir que falhas em vídeos **nunca** bloqueiem o envio do texto principal (boa prática defensiva).
-
-### 4. Redeploy
-Após edição, fazer deploy da edge function `nina-orchestrator` e validar com nova conversa.
+**4. Telemetria adicional**: gravar no metadata `video_skip_reason: 'ai_only_with_user_pick'` quando descartarmos vídeos por essa regra, para observabilidade futura.
 
 ## 🧪 Validação pós-deploy
-1. Enviar mensagem de teste mencionando "Órbita Galáxia" em conversa nova
-2. Conferir nos logs: `[Nina] 🎬 Planos detectados: Órbita Galáxia` **e** ausência de erro de insert
-3. Conferir tabela `send_queue` — deve haver registro `message_type='video'` com `media_url` preenchida
-4. Confirmar que o vídeo chega ao WhatsApp **antes** do texto
+
+1. Testar "Me explica o plus" em conversa nova → deve enviar **apenas** vídeo do Plus.
+2. Testar "Qual a diferença entre Plus e Galáxia" → user_message contém ambos, então envia os dois (correto).
+3. Testar "Me fala mais sobre os planos" (genérico) → IA cita planos, comportamento original mantém (envia o que IA citou, pois não há menção em user).
+4. Testar "manda de novo" → resend funciona normal.
 
 ## 📋 Arquivos a editar
-- `supabase/functions/nina-orchestrator/index.ts` (apenas a função `queuePlanVideoIfMentioned`)
 
-## ⚠️ Nada além disso
-Não há mudanças de schema, migrations, RLS ou prompt. É uma correção pontual de bug de schema mismatch.
+- `supabase/functions/nina-orchestrator/index.ts` (apenas a função `queuePlanVideoIfMentioned`, ~10 linhas)
+
+## ⚠️ Sem mudanças em
+
+- Schema, migrations, RLS, biblioteca de mídia (vínculo nome↔vídeo já está correto), prompt do agente.
