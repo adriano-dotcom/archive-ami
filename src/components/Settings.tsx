@@ -169,6 +169,10 @@ const Settings: React.FC = () => {
           <ProductKnowledgeSettings />
         </TabsContent>
 
+        <TabsContent value="media">
+          <MediaLibrarySettings />
+        </TabsContent>
+
         <TabsContent value="diagnostic">
           <WhatsAppDiagnosticPanel />
         </TabsContent>
