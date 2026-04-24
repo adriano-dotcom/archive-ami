@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope, BookOpen } from 'lucide-react';
+import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope, BookOpen, FolderOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
 import AgentsSettings, { AgentsSettingsRef } from './settings/AgentsSettings';
@@ -11,6 +11,7 @@ import GeneralSettings from './settings/GeneralSettings';
 import SalesCoachingSettings from './settings/SalesCoachingSettings';
 import WhatsAppDiagnosticPanel from './settings/WhatsAppDiagnosticPanel';
 import ProductKnowledgeSettings from './settings/ProductKnowledgeSettings';
+import MediaLibrarySettings from './settings/MediaLibrarySettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 
@@ -43,7 +44,7 @@ const Settings: React.FC = () => {
     ? agentsRef.current?.isSaving
     : false;
 
-  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic' && activeTab !== 'products';
+  const showSaveButtons = activeTab !== 'templates' && activeTab !== 'whatsapp-templates' && activeTab !== 'automations' && activeTab !== 'general' && activeTab !== 'coaching' && activeTab !== 'diagnostic' && activeTab !== 'products' && activeTab !== 'media';
   
   return (
     <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-background text-foreground custom-scrollbar">
@@ -93,6 +94,10 @@ const Settings: React.FC = () => {
             <TabsTrigger value="products" className="gap-2">
               <BookOpen className="w-4 h-4" />
               Produtos
+            </TabsTrigger>
+            <TabsTrigger value="media" className="gap-2">
+              <FolderOpen className="w-4 h-4" />
+              Mídia
             </TabsTrigger>
             <TabsTrigger value="diagnostic" className="gap-2">
               <Stethoscope className="w-4 h-4" />
@@ -162,6 +167,10 @@ const Settings: React.FC = () => {
 
         <TabsContent value="products">
           <ProductKnowledgeSettings />
+        </TabsContent>
+
+        <TabsContent value="media">
+          <MediaLibrarySettings />
         </TabsContent>
 
         <TabsContent value="diagnostic">
