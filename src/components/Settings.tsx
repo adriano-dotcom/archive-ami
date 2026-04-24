@@ -11,6 +11,7 @@ import GeneralSettings from './settings/GeneralSettings';
 import SalesCoachingSettings from './settings/SalesCoachingSettings';
 import WhatsAppDiagnosticPanel from './settings/WhatsAppDiagnosticPanel';
 import ProductKnowledgeSettings from './settings/ProductKnowledgeSettings';
+import MediaLibrarySettings from './settings/MediaLibrarySettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 
