@@ -3718,7 +3718,7 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 1000
+        max_tokens: 2500
       })
     });
 
@@ -3738,6 +3738,37 @@ Agradeço pela compreensão! 🙏`;
     const aiData = await aiResponse.json();
     aiContent = aiData.choices?.[0]?.message?.content;
     
+    // 🛡️ AUTO-RETRY: Se a resposta foi truncada (finish_reason=length), refaz com max_tokens maior
+    if (aiContent && aiData.choices?.[0]?.finish_reason === 'length') {
+      console.warn('[Nina] ⚠️ Resposta de handoff truncada (finish_reason=length, len=' + aiContent.length + '), refazendo com max_tokens=4000');
+      try {
+        const retryResponse = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: aiSettings.model,
+            messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
+            temperature: aiSettings.temperature,
+            max_tokens: 4000
+          })
+        });
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryContent = retryData.choices?.[0]?.message?.content;
+          if (retryContent && retryData.choices[0].finish_reason !== 'length') {
+            aiContent = retryContent;
+            console.log('[Nina] ✅ Retry de handoff bem-sucedido (len=' + retryContent.length + ')');
+          } else if (retryContent && retryContent.length > aiContent.length) {
+            // Mesmo truncado, se for maior, usa
+            aiContent = retryContent;
+            console.warn('[Nina] ⚠️ Retry ainda truncado, mas mais completo (len=' + retryContent.length + ')');
+          }
+        }
+      } catch (retryErr) {
+        console.error('[Nina] Erro no retry de handoff:', retryErr);
+      }
+    }
+    
     // Fallback to alternative model if primary returns empty response
     if (!aiContent) {
       console.warn('[Nina] ⚠️ Empty response from primary model in handoff, retrying with gemini-2.5-flash...');
@@ -3756,7 +3787,7 @@ Agradeço pela compreensão! 🙏`;
             ...conversationHistory
           ],
           temperature: 0.8,
-          max_tokens: 1000
+          max_tokens: 2500
         })
       });
 
@@ -3838,7 +3869,7 @@ Agradeço pela compreensão! 🙏`;
           ...conversationHistory
         ],
         temperature: aiSettings.temperature,
-        max_tokens: 1000
+        max_tokens: 2500
       })
     });
 
@@ -3869,6 +3900,39 @@ Agradeço pela compreensão! 🙏`;
       messageContent: message.content?.substring(0, 50)
     }));
 
+    // 🛡️ AUTO-RETRY: Se a resposta foi truncada (finish_reason=length), refaz com max_tokens maior
+    if (aiContent && aiData.choices?.[0]?.finish_reason === 'length') {
+      console.warn('[Nina] ⚠️ Resposta truncada (finish_reason=length, len=' + aiContent.length + '), refazendo com max_tokens=4000');
+      try {
+        const retryResponse = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: aiSettings.model,
+            messages: [{ role: 'system', content: processedPrompt }, ...conversationHistory],
+            temperature: aiSettings.temperature,
+            max_tokens: 4000
+          })
+        });
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryContent = retryData.choices?.[0]?.message?.content;
+          if (retryContent && retryData.choices[0].finish_reason !== 'length') {
+            aiContent = retryContent;
+            console.log('[Nina] ✅ Retry bem-sucedido, conteúdo completo recuperado (len=' + retryContent.length + ')');
+          } else if (retryContent && retryContent.length > aiContent.length) {
+            // Mesmo truncado, se for maior, usa
+            aiContent = retryContent;
+            console.warn('[Nina] ⚠️ Retry ainda truncado, mas mais completo (len=' + retryContent.length + ')');
+          }
+        } else {
+          console.error('[Nina] Retry falhou com status:', retryResponse.status);
+        }
+      } catch (retryErr) {
+        console.error('[Nina] Erro no auto-retry:', retryErr);
+      }
+    }
+
     // Fallback to alternative model if primary returns empty response
     if (!aiContent) {
       console.warn('[Nina] ⚠️ Empty response from primary model, retrying with gemini-2.5-flash...');
@@ -3887,7 +3951,7 @@ Agradeço pela compreensão! 🙏`;
             ...conversationHistory
           ],
           temperature: 0.8,
-          max_tokens: 1000
+          max_tokens: 2500
         })
       });
 
@@ -4831,15 +4895,17 @@ function getModelSettings(
   
   switch (modelMode) {
     case 'flash':
-      return { model: 'google/gemini-2.5-flash', temperature: 0.7 };
+      return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
     case 'pro':
       return { model: 'google/gemini-2.5-pro', temperature: 0.7 };
     case 'pro3':
-      return { model: 'google/gemini-3-pro-preview', temperature: 0.7 };
+      // Trocado de gemini-3-pro-preview (reasoning model que truncava respostas)
+      // para gemini-3-flash-preview - mais rápido, sem reasoning oculto, texto completo
+      return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
     case 'adaptive':
       return getAdaptiveSettings(conversationHistory, message, contact, clientMemory);
     default:
-      return { model: 'google/gemini-2.5-flash', temperature: 0.7 };
+      return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
   }
 }
 
