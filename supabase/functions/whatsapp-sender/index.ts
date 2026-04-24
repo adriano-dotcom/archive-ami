@@ -318,6 +318,14 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
       };
       break;
     
+    case 'video':
+      payload.type = 'video';
+      payload.video = {
+        link: queueItem.media_url,
+        caption: queueItem.content || undefined
+      };
+      break;
+    
     default:
       payload.type = 'text';
       payload.text = { body: queueItem.content };
