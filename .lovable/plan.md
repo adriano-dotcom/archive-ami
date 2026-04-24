@@ -1,57 +1,73 @@
-## 🐛 Diagnóstico confirmado
+# 🎯 Plano: Adicionar Orbe 360 ao repertório da Orbi
 
-Na conversa analisada (17:39-17:40):
+## Contexto
+A Orbi hoje **não conhece o Orbe 360**. Quando o lead diz "não tenho pet, posso contratar pra mim?", ela responde apenas que a OrbePet é exclusiva para cães e gatos — perdendo a venda do produto que cobre justamente o tutor (telemedicina humana 24h + assistência funeral com apoio psicológico).
 
-| Hora | Evento | Categoria | Source |
-|---|---|---|---|
-| 17:39:43 | User: "Me explica o plus" | — | — |
-| 17:40:17 | 🎬 Vídeo enviado | **orbita_galaxia** | ai_response ❌ |
-| 17:40:19 | 🎬 Vídeo enviado | orbita_plus | user_message ✅ |
-| 17:40:20 | Texto: "O Órbita Plus é o queridinho..." | — | — |
+Decisões confirmadas pelo usuário:
+- **Quando ofertar:** lead sem pet, cross-sell pós-venda pet, gatilhos de telemedicina/funeral, e em qualquer oportunidade natural.
+- **Modelo:** pode ser contratado **isoladamente** (não exige plano pet ativo).
 
-**Causa raiz**: A IA respondeu mencionando o Plus, mas no texto explicativo citou comparativamente o Galáxia (*"Diferente do Galáxia, o Plus não cobre castração..."*). O detector `queuePlanVideoIfMentioned` varre **tanto `userMessage` quanto `aiContent`** e marcou:
-- `orbita_plus` (user_message) ✅
-- `orbita_galaxia` (ai_response) ❌ — citação contextual, não pedido
+## Implementação
 
-Como o array `planMatchers` lista Galáxia em **primeiro lugar**, o Galáxia foi enfileirado primeiro e enviado antes do Plus.
+### 1. Cadastrar Orbe 360 em `product_knowledge` (INSERT)
+Inserir registro com `name = 'Orbe 360'`, `is_active = true`, `extraction_status = 'completed'`, `summary` e `full_content` estruturados:
+- O que é (adicional/avulso de telemedicina humana + funeral)
+- Benefícios principais (telemedicina humana 24h, cobertura funeral completa, assessoria 24h, apoio psicológico para a família)
+- Quem pode contratar (qualquer tutor, com ou sem pet — isolado ou complementar)
+- Link oficial: `https://orbepet.com.br/orbe-360`
 
-## ✅ Correção proposta
+### 2. Adicionar bloco "PRODUTO COMPLEMENTAR — ORBE 360" no prompt
+Em `supabase/functions/nina-orchestrator/index.ts`, função `buildContext` (~linha 4820), inserir nova seção logo após "CONHECIMENTO ESPECIALIZADO - PLANOS DE SAÚDE PET":
 
-### Regra: prioridade absoluta ao plano que o usuário pediu
+```
+## PRODUTO COMPLEMENTAR — ORBE 360 (proteção do tutor e família)
 
-Em `supabase/functions/nina-orchestrator/index.ts`, função `queuePlanVideoIfMentioned` (~linha 4193):
+O Orbe 360 é um produto OrbePet voltado ao **tutor e família**, com:
+- 🩺 Telemedicina humana completa 24h
+- ⚱️ Cobertura funeral completa, com assessoria 24h e apoio psicológico
 
-**1. Se houver QUALQUER plano detectado em `user_message`, ignorar TODAS as detecções de `ai_response`** (que são quase sempre citações comparativas, não o foco da pergunta).
+### Pode ser contratado:
+- **De forma isolada** (lead sem pet) — alternativa quando o cliente quer proteção pra si mesmo
+- **Como complemento** a qualquer plano pet (cross-sell)
 
-```typescript
-// Após o loop de detecção, antes de checar comparativo:
-const hasUserPlanMention = mentioned.some(m => m.source === 'user_message');
-if (hasUserPlanMention) {
-  // Filtra fora qualquer plano detectado APENAS na resposta da IA
-  const filtered = mentioned.filter(m => m.source === 'user_message');
-  console.log(`[Nina] 🎬 Filtrando ${mentioned.length - filtered.length} plano(s) citado(s) só na resposta IA (priorizando pedido do user)`);
-  mentioned.length = 0;
-  mentioned.push(...filtered);
-}
+### QUANDO OFERTAR (gatilhos):
+1. Lead diz que NÃO TEM PET mas demonstra interesse em proteção/saúde → ofereça Orbe 360 ao invés de encerrar
+2. Lead JÁ FECHOU OU ESTÁ FECHANDO um plano pet → ofereça como complemento natural ("aproveita e protege você também")
+3. Lead menciona "telemedicina", "consulta médica humana", "funeral", "luto", "família" → apresente Orbe 360
+4. Em qualquer momento natural da conversa quando fizer sentido
+
+### COMO OFERTAR:
+- Texto CURTO (2 linhas), sem listas longas
+- Foque em 2 benefícios: telemedicina humana 24h + cobertura funeral
+- Sempre envie o link: https://orbepet.com.br/orbe-360
+- Se o lead recusar, NÃO insista (regra anti-repetição: máximo 1 oferta por conversa)
+
+### EXEMPLO de oferta para lead sem pet:
+"Mesmo sem pet eu tenho algo pra você! O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
 ```
 
-**2. Reordenar `planMatchers` por especificidade** (Plus primeiro, depois Total, depois Galáxia) — não resolve o bug em si, mas reduz risco quando AMBOS aparecem só na IA. Opcional.
+### 3. Atualizar bloco "REGRAS GERAIS" (linha ~4810)
+Adicionar:
+> "Quando o lead disser que **não tem pet**, NÃO encerre a conversa — ofereça o **Orbe 360** (telemedicina humana + funeral) como alternativa contratável isoladamente."
 
-**3. Refinar regex do Galáxia**: hoje `\bgalaxia\b` casa qualquer menção solta. Manter, mas a regra #1 já neutraliza falso-positivo no caso comum.
+### 4. Redeploy
+Redeploy da edge function `nina-orchestrator`.
 
-**4. Telemetria adicional**: gravar no metadata `video_skip_reason: 'ai_only_with_user_pick'` quando descartarmos vídeos por essa regra, para observabilidade futura.
+### 5. Memória
+Criar `mem://features/agent/orbe-360-upsell` com a regra de gatilhos e modelo de contratação isolada.
 
-## 🧪 Validação pós-deploy
+## Validação pós-deploy
+1. **"Não tenho pet, posso contratar pra mim?"** → resposta deve mencionar Orbe 360 + link, sem encerrar.
+2. **"Quero o Plus"** → fluxo Plus normal; cross-sell Orbe 360 só após o fechamento (não atrapalha qualificação).
+3. **"Tem cobertura funeral?"** → apresenta Orbe 360 com link.
+4. **"Não quero o 360"** → não reoferece.
 
-1. Testar "Me explica o plus" em conversa nova → deve enviar **apenas** vídeo do Plus.
-2. Testar "Qual a diferença entre Plus e Galáxia" → user_message contém ambos, então envia os dois (correto).
-3. Testar "Me fala mais sobre os planos" (genérico) → IA cita planos, comportamento original mantém (envia o que IA citou, pois não há menção em user).
-4. Testar "manda de novo" → resend funciona normal.
+## Sem mudanças em
+- `orbe_plans_catalog` (Orbe 360 é adicional, não plano pet — não entra no comparativo de cobertura veterinária).
+- Lógica de vídeos (`queuePlanVideoIfMentioned`) — Orbe 360 não tem vídeo associado por enquanto.
+- RLS, schema, frontend.
 
-## 📋 Arquivos a editar
-
-- `supabase/functions/nina-orchestrator/index.ts` (apenas a função `queuePlanVideoIfMentioned`, ~10 linhas)
-
-## ⚠️ Sem mudanças em
-
-- Schema, migrations, RLS, biblioteca de mídia (vínculo nome↔vídeo já está correto), prompt do agente.
+## Arquivos
+- `supabase/functions/nina-orchestrator/index.ts` (~30 linhas adicionadas)
+- INSERT em `product_knowledge`
+- `mem://features/agent/orbe-360-upsell`
