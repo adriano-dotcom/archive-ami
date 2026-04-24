@@ -3975,6 +3975,18 @@ Agradeço pela compreensão! 🙏`;
     const delayMax = settings?.response_delay_max || 3000;
     const delay = Math.random() * (delayMax - delayMin) + delayMin;
 
+    // ===== AUTO-SEND PLAN VIDEO (antes do texto/áudio) =====
+    try {
+      const videosQueued = await queuePlanVideoIfMentioned(
+        supabase, conversation, message, aiContent, delay, agent
+      );
+      if (videosQueued > 0) {
+        console.log(`[Nina] 🎬 ${videosQueued} vídeo(s) de plano enfileirado(s) antes da resposta de texto`);
+      }
+    } catch (e) {
+      console.error('[Nina] 🎬 Erro no auto-envio de vídeo de plano:', e);
+    }
+
     // Check if audio response should be sent
     const incomingWasAudio = message.type === 'audio';
     const agentAudioEnabled = agent?.audio_response_enabled ?? false;
