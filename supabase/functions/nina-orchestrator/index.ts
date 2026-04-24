@@ -4179,13 +4179,17 @@ Agradeço pela compreensão! 🙏`;
 }
 
 // ===== AUTO-SEND PLAN VIDEO =====
-// Detecta se a resposta da IA menciona um plano específico (Órbita Plus/Total/Galáxia)
-// e enfileira o vídeo correspondente da biblioteca ANTES do texto da IA.
+// Detecta menções a planos específicos (Órbita Plus/Total/Galáxia) tanto na MENSAGEM DO CLIENTE
+// quanto na RESPOSTA da IA, e enfileira o vídeo correspondente da biblioteca ANTES do texto.
+// Também envia o vídeo de COMPARATIVO quando o cliente pergunta a diferença entre planos.
 // Regras:
-// - Sempre que apresentar um plano, manda o vídeo da categoria correspondente
-// - Escolhe o vídeo com maior send_count (mais usado)
+// - Cooldown padrão: 30 minutos para o mesmo vídeo na mesma conversa
+// - Cliente pode pedir reenvio explícito ("manda de novo") → bypass do cooldown
 // - Vídeo é enviado primeiro (priority maior + scheduled_at mais cedo) e o texto vem depois
-// - Não envia o mesmo vídeo se já foi enviado há menos de 2 horas nessa conversa
+const VIDEO_COOLDOWN_MS = 30 * 60 * 1000; // 30min
+const VIDEO_RESEND_REGEX = /manda(r)?\s+(de\s+novo|novamente|outra\s+vez|denovo)|reenvi[ao]|envia(r)?\s+(de\s+novo|novamente)/i;
+const VIDEO_COMPARISON_REGEX = /(diferen[çc]a\s+entre|comparar|comparativo|qual\s+(escolher|melhor|recomenda)|entre\s+os\s+planos|qual\s+plano\s+(escolher|melhor))/i;
+
 async function queuePlanVideoIfMentioned(
   supabase: any,
   conversation: any,
@@ -4194,44 +4198,78 @@ async function queuePlanVideoIfMentioned(
   baseDelay: number,
   agent?: Agent | null
 ): Promise<number> {
-  if (!aiContent) return 0;
+  const userMessage: string = (message?.content || '').toString();
+  if (!aiContent && !userMessage) return 0;
 
   // Normaliza texto para detecção (remove acentos)
-  const normalized = aiContent
+  const normalize = (s: string) => s
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+  const normalizedAi = normalize(aiContent || '');
+  const normalizedUser = normalize(userMessage || '');
+
   // Mapeamento plano -> categoria na media_library
+  // Inclui padrões nominais ("órbita plus") e semânticos ("plano intermediário")
   const planMatchers: Array<{ category: string; patterns: RegExp[]; label: string }> = [
     {
       category: 'orbita_galaxia',
       label: 'Órbita Galáxia',
-      patterns: [/\borbita\s+galaxia\b/, /\bplano\s+galaxia\b/, /\bgalaxia\b/],
+      patterns: [
+        /\borbita\s+galaxia\b/, /\bplano\s+galaxia\b/, /\bgalaxia\b/,
+        /\bplano\s+(mais\s+)?completo\b/, /\btop\s+de\s+linha\b/, /\bplano\s+premium\b/,
+      ],
     },
     {
       category: 'orbita_total',
       label: 'Órbita Total',
-      patterns: [/\borbita\s+total\b/, /\bplano\s+total\b/],
+      patterns: [
+        /\borbita\s+total\b/, /\bplano\s+total\b/, /\btotal\b/,
+        /\bplano\s+(mais\s+)?(barato|basico|b[aá]sico)\b/, /\bplano\s+(de\s+)?entrada\b/, /\bmais\s+em\s+conta\b/,
+      ],
     },
     {
       category: 'orbita_plus',
       label: 'Órbita Plus',
-      patterns: [/\borbita\s+plus\b/, /\bplano\s+plus\b/],
+      patterns: [
+        /\borbita\s+plus\b/, /\bplano\s+plus\b/, /\bplus\b/,
+        /\bplano\s+(intermedi[aá]rio|do\s+meio|mediano)\b/,
+      ],
     },
   ];
 
-  // Encontra todos os planos mencionados (em ordem do texto)
-  const mentioned: typeof planMatchers = [];
+  // Detectar onde foi encontrado (preferir user message para gatilhar mesmo com IA genérica)
+  const mentioned: Array<typeof planMatchers[number] & { source: 'user_message' | 'ai_response' }> = [];
+  const seenCategories = new Set<string>();
+
   for (const matcher of planMatchers) {
-    if (matcher.patterns.some((p) => p.test(normalized))) {
-      mentioned.push(matcher);
+    const inUser = matcher.patterns.some((p) => p.test(normalizedUser));
+    const inAi = matcher.patterns.some((p) => p.test(normalizedAi));
+    if (inUser || inAi) {
+      if (seenCategories.has(matcher.category)) continue;
+      seenCategories.add(matcher.category);
+      mentioned.push({ ...matcher, source: inUser ? 'user_message' : 'ai_response' });
     }
+  }
+
+  // Detectar intenção de comparativo (sempre via user message)
+  const isComparison = VIDEO_COMPARISON_REGEX.test(userMessage);
+  if (isComparison && !seenCategories.has('comparativo')) {
+    mentioned.push({
+      category: 'comparativo',
+      label: 'Comparativo de Planos',
+      patterns: [],
+      source: 'user_message',
+    } as any);
   }
 
   if (mentioned.length === 0) return 0;
 
-  console.log(`[Nina] 🎬 Planos detectados na resposta: ${mentioned.map((m) => m.label).join(', ')}`);
+  // Detectar pedido explícito de reenvio (bypass cooldown)
+  const isResendRequest = VIDEO_RESEND_REGEX.test(userMessage);
+
+  console.log(`[Nina] 🎬 Planos detectados: ${mentioned.map((m) => `${m.label}(${m.source})`).join(', ')}${isResendRequest ? ' [RESEND]' : ''}`);
 
   let queuedCount = 0;
   for (let i = 0; i < mentioned.length; i++) {
@@ -4255,19 +4293,23 @@ async function queuePlanVideoIfMentioned(
 
     const video = videos[0];
 
-    // Anti-spam: não reenviar o mesmo vídeo se foi enviado há menos de 2h nessa conversa
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const { data: recentSends } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('conversation_id', conversation.id)
-      .eq('media_id', video.id)
-      .gte('sent_at', twoHoursAgo)
-      .limit(1);
+    // Anti-spam: cooldown padrão 30min — bypass se cliente pediu reenvio explícito
+    if (!isResendRequest) {
+      const cooldownAgo = new Date(Date.now() - VIDEO_COOLDOWN_MS).toISOString();
+      const { data: recentSends } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversation.id)
+        .eq('media_id', video.id)
+        .gte('sent_at', cooldownAgo)
+        .limit(1);
 
-    if (recentSends && recentSends.length > 0) {
-      console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nas últimas 2h, pulando`);
-      continue;
+      if (recentSends && recentSends.length > 0) {
+        console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nos últimos 30min, pulando (sem pedido de reenvio)`);
+        continue;
+      }
+    } else {
+      console.log(`[Nina] 🎬 ↻ Cliente pediu reenvio — cooldown ignorado para "${video.name}"`);
     }
 
     // Verifica se já está na fila pendente
@@ -4287,6 +4329,9 @@ async function queuePlanVideoIfMentioned(
     // Envia o vídeo ANTES do texto: usa priority maior e scheduled_at anterior
     // Cada vídeo subsequente espaçado em 1.5s
     const videoDelay = Math.max(0, baseDelay - 2000) + i * 1500;
+    const triggerSource = (plan as any).source === 'user_message' && plan.category === 'comparativo'
+      ? 'comparison_intent'
+      : (plan as any).source || 'ai_response';
 
     const { error: insertErr } = await supabase
       .from('send_queue')
@@ -4308,6 +4353,9 @@ async function queuePlanVideoIfMentioned(
           video_name: video.name,
           agent_id: agent?.id,
           agent_name: agent?.name,
+          video_trigger_source: triggerSource,
+          video_category_matched: plan.category,
+          video_resend_bypass: isResendRequest,
         },
       });
 
@@ -4317,7 +4365,7 @@ async function queuePlanVideoIfMentioned(
     }
 
     queuedCount++;
-    console.log(`[Nina] 🎬 ✅ Vídeo "${video.name}" (${plan.label}) enfileirado para envio`);
+    console.log(`[Nina] 🎬 ✅ Vídeo "${video.name}" (${plan.label}) enfileirado [origem=${triggerSource}]`);
   }
 
   return queuedCount;
@@ -4964,6 +5012,14 @@ ${contact.notes}
     }
     contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias similares!`;
   }
+
+  // ===== NOMENCLATURA DE PLANOS (gatilho de vídeo) =====
+  contextInfo += `\n\n## 📛 NOMES DOS PLANOS — USE SEMPRE O NOME COMPLETO:
+- "Órbita Total" (não "o básico" / "o mais barato")
+- "Órbita Plus" (não "o intermediário" / "o do meio")
+- "Órbita Galáxia" (não "o top" / "o mais completo")
+⚠️ Citar o nome completo dispara o vídeo explicativo correto da biblioteca.
+Se o cliente perguntar sobre UM plano específico, NÃO ofereça outros — responda sobre o solicitado.`;
 
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
   contextInfo += `\n\n## REGRAS CRÍTICAS DE COMUNICAÇÃO:
