@@ -95,6 +95,10 @@ const Settings: React.FC = () => {
               <BookOpen className="w-4 h-4" />
               Produtos
             </TabsTrigger>
+            <TabsTrigger value="media" className="gap-2">
+              <FolderOpen className="w-4 h-4" />
+              Mídia
+            </TabsTrigger>
             <TabsTrigger value="diagnostic" className="gap-2">
               <Stethoscope className="w-4 h-4" />
               Diagnóstico
