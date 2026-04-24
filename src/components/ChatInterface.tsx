@@ -2520,6 +2520,10 @@ const ChatInterface: React.FC = () => {
                           <Paperclip className="w-5 h-5" />
                         )}
                       </Button>
+                      <MediaLibraryPicker
+                        disabled={!windowTimeRemaining.isOpen}
+                        onSend={handleSendLibraryMedia}
+                      />
                     </>
                   )}
                   <Button 
