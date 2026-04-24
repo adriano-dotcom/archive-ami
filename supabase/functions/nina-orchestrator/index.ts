@@ -4098,6 +4098,151 @@ Agradeço pela compreensão! 🙏`;
   }).catch(err => console.error('[Nina] Error triggering analyze-conversation:', err));
 }
 
+// ===== AUTO-SEND PLAN VIDEO =====
+// Detecta se a resposta da IA menciona um plano específico (Órbita Plus/Total/Galáxia)
+// e enfileira o vídeo correspondente da biblioteca ANTES do texto da IA.
+// Regras:
+// - Sempre que apresentar um plano, manda o vídeo da categoria correspondente
+// - Escolhe o vídeo com maior send_count (mais usado)
+// - Vídeo é enviado primeiro (priority maior + scheduled_at mais cedo) e o texto vem depois
+// - Não envia o mesmo vídeo se já foi enviado há menos de 2 horas nessa conversa
+async function queuePlanVideoIfMentioned(
+  supabase: any,
+  conversation: any,
+  message: any,
+  aiContent: string,
+  baseDelay: number,
+  agent?: Agent | null
+): Promise<number> {
+  if (!aiContent) return 0;
+
+  // Normaliza texto para detecção (remove acentos)
+  const normalized = aiContent
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // Mapeamento plano -> categoria na media_library
+  const planMatchers: Array<{ category: string; patterns: RegExp[]; label: string }> = [
+    {
+      category: 'orbita_galaxia',
+      label: 'Órbita Galáxia',
+      patterns: [/\borbita\s+galaxia\b/, /\bplano\s+galaxia\b/, /\bgalaxia\b/],
+    },
+    {
+      category: 'orbita_total',
+      label: 'Órbita Total',
+      patterns: [/\borbita\s+total\b/, /\bplano\s+total\b/],
+    },
+    {
+      category: 'orbita_plus',
+      label: 'Órbita Plus',
+      patterns: [/\borbita\s+plus\b/, /\bplano\s+plus\b/],
+    },
+  ];
+
+  // Encontra todos os planos mencionados (em ordem do texto)
+  const mentioned: typeof planMatchers = [];
+  for (const matcher of planMatchers) {
+    if (matcher.patterns.some((p) => p.test(normalized))) {
+      mentioned.push(matcher);
+    }
+  }
+
+  if (mentioned.length === 0) return 0;
+
+  console.log(`[Nina] 🎬 Planos detectados na resposta: ${mentioned.map((m) => m.label).join(', ')}`);
+
+  let queuedCount = 0;
+  for (let i = 0; i < mentioned.length; i++) {
+    const plan = mentioned[i];
+
+    // Busca o vídeo mais usado (maior send_count) e ativo na categoria
+    const { data: videos, error: videoErr } = await supabase
+      .from('media_library')
+      .select('id, name, file_url, mime_type, send_count, last_sent_at')
+      .eq('category', plan.category)
+      .eq('is_active', true)
+      .eq('media_type', 'video')
+      .order('send_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (videoErr || !videos || videos.length === 0) {
+      console.log(`[Nina] 🎬 Sem vídeo cadastrado para ${plan.label} (categoria ${plan.category})`);
+      continue;
+    }
+
+    const video = videos[0];
+
+    // Anti-spam: não reenviar o mesmo vídeo se foi enviado há menos de 2h nessa conversa
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data: recentSends } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('media_id', video.id)
+      .gte('sent_at', twoHoursAgo)
+      .limit(1);
+
+    if (recentSends && recentSends.length > 0) {
+      console.log(`[Nina] 🎬 Vídeo "${video.name}" já enviado nas últimas 2h, pulando`);
+      continue;
+    }
+
+    // Verifica se já está na fila pendente
+    const { data: pendingSends } = await supabase
+      .from('send_queue')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('media_url', video.file_url)
+      .in('status', ['pending', 'processing'])
+      .limit(1);
+
+    if (pendingSends && pendingSends.length > 0) {
+      console.log(`[Nina] 🎬 Vídeo "${video.name}" já está na fila, pulando`);
+      continue;
+    }
+
+    // Envia o vídeo ANTES do texto: usa priority maior e scheduled_at anterior
+    // Cada vídeo subsequente espaçado em 1.5s
+    const videoDelay = Math.max(0, baseDelay - 2000) + i * 1500;
+
+    const { error: insertErr } = await supabase
+      .from('send_queue')
+      .insert({
+        conversation_id: conversation.id,
+        contact_id: conversation.contact_id,
+        content: '',
+        from_type: 'nina',
+        message_type: 'video',
+        media_url: video.file_url,
+        media_id: video.id,
+        priority: 2,
+        scheduled_at: new Date(Date.now() + videoDelay).toISOString(),
+        metadata: {
+          response_to_message_id: message.id,
+          source: 'auto_plan_video',
+          plan_label: plan.label,
+          plan_category: plan.category,
+          video_name: video.name,
+          agent_id: agent?.id,
+          agent_name: agent?.name,
+        },
+      });
+
+    if (insertErr) {
+      console.error(`[Nina] 🎬 Erro ao enfileirar vídeo "${video.name}":`, insertErr);
+      continue;
+    }
+
+    queuedCount++;
+    console.log(`[Nina] 🎬 ✅ Vídeo "${video.name}" (${plan.label}) enfileirado para envio`);
+  }
+
+  return queuedCount;
+}
+
 // Helper function to queue text response with chunking and duplicate check
 async function queueTextResponse(
   supabase: any,
