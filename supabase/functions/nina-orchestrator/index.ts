@@ -3850,9 +3850,12 @@ Agradeço pela compreensão! 🙏`;
       aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
+    // Sanitize handoff response (also runs enforceOrbe360Link automatically)
+    aiContent = sanitizeAiResponse(aiContent);
+
     // ===== ORBE 360 SAFETY NET (handoff path) =====
     if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
-      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória (handoff). Aplicando fallback determinístico.');
+      console.warn('[Nina][Orbe360][SafetyNet] intent_detected_no_mention (handoff) — aplicando fallback determinístico.');
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
     
