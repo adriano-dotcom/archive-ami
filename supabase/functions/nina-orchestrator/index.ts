@@ -3850,9 +3850,12 @@ Agradeço pela compreensão! 🙏`;
       aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
+    // Sanitize handoff response (also runs enforceOrbe360Link automatically)
+    aiContent = sanitizeAiResponse(aiContent);
+
     // ===== ORBE 360 SAFETY NET (handoff path) =====
     if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
-      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória (handoff). Aplicando fallback determinístico.');
+      console.warn('[Nina][Orbe360][SafetyNet] intent_detected_no_mention (handoff) — aplicando fallback determinístico.');
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
     
@@ -4040,9 +4043,11 @@ Agradeço pela compreensão! 🙏`;
     aiContent = sanitizeAiResponse(aiContent);
 
     // ===== ORBE 360 SAFETY NET (normal flow) =====
-    // Se a intenção foi detectada mas a LLM não incluiu o link, substitui por resposta determinística.
+    // Sanitizer já anexa o link quando produto/benefícios são citados.
+    // Este net cobre o caso em que a intenção do usuário foi detectada mas a IA
+    // não citou nem o produto nem os benefícios — força resposta determinística.
     if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
-      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória. Aplicando fallback determinístico Orbe 360.');
+      console.warn('[Nina][Orbe360][SafetyNet] intent_detected_no_mention — aplicando fallback determinístico Orbe 360.');
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
 
@@ -5251,6 +5256,43 @@ Exemplo de tom esperado:
 
 const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360`;
 
+const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
+
+/**
+ * Garante que toda resposta da IA que mencione o produto Orbe 360 ou seus
+ * benefícios (telemedicina humana / funeral / apoio psicológico) inclua
+ * obrigatoriamente o link orbepet.com.br/orbe-360.
+ *
+ * Caso A — Produto citado explicitamente sem o link: anexa o link no final.
+ * Caso B — Apenas benefícios mencionados sem o nome do produto: substitui
+ *          a resposta pelo fallback determinístico.
+ * Caso neutro — Sem menção, retorna o conteúdo intacto.
+ */
+function enforceOrbe360Link(content: string): string {
+  if (!content) return content;
+
+  const lower = content.toLowerCase();
+  if (lower.includes('orbepet.com.br/orbe-360')) return content;
+
+  const mentionsProduct = /orbe[\s-]?360/i.test(content);
+  const mentionsBenefits =
+    /telemedicina\s+human[oa]/i.test(content) ||
+    /(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i.test(content) ||
+    /apoio\s+psicol[oó]gico/i.test(content);
+
+  if (mentionsProduct) {
+    console.log('[Nina][Orbe360][Sanitizer] case=A link_appended');
+    return `${content.trim()}\n\nConfere aqui: ${ORBE_360_LINK}`;
+  }
+
+  if (mentionsBenefits) {
+    console.log('[Nina][Orbe360][Sanitizer] case=B fallback_replaced');
+    return ORBE_360_FALLBACK_RESPONSE;
+  }
+
+  return content;
+}
+
 function sanitizeAiResponse(content: string): string {
   if (!content) return content;
   
@@ -5284,7 +5326,10 @@ function sanitizeAiResponse(content: string): string {
   
   // Clean up multiple blank lines
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
-  
+
+  // ===== ORBE 360: garantir link obrigatório quando produto/benefícios são citados =====
+  sanitized = enforceOrbe360Link(sanitized);
+
   return sanitized || content; // fallback to original if sanitization emptied it
 }
 
