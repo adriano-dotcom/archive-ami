@@ -5251,6 +5251,43 @@ Exemplo de tom esperado:
 
 const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360`;
 
+const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
+
+/**
+ * Garante que toda resposta da IA que mencione o produto Orbe 360 ou seus
+ * benefícios (telemedicina humana / funeral / apoio psicológico) inclua
+ * obrigatoriamente o link orbepet.com.br/orbe-360.
+ *
+ * Caso A — Produto citado explicitamente sem o link: anexa o link no final.
+ * Caso B — Apenas benefícios mencionados sem o nome do produto: substitui
+ *          a resposta pelo fallback determinístico.
+ * Caso neutro — Sem menção, retorna o conteúdo intacto.
+ */
+function enforceOrbe360Link(content: string): string {
+  if (!content) return content;
+
+  const lower = content.toLowerCase();
+  if (lower.includes('orbepet.com.br/orbe-360')) return content;
+
+  const mentionsProduct = /orbe[\s-]?360/i.test(content);
+  const mentionsBenefits =
+    /telemedicina\s+human[oa]/i.test(content) ||
+    /(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i.test(content) ||
+    /apoio\s+psicol[oó]gico/i.test(content);
+
+  if (mentionsProduct) {
+    console.log('[Nina][Orbe360][Sanitizer] case=A link_appended');
+    return `${content.trim()}\n\nConfere aqui: ${ORBE_360_LINK}`;
+  }
+
+  if (mentionsBenefits) {
+    console.log('[Nina][Orbe360][Sanitizer] case=B fallback_replaced');
+    return ORBE_360_FALLBACK_RESPONSE;
+  }
+
+  return content;
+}
+
 function sanitizeAiResponse(content: string): string {
   if (!content) return content;
   

@@ -1,73 +1,92 @@
-# 🎯 Plano: Adicionar Orbe 360 ao repertório da Orbi
+## Objetivo
 
-## Contexto
-A Orbi hoje **não conhece o Orbe 360**. Quando o lead diz "não tenho pet, posso contratar pra mim?", ela responde apenas que a OrbePet é exclusiva para cães e gatos — perdendo a venda do produto que cobre justamente o tutor (telemedicina humana 24h + assistência funeral com apoio psicológico).
+Reforçar o `sanitizeAiResponse` no `nina-orchestrator` para garantir que **toda resposta que mencione o produto Orbe 360 (ou seus benefícios) inclua obrigatoriamente o link `https://orbepet.com.br/orbe-360`**, mesmo quando a intenção "lead sem pet" não tenha sido detectada na mensagem do usuário.
 
-Decisões confirmadas pelo usuário:
-- **Quando ofertar:** lead sem pet, cross-sell pós-venda pet, gatilhos de telemedicina/funeral, e em qualquer oportunidade natural.
-- **Modelo:** pode ser contratado **isoladamente** (não exige plano pet ativo).
+Hoje a verificação só atua quando `orbe360Intent === true` (regex sobre a mensagem do tutor). Casos comuns ficam fora:
+- A IA cita "Orbe 360" espontaneamente em cross-sell sem o link.
+- A IA fala de "telemedicina humana" ou "assistência funeral" sem citar o produto nem o link.
+- A IA cita o produto em outro contexto (ex.: dúvida solta sobre planos) sem link.
 
-## Implementação
+## O que vai mudar
 
-### 1. Cadastrar Orbe 360 em `product_knowledge` (INSERT)
-Inserir registro com `name = 'Orbe 360'`, `is_active = true`, `extraction_status = 'completed'`, `summary` e `full_content` estruturados:
-- O que é (adicional/avulso de telemedicina humana + funeral)
-- Benefícios principais (telemedicina humana 24h, cobertura funeral completa, assessoria 24h, apoio psicológico para a família)
-- Quem pode contratar (qualquer tutor, com ou sem pet — isolado ou complementar)
-- Link oficial: `https://orbepet.com.br/orbe-360`
+### 1. Nova função `enforceOrbe360Link(content)` no sanitizer
 
-### 2. Adicionar bloco "PRODUTO COMPLEMENTAR — ORBE 360" no prompt
-Em `supabase/functions/nina-orchestrator/index.ts`, função `buildContext` (~linha 4820), inserir nova seção logo após "CONHECIMENTO ESPECIALIZADO - PLANOS DE SAÚDE PET":
+Centraliza a regra de link obrigatório. Comportamento:
 
+- **Detecta menção ao Orbe 360 na resposta** via regex:
+  - `/orbe[\s-]?360/i`
+  - `/telemedicina\s+human[oa]/i`
+  - `/(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i`
+  - `/apoio\s+psicol[oó]gico/i`
+- **Se detectou menção E o link `orbepet.com.br/orbe-360` está ausente**:
+  - **Caso A — menção explícita ao "Orbe 360"**: anexa uma linha final com o link no formato:  
+    `\n\nConfere aqui: https://orbepet.com.br/orbe-360`
+  - **Caso B — menção apenas a benefícios (telemedicina humana / funeral) sem o nome do produto**: substitui pela `ORBE_360_FALLBACK_RESPONSE` determinística (mesma constante já existente).
+- **Se não detectou menção alguma**: retorna o conteúdo intacto.
+- Loga em `[Nina][Orbe360][Sanitizer]` com o caso aplicado para auditoria.
+
+### 2. Integrar a nova função dentro de `sanitizeAiResponse`
+
+Ao final de `sanitizeAiResponse`, antes do `return`, chamar `enforceOrbe360Link(sanitized)`. Isso garante que **todo caminho que passa pelo sanitizer** ganhe a verificação automaticamente — incluindo o fluxo normal (linha 4040) e o de handoff (que hoje não chama o sanitizer antes do safety net).
+
+### 3. Adicionar `sanitizeAiResponse` no fluxo de handoff
+
+No bloco de handoff (linhas ~3847–3857), aplicar `aiContent = sanitizeAiResponse(aiContent)` **antes** do safety net existente, para que o handoff também receba a verificação automática do link.
+
+### 4. Manter o safety net `orbe360Intent` existente
+
+O bloco atual (linhas 3854 e 4044) continua válido como **rede de segurança extra** quando a intenção do usuário foi detectada. Ele agora opera como segunda camada — se o sanitizer não capturou (resposta sem mencionar nem produto nem benefícios mas usuário pediu), o safety net força o `ORBE_360_FALLBACK_RESPONSE`.
+
+### 5. Logs estruturados
+
+Três níveis de log para facilitar diagnóstico:
+- `[Nina][Orbe360][Sanitizer] case=A link_appended` — produto citado, link anexado.
+- `[Nina][Orbe360][Sanitizer] case=B fallback_replaced` — só benefícios, resposta substituída.
+- `[Nina][Orbe360][SafetyNet] intent_detected_no_mention` — intenção do usuário detectada e nem produto nem benefícios apareceram.
+
+## Detalhes técnicos
+
+**Arquivo único editado:** `supabase/functions/nina-orchestrator/index.ts`
+
+Pseudocódigo da nova função:
+```typescript
+const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
+
+function enforceOrbe360Link(content: string): string {
+  if (!content) return content;
+  const lower = content.toLowerCase();
+  const hasLink = lower.includes('orbepet.com.br/orbe-360');
+  if (hasLink) return content;
+
+  const mentionsProduct = /orbe[\s-]?360/i.test(content);
+  const mentionsBenefits =
+    /telemedicina\s+human[oa]/i.test(content) ||
+    /(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i.test(content) ||
+    /apoio\s+psicol[oó]gico/i.test(content);
+
+  if (mentionsProduct) {
+    console.log('[Nina][Orbe360][Sanitizer] case=A link_appended');
+    return `${content.trim()}\n\nConfere aqui: ${ORBE_360_LINK}`;
+  }
+  if (mentionsBenefits) {
+    console.log('[Nina][Orbe360][Sanitizer] case=B fallback_replaced');
+    return ORBE_360_FALLBACK_RESPONSE;
+  }
+  return content;
+}
 ```
-## PRODUTO COMPLEMENTAR — ORBE 360 (proteção do tutor e família)
 
-O Orbe 360 é um produto OrbePet voltado ao **tutor e família**, com:
-- 🩺 Telemedicina humana completa 24h
-- ⚱️ Cobertura funeral completa, com assessoria 24h e apoio psicológico
-
-### Pode ser contratado:
-- **De forma isolada** (lead sem pet) — alternativa quando o cliente quer proteção pra si mesmo
-- **Como complemento** a qualquer plano pet (cross-sell)
-
-### QUANDO OFERTAR (gatilhos):
-1. Lead diz que NÃO TEM PET mas demonstra interesse em proteção/saúde → ofereça Orbe 360 ao invés de encerrar
-2. Lead JÁ FECHOU OU ESTÁ FECHANDO um plano pet → ofereça como complemento natural ("aproveita e protege você também")
-3. Lead menciona "telemedicina", "consulta médica humana", "funeral", "luto", "família" → apresente Orbe 360
-4. Em qualquer momento natural da conversa quando fizer sentido
-
-### COMO OFERTAR:
-- Texto CURTO (2 linhas), sem listas longas
-- Foque em 2 benefícios: telemedicina humana 24h + cobertura funeral
-- Sempre envie o link: https://orbepet.com.br/orbe-360
-- Se o lead recusar, NÃO insista (regra anti-repetição: máximo 1 oferta por conversa)
-
-### EXEMPLO de oferta para lead sem pet:
-"Mesmo sem pet eu tenho algo pra você! O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
+Integração em `sanitizeAiResponse`:
+```typescript
+sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
+sanitized = enforceOrbe360Link(sanitized); // nova linha
+return sanitized || content;
 ```
 
-### 3. Atualizar bloco "REGRAS GERAIS" (linha ~4810)
-Adicionar:
-> "Quando o lead disser que **não tem pet**, NÃO encerre a conversa — ofereça o **Orbe 360** (telemedicina humana + funeral) como alternativa contratável isoladamente."
+Após edição, fazer deploy do `nina-orchestrator` e validar com logs em conversa real ou via `simulate-webhook`.
 
-### 4. Redeploy
-Redeploy da edge function `nina-orchestrator`.
+## Resultado esperado
 
-### 5. Memória
-Criar `mem://features/agent/orbe-360-upsell` com a regra de gatilhos e modelo de contratação isolada.
-
-## Validação pós-deploy
-1. **"Não tenho pet, posso contratar pra mim?"** → resposta deve mencionar Orbe 360 + link, sem encerrar.
-2. **"Quero o Plus"** → fluxo Plus normal; cross-sell Orbe 360 só após o fechamento (não atrapalha qualificação).
-3. **"Tem cobertura funeral?"** → apresenta Orbe 360 com link.
-4. **"Não quero o 360"** → não reoferece.
-
-## Sem mudanças em
-- `orbe_plans_catalog` (Orbe 360 é adicional, não plano pet — não entra no comparativo de cobertura veterinária).
-- Lógica de vídeos (`queuePlanVideoIfMentioned`) — Orbe 360 não tem vídeo associado por enquanto.
-- RLS, schema, frontend.
-
-## Arquivos
-- `supabase/functions/nina-orchestrator/index.ts` (~30 linhas adicionadas)
-- INSERT em `product_knowledge`
-- `mem://features/agent/orbe-360-upsell`
+- Nenhuma resposta da Orbi que mencione "Orbe 360", "telemedicina humana", "funeral" ou "apoio psicológico" sai sem o link `https://orbepet.com.br/orbe-360`.
+- Cobertura ampliada: já não depende da detecção de intenção na mensagem do usuário — a verificação é feita também sobre o **conteúdo gerado pela LLM**.
+- Compatível com o safety net atual (camadas redundantes, sem regressão).
