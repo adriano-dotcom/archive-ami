@@ -5321,7 +5321,10 @@ function sanitizeAiResponse(content: string): string {
   
   // Clean up multiple blank lines
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
-  
+
+  // ===== ORBE 360: garantir link obrigatório quando produto/benefícios são citados =====
+  sanitized = enforceOrbe360Link(sanitized);
+
   return sanitized || content; // fallback to original if sanitization emptied it
 }
 
