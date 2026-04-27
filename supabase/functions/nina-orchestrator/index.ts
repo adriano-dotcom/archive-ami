@@ -4043,9 +4043,11 @@ Agradeço pela compreensão! 🙏`;
     aiContent = sanitizeAiResponse(aiContent);
 
     // ===== ORBE 360 SAFETY NET (normal flow) =====
-    // Se a intenção foi detectada mas a LLM não incluiu o link, substitui por resposta determinística.
+    // Sanitizer já anexa o link quando produto/benefícios são citados.
+    // Este net cobre o caso em que a intenção do usuário foi detectada mas a IA
+    // não citou nem o produto nem os benefícios — força resposta determinística.
     if (orbe360Intent && aiContent && !aiContent.toLowerCase().includes('orbepet.com.br/orbe-360')) {
-      console.warn('[Nina][Orbe360] ⚠️ LLM ignorou instrução obrigatória. Aplicando fallback determinístico Orbe 360.');
+      console.warn('[Nina][Orbe360][SafetyNet] intent_detected_no_mention — aplicando fallback determinístico Orbe 360.');
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
 
