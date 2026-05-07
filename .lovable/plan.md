@@ -1,92 +1,53 @@
-## Objetivo
+## Diagnóstico: por que alguns usuários não veem os leads
 
-Reforçar o `sanitizeAiResponse` no `nina-orchestrator` para garantir que **toda resposta que mencione o produto Orbe 360 (ou seus benefícios) inclua obrigatoriamente o link `https://orbepet.com.br/orbe-360`**, mesmo quando a intenção "lead sem pet" não tenha sido detectada na mensagem do usuário.
+Verifiquei as políticas RLS das tabelas `conversations`, `messages`, `contacts` e cruzei com os usuários reais da plataforma.
 
-Hoje a verificação só atua quando `orbe360Intent === true` (regex sobre a mensagem do tutor). Casos comuns ficam fora:
-- A IA cita "Orbe 360" espontaneamente em cross-sell sem o link.
-- A IA fala de "telemedicina humana" ou "assistência funeral" sem citar o produto nem o link.
-- A IA cita o produto em outro contexto (ex.: dúvida solta sobre planos) sem link.
+### Usuários atuais e o que cada um enxerga hoje
 
-## O que vai mudar
+| Email | Role | team_members.status | Vê contatos? | Vê conversas? |
+|---|---|---|---|---|
+| adriano@jacometo.com.br | admin | — | Sim | Sim |
+| goeesgabrieel@gmail.com | operator | active | Sim | Sim |
+| contato@orbepet.com.br (Ludiane) | operator | **invited** | Sim | **Não** |
+| jarvis@jacometo.com.br | operator | **sem registro** | Sim | **Não** |
+| joao.pedro@jacometo.com.br | **sem role** | sem registro | **Não** | **Não** |
 
-### 1. Nova função `enforceOrbe360Link(content)` no sanitizer
+### Causa raiz
 
-Centraliza a regra de link obrigatório. Comportamento:
+As políticas estão inconsistentes entre as tabelas:
 
-- **Detecta menção ao Orbe 360 na resposta** via regex:
-  - `/orbe[\s-]?360/i`
-  - `/telemedicina\s+human[oa]/i`
-  - `/(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i`
-  - `/apoio\s+psicol[oó]gico/i`
-- **Se detectou menção E o link `orbepet.com.br/orbe-360` está ausente**:
-  - **Caso A — menção explícita ao "Orbe 360"**: anexa uma linha final com o link no formato:  
-    `\n\nConfere aqui: https://orbepet.com.br/orbe-360`
-  - **Caso B — menção apenas a benefícios (telemedicina humana / funeral) sem o nome do produto**: substitui pela `ORBE_360_FALLBACK_RESPONSE` determinística (mesma constante já existente).
-- **Se não detectou menção alguma**: retorna o conteúdo intacto.
-- Loga em `[Nina][Orbe360][Sanitizer]` com o caso aplicado para auditoria.
+- `contacts` libera para: `team_member ativo OR admin OR operator` → operator vê.
+- `conversations` libera para: `team_member ativo OR admin` → **operator NÃO vê** se o team_members não estiver com status='active'.
+- `messages` libera para: `team_member ativo OR admin` → mesmo problema.
 
-### 2. Integrar a nova função dentro de `sanitizeAiResponse`
+Resultado: usuários com role `operator` mas sem `team_members.status='active'` (Ludiane está como "invited", Jarvis nem existe na tabela) conseguem ver a lista de contatos, mas as conversas/mensagens do WhatsApp aparecem vazias. E o João Pedro não tem role nenhuma, então não vê nada.
 
-Ao final de `sanitizeAiResponse`, antes do `return`, chamar `enforceOrbe360Link(sanitized)`. Isso garante que **todo caminho que passa pelo sanitizer** ganhe a verificação automaticamente — incluindo o fluxo normal (linha 4040) e o de handoff (que hoje não chama o sanitizer antes do safety net).
+## Plano de correção
 
-### 3. Adicionar `sanitizeAiResponse` no fluxo de handoff
+### 1. Uniformizar RLS de `conversations` e `messages`
+Atualizar as policies para também aceitar role `operator`, igual ao que já está em `contacts`:
+- SELECT/INSERT/UPDATE liberados para: `admin OR operator OR team_member ativo`.
+- DELETE em `conversations` continua só para admin.
 
-No bloco de handoff (linhas ~3847–3857), aplicar `aiContent = sanitizeAiResponse(aiContent)` **antes** do safety net existente, para que o handoff também receba a verificação automática do link.
+### 2. Ativar team_members pendentes
+- Marcar `contato@orbepet.com.br` (Ludiane) como `status='active'` em `team_members` (atualmente "invited").
+- Criar registro em `team_members` para `jarvis@jacometo.com.br` (ou confirmar se é uma conta de sistema que não deveria logar na UI).
 
-### 4. Manter o safety net `orbe360Intent` existente
+### 3. Resolver o usuário sem role
+`joao.pedro@jacometo.com.br` não tem entrada em `user_roles`. Opções:
+- Atribuir `operator` (acesso normal de atendimento), ou
+- Atribuir `admin` (acesso total), ou
+- Remover/desativar se não deve mais usar a plataforma.
 
-O bloco atual (linhas 3854 e 4044) continua válido como **rede de segurança extra** quando a intenção do usuário foi detectada. Ele agora opera como segunda camada — se o sanitizer não capturou (resposta sem mencionar nem produto nem benefícios mas usuário pediu), o safety net força o `ORBE_360_FALLBACK_RESPONSE`.
+Preciso da sua decisão antes de aplicar.
 
-### 5. Logs estruturados
+### 4. (Opcional) Garantir role na criação de novos usuários
+A função `handle_new_user()` já cria `operator` automaticamente para novos signups, mas o João Pedro foi criado antes ou via fluxo que não disparou o trigger. Verificar se o trigger `on_auth_user_created` está ativo em `auth.users`; se não estiver, recriar para evitar futuros usuários "órfãos".
 
-Três níveis de log para facilitar diagnóstico:
-- `[Nina][Orbe360][Sanitizer] case=A link_appended` — produto citado, link anexado.
-- `[Nina][Orbe360][Sanitizer] case=B fallback_replaced` — só benefícios, resposta substituída.
-- `[Nina][Orbe360][SafetyNet] intent_detected_no_mention` — intenção do usuário detectada e nem produto nem benefícios apareceram.
+## Perguntas para você
 
-## Detalhes técnicos
+1. Qual role o **João Pedro** deve ter? (operator, admin, ou remover acesso)
+2. O **jarvis@jacometo.com.br** é uma conta humana que precisa ver os leads na UI, ou é só uma conta de integração/automação? (se for automação, não precisa ver nada — usa service role)
+3. Confirmo a ativação da **Ludiane** (contato@orbepet.com.br) como membro ativo da equipe?
 
-**Arquivo único editado:** `supabase/functions/nina-orchestrator/index.ts`
-
-Pseudocódigo da nova função:
-```typescript
-const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
-
-function enforceOrbe360Link(content: string): string {
-  if (!content) return content;
-  const lower = content.toLowerCase();
-  const hasLink = lower.includes('orbepet.com.br/orbe-360');
-  if (hasLink) return content;
-
-  const mentionsProduct = /orbe[\s-]?360/i.test(content);
-  const mentionsBenefits =
-    /telemedicina\s+human[oa]/i.test(content) ||
-    /(assist[eê]ncia|cobertura|servi[cç]o)\s+funeral/i.test(content) ||
-    /apoio\s+psicol[oó]gico/i.test(content);
-
-  if (mentionsProduct) {
-    console.log('[Nina][Orbe360][Sanitizer] case=A link_appended');
-    return `${content.trim()}\n\nConfere aqui: ${ORBE_360_LINK}`;
-  }
-  if (mentionsBenefits) {
-    console.log('[Nina][Orbe360][Sanitizer] case=B fallback_replaced');
-    return ORBE_360_FALLBACK_RESPONSE;
-  }
-  return content;
-}
-```
-
-Integração em `sanitizeAiResponse`:
-```typescript
-sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
-sanitized = enforceOrbe360Link(sanitized); // nova linha
-return sanitized || content;
-```
-
-Após edição, fazer deploy do `nina-orchestrator` e validar com logs em conversa real ou via `simulate-webhook`.
-
-## Resultado esperado
-
-- Nenhuma resposta da Orbi que mencione "Orbe 360", "telemedicina humana", "funeral" ou "apoio psicológico" sai sem o link `https://orbepet.com.br/orbe-360`.
-- Cobertura ampliada: já não depende da detecção de intenção na mensagem do usuário — a verificação é feita também sobre o **conteúdo gerado pela LLM**.
-- Compatível com o safety net atual (camadas redundantes, sem regressão).
+Assim que você responder, aplico a migração de RLS + os ajustes de equipe em uma única etapa.
