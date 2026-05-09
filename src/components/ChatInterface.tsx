@@ -67,6 +67,7 @@ const ChatInterface: React.FC = () => {
   const isMobile = useIsMobile();
   const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, archiveConversationsBulk, fetchArchivedConversations, refetch, updateConversationTags } = useConversations();
   const { user } = useAuth();
+  const operatorDisplayName = useCurrentOperatorName();
   const { sdrName, companyName } = useCompanySettings();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
