@@ -700,14 +700,10 @@ const ChatInterface: React.FC = () => {
     
     setUploadingFile(true);
     try {
-      const operatorName = user?.email 
-        ? teamMembers.find(m => m.email === user.email)?.name 
-        : undefined;
-      
       await api.sendMediaMessage(
-        activeChat.id, 
-        file, 
-        operatorName
+        activeChat.id,
+        file,
+        operatorDisplayName
       );
       toast.success('Anexo enviado!');
     } catch (err) {
