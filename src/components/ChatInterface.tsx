@@ -727,10 +727,7 @@ const ChatInterface: React.FC = () => {
   }) => {
     if (!activeChat) return;
     try {
-      const operatorName = user?.email
-        ? teamMembers.find((m) => m.email === user.email)?.name
-        : undefined;
-      await api.sendLibraryMedia(activeChat.id, item, operatorName);
+      await api.sendLibraryMedia(activeChat.id, item, operatorDisplayName);
       toast.success(`${item.name} enviado!`);
     } catch (err) {
       console.error('Erro ao enviar mídia da biblioteca:', err);
