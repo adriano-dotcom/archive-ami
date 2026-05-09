@@ -30,6 +30,7 @@ import { Button } from './Button';
 import { Button as ShadcnButton } from './ui/button';
 import { useConversations } from '../hooks/useConversations';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentOperatorName } from '@/hooks/useCurrentOperatorName';
 import { toast } from 'sonner';
 import RecordRTC, { StereoAudioRecorder } from 'recordrtc';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
