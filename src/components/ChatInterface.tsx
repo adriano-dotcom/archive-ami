@@ -920,16 +920,7 @@ const ChatInterface: React.FC = () => {
 
         const file = new File([blob], `audio_${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
 
-        const operatorName = user?.email
-          ? teamMembers.find((m) => m.email === user.email)?.name ||
-            user.email
-              .split('@')[0]
-              .split(/[._-]/)
-              .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-              .join(' ')
-          : undefined;
-
-        await api.sendMediaMessage(activeChat.id, file, operatorName);
+        await api.sendMediaMessage(activeChat.id, file, operatorDisplayName);
         toast.success('Áudio enviado!');
       } catch (err) {
         console.error('[Audio] send failed:', err);
