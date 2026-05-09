@@ -814,15 +814,7 @@ const ChatInterface: React.FC = () => {
     const content = inputText.trim();
     setInputText('');
     
-    // Extract operator name from email (e.g., "adriano.jacometo@email.com" -> "Adriano Jacometo")
-    const operatorName = user?.email 
-      ? user.email.split('@')[0]
-          .split(/[._-]/)
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-          .join(' ')
-      : undefined;
-    
-    await sendMessage(activeChat.id, content, operatorName);
+    await sendMessage(activeChat.id, content, operatorDisplayName);
   };
 
   // Format duration for audio recording
