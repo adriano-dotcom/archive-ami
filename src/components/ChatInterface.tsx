@@ -972,12 +972,7 @@ const ChatInterface: React.FC = () => {
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
-    // Use full name from team_members when available, fallback to email-derived name
-    const userName = user?.email 
-      ? teamMembers.find(m => m.email === user.email)?.name ||
-        user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)
-      : undefined;
-    await updateStatus(activeChat.id, status, user?.id, userName);
+    await updateStatus(activeChat.id, status, user?.id, operatorDisplayName);
   };
 
   // Save contact data
