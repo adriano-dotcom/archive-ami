@@ -30,6 +30,7 @@ import { Button } from './Button';
 import { Button as ShadcnButton } from './ui/button';
 import { useConversations } from '../hooks/useConversations';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentOperatorName } from '@/hooks/useCurrentOperatorName';
 import { toast } from 'sonner';
 import RecordRTC, { StereoAudioRecorder } from 'recordrtc';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
@@ -66,6 +67,7 @@ const ChatInterface: React.FC = () => {
   const isMobile = useIsMobile();
   const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, archiveConversation, unarchiveConversation, archiveConversationsBulk, fetchArchivedConversations, refetch, updateConversationTags } = useConversations();
   const { user } = useAuth();
+  const operatorDisplayName = useCurrentOperatorName();
   const { sdrName, companyName } = useCompanySettings();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
@@ -698,14 +700,10 @@ const ChatInterface: React.FC = () => {
     
     setUploadingFile(true);
     try {
-      const operatorName = user?.email 
-        ? teamMembers.find(m => m.email === user.email)?.name 
-        : undefined;
-      
       await api.sendMediaMessage(
-        activeChat.id, 
-        file, 
-        operatorName
+        activeChat.id,
+        file,
+        operatorDisplayName
       );
       toast.success('Anexo enviado!');
     } catch (err) {
@@ -729,10 +727,7 @@ const ChatInterface: React.FC = () => {
   }) => {
     if (!activeChat) return;
     try {
-      const operatorName = user?.email
-        ? teamMembers.find((m) => m.email === user.email)?.name
-        : undefined;
-      await api.sendLibraryMedia(activeChat.id, item, operatorName);
+      await api.sendLibraryMedia(activeChat.id, item, operatorDisplayName);
       toast.success(`${item.name} enviado!`);
     } catch (err) {
       console.error('Erro ao enviar mídia da biblioteca:', err);
@@ -819,15 +814,7 @@ const ChatInterface: React.FC = () => {
     const content = inputText.trim();
     setInputText('');
     
-    // Extract operator name from email (e.g., "adriano.jacometo@email.com" -> "Adriano Jacometo")
-    const operatorName = user?.email 
-      ? user.email.split('@')[0]
-          .split(/[._-]/)
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-          .join(' ')
-      : undefined;
-    
-    await sendMessage(activeChat.id, content, operatorName);
+    await sendMessage(activeChat.id, content, operatorDisplayName);
   };
 
   // Format duration for audio recording
@@ -933,16 +920,7 @@ const ChatInterface: React.FC = () => {
 
         const file = new File([blob], `audio_${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
 
-        const operatorName = user?.email
-          ? teamMembers.find((m) => m.email === user.email)?.name ||
-            user.email
-              .split('@')[0]
-              .split(/[._-]/)
-              .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-              .join(' ')
-          : undefined;
-
-        await api.sendMediaMessage(activeChat.id, file, operatorName);
+        await api.sendMediaMessage(activeChat.id, file, operatorDisplayName);
         toast.success('Áudio enviado!');
       } catch (err) {
         console.error('[Audio] send failed:', err);
@@ -994,12 +972,7 @@ const ChatInterface: React.FC = () => {
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
-    // Use full name from team_members when available, fallback to email-derived name
-    const userName = user?.email 
-      ? teamMembers.find(m => m.email === user.email)?.name ||
-        user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)
-      : undefined;
-    await updateStatus(activeChat.id, status, user?.id, userName);
+    await updateStatus(activeChat.id, status, user?.id, operatorDisplayName);
   };
 
   // Save contact data

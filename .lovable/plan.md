@@ -1,53 +1,64 @@
-## Diagnóstico: por que alguns usuários não veem os leads
+## Diagnóstico
 
-Verifiquei as políticas RLS das tabelas `conversations`, `messages`, `contacts` e cruzei com os usuários reais da plataforma.
+Na captura você vê `CONTATO:` antes do texto. O prefixo é gerado em `src/services/api.ts` (linha 1072):
 
-### Usuários atuais e o que cada um enxerga hoje
+```ts
+const whatsappContent = operatorName 
+  ? `*${operatorName.toUpperCase()}:*\n${content}` 
+  : content;
+```
 
-| Email | Role | team_members.status | Vê contatos? | Vê conversas? |
-|---|---|---|---|---|
-| adriano@jacometo.com.br | admin | — | Sim | Sim |
-| goeesgabrieel@gmail.com | operator | active | Sim | Sim |
-| contato@orbepet.com.br (Ludiane) | operator | **invited** | Sim | **Não** |
-| jarvis@jacometo.com.br | operator | **sem registro** | Sim | **Não** |
-| joao.pedro@jacometo.com.br | **sem role** | sem registro | **Não** | **Não** |
+E em `src/components/ChatInterface.tsx` (linha 824) o `operatorName` é montado **a partir do prefixo do e-mail logado**:
 
-### Causa raiz
+```ts
+const operatorName = user?.email
+  ? user.email.split('@')[0].split(/[._-]/)...
+  : undefined;
+```
 
-As políticas estão inconsistentes entre as tabelas:
+A Ludiane está logada como `contato@orbepet.com.br`, então o "nome" extraído vira `Contato` → `CONTATO`. O mesmo problema acontece em qualquer e-mail genérico (`jarvis@`, `vendas@`, etc.).
 
-- `contacts` libera para: `team_member ativo OR admin OR operator` → operator vê.
-- `conversations` libera para: `team_member ativo OR admin` → **operator NÃO vê** se o team_members não estiver com status='active'.
-- `messages` libera para: `team_member ativo OR admin` → mesmo problema.
+No banco já temos o nome real:
+- `team_members.name = 'Ludiane'` para `contato@orbepet.com.br`
+- `team_members.name = 'Gabriel'` para `goeesgabrieel@gmail.com`
 
-Resultado: usuários com role `operator` mas sem `team_members.status='active'` (Ludiane está como "invited", Jarvis nem existe na tabela) conseguem ver a lista de contatos, mas as conversas/mensagens do WhatsApp aparecem vazias. E o João Pedro não tem role nenhuma, então não vê nada.
+Ou seja, o dado correto existe — só não está sendo usado.
+
+Os mesmos pontos de envio de mídia também usam `operatorName` (linhas 1623, 1721 do `services/api.ts`), então a correção precisa valer para todos.
 
 ## Plano de correção
 
-### 1. Uniformizar RLS de `conversations` e `messages`
-Atualizar as policies para também aceitar role `operator`, igual ao que já está em `contacts`:
-- SELECT/INSERT/UPDATE liberados para: `admin OR operator OR team_member ativo`.
-- DELETE em `conversations` continua só para admin.
+1. **Criar hook `useCurrentOperatorName`** (`src/hooks/useCurrentOperatorName.ts`)
+   - Busca `team_members.name` pelo e-mail do usuário logado.
+   - Fallback em cascata se não houver registro/nome:
+     1. `team_members.name`
+     2. `auth.user.user_metadata.full_name` ou `name`
+     3. parte antes do `@` do e-mail formatada (comportamento atual), porém **ignorando** prefixos genéricos (`contato`, `vendas`, `suporte`, `atendimento`, `comercial`, `jarvis`, `noreply`, `no-reply`) — nesses casos cai para "Atendente".
+   - Cacheia em memória/localStorage para não refazer query a cada envio.
 
-### 2. Ativar team_members pendentes
-- Marcar `contato@orbepet.com.br` (Ludiane) como `status='active'` em `team_members` (atualmente "invited").
-- Criar registro em `team_members` para `jarvis@jacometo.com.br` (ou confirmar se é uma conta de sistema que não deveria logar na UI).
+2. **Trocar a lógica inline em `ChatInterface.tsx`**
+   - Remover o bloco que monta `operatorName` a partir do e-mail no `handleSendMessage`.
+   - Usar o hook: `const operatorName = useCurrentOperatorName();` e passar direto para `sendMessage`, envio de mídia e envio da biblioteca.
 
-### 3. Resolver o usuário sem role
-`joao.pedro@jacometo.com.br` não tem entrada em `user_roles`. Opções:
-- Atribuir `operator` (acesso normal de atendimento), ou
-- Atribuir `admin` (acesso total), ou
-- Remover/desativar se não deve mais usar a plataforma.
+3. **Garantir consistência nos outros envios**
+   - Repassar o mesmo `operatorName` para `api.sendMediaMessage` e `api.sendMediaLibraryMessage` (qualquer chamada que aceite `operatorName`).
 
-Preciso da sua decisão antes de aplicar.
+4. **(Opcional, recomendado) Permitir editar o nome de exibição**
+   - Em **Configurações → Equipe**, mostrar o `name` do `team_members` do usuário logado e permitir alterar. Hoje quem se cadastra com e-mail genérico não tem como corrigir.
 
-### 4. (Opcional) Garantir role na criação de novos usuários
-A função `handle_new_user()` já cria `operator` automaticamente para novos signups, mas o João Pedro foi criado antes ou via fluxo que não disparou o trigger. Verificar se o trigger `on_auth_user_created` está ativo em `auth.users`; se não estiver, recriar para evitar futuros usuários "órfãos".
+## Fora de escopo
 
-## Perguntas para você
+- Não mudar o formato do prefixo (`*NOME:*\n...`) — segue o padrão atual.
+- Não alterar RLS/políticas (assunto da última correção).
+- Não mexer em mensagens automáticas da Orbi (apenas mensagens enviadas manualmente pelo atendente).
 
-1. Qual role o **João Pedro** deve ter? (operator, admin, ou remover acesso)
-2. O **jarvis@jacometo.com.br** é uma conta humana que precisa ver os leads na UI, ou é só uma conta de integração/automação? (se for automação, não precisa ver nada — usa service role)
-3. Confirmo a ativação da **Ludiane** (contato@orbepet.com.br) como membro ativo da equipe?
+## Resultado esperado
 
-Assim que você responder, aplico a migração de RLS + os ajustes de equipe em uma única etapa.
+A mensagem da Ludiane passa a chegar como:
+
+```
+*LUDIANE:*
+Boa tarde Amanda, aqui quem fala é a Ludiane...
+```
+
+E qualquer atendente com e-mail genérico terá o nome correto vindo do cadastro de equipe, não do e-mail.
