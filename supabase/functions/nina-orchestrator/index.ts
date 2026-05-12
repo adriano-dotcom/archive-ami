@@ -3879,6 +3879,12 @@ Agradeço pela compreensão! 🙏`;
       console.warn('[Nina][Orbe360][SafetyNet] intent_detected_no_mention (handoff) — aplicando fallback determinístico.');
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
+
+    // ===== AGE GUARD SAFETY NET (handoff path) =====
+    if (overAgePet && aiContent && mentionsPetPlan(aiContent)) {
+      console.warn('[Nina][AgeGuard][SafetyNet] pet>10 + plano pet citado (handoff) — substituindo por resposta segura.');
+      aiContent = OVER_AGE_FALLBACK_RESPONSE;
+    }
     
     // Queue AI response with additional delay after handoff
     const responseTime = Date.now() - new Date(message.sent_at).getTime();
