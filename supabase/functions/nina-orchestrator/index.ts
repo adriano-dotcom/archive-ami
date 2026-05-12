@@ -3598,6 +3598,19 @@ Agradeço pela compreensão! 🙏`;
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
       plansCatalogContent += '\nℹ️ Limite anual é o teto financeiro do plano; cada serviço respeita também o limite por evento e a carência indicada.\n';
+      plansCatalogContent += `
+⛔ REGRA INEGOCIÁVEL — IDADE MÁXIMA DO PET (10 ANOS)
+- Pets com MAIS de 10 anos NÃO PODEM contratar nenhum plano pet OrbePet
+  (Essencial, Órbita Plus, Órbita Total ou Órbita Galáxia).
+- NUNCA invente termos como "plano sênior", "cobertura especial idoso",
+  "plano para pet idoso" ou "exceção para pet senior". NÃO EXISTE.
+- Se o tutor informar que o pet tem MAIS de 10 anos:
+   1. Reconheça com empatia ("entendo, ele já tem uma idade avançada…")
+   2. Explique honestamente que o limite de contratação é até 10 anos
+   3. NÃO recomende nenhum plano pet, NÃO cite preços de plano pet
+   4. Ofereça o Orbe 360 (telemedicina humana 24h + assistência funeral)
+      como alternativa para o tutor: https://orbepet.com.br/orbe-360
+`;
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
