@@ -4078,6 +4078,13 @@ Agradeço pela compreensão! 🙏`;
       aiContent = ORBE_360_FALLBACK_RESPONSE;
     }
 
+    // ===== AGE GUARD SAFETY NET (normal flow) =====
+    // Bloqueia recomendação de plano pet quando idade do pet > 10 anos.
+    if (overAgePet && aiContent && mentionsPetPlan(aiContent)) {
+      console.warn('[Nina][AgeGuard][SafetyNet] pet>10 + plano pet citado — substituindo por resposta segura.');
+      aiContent = OVER_AGE_FALLBACK_RESPONSE;
+    }
+
     console.log('[Nina] AI response received (sanitized), length:', aiContent.length);
 
     // Calculate response time
