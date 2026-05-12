@@ -3699,6 +3699,14 @@ Agradeço pela compreensão! 🙏`;
     processedPrompt = processedPrompt + ORBE_360_FORCED_INSTRUCTION;
   }
 
+  // ===== AGE GUARD: pet > 10 anos =====
+  const ageCheck = detectOverAgePet(message?.content || '', clientMemory);
+  const overAgePet = ageCheck.over;
+  if (overAgePet) {
+    console.warn(`[Nina][AgeGuard] over_age_detected pet_age=${ageCheck.age} — bloqueando recomendação de plano pet`);
+    processedPrompt = processedPrompt + OVER_AGE_FORCED_INSTRUCTION;
+  }
+
   console.log('[Nina] Calling Lovable AI...');
 
   // Get AI model settings
