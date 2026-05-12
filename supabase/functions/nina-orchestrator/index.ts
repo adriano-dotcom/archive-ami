@@ -5271,6 +5271,72 @@ const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra v
 
 const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
 
+// ============================================================
+// AGE GUARD: detecta pets com mais de 10 anos (limite máx. de contratação)
+// Lê últimas mensagens do tutor e client_memory.pet_idade
+// ============================================================
+function detectOverAgePet(text: string, clientMemory: any): { over: boolean; age: number | null } {
+  let detectedAge: number | null = null;
+
+  // 1. client_memory primeiro (fonte mais confiável)
+  if (clientMemory && typeof clientMemory === 'object') {
+    const raw = clientMemory.pet_idade ?? clientMemory.pet_age ?? clientMemory.idade_pet;
+    if (raw) {
+      const m = String(raw).match(/(\d{1,2})/);
+      if (m) detectedAge = parseInt(m[1], 10);
+    }
+  }
+
+  // 2. texto da mensagem do tutor
+  if (detectedAge === null && text) {
+    const t = text.toLowerCase();
+    // padrões: "tem 11 anos", "11 aninhos", "11 anos de idade", "ele tem 12"
+    const patterns: RegExp[] = [
+      /\b(?:tem|ten|com|de)\s+(\d{1,2})\s*(?:anos?|aninhos?)\b/i,
+      /\b(\d{1,2})\s*(?:anos?|aninhos?)\s*(?:de\s+idade)?\b/i,
+    ];
+    for (const rx of patterns) {
+      const m = t.match(rx);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n >= 1 && n <= 30) { detectedAge = n; break; }
+      }
+    }
+  }
+
+  if (detectedAge !== null && detectedAge > 10) {
+    return { over: true, age: detectedAge };
+  }
+  return { over: false, age: detectedAge };
+}
+
+const PET_PLAN_REGEX = /\b(?:[oó]rbita\s+(?:plus|total|gal[áa]xia)|essencial)\b/i;
+
+function mentionsPetPlan(text: string): boolean {
+  if (!text) return false;
+  return PET_PLAN_REGEX.test(text);
+}
+
+const OVER_AGE_FORCED_INSTRUCTION = `
+
+🚨 INSTRUÇÃO OBRIGATÓRIA — PET COM MAIS DE 10 ANOS DETECTADO 🚨
+
+O sistema identificou que o pet do tutor tem MAIS de 10 anos.
+REGRAS ABSOLUTAS para esta resposta:
+1. NÃO recomende NENHUM plano pet (Essencial, Órbita Plus, Órbita Total, Órbita Galáxia).
+2. NÃO cite preços de planos pet.
+3. NÃO invente "plano sênior" ou "cobertura especial idoso" — não existe.
+4. Reconheça com empatia a idade do pet.
+5. Explique honestamente que o limite de contratação é até 10 anos.
+6. Ofereça o Orbe 360 (telemedicina humana 24h + assistência funeral) ao tutor.
+7. Inclua OBRIGATORIAMENTE o link: https://orbepet.com.br/orbe-360
+8. Resposta CURTA (2–3 linhas), tom acolhedor.
+`;
+
+const OVER_AGE_FALLBACK_RESPONSE = `Entendo, ele já tem uma idade avançada 💙 Infelizmente nossos planos pet aceitam contratação só até 10 anos completos. Mas posso te oferecer o Orbe 360, com telemedicina humana 24h e assistência funeral completa pra você e sua família. Dá uma olhada: https://orbepet.com.br/orbe-360`;
+
+
+
 /**
  * Garante que toda resposta da IA que mencione o produto Orbe 360 ou seus
  * benefícios (telemedicina humana / funeral / apoio psicológico) inclua
