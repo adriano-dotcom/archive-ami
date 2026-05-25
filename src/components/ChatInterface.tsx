@@ -32,7 +32,8 @@ import { useConversations } from '../hooks/useConversations';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOperatorName } from '@/hooks/useCurrentOperatorName';
 import { toast } from 'sonner';
-import RecordRTC, { StereoAudioRecorder } from 'recordrtc';
+// @ts-expect-error - opus-recorder has no bundled types
+import OpusRecorder from 'opus-recorder';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { api } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
@@ -838,7 +839,7 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Start audio recording
+  // Start audio recording (OGG/Opus via opus-recorder — required by WhatsApp Cloud API)
   const startRecording = async () => {
     if (!windowTimeRemaining.isOpen) return;
 
@@ -846,27 +847,28 @@ const ChatInterface: React.FC = () => {
     try {
       clearRecordingTimer();
       stopRecordingStream();
-      recorderRef.current?.destroy();
+      try { await recorderRef.current?.stop?.(); } catch { /* ignore */ }
       recorderRef.current = null;
     } catch {
       // ignore
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recordingStreamRef.current = stream;
-
-      // RecordRTC handles cross-browser quirks better than raw MediaRecorder
-      const recorder = new RecordRTC(stream, {
-        type: 'audio',
-        mimeType: 'audio/webm;codecs=opus',
-        recorderType: StereoAudioRecorder,
-        numberOfAudioChannels: 1,
-        desiredSampRate: 48000,
+      const recorder = new OpusRecorder({
+        encoderPath: '/opus/encoderWorker.min.js',
+        encoderApplication: 2048, // VOIP
+        encoderSampleRate: 16000, // PTT padrão WhatsApp
+        originalSampleRateOverride: 16000,
+        streamPages: false,
+        numberOfChannels: 1,
+        bufferLength: 4096,
+        monitorGain: 0,
+        recordingGain: 1,
       });
 
       recorderRef.current = recorder;
-      recorder.startRecording();
+      // opus-recorder gerencia internamente o MediaStream via getUserMedia
+      await recorder.start();
 
       setIsRecording(true);
       setRecordingDuration(0);
@@ -881,7 +883,7 @@ const ChatInterface: React.FC = () => {
       setRecordingDuration(0);
       clearRecordingTimer();
       stopRecordingStream();
-      recorderRef.current?.destroy();
+      try { await recorderRef.current?.stop?.(); } catch { /* ignore */ }
       recorderRef.current = null;
     }
   };
@@ -900,43 +902,69 @@ const ChatInterface: React.FC = () => {
     if (recordingDuration < 1) {
       toast.error('Gravação muito curta');
       setRecordingDuration(0);
-      recorder.stopRecording(() => {
-        recorder.destroy();
-        recorderRef.current = null;
-        stopRecordingStream();
-      });
+      try { await recorder.stop(); } catch { /* ignore */ }
+      recorderRef.current = null;
+      stopRecordingStream();
       return;
     }
 
     setUploadingFile(true);
 
-    recorder.stopRecording(async () => {
-      try {
-        const blob = recorder.getBlob();
-        if (!blob || blob.size === 0) {
-          toast.error('Não foi possível capturar o áudio (blob vazio).');
-          return;
+    // Capturar OGG/Opus emitido pelo worker do opus-recorder
+    const oggBlob = await new Promise<Blob | null>((resolve) => {
+      let resolved = false;
+      const finish = (blob: Blob | null) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(blob);
+      };
+      recorder.ondataavailable = (typedArray: Uint8Array) => {
+        try {
+          const buf = typedArray.buffer.slice(typedArray.byteOffset, typedArray.byteOffset + typedArray.byteLength) as ArrayBuffer;
+          const blob = new Blob([buf], { type: 'audio/ogg; codecs=opus' });
+          finish(blob);
+        } catch (e) {
+          console.error('[Audio] ondataavailable error:', e);
+          finish(null);
         }
-
-        const file = new File([blob], `audio_${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
-
-        await api.sendMediaMessage(activeChat.id, file, operatorDisplayName);
-        toast.success('Áudio enviado!');
-      } catch (err) {
-        console.error('[Audio] send failed:', err);
-        toast.error('Erro ao enviar áudio');
-      } finally {
-        setUploadingFile(false);
-        setRecordingDuration(0);
-        recorder.destroy();
-        recorderRef.current = null;
-        stopRecordingStream();
-      }
+      };
+      recorder.onstop = () => {
+        // Caso ondataavailable não dispare por algum motivo
+        setTimeout(() => finish(null), 500);
+      };
+      // dispara o flush do encoder
+      recorder.stop().catch((e: unknown) => {
+        console.error('[Audio] recorder.stop error:', e);
+        finish(null);
+      });
     });
+
+    try {
+      if (!oggBlob || oggBlob.size === 0) {
+        toast.error('Não foi possível capturar o áudio.');
+        return;
+      }
+
+      const file = new File([oggBlob], `audio_${Date.now()}.ogg`, {
+        type: 'audio/ogg; codecs=opus',
+      });
+
+      await api.sendMediaMessage(activeChat.id, file, operatorDisplayName);
+      toast.success('Áudio enviado!');
+    } catch (err) {
+      console.error('[Audio] send failed:', err);
+      toast.error('Erro ao enviar áudio');
+    } finally {
+      setUploadingFile(false);
+      setRecordingDuration(0);
+      recorderRef.current = null;
+      stopRecordingStream();
+    }
   };
 
+
   // Cancel recording
-  const cancelRecording = () => {
+  const cancelRecording = async () => {
     if (!isRecording) return;
 
     setIsRecording(false);
@@ -945,14 +973,10 @@ const ChatInterface: React.FC = () => {
 
     const recorder = recorderRef.current;
     if (recorder) {
-      recorder.stopRecording(() => {
-        recorder.destroy();
-        recorderRef.current = null;
-        stopRecordingStream();
-      });
-    } else {
-      stopRecordingStream();
+      try { await recorder.stop(); } catch { /* ignore */ }
     }
+    recorderRef.current = null;
+    stopRecordingStream();
   };
 
   // Cleanup on unmount
@@ -960,7 +984,7 @@ const ChatInterface: React.FC = () => {
     return () => {
       clearRecordingTimer();
       try {
-        recorderRef.current?.destroy();
+        recorderRef.current?.stop?.();
       } catch {
         // ignore
       }
@@ -969,6 +993,7 @@ const ChatInterface: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
