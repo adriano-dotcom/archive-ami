@@ -920,7 +920,8 @@ const ChatInterface: React.FC = () => {
       };
       recorder.ondataavailable = (typedArray: Uint8Array) => {
         try {
-          const blob = new Blob([typedArray], { type: 'audio/ogg; codecs=opus' });
+          const buf = typedArray.buffer.slice(typedArray.byteOffset, typedArray.byteOffset + typedArray.byteLength) as ArrayBuffer;
+          const blob = new Blob([buf], { type: 'audio/ogg; codecs=opus' });
           finish(blob);
         } catch (e) {
           console.error('[Audio] ondataavailable error:', e);
