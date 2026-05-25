@@ -964,7 +964,7 @@ const ChatInterface: React.FC = () => {
 
 
   // Cancel recording
-  const cancelRecording = () => {
+  const cancelRecording = async () => {
     if (!isRecording) return;
 
     setIsRecording(false);
@@ -973,14 +973,10 @@ const ChatInterface: React.FC = () => {
 
     const recorder = recorderRef.current;
     if (recorder) {
-      recorder.stopRecording(() => {
-        recorder.destroy();
-        recorderRef.current = null;
-        stopRecordingStream();
-      });
-    } else {
-      stopRecordingStream();
+      try { await recorder.stop(); } catch { /* ignore */ }
     }
+    recorderRef.current = null;
+    stopRecordingStream();
   };
 
   // Cleanup on unmount
@@ -988,7 +984,7 @@ const ChatInterface: React.FC = () => {
     return () => {
       clearRecordingTimer();
       try {
-        recorderRef.current?.destroy();
+        recorderRef.current?.stop?.();
       } catch {
         // ignore
       }
@@ -997,6 +993,7 @@ const ChatInterface: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
