@@ -1590,18 +1590,28 @@ export const api = {
       messageType = 'video';
     }
 
+    // WhatsApp Cloud API só aceita audio/ogg;opus | mpeg | amr | mp4 | aac.
+    // Normalizamos qualquer áudio gravado no browser para audio/ogg; codecs=opus
+    // (o ChatInterface já entrega nesse formato via opus-recorder).
+    let uploadContentType = file.type || 'application/octet-stream';
+    if (messageType === 'audio') {
+      mediaType = 'audio/ogg; codecs=opus';
+      uploadContentType = 'audio/ogg';
+    }
+
     // Generate unique filename
-    const ext = file.name.split('.').pop() || 'bin';
+    let ext = file.name.split('.').pop() || 'bin';
+    if (messageType === 'audio') ext = 'ogg';
     const fileName = `${conversationId}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-    console.log(`[API] Uploading file: ${fileName}, type: ${messageType}`);
+    console.log(`[API] Uploading file: ${fileName}, type: ${messageType}, contentType: ${uploadContentType}`);
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('whatsapp-media')
       .upload(fileName, file, {
-        contentType: file.type,
+        contentType: uploadContentType,
         upsert: false
       });
 
