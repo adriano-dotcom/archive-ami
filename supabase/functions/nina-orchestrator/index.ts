@@ -3598,7 +3598,24 @@ Agradeço pela compreensão! 🙏`;
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
       plansCatalogContent += '\nℹ️ Limite anual é o teto financeiro do plano; cada serviço respeita também o limite por evento e a carência indicada.\n';
-      plansCatalogContent += '\n🚫 REGRA CRÍTICA DE CARÊNCIA: TODOS os eventos possuem carência conforme indicado acima. A ÚNICA exceção é o CONCIERGE/TELEMEDICINA VETERINÁRIA (24h, carência 0). NUNCA afirme que emergências, acidentes, intoxicações ou qualquer outro evento têm "carência zero" ou "proteção imediata". Emergências/cirurgias seguem a carência de cirurgias (60 dias). Se o tutor perguntar sobre urgência imediata, ofereça a telemedicina 24h como cobertura disponível desde o início.\n';
+      plansCatalogContent += `
+🚫 REGRA CRÍTICA DE CARÊNCIA — use EXATAMENTE estes valores, nunca invente "carência zero" ou "proteção imediata" e nunca infira prazos diferentes:
+
+• Telemedicina / Concierge 24h: 0 dias (ÚNICA cobertura imediata)
+• Consulta veterinária: 30 dias
+• Consulta com especialista: 30 dias
+• Atendimento ambulatorial: 30 dias
+• Transporte veterinário: 30 dias
+• Assistência funeral: 30 dias
+• Exames laboratoriais e de imagem: 60 dias
+• Vacina: 60 dias
+• Cirurgias (inclui emergências, acidentes, intoxicações): 60 dias
+• Internação: 60 dias
+• Castração: 180 dias
+• Carência geral padrão do plano: 30 dias
+
+PROIBIDO afirmar que emergências, acidentes ou intoxicações têm carência zero. A única cobertura disponível desde o primeiro dia é a telemedicina 24h — ofereça-a quando o tutor perguntar sobre urgência imediata.
+`;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — IDADE MÁXIMA DO PET (10 ANOS)
 - Pets com MAIS de 10 anos NÃO PODEM contratar nenhum plano pet OrbePet
