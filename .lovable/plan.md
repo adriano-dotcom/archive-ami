@@ -1,68 +1,41 @@
-# Corrigir envio de áudio do operador no WhatsApp
+## Objetivo
 
-## Diagnóstico
+Atualizar a regra crítica de carência no prompt do Orbi para listar **explicitamente** cada evento e sua carência em dias, sem permitir inferência ou generalização pela IA.
 
-As mensagens de áudio gravadas pelo operador no chat estão falhando com erro Meta **131053 – Unsupported Audio mime type**. Hoje gravamos com `RecordRTC` em `audio/webm;codecs=opus` e armazenamos como `.webm` (alguns registros vêm como `audio/wav`). A WhatsApp Cloud API aceita apenas:
+## Arquivo
+
+`supabase/functions/nina-orchestrator/index.ts` — bloco onde `plansCatalogContent` recebe a regra crítica de carência (próximo à linha 3600, logo após o cabeçalho do catálogo de planos).
+
+## Mudança
+
+Substituir o parágrafo único atual ("REGRA CRÍTICA DE CARÊNCIA…") por uma tabela textual fixa, baseada nos dados reais do `orbe_plans_catalog`:
 
 ```
-audio/ogg; codecs=opus  (recomendado p/ PTT)
-audio/mpeg, audio/amr, audio/mp4, audio/aac
+🚫 REGRA CRÍTICA DE CARÊNCIA — use EXATAMENTE estes valores, nunca invente "carência zero" ou "proteção imediata":
+
+• Telemedicina / Concierge 24h: 0 dias (única cobertura imediata)
+• Consulta veterinária: 30 dias
+• Consulta com especialista: 30 dias
+• Atendimento ambulatorial: 30 dias
+• Transporte veterinário: 30 dias
+• Assistência funeral: 30 dias
+• Exames laboratoriais e de imagem: 60 dias
+• Vacina: 60 dias
+• Cirurgias (inclui emergências, acidentes, intoxicações): 60 dias
+• Internação: 60 dias
+• Castração: 180 dias
+• Carência geral padrão do plano: 30 dias
+
+PROIBIDO afirmar que emergências, acidentes ou intoxicações têm carência zero. A única cobertura disponível desde o primeiro dia é a telemedicina 24h.
 ```
 
-Por isso o áudio aparece na timeline com o ícone vermelho de erro e nunca chega ao tutor.
+## Fora de escopo
 
-## Solução
+- Não alterar os dados do `orbe_plans_catalog` (já estão corretos).
+- Não mexer em sanitização de resposta, follow-ups, ou outros prompts.
+- Não alterar lógica de injeção dinâmica do catálogo (continua sendo SSOT por plano); a tabela acima é um reforço determinístico para impedir alucinação.
 
-Trocar a gravação no browser para gerar **diretamente OGG/Opus**, usando a biblioteca `extendable-media-recorder` + `extendable-media-recorder-wav-encoder` substituta — na verdade vamos usar **`opus-recorder`**, que encoda Opus em WebWorker e empacota em container OGG nativamente (funciona em Chrome, Edge, Safari 14+).
+## Validação
 
-### Mudanças
-
-1. **Dependência**
-   - Adicionar `opus-recorder` (`bun add opus-recorder`).
-   - Copiar o worker `encoderWorker.min.js` da lib para `public/opus/` (carregado por URL pelo recorder).
-
-2. **`src/components/ChatInterface.tsx` – fluxo de gravação**
-   - Substituir o uso de `RecordRTC` apenas no caminho de áudio por `Recorder` do `opus-recorder` configurado com:
-     ```ts
-     new Recorder({
-       encoderPath: '/opus/encoderWorker.min.js',
-       encoderApplication: 2048,     // VOIP
-       encoderSampleRate: 16000,     // padrão PTT WhatsApp
-       streamPages: false,
-       numberOfChannels: 1,
-       bufferLength: 4096,
-     });
-     ```
-   - Ao parar, gerar `Blob` com `type: 'audio/ogg; codecs=opus'` e `File` com nome `audio_<ts>.ogg`.
-   - Manter validações atuais (duração mínima 1s, toast de erro, cleanup do stream).
-   - Vídeo/imagem/documento continuam pelo fluxo atual.
-
-3. **`src/services/api.ts` – `sendMediaMessage`**
-   - Quando `messageType === 'audio'`, normalizar `mediaType` para `'audio/ogg; codecs=opus'` antes de:
-     - `supabase.storage.upload(..., { contentType: 'audio/ogg' })`
-     - gravar `media_type` na tabela `messages`
-   - Garantir extensão `.ogg` quando o arquivo vier sem extensão correta.
-
-4. **`supabase/functions/whatsapp-sender/index.ts`**
-   - No `case 'audio'`, manter envio por `link`, mas garantir o payload final:
-     ```ts
-     payload.type = 'audio';
-     payload.audio = { link: queueItem.media_url };
-     ```
-   - Não muda comportamento; só validar que o link aponta para `.ogg` com content-type correto (servido pelo Storage).
-
-5. **Reprocessamento (opcional, fora do escopo)**
-   - Mensagens antigas com `status='failed'` e erro 131053 continuam falhas; não vamos reenviar automaticamente.
-
-### Fora de escopo
-
-- Áudios recebidos do tutor (já funcionam, passam por ElevenLabs).
-- Transcodificação server-side (não precisamos — gravamos OGG/Opus já no cliente).
-- Mudanças no nina-orchestrator, Age Guard, Orbe 360, follow-ups, prompt.
-
-### Validação
-
-- Gravar áudio no `/chat`, conferir no devtools que o upload sai com `Content-Type: audio/ogg`.
-- Conferir no banco: `messages.media_type = 'audio/ogg; codecs=opus'`, `status` evolui de `processing` → `sent`.
-- Confirmar entrega real no WhatsApp do tutor de teste.
-- Em caso de falha, conferir `metadata.whatsapp_error` — não deve mais aparecer 131053.
+1. Após deploy do `nina-orchestrator`, simular conversa perguntando "tem carência para emergência?" — resposta deve citar 60 dias (cirurgias) e oferecer telemedicina 24h.
+2. Confirmar que não aparece mais "carência zero" para emergências/acidentes nos logs do Orbi.
