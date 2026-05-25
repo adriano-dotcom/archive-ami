@@ -32,7 +32,8 @@ import { useConversations } from '../hooks/useConversations';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOperatorName } from '@/hooks/useCurrentOperatorName';
 import { toast } from 'sonner';
-import RecordRTC, { StereoAudioRecorder } from 'recordrtc';
+// @ts-expect-error - opus-recorder has no bundled types
+import OpusRecorder from 'opus-recorder';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { api } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
