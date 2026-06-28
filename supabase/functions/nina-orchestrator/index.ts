@@ -3685,22 +3685,9 @@ IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cob
   // Process template variables
   let processedPrompt = processPromptTemplate(enhancedSystemPrompt, conversation.contact);
 
-  // ===== ORBE 360: detecção determinística "lead sem pet / interesse humano" =====
-  // Se detectado, anexa instrução obrigatória ao final do system prompt para forçar
-  // a oferta do Orbe 360 + link, mesmo se o modelo tender a sugerir adoção.
-  const orbe360Intent = detectNoPetIntent(message?.content || '');
-  if (orbe360Intent) {
-    console.log('[Nina][Orbe360] 🎯 Intenção "lead sem pet / saúde humana" detectada — forçando oferta Orbe 360');
-    processedPrompt = processedPrompt + ORBE_360_FORCED_INSTRUCTION;
-  }
-
-  // ===== AGE GUARD: pet > 10 anos =====
-  const ageCheck = detectOverAgePet(message?.content || '', clientMemory);
-  const overAgePet = ageCheck.over;
-  if (overAgePet) {
-    console.warn(`[Nina][AgeGuard] over_age_detected pet_age=${ageCheck.age} — bloqueando recomendação de plano pet`);
-    processedPrompt = processedPrompt + OVER_AGE_FORCED_INSTRUCTION;
-  }
+  // (Pet-specific enforcement removed — Jacometo Corretora context is cargo insurance.)
+  const orbe360Intent = false;
+  const overAgePet = false;
 
   console.log('[Nina] Calling Lovable AI...');
 
