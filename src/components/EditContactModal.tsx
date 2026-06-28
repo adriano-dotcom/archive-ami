@@ -385,14 +385,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({ open, onOpenChange,
                     <SelectItem value="none" className="text-slate-400 focus:bg-slate-800">
                       Não definido
                     </SelectItem>
-                    <SelectItem value="pet_tutor" className="text-green-400 focus:bg-slate-800">
+                    <SelectItem value="pet_tutor" className="text-sky-400 focus:bg-slate-800">
                       <div className="flex items-center gap-2">
-                        🐕 Pet (Tutor)
+                        🚛 Transportador (ETC)
                       </div>
                     </SelectItem>
                     <SelectItem value="clinica_petshop" className="text-blue-400 focus:bg-slate-800">
                       <div className="flex items-center gap-2">
-                        🏥 Clínica/Petshop
+                        🏢 Embarcador / Transportadora
                       </div>
                     </SelectItem>
                   </SelectContent>
