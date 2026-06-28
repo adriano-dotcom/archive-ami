@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Plus, Trash2, Loader2, Upload, Shield, Heart, Star, PawPrint, CheckCircle, Award, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import orbepetLogo from '@/assets/orbepet-logo.png';
+import orbepetLogo from '@/assets/jacometo-logo.png';
 
 const ICON_OPTIONS = [
   { value: 'shield', label: 'Escudo', icon: Shield },

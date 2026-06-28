@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckCircle, Heart, Shield, Star, PawPrint, Loader2, Award } from 'lucide-react';
-import orbepetLogo from '@/assets/orbepet-logo.png';
+import orbepetLogo from '@/assets/jacometo-logo.png';
 
 interface LandingPage {
   id: string;
