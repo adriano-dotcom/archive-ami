@@ -3595,39 +3595,29 @@ Agradeço pela compreensão! 🙏`;
       .order('display_order', { ascending: true });
     
     if (plans && plans.length > 0) {
-      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
-      plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ Limite anual é o teto financeiro do plano; cada serviço respeita também o limite por evento e a carência indicada.\n';
+      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
+      plansCatalogContent += '\nℹ️ O prêmio básico anual cobre a emissão das 3 apólices obrigatórias. Cada embarque é averbado à parte, conforme o valor da carga e a quilometragem.\n';
       plansCatalogContent += `
-🚫 REGRA CRÍTICA DE CARÊNCIA — use EXATAMENTE estes valores, nunca invente "carência zero" ou "proteção imediata" e nunca infira prazos diferentes:
+🚫 REGRA CRÍTICA DE AVERBAÇÃO E PREÇO — use EXATAMENTE estes valores, nunca invente percentuais ou prazos:
 
-• Telemedicina / Concierge 24h: 0 dias (ÚNICA cobertura imediata)
-• Consulta veterinária: 30 dias
-• Consulta com especialista: 30 dias
-• Atendimento ambulatorial: 30 dias
-• Transporte veterinário: 30 dias
-• Assistência funeral: 30 dias
-• Exames laboratoriais e de imagem: 60 dias
-• Vacina: 60 dias
-• Cirurgias (inclui emergências, acidentes, intoxicações): 60 dias
-• Internação: 60 dias
-• Castração: 180 dias
-• Carência geral padrão do plano: 30 dias
+• Prêmio básico anual: R$ 900,00/ano (emissão das 3 apólices: RCTR-C, RC-DC e RC-V, vigência de 1 ano).
+• Averbação RCTR-C: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
+• Averbação RC-DC: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
+• Total carga (RCTR-C + RC-DC): 0,1% sobre o valor da carga.
+• RC-V: R$ 10 por viagem de até 400 km; acima disso há acréscimo pelos km excedentes, LIMITADO A R$ 25 por viagem.
+• Emissão da apólice: em até 5 dias após o aceite da proposta.
+• Vencimento do boleto de averbação: em média até 30 dias após o embarque.
 
-PROIBIDO afirmar que emergências, acidentes ou intoxicações têm carência zero. A única cobertura disponível desde o primeiro dia é a telemedicina 24h — ofereça-a quando o tutor perguntar sobre urgência imediata.
+IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cobertura sem averbação.
 `;
       plansCatalogContent += `
-⛔ REGRA INEGOCIÁVEL — IDADE MÁXIMA DO PET (10 ANOS)
-- Pets com MAIS de 10 anos NÃO PODEM contratar nenhum plano pet OrbePet
-  (Essencial, Órbita Plus, Órbita Total ou Órbita Galáxia).
-- NUNCA invente termos como "plano sênior", "cobertura especial idoso",
-  "plano para pet idoso" ou "exceção para pet senior". NÃO EXISTE.
-- Se o tutor informar que o pet tem MAIS de 10 anos:
-   1. Reconheça com empatia ("entendo, ele já tem uma idade avançada…")
-   2. Explique honestamente que o limite de contratação é até 10 anos
-   3. NÃO recomende nenhum plano pet, NÃO cite preços de plano pet
-   4. Ofereça o Orbe 360 (telemedicina humana 24h + assistência funeral)
-      como alternativa para o tutor: https://orbepet.com.br/orbe-360
+⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
+- MEI e ME com registro no RNTRC da ANTT como ETC (Empresa de Transporte de Carga).
+- Também atende EPP de pequeno porte, principalmente como subcontratada de transportadoras maiores.
+- Base legal: os seguros RCTR-C, RC-DC e RC-V são obrigatórios pela ETC (Art. 13 da Lei 11.442/2007) e exigências ANTT 478/2024 e 488/26.
+- Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
+- NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
