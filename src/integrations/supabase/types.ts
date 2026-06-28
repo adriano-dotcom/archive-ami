@@ -617,12 +617,14 @@ export type Database = {
           blocked_reason: string | null
           call_name: string | null
           campaign: string | null
+          cargo_type: string | null
           cep: string | null
           city: string | null
           client_memory: Json | null
           cnpj: string | null
           company: string | null
           company_id: string | null
+          company_type: string | null
           complement: string | null
           cpf: string | null
           created_at: string
@@ -643,16 +645,20 @@ export type Database = {
           pet_name: string | null
           phone_number: string
           profile_picture_url: string | null
+          rntrc: string | null
           role: string | null
           seller_id: string | null
           state: string | null
           street: string | null
           tags: string[] | null
+          typical_route_km: number | null
           updated_at: string
           utm_campaign: string | null
           utm_content: string | null
           utm_source: string | null
           utm_term: string | null
+          vehicle_plate: string | null
+          vehicle_type: string | null
           vertical: string | null
           whatsapp_id: string | null
         }
@@ -662,12 +668,14 @@ export type Database = {
           blocked_reason?: string | null
           call_name?: string | null
           campaign?: string | null
+          cargo_type?: string | null
           cep?: string | null
           city?: string | null
           client_memory?: Json | null
           cnpj?: string | null
           company?: string | null
           company_id?: string | null
+          company_type?: string | null
           complement?: string | null
           cpf?: string | null
           created_at?: string
@@ -688,16 +696,20 @@ export type Database = {
           pet_name?: string | null
           phone_number: string
           profile_picture_url?: string | null
+          rntrc?: string | null
           role?: string | null
           seller_id?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
+          typical_route_km?: number | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          vehicle_plate?: string | null
+          vehicle_type?: string | null
           vertical?: string | null
           whatsapp_id?: string | null
         }
@@ -707,12 +719,14 @@ export type Database = {
           blocked_reason?: string | null
           call_name?: string | null
           campaign?: string | null
+          cargo_type?: string | null
           cep?: string | null
           city?: string | null
           client_memory?: Json | null
           cnpj?: string | null
           company?: string | null
           company_id?: string | null
+          company_type?: string | null
           complement?: string | null
           cpf?: string | null
           created_at?: string
@@ -733,16 +747,20 @@ export type Database = {
           pet_name?: string | null
           phone_number?: string
           profile_picture_url?: string | null
+          rntrc?: string | null
           role?: string | null
           seller_id?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
+          typical_route_km?: number | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          vehicle_plate?: string | null
+          vehicle_type?: string | null
           vertical?: string | null
           whatsapp_id?: string | null
         }
