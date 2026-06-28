@@ -245,7 +245,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
         <div className="space-y-6 pb-6">
           {/* Dados de Contato */}
           <section>
-            <SectionHeader icon={User} title="Dados do Tutor" />
+            <SectionHeader icon={User} title="Dados do Transportador" />
             <div className="space-y-2">
               <InfoRow icon={Phone} label="Telefone" value={displayPhoneInternational(contact.phone)} />
               {(contact.city || contact.state) && (
@@ -256,7 +256,7 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
                 <InfoRow icon={FileText} label="CPF" value={formatCPF(contact.cpf)} />
               )}
               {contact.pet_name && (
-                <InfoRow icon={User} label="Nome do Pet" value={contact.pet_name} />
+                <InfoRow icon={User} label="Tipo de Carga" value={contact.pet_name} />
               )}
             </div>
           </section>

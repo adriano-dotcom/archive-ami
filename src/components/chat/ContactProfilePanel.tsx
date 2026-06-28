@@ -154,7 +154,7 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
         {/* Details List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Tutor</h4>
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Transportador</h4>
             <button 
               onClick={() => setIsEditingContact(!isEditingContact)}
               className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
@@ -262,19 +262,19 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
             </div>
           </div>
 
-          {/* Pet Name */}
+          {/* Tipo de Carga */}
           <div className="flex items-center gap-3 text-sm">
             <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-              🐾
+              📦
             </div>
             <div className="flex flex-col flex-1">
-              <span className="text-xs text-slate-500">Nome do Pet</span>
+              <span className="text-xs text-slate-500">Tipo de Carga</span>
               {isEditingContact ? (
                 <Input
                   type="text"
                   value={editPetName}
                   onChange={(e) => setEditPetName(e.target.value)}
-                  placeholder="Nome do animal"
+                  placeholder="Ex.: carga geral, frigorificada, granel"
                   className="h-8 text-sm bg-slate-950/50 border-slate-700"
                 />
               ) : (
