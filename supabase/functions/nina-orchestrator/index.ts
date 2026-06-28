@@ -3623,46 +3623,33 @@ IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cob
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join(', ') : 'Consulte detalhes';
-        plansCatalogContent += `\n### ${plan.plan_name} - ${price}/mês`;
+        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join('; ') : 'Consulte detalhes';
+        plansCatalogContent += `\n### ${plan.plan_name} — prêmio básico ${price}/ano`;
         plansCatalogContent += `\n- Coberturas: ${coverages}`;
-        if (plan.annual_limit) {
-          const limit = parseFloat(plan.annual_limit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-          plansCatalogContent += `\n- Limite anual: ${limit}`;
-        }
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
-          plansCatalogContent += `\n- Limites por evento (com carência):`;
+          plansCatalogContent += `\n- Regras de averbação e valores:`;
           for (const [key, raw] of Object.entries(plan.limits_per_event)) {
             const label = formatLimitKey(key);
-            // New rich format: { valor, carencia_dias, limite, observacao }
             if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
               const obj = raw as Record<string, any>;
               const valorRaw = obj.valor;
-              let valorStr: string;
-              if (typeof valorRaw === 'number') {
-                valorStr = `R$ ${valorRaw.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-              } else {
-                valorStr = String(valorRaw ?? '—');
-              }
+              const valorStr = typeof valorRaw === 'number'
+                ? `R$ ${valorRaw.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : String(valorRaw ?? '—');
               const parts: string[] = [];
-              if (typeof obj.carencia_dias === 'number') {
-                parts.push(obj.carencia_dias === 0 ? 'sem carência' : `carência ${obj.carencia_dias} dias`);
-              }
               if (obj.limite) parts.push(String(obj.limite));
               if (obj.observacao) parts.push(String(obj.observacao));
               const suffix = parts.length ? ` (${parts.join(', ')})` : '';
               plansCatalogContent += `\n  • ${label}: ${valorStr}${suffix}`;
             } else {
-              // Legacy numeric format
-              plansCatalogContent += `\n  • ${label}: R$ ${Number(raw).toFixed(2)}`;
+              plansCatalogContent += `\n  • ${label}: ${raw}`;
             }
           }
         }
-        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência geral padrão: ${plan.waiting_period_days} dias`;
-        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet na contratação: ${plan.max_pet_age_years} anos`;
-        if (plan.preexisting_conditions_rule) plansCatalogContent += `\n- Doenças preexistentes: ${plan.preexisting_conditions_rule}`;
+        if (plan.preexisting_conditions_rule) plansCatalogContent += `\n- Observação: ${plan.preexisting_conditions_rule}`;
         plansCatalogContent += '\n';
       }
+
       console.log(`[Nina] 📋 Plans catalog loaded: ${plans.length} plans`);
     }
   } catch (err) {
