@@ -5403,14 +5403,13 @@ function sanitizeAiResponse(content: string): string {
     sanitized = sanitized.replace(pattern, '');
   }
   
-  // Fix branding errors in AI output
-  sanitized = sanitized.replace(/Jacometo\s*Seguros/gi, 'OrbePet');
+  // Fix branding errors in AI output (cargo insurance brokerage)
+  sanitized = sanitized.replace(/\bOrbePet\b/gi, 'Jacometo Corretora de Seguros');
+  sanitized = sanitized.replace(/\bOrbi\b/g, 'Iris');
   
   // Clean up multiple blank lines
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
 
-  // ===== ORBE 360: garantir link obrigatório quando produto/benefícios são citados =====
-  sanitized = enforceOrbe360Link(sanitized);
 
   return sanitized || content; // fallback to original if sanitization emptied it
 }
