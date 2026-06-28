@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
-import orbepetLogo from '@/assets/orbepet-logo.png';
+import orbepetLogo from '@/assets/jacometo-logo.png';
 
 const allMenuItems = [{
   id: 'dashboard',
@@ -25,7 +25,7 @@ const allMenuItems = [{
   adminOnly: false
 }, {
   id: 'tutores',
-  label: 'Tutores',
+  label: 'Transportadores',
   icon: Users,
   adminOnly: false
 }, {
@@ -84,9 +84,9 @@ const Logo = () => {
 const LogoIcon = () => {
   return <Link to="/dashboard" className="flex items-center py-1 group">
       <div className="relative w-11 h-11 flex items-center justify-center flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/30 to-fuchsia-500/30 blur-xl rounded-full animate-pulse" />
-        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-purple-400/30 transition-all" />
-        <img src={orbepetLogo} alt="OrbePet" className="relative w-8 h-8 object-contain" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/30 to-sky-500/30 blur-xl rounded-full animate-pulse" />
+        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-sky-400/30 transition-all" />
+        <img src={orbepetLogo} alt="Jacometo Corretora" className="relative w-8 h-8 object-contain" />
       </div>
     </Link>;
 };
