@@ -151,7 +151,7 @@ const ContactRow = memo(({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-slate-900 border-emerald-500/30 text-emerald-200">
-                      <p className="text-xs">Cliente ativo (tutor)</p>
+                      <p className="text-xs">Cliente ativo</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

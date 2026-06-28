@@ -7,7 +7,7 @@ const Reports: React.FC = () => {
       <div className="text-center space-y-4">
         <BarChart3 className="w-16 h-16 text-primary mx-auto opacity-30" />
         <h2 className="text-2xl font-bold text-foreground">Relatórios</h2>
-        <p className="text-muted-foreground">Em breve — Conversões, atendimento, retenção e receita 🐾</p>
+        <p className="text-muted-foreground">Em breve — Conversões, atendimento, retenção e receita</p>
       </div>
     </div>
   );
