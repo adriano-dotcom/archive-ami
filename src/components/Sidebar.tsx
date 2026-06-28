@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
-import orbepetLogo from '@/assets/orbepet-logo.png';
+import orbepetLogo from '@/assets/jacometo-logo.png';
 
 const allMenuItems = [{
   id: 'dashboard',
@@ -25,7 +25,7 @@ const allMenuItems = [{
   adminOnly: false
 }, {
   id: 'tutores',
-  label: 'Tutores',
+  label: 'Transportadores',
   icon: Users,
   adminOnly: false
 }, {
@@ -68,15 +68,15 @@ const allMenuItems = [{
 const Logo = () => {
   return <Link to="/dashboard" className="flex items-center space-x-3 py-1 group">
       <div className="relative w-11 h-11 flex items-center justify-center flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/30 to-fuchsia-500/30 blur-xl rounded-full animate-pulse" />
-        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-purple-400/30 transition-all" />
-        <img src={orbepetLogo} alt="OrbePet" className="relative w-8 h-8 object-contain" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/30 to-sky-500/30 blur-xl rounded-full animate-pulse" />
+        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-sky-400/30 transition-all" />
+        <img src={orbepetLogo} alt="Jacometo Corretora" className="relative w-8 h-8 object-contain" />
       </div>
       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ type: "spring", stiffness: 400, damping: 25 }} className="flex flex-col overflow-hidden">
-        <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-white to-purple-200 bg-clip-text text-transparent whitespace-nowrap">
-          OrbePet
+        <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-white to-sky-200 bg-clip-text text-transparent whitespace-nowrap">
+          Jacometo
         </span>
-        <span className="text-[10px] uppercase tracking-wider bg-gradient-to-r from-purple-300 to-fuchsia-300 bg-clip-text text-transparent font-bold">CRM</span>
+        <span className="text-[10px] uppercase tracking-wider bg-gradient-to-r from-sky-300 to-blue-300 bg-clip-text text-transparent font-bold">Corretora · CRM</span>
       </motion.div>
     </Link>;
 };
@@ -84,9 +84,9 @@ const Logo = () => {
 const LogoIcon = () => {
   return <Link to="/dashboard" className="flex items-center py-1 group">
       <div className="relative w-11 h-11 flex items-center justify-center flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/30 to-fuchsia-500/30 blur-xl rounded-full animate-pulse" />
-        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-purple-400/30 transition-all" />
-        <img src={orbepetLogo} alt="OrbePet" className="relative w-8 h-8 object-contain" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/30 to-sky-500/30 blur-xl rounded-full animate-pulse" />
+        <div className="absolute inset-0 rounded-xl ring-1 ring-white/10 group-hover:ring-sky-400/30 transition-all" />
+        <img src={orbepetLogo} alt="Jacometo Corretora" className="relative w-8 h-8 object-contain" />
       </div>
     </Link>;
 };

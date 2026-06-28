@@ -1406,8 +1406,8 @@ function getDefaultRenewalEmail(
         <p>Responda este email ou envie uma mensagem no WhatsApp - fazemos uma proposta sem compromisso!</p>
         <p style="margin-top: 30px;">
           Atenciosamente,<br>
-          <strong>Equipe OrbePet</strong><br><br>
-          <span style="color:#6b7280;">OrbePet - Equipe de Cobrança</span><br>
+          <strong>Equipe Jacometo Corretora de Seguros</strong><br><br>
+          <span style="color:#6b7280;">Jacometo Corretora - Atendimento</span><br>
           <span style="font-size:12px;color:#9ca3af;">À disposição para esclarecimento</span>
         </p>
       </div>
@@ -3595,84 +3595,61 @@ Agradeço pela compreensão! 🙏`;
       .order('display_order', { ascending: true });
     
     if (plans && plans.length > 0) {
-      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE PLANOS (FONTE ÚNICA DE VERDADE)\n';
-      plansCatalogContent += '\n⛔ NUNCA invente preços ou coberturas. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ Limite anual é o teto financeiro do plano; cada serviço respeita também o limite por evento e a carência indicada.\n';
+      plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
+      plansCatalogContent += '\nℹ️ O prêmio básico anual cobre a emissão das 3 apólices obrigatórias. Cada embarque é averbado à parte, conforme o valor da carga e a quilometragem.\n';
       plansCatalogContent += `
-🚫 REGRA CRÍTICA DE CARÊNCIA — use EXATAMENTE estes valores, nunca invente "carência zero" ou "proteção imediata" e nunca infira prazos diferentes:
+🚫 REGRA CRÍTICA DE AVERBAÇÃO E PREÇO — use EXATAMENTE estes valores, nunca invente percentuais ou prazos:
 
-• Telemedicina / Concierge 24h: 0 dias (ÚNICA cobertura imediata)
-• Consulta veterinária: 30 dias
-• Consulta com especialista: 30 dias
-• Atendimento ambulatorial: 30 dias
-• Transporte veterinário: 30 dias
-• Assistência funeral: 30 dias
-• Exames laboratoriais e de imagem: 60 dias
-• Vacina: 60 dias
-• Cirurgias (inclui emergências, acidentes, intoxicações): 60 dias
-• Internação: 60 dias
-• Castração: 180 dias
-• Carência geral padrão do plano: 30 dias
+• Prêmio básico anual: R$ 900,00/ano (emissão das 3 apólices: RCTR-C, RC-DC e RC-V, vigência de 1 ano).
+• Averbação RCTR-C: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
+• Averbação RC-DC: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
+• Total carga (RCTR-C + RC-DC): 0,1% sobre o valor da carga.
+• RC-V: R$ 10 por viagem de até 400 km; acima disso há acréscimo pelos km excedentes, LIMITADO A R$ 25 por viagem.
+• Emissão da apólice: em até 5 dias após o aceite da proposta.
+• Vencimento do boleto de averbação: em média até 30 dias após o embarque.
 
-PROIBIDO afirmar que emergências, acidentes ou intoxicações têm carência zero. A única cobertura disponível desde o primeiro dia é a telemedicina 24h — ofereça-a quando o tutor perguntar sobre urgência imediata.
+IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cobertura sem averbação.
 `;
       plansCatalogContent += `
-⛔ REGRA INEGOCIÁVEL — IDADE MÁXIMA DO PET (10 ANOS)
-- Pets com MAIS de 10 anos NÃO PODEM contratar nenhum plano pet OrbePet
-  (Essencial, Órbita Plus, Órbita Total ou Órbita Galáxia).
-- NUNCA invente termos como "plano sênior", "cobertura especial idoso",
-  "plano para pet idoso" ou "exceção para pet senior". NÃO EXISTE.
-- Se o tutor informar que o pet tem MAIS de 10 anos:
-   1. Reconheça com empatia ("entendo, ele já tem uma idade avançada…")
-   2. Explique honestamente que o limite de contratação é até 10 anos
-   3. NÃO recomende nenhum plano pet, NÃO cite preços de plano pet
-   4. Ofereça o Orbe 360 (telemedicina humana 24h + assistência funeral)
-      como alternativa para o tutor: https://orbepet.com.br/orbe-360
+⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
+- MEI e ME com registro no RNTRC da ANTT como ETC (Empresa de Transporte de Carga).
+- Também atende EPP de pequeno porte, principalmente como subcontratada de transportadoras maiores.
+- Base legal: os seguros RCTR-C, RC-DC e RC-V são obrigatórios pela ETC (Art. 13 da Lei 11.442/2007) e exigências ANTT 478/2024 e 488/26.
+- Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
+- NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join(', ') : 'Consulte detalhes';
-        plansCatalogContent += `\n### ${plan.plan_name} - ${price}/mês`;
+        const coverages = Array.isArray(plan.coverages) ? plan.coverages.join('; ') : 'Consulte detalhes';
+        plansCatalogContent += `\n### ${plan.plan_name} — prêmio básico ${price}/ano`;
         plansCatalogContent += `\n- Coberturas: ${coverages}`;
-        if (plan.annual_limit) {
-          const limit = parseFloat(plan.annual_limit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-          plansCatalogContent += `\n- Limite anual: ${limit}`;
-        }
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
-          plansCatalogContent += `\n- Limites por evento (com carência):`;
+          plansCatalogContent += `\n- Regras de averbação e valores:`;
           for (const [key, raw] of Object.entries(plan.limits_per_event)) {
             const label = formatLimitKey(key);
-            // New rich format: { valor, carencia_dias, limite, observacao }
             if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
               const obj = raw as Record<string, any>;
               const valorRaw = obj.valor;
-              let valorStr: string;
-              if (typeof valorRaw === 'number') {
-                valorStr = `R$ ${valorRaw.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-              } else {
-                valorStr = String(valorRaw ?? '—');
-              }
+              const valorStr = typeof valorRaw === 'number'
+                ? `R$ ${valorRaw.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : String(valorRaw ?? '—');
               const parts: string[] = [];
-              if (typeof obj.carencia_dias === 'number') {
-                parts.push(obj.carencia_dias === 0 ? 'sem carência' : `carência ${obj.carencia_dias} dias`);
-              }
               if (obj.limite) parts.push(String(obj.limite));
               if (obj.observacao) parts.push(String(obj.observacao));
               const suffix = parts.length ? ` (${parts.join(', ')})` : '';
               plansCatalogContent += `\n  • ${label}: ${valorStr}${suffix}`;
             } else {
-              // Legacy numeric format
-              plansCatalogContent += `\n  • ${label}: R$ ${Number(raw).toFixed(2)}`;
+              plansCatalogContent += `\n  • ${label}: ${raw}`;
             }
           }
         }
-        if (plan.waiting_period_days) plansCatalogContent += `\n- Carência geral padrão: ${plan.waiting_period_days} dias`;
-        if (plan.max_pet_age_years) plansCatalogContent += `\n- Idade máxima pet na contratação: ${plan.max_pet_age_years} anos`;
-        if (plan.preexisting_conditions_rule) plansCatalogContent += `\n- Doenças preexistentes: ${plan.preexisting_conditions_rule}`;
+        if (plan.preexisting_conditions_rule) plansCatalogContent += `\n- Observação: ${plan.preexisting_conditions_rule}`;
         plansCatalogContent += '\n';
       }
+
       console.log(`[Nina] 📋 Plans catalog loaded: ${plans.length} plans`);
     }
   } catch (err) {
@@ -3708,22 +3685,9 @@ PROIBIDO afirmar que emergências, acidentes ou intoxicações têm carência ze
   // Process template variables
   let processedPrompt = processPromptTemplate(enhancedSystemPrompt, conversation.contact);
 
-  // ===== ORBE 360: detecção determinística "lead sem pet / interesse humano" =====
-  // Se detectado, anexa instrução obrigatória ao final do system prompt para forçar
-  // a oferta do Orbe 360 + link, mesmo se o modelo tender a sugerir adoção.
-  const orbe360Intent = detectNoPetIntent(message?.content || '');
-  if (orbe360Intent) {
-    console.log('[Nina][Orbe360] 🎯 Intenção "lead sem pet / saúde humana" detectada — forçando oferta Orbe 360');
-    processedPrompt = processedPrompt + ORBE_360_FORCED_INSTRUCTION;
-  }
-
-  // ===== AGE GUARD: pet > 10 anos =====
-  const ageCheck = detectOverAgePet(message?.content || '', clientMemory);
-  const overAgePet = ageCheck.over;
-  if (overAgePet) {
-    console.warn(`[Nina][AgeGuard] over_age_detected pet_age=${ageCheck.age} — bloqueando recomendação de plano pet`);
-    processedPrompt = processedPrompt + OVER_AGE_FORCED_INSTRUCTION;
-  }
+  // (Pet-specific enforcement removed — Jacometo Corretora context is cargo insurance.)
+  const orbe360Intent = false;
+  const overAgePet = false;
 
   console.log('[Nina] Calling Lovable AI...');
 
@@ -4799,25 +4763,26 @@ async function queueTextResponse(
 }
 
 function getDefaultSystemPrompt(): string {
-  return `Você é Nina, assistente virtual inteligente da empresa. Seu papel é:
+  return `Você é Iris, assistente virtual da Jacometo Corretora de Seguros, especialista em seguros obrigatórios de transporte rodoviário de carga (RCTR-C, RC-DC e RC-V) para pequenos transportadores (MEI, ME e EPP). Seu papel é:
 
-1. ATENDIMENTO: Responder de forma profissional, amigável e eficiente
-2. QUALIFICAÇÃO: Entender as necessidades do cliente e qualificá-lo
-3. VENDAS: Apresentar soluções e benefícios dos produtos/serviços
-4. AGENDAMENTO: Quando necessário, sugerir agendar uma reunião ou demo
+1. ATENDIMENTO: Responder de forma profissional, direta e sem burocracia (estilo WhatsApp)
+2. QUALIFICAÇÃO: Entender o transportador (CNPJ, RNTRC, porte, veículo, tipo de carga, rota)
+3. VENDAS: Apresentar as 3 coberturas obrigatórias e o preço (R$ 900/ano + averbação por embarque)
+4. REGULARIZAÇÃO: Conduzir o transportador a ficar regular na ANTT (indicar a apólice no RNTRC)
 
 REGRAS:
 - Use linguagem natural e amigável (estilo WhatsApp)
 - Seja conciso (mensagens de até 3 parágrafos)
-- Faça perguntas para entender melhor o cliente
-- Nunca invente informações sobre preços ou produtos
+- Faça perguntas para entender melhor o transportador
+- Nunca invente informações sobre preços, coberturas ou percentuais
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
-- Oferecemos soluções de automação e IA para empresas
-- Horário de atendimento: Segunda a Sexta, 9h às 18h
+- Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices Sompo Seguros)
+- Atende MEI, ME e EPP registrados como ETC na ANTT
 - Para casos urgentes, um humano pode assumir a conversa`;
 }
+
 
 function processPromptTemplate(prompt: string, contact: any): string {
   const now = new Date();
@@ -4878,54 +4843,32 @@ function buildEnhancedPrompt(
 
   // ===== INFORMAÇÕES OFICIAIS DA EMPRESA =====
   contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA:
-- **Empresa:** OrbePet
-- **Segmento:** Planos de saúde pet
+- **Empresa:** Jacometo Corretora de Seguros
+- **Segmento:** Seguros obrigatórios de transporte rodoviário de carga
+- **Seguradora emissora:** Sompo Seguros
+- **Corretor responsável:** Adriano Jacometo
 
 ⚠️ NUNCA invente endereços, telefones ou informações da empresa.`;
 
-  // ===== CONHECIMENTO ESPECIALIZADO - SAÚDE PET =====
-  contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - PLANOS DE SAÚDE PET
+  // ===== CONHECIMENTO ESPECIALIZADO - SEGUROS DE CARGA =====
+  contextInfo += `\n\n## CONHECIMENTO ESPECIALIZADO - SEGUROS OBRIGATÓRIOS DO TRANSPORTADOR
 
 ### REGRAS GERAIS:
-- A OrbePet oferece planos de saúde pet com diferentes níveis de cobertura
-- Os detalhes completos de cada plano estão na base de conhecimento de produtos (injetada abaixo)
-- Sempre consulte a base de conhecimento antes de responder sobre coberturas, carências e exclusões
-- NUNCA invente coberturas ou condições que não estejam documentadas
-- Quando o lead disser que **NÃO TEM PET**, NÃO encerre a conversa — ofereça o **Orbe 360** (telemedicina humana + assistência funeral) como alternativa contratável isoladamente (ver bloco PRODUTO COMPLEMENTAR abaixo)
+- A Jacometo é a corretora especialista que regulariza pequenos transportadores (MEI, ME e EPP) na ANTT.
+- O produto principal é o pacote com as 3 coberturas obrigatórias: RCTR-C (danos à carga por acidente), RC-DC (roubo/furto/desaparecimento da carga) e RC-V (danos a terceiros pelo veículo).
+- Os detalhes completos estão na base de conhecimento e no catálogo de seguros (injetados abaixo). É a FONTE ÚNICA DE VERDADE.
+- Sempre consulte essas fontes antes de responder sobre coberturas, preços, averbação e prazos.
+- NUNCA invente coberturas, percentuais, descontos ou produtos que não estejam documentados.
+- Base legal: Art. 13 da Lei 11.442/2007 e exigências ANTT 478/2024 e 488/26.
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
-- Pergunte sobre o pet (nome, espécie, idade, raça) para personalizar a recomendação
-- Compare os planos de forma objetiva quando o cliente tiver dúvidas
-- Destaque os diferenciais de cada plano sem depreciar os demais
-- Em caso de dúvida sobre cobertura específica, oriente o cliente a consultar as Condições Gerais completas
+- Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP), tipo de veículo, tipo de carga e rota típica (km).
+- Explique de forma simples e direta as 3 coberturas e o preço (R$ 900/ano de prêmio básico + averbação por embarque).
+- Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC) e fechar mais fretes com quem exige seguro.
+- Conduza o lead à proposta online / contratação, sem burocracia.
+- Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da Sompo Seguros.
+- Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
 
-## PRODUTO COMPLEMENTAR — ORBE 360 (proteção do tutor e família)
-
-O **Orbe 360** é um produto OrbePet voltado ao **tutor e família** (não ao pet), com:
-- 🩺 **Telemedicina humana completa 24h** — consultas médicas para você e família
-- ⚱️ **Cobertura funeral completa** — assessoria 24h e apoio psicológico para toda a família
-
-### Modelo de contratação:
-- **Pode ser contratado isoladamente** (lead sem pet) — alternativa quando o cliente quer proteção pra si mesmo
-- **Como complemento** a qualquer plano pet (cross-sell natural após o fechamento)
-
-### QUANDO OFERTAR (gatilhos):
-1. Lead diz que **NÃO TEM PET** mas demonstra interesse em proteção/saúde → ofereça Orbe 360 ao invés de encerrar
-2. Lead **JÁ FECHOU OU ESTÁ FECHANDO** um plano pet → ofereça como complemento ("aproveita e protege você também")
-3. Lead menciona "telemedicina", "consulta médica humana", "funeral", "luto", "família" → apresente Orbe 360
-4. Em qualquer momento natural da conversa quando fizer sentido para o cliente
-
-### COMO OFERTAR:
-- Texto **CURTO** (2 linhas), sem listas longas
-- Foque em 2 benefícios: telemedicina humana 24h + cobertura funeral
-- **Sempre envie o link:** https://orbepet.com.br/orbe-360
-- Se o lead recusar, **NÃO insista** (máximo 1 oferta por conversa — regra anti-repetição)
-
-### EXEMPLO de oferta para lead sem pet:
-"Mesmo sem pet eu tenho algo pra você! 💙 O **Orbe 360** cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
-
-### EXEMPLO de cross-sell pós-venda pet:
-"Já que vamos cuidar do seu pet, que tal cuidar de você também? O **Orbe 360** traz telemedicina humana 24h e cobertura funeral pra família toda. Dá uma olhada: https://orbepet.com.br/orbe-360"`;
 
   if (contact) {
     contextInfo += `\n\nCONTEXTO DO CLIENTE:`;
@@ -5083,17 +5026,18 @@ ${contact.notes}
     
     // Map field names to readable labels
     const fieldLabels: Record<string, string> = {
-      pet_nome: 'Nome do pet',
-      pet_especie: 'Espécie',
-      pet_idade: 'Idade do pet',
-      pet_raca: 'Raça',
-      plano_interesse: 'Plano de interesse',
-      preocupacao_principal: 'Preocupação principal',
-      ja_tem_plano: 'Já possui plano de saúde pet',
+      cnpj: 'CNPJ',
+      rntrc: 'RNTRC (ANTT)',
+      porte_empresa: 'Porte da empresa (MEI/ME/EPP)',
+      tipo_veiculo: 'Tipo de veículo',
+      tipo_carga: 'Tipo de carga',
+      rota_km: 'Rota típica (km)',
+      tipo_contratacao: 'Tipo de contratação (direto/subcontratado)',
+      estados_atendidos: 'Estados/regiões atendidos',
       cidade: 'Cidade/região',
-      quantidade_pets: 'Quantidade de pets',
-      condicao_preexistente: 'Condição pré-existente'
+      emite_cte: 'Emite CT-e'
     };
+
     
     for (const [key, value] of Object.entries(qa)) {
       if (value && fieldLabels[key]) {
@@ -5141,13 +5085,14 @@ ${contact.notes}
     contextInfo += `\n\n⛔ CRÍTICO: LEIA ACIMA antes de responder! NÃO repita essas frases ou ideias similares!`;
   }
 
-  // ===== NOMENCLATURA DE PLANOS (gatilho de vídeo) =====
-  contextInfo += `\n\n## 📛 NOMES DOS PLANOS — USE SEMPRE O NOME COMPLETO:
-- "Órbita Total" (não "o básico" / "o mais barato")
-- "Órbita Plus" (não "o intermediário" / "o do meio")
-- "Órbita Galáxia" (não "o top" / "o mais completo")
-⚠️ Citar o nome completo dispara o vídeo explicativo correto da biblioteca.
-Se o cliente perguntar sobre UM plano específico, NÃO ofereça outros — responda sobre o solicitado.`;
+  // ===== NOMENCLATURA DAS COBERTURAS =====
+  contextInfo += `\n\n## 📛 NOMES DAS COBERTURAS — USE SEMPRE O NOME CORRETO:
+- "RCTR-C" (danos à carga por acidente com o veículo)
+- "RC-DC" (roubo, furto e desaparecimento da carga)
+- "RC-V" (danos a terceiros causados pelo veículo)
+- "Pacote 3 Seguros Obrigatórios" (as três coberturas juntas — R$ 900/ano de prêmio básico)
+⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
+
 
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
   contextInfo += `\n\n## REGRAS CRÍTICAS DE COMUNICAÇÃO:
@@ -5439,14 +5384,13 @@ function sanitizeAiResponse(content: string): string {
     sanitized = sanitized.replace(pattern, '');
   }
   
-  // Fix branding errors in AI output
-  sanitized = sanitized.replace(/Jacometo\s*Seguros/gi, 'OrbePet');
+  // Fix branding errors in AI output (cargo insurance brokerage)
+  sanitized = sanitized.replace(/\bOrbePet\b/gi, 'Jacometo Corretora de Seguros');
+  sanitized = sanitized.replace(/\bOrbi\b/g, 'Iris');
   
   // Clean up multiple blank lines
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
 
-  // ===== ORBE 360: garantir link obrigatório quando produto/benefícios são citados =====
-  sanitized = enforceOrbe360Link(sanitized);
 
   return sanitized || content; // fallback to original if sanitization emptied it
 }

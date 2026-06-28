@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import orbepetLogo from "@/assets/orbepet-logo.png";
+import orbepetLogo from "@/assets/jacometo-logo.png";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -245,17 +245,17 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-2 sm:p-3 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={orbepetLogo} alt="OrbePet" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
+              <img src={orbepetLogo} alt="Jacometo Corretora" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
             </div>
           </div>
           
           {/* Title */}
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">OrbePet</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Jacometo Corretora</h1>
           
           {/* SDR Badge */}
           <div className="mt-2 sm:mt-3 flex items-center justify-center gap-2 sm:gap-3">
             <div className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-white/40" />
-            <span className="text-cyan-400 font-semibold text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em]">CRM</span>
+            <span className="text-sky-400 font-semibold text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em]">Seguros de Carga · CRM</span>
             <div className="h-px w-8 sm:w-12 bg-gradient-to-l from-transparent to-white/40" />
           </div>
           
