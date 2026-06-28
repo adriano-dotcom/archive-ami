@@ -1406,8 +1406,8 @@ function getDefaultRenewalEmail(
         <p>Responda este email ou envie uma mensagem no WhatsApp - fazemos uma proposta sem compromisso!</p>
         <p style="margin-top: 30px;">
           Atenciosamente,<br>
-          <strong>Equipe OrbePet</strong><br><br>
-          <span style="color:#6b7280;">OrbePet - Equipe de Cobrança</span><br>
+          <strong>Equipe Jacometo Corretora de Seguros</strong><br><br>
+          <span style="color:#6b7280;">Jacometo Corretora - Atendimento</span><br>
           <span style="font-size:12px;color:#9ca3af;">À disposição para esclarecimento</span>
         </p>
       </div>
