@@ -5025,17 +5025,18 @@ ${contact.notes}
     
     // Map field names to readable labels
     const fieldLabels: Record<string, string> = {
-      pet_nome: 'Nome do pet',
-      pet_especie: 'Espécie',
-      pet_idade: 'Idade do pet',
-      pet_raca: 'Raça',
-      plano_interesse: 'Plano de interesse',
-      preocupacao_principal: 'Preocupação principal',
-      ja_tem_plano: 'Já possui plano de saúde pet',
+      cnpj: 'CNPJ',
+      rntrc: 'RNTRC (ANTT)',
+      porte_empresa: 'Porte da empresa (MEI/ME/EPP)',
+      tipo_veiculo: 'Tipo de veículo',
+      tipo_carga: 'Tipo de carga',
+      rota_km: 'Rota típica (km)',
+      tipo_contratacao: 'Tipo de contratação (direto/subcontratado)',
+      estados_atendidos: 'Estados/regiões atendidos',
       cidade: 'Cidade/região',
-      quantidade_pets: 'Quantidade de pets',
-      condicao_preexistente: 'Condição pré-existente'
+      emite_cte: 'Emite CT-e'
     };
+
     
     for (const [key, value] of Object.entries(qa)) {
       if (value && fieldLabels[key]) {
