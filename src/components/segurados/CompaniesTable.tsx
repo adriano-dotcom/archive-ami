@@ -185,9 +185,9 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Building2 className="w-12 h-12 text-slate-600 mb-4" />
-        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhuma clínica/petshop cadastrada</h3>
+        <h3 className="text-lg font-medium text-slate-300 mb-2">Nenhuma empresa cadastrada</h3>
         <p className="text-slate-500 text-sm">
-          As clínicas/petshops serão criadas automaticamente ao importar arquivos com CNPJ
+          As empresas serão criadas automaticamente ao importar arquivos com CNPJ
         </p>
       </div>
     );
@@ -216,7 +216,7 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                 onClick={() => handleSort('empresa')}
               >
                 <div className="flex items-center gap-1">
-                  Clínica/Petshop
+                  Empresa
                   <SortIcon field="empresa" />
                 </div>
               </TableHead>
@@ -252,7 +252,7 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                 onClick={() => handleSort('apolices')}
               >
                 <div className="flex items-center justify-center gap-1">
-                  Planos
+                  Apólices
                   <SortIcon field="apolices" />
                 </div>
               </TableHead>

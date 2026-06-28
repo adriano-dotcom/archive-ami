@@ -1,10 +1,6 @@
 # Atualizar o Cadastro (/tutores) para o padrão Jacometo / Iris
 
-A página de cadastro acessada em **`/tutores`** (componente `SeguradosTab`) ainda usa
-terminologia de pet ("Novo Tutor", "Clínicas/Petshops", "Tutores", "Nenhum tutor
-cadastrado"). Vamos rebrandizar todos os rótulos visíveis para a terminologia de
-**transporte de carga** (Jacometo Corretora / assistente "Iris"), mantendo toda a lógica
-de negócio intacta (apenas textos de UI).
+A página de cadastro acessada em **`/tutores`** (componente `SeguradosTab`) ainda usa terminologia de pet ("Novo Tutor", "Clínicas/Petshops", "Tutores", "Nenhum tutor cadastrado"). Vamos rebrandizar todos os rótulos visíveis para a terminologia de **transporte de carga** (Jacometo Corretora / assistente "Iris"), mantendo toda a lógica de negócio intacta (apenas textos de UI).
 
 ## Mapeamento de termos
 
@@ -24,8 +20,7 @@ de negócio intacta (apenas textos de UI).
 1. **`src/components/segurados/SeguradosTab.tsx`**
    - Botão "Novo Tutor" → "Novo Transportador"
    - Abas "Clínicas/Petshops" → "Empresas" e "Tutores" → "Transportadores"
-   - Toasts e diálogos de exclusão (individual e em lote) com "tutor/tutores" →
-     "transportador/transportadores"; "clínica/petshop" → "empresa"; "planos" → "apólices"
+   - Toasts e diálogos de exclusão (individual e em lote) com "tutor/tutores" → "transportador/transportadores"; "clínica/petshop" → "empresa"; "planos" → "apólices"
    - Diálogo "Detalhes do tutor" → "Detalhes do transportador"
 
 2. **`src/components/segurados/SeguradosPFTable.tsx`**
@@ -34,7 +29,7 @@ de negócio intacta (apenas textos de UI).
 
 3. **`src/components/segurados/CompaniesTable.tsx`**
    - Empty state "Nenhuma clínica/petshop cadastrada" → "Nenhuma empresa cadastrada" e subtexto
-   - Cabeçalho de coluna "Clínica/Petshop" → "Empresa"
+   - Cabeçalho de coluna "Clínica/Petshop" → "Empresa" e "Planos" → "Apólices"
 
 ## Observações
 - Nenhuma mudança em schema, queries ou lógica — apenas strings de interface.
