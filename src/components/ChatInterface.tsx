@@ -121,6 +121,8 @@ const ChatInterface: React.FC = () => {
   const [editCpf, setEditCpf] = useState('');
   const [editPetName, setEditPetName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editCnpj, setEditCnpj] = useState('');
+  const [editCompany, setEditCompany] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
   
   
