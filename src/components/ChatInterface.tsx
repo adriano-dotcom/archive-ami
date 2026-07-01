@@ -523,9 +523,11 @@ const ChatInterface: React.FC = () => {
       setEditCpf(activeChat.contactCpf || '');
       setEditPetName(activeChat.contactPetName || '');
       setEditPhone(activeChat.contactPhone || '');
+      setEditCnpj(activeChat.contactCnpj || '');
+      setEditCompany(activeChat.contactCompany || '');
       setIsEditingContact(false);
     }
-  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone]);
+  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone, activeChat?.contactCnpj, activeChat?.contactCompany]);
 
   // Deal/pipeline logic removed - system now focused on collections and claims
 
