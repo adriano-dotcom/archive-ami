@@ -714,6 +714,27 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
             </div>
           </Collapsible.Content>
         </Collapsible.Root>
+
+        {/* Reprocessar fila de envios */}
+        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between gap-4">
+          <p className="text-xs text-slate-400">
+            Dispara imediatamente o envio das mensagens pendentes na fila do WhatsApp.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleReprocessQueue}
+            disabled={!whatsappConfigured || reprocessing}
+            className="shrink-0"
+          >
+            {reprocessing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Reprocessar fila de envios
+          </Button>
+        </div>
       </div>
 
       {/* ElevenLabs */}
