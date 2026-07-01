@@ -3650,6 +3650,15 @@ IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cob
 - Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
 - NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
+      plansCatalogContent += `
+⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
+- Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
+- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
+- Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
+- Fluxo correto: (1) esclareça as dúvidas do transportador → (2) confirme que ele é MEI/ME/EPP com RNTRC/ETC (inclui quem atua como subcontratado) → (3) envie o link do site para ele preencher a proposta.
+- Sempre que o lead demonstrar interesse em contratar, pedir link ou perguntar "como faço", envie: https://transporte.jacometoseguros.com.br para ele preencher a proposta.
+`;
+
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
