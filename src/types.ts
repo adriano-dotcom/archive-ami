@@ -234,6 +234,9 @@ export interface UIConversation {
   contactEmail: string | null;
   contactCpf: string | null;
   contactPetName: string | null;
+  contactCnpj: string | null;
+  contactCompany: string | null;
+  contactRntrc: string | null;
   status: ConversationStatus;
   isActive: boolean;
   assignedTeam: string | null;
@@ -359,6 +362,9 @@ export function transformDBToUIConversation(
     // Use linked company data as fallback if contact fields are null
     contactCpf: (conv.contact as any)?.cpf || null,
     contactPetName: (conv.contact as any)?.pet_name || null,
+    contactCnpj: (conv.contact as any)?.cnpj || (conv.contact as any)?.linked_company?.cnpj || null,
+    contactCompany: (conv.contact as any)?.company || (conv.contact as any)?.linked_company?.razao_social || (conv.contact as any)?.linked_company?.nome_fantasia || null,
+    contactRntrc: (conv.contact as any)?.rntrc || null,
     agentId: conv.agent?.id || null,
     agentName: conv.agent?.name || null,
     agentSlug: conv.agent?.slug || null,

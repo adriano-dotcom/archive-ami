@@ -1,7 +1,8 @@
 import React from 'react';
 import {
   Phone, Mail, MapPin, User, Brain, Plus, FileText, Save, Pencil,
-  Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare
+  Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare,
+  Building2, Truck
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Input } from '../ui/input';
@@ -31,6 +32,10 @@ interface ContactProfilePanelProps {
   setEditPetName: (v: string) => void;
   editPhone: string;
   setEditPhone: (v: string) => void;
+  editCnpj: string;
+  setEditCnpj: (v: string) => void;
+  editCompany: string;
+  setEditCompany: (v: string) => void;
   isSavingContact: boolean;
   handleSaveContactData: () => void;
   // Tags
@@ -62,6 +67,12 @@ const formatCpf = (cpf: string) => {
   return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
 };
 
+const formatCnpj = (cnpj: string) => {
+  const clean = cnpj.replace(/\D/g, '');
+  if (clean.length !== 14) return cnpj;
+  return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+};
+
 const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
   activeChat,
   sdrName,
@@ -77,6 +88,10 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
   setEditPetName,
   editPhone,
   setEditPhone,
+  editCnpj,
+  setEditCnpj,
+  editCompany,
+  setEditCompany,
   isSavingContact,
   handleSaveContactData,
   availableTags,
@@ -300,6 +315,75 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
               Salvar Alterações
             </Button>
           )}
+        </div>
+
+        <div className="h-px bg-slate-800/50 w-full"></div>
+
+        {/* Dados da Empresa */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            Dados da Empresa
+          </h4>
+
+          {/* Empresa / Razão Social */}
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+              <Briefcase className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col flex-1">
+              <span className="text-xs text-slate-500">Empresa</span>
+              {isEditingContact ? (
+                <Input
+                  type="text"
+                  value={editCompany}
+                  onChange={(e) => setEditCompany(e.target.value)}
+                  placeholder="Razão social / nome da empresa"
+                  className="h-8 text-sm bg-slate-950/50 border-slate-700"
+                />
+              ) : (
+                <span className="text-slate-200 font-medium">
+                  {activeChat.contactCompany || <span className="text-slate-500 italic">Não informado</span>}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* CNPJ */}
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col flex-1">
+              <span className="text-xs text-slate-500">CNPJ</span>
+              {isEditingContact ? (
+                <Input
+                  type="text"
+                  value={editCnpj}
+                  onChange={(e) => setEditCnpj(e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                  className="h-8 text-sm bg-slate-950/50 border-slate-700"
+                />
+              ) : (
+                <span className="text-slate-200 font-medium">
+                  {activeChat.contactCnpj ? formatCnpj(activeChat.contactCnpj) : <span className="text-slate-500 italic">Não informado</span>}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* RNTRC (somente leitura - consulta ANTT) */}
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+              <Truck className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col flex-1">
+              <span className="text-xs text-slate-500">RNTRC (ANTT)</span>
+              <span className="text-slate-200 font-medium">
+                {activeChat.contactRntrc || <span className="text-slate-500 italic">Não informado</span>}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="h-px bg-slate-800/50 w-full"></div>

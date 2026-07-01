@@ -121,6 +121,8 @@ const ChatInterface: React.FC = () => {
   const [editCpf, setEditCpf] = useState('');
   const [editPetName, setEditPetName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editCnpj, setEditCnpj] = useState('');
+  const [editCompany, setEditCompany] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
   
   
@@ -521,9 +523,11 @@ const ChatInterface: React.FC = () => {
       setEditCpf(activeChat.contactCpf || '');
       setEditPetName(activeChat.contactPetName || '');
       setEditPhone(activeChat.contactPhone || '');
+      setEditCnpj(activeChat.contactCnpj || '');
+      setEditCompany(activeChat.contactCompany || '');
       setIsEditingContact(false);
     }
-  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone]);
+  }, [activeChat?.id, activeChat?.contactName, activeChat?.contactEmail, activeChat?.contactCpf, activeChat?.contactPetName, activeChat?.contactPhone, activeChat?.contactCnpj, activeChat?.contactCompany]);
 
   // Deal/pipeline logic removed - system now focused on collections and claims
 
@@ -1011,7 +1015,9 @@ const ChatInterface: React.FC = () => {
         phone_number: editPhone.replace(/\D/g, '') || undefined,
         email: editEmail.trim() || undefined,
         cpf: editCpf.replace(/\D/g, '') || undefined,
-        pet_name: editPetName.trim() || null
+        pet_name: editPetName.trim() || null,
+        cnpj: editCnpj.replace(/\D/g, '') || null,
+        company: editCompany.trim() || null
       });
       
       // Refresh conversations to update UI with saved data
@@ -2661,6 +2667,10 @@ const ChatInterface: React.FC = () => {
               setEditPetName={setEditPetName}
               editPhone={editPhone}
               setEditPhone={setEditPhone}
+              editCnpj={editCnpj}
+              setEditCnpj={setEditCnpj}
+              editCompany={editCompany}
+              setEditCompany={setEditCompany}
               isSavingContact={isSavingContact}
               handleSaveContactData={handleSaveContactData}
               availableTags={availableTags}
