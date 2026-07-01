@@ -4761,6 +4761,9 @@ async function queueTextResponse(
   // Substitui aiContent pelo conteúdo final (regenerado/fallback se aplicável)
   aiContent = finalContent;
 
+  // Garante o link do site de contratação quando o lead demonstra intenção de fechar
+  aiContent = enforceContractSiteLink(aiContent, userMessage);
+
   const messageChunks = settings?.message_breaking_enabled 
     ? breakMessageIntoChunks(aiContent)
     : [aiContent];
