@@ -1,7 +1,8 @@
 import React from 'react';
 import {
   Phone, Mail, MapPin, User, Brain, Plus, FileText, Save, Pencil,
-  Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare
+  Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare,
+  Building2, Truck
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Input } from '../ui/input';
