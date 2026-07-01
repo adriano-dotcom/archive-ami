@@ -1,32 +1,37 @@
-## Objetivo
-1. Garantir que todos os rótulos visíveis e placeholders das telas de cadastro usem a terminologia Jacometo/Iris (seguro de cargas).
-2. Excluir a página/rota de Reembolsos (`/reembolsos`).
+## Diagnóstico
 
-## Situação atual (verificada)
-A maioria das telas de cadastro já foi convertida em rodadas anteriores:
-- `EditContactModal.tsx`: segmentos já exibem "🚛 Transportador (ETC)" e "🏢 Embarcador / Transportadora".
-- `ContactProfilePanel.tsx` e `ContactDetailsDrawer.tsx`: campo já rotulado "Tipo de Carga" com placeholder "Ex.: carga geral, frigorificada, granel".
-- `SeguradosTab` / tabelas: rótulos já em "Transportador / Empresa / Apólices".
+O agente **Iris está ativo e funcionando**: ele recebe as mensagens e gera as respostas (fila de IA marcada como `completed`). O que quebrou foi o **envio pelo WhatsApp**.
 
-Resta apenas 1 rótulo pet visível em tela de cadastro + a remoção de Reembolsos.
+- Há **16 respostas presas** na fila de envio (`send_queue` com status `pending`, sem erro).
+- A função de envio não tem credenciais: na configuração (`nina_settings`), o **Access Token** e o **Phone Number ID** do WhatsApp estão **vazios**.
+- No cofre (vault) também não existe token salvo (`vault_whatsapp_token` ausente).
+- Conclusão: as credenciais foram apagadas (provável limpeza do banco na virada para Jacometo). Sem elas, nada é entregue no WhatsApp.
 
-## Mudanças
+Dado recuperável dos logs de webhook da Meta:
+- **Phone Number ID:** `1003906669464570`
+- Número de exibição: `554391562099`
 
-### 1. Corrigir rótulo remanescente no cadastro
-- `src/components/contacts/VirtualizedContactsTable.tsx` (linha 154): tooltip "Cliente ativo (tutor)" → "Cliente ativo".
+O **Access Token** NÃO é recuperável (é secreto). Precisa ser regenerado no painel da Meta.
 
-### 2. Remover a página de Reembolsos
-- `src/App.tsx`: remover o `lazy(() => import('./components/ReimbursementFunnel'))` e a `<Route path="/reembolsos" ... />`.
-- `src/components/Sidebar.tsx`: remover o item de navegação `{ id: 'reembolsos', label: 'Reembolsos', icon: ReceiptText, ... }` e o import não utilizado do ícone `ReceiptText` (se ficar órfão).
-- Excluir o arquivo `src/components/ReimbursementFunnel.tsx`.
+## O que será feito
 
-### 3. Limpeza de texto visível (opcional, mesma família)
-- `src/components/Reports.tsx`: remover o emoji 🐾 do texto "Conversões, atendimento, retenção e receita 🐾".
+1. **Restaurar o Phone Number ID** (`1003906669464570`) no registro de configuração `nina_settings`.
 
-## Observações técnicas
-- Valores de banco legados (`pet_tutor`, `clinica_petshop`, `pet_name`) são mantidos por compatibilidade — apenas os textos exibidos mudam.
-- A rota `/reembolsos` não é referenciada em outros pontos além de App/Sidebar; a remoção é segura.
-- Após a remoção, verifico o build para confirmar que não restaram imports órfãos.
+2. **Receber e salvar o Access Token** da Meta (WhatsApp Cloud API). Você fornece o token; ele é armazenado com segurança (não fica exposto no código). Onde obter na Meta:
+   - Meta for Developers → seu App → **WhatsApp → API Setup / Configuração da API**.
+   - Para produção estável, gerar um **token permanente** via **System User** (Business Settings → Users → System Users → Generate Token, com permissões `whatsapp_business_messaging` e `whatsapp_business_management`). O token temporário de 24h serve só para teste.
 
-## Fora de escopo
-Textos pet em telas que não são de cadastro (e-mail, mídia, landing pages, automações de settings) não serão alterados aqui, salvo se você quiser incluí-los.
+3. **Reprocessar a fila de envio** para tentar despachar as respostas paradas, disparando a função de envio (`whatsapp-sender`).
+
+4. **Validar** o envio: confirmar que a `send_queue` passa de `pending` para `completed` e que a mensagem chega no WhatsApp.
+
+## Observações importantes
+
+- **Janela de 24h:** o WhatsApp só permite mensagem livre dentro de 24h após a última mensagem do cliente. As respostas presas mais antigas podem estar fora da janela e falharão como "fora da janela" — isso é normal e não é bug. Mensagens novas que chegarem reabrem a janela e serão respondidas normalmente.
+- Se o token que estava configurado antes era temporário (24h), ele expirou — por isso o ideal é gerar um **token permanente** agora para não parar de novo.
+
+## Detalhes técnicos
+
+- Atualização de dados em `nina_settings.whatsapp_phone_number_id` (ferramenta de dados, não schema).
+- Access Token guardado via mecanismo de segredos e/ou campo de credencial usado pela função `whatsapp-sender` (que lê `whatsapp_access_token` / vault `vault_whatsapp_token`).
+- Reprocessamento chamando a edge function `whatsapp-sender` após as credenciais estarem completas.
