@@ -3314,7 +3314,27 @@ Agradeço pela compreensão! 🙏`;
               const cnpjData = await brasilApiResponse.json();
               const companyName = cnpjData.nome_fantasia || cnpjData.razao_social;
               
-              // Update contact with CNPJ and company name
+              // ===== ANTT / RNTRC LOOKUP =====
+              // Consulta o RNTRC do transportador na ANTT (portal oficial via consulta-antt)
+              let anttResult: any = null;
+              try {
+                const anttResp = await fetch(`${supabaseUrl}/functions/v1/consulta-antt`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseServiceKey}`
+                  },
+                  body: JSON.stringify({ cnpj: cleanCnpj })
+                });
+                if (anttResp.ok) {
+                  anttResult = await anttResp.json();
+                  console.log(`[Nina] 🚚 ANTT lookup: ${JSON.stringify(anttResult)}`);
+                }
+              } catch (anttErr) {
+                console.log('[Nina] ⚠️ ANTT lookup failed:', anttErr);
+              }
+              
+              // Update contact with CNPJ, company name and RNTRC
               const updateData: Record<string, any> = { 
                 cnpj: cleanCnpj,
                 updated_at: new Date().toISOString() 
@@ -3324,16 +3344,27 @@ Agradeço pela compreensão! 🙏`;
                 updateData.company = companyName;
               }
               
+              if (anttResult?.found && anttResult?.rntrc) {
+                updateData.rntrc = anttResult.rntrc;
+              }
+              
               await supabase
                 .from('contacts')
                 .update(updateData)
                 .eq('id', conversation.contact_id);
                 
-              console.log(`[Nina] ✅ Contact updated - CNPJ: ${cleanCnpj}, Company: ${companyName || 'N/A'}`);
+              console.log(`[Nina] ✅ Contact updated - CNPJ: ${cleanCnpj}, Company: ${companyName || 'N/A'}, RNTRC: ${updateData.rntrc || 'N/A'}`);
               
               // If we got company name, send confirmation message and return early
               if (companyName) {
-                const confirmationMessage = `Encontrei: ${companyName.toUpperCase()}. Está correto?`;
+                let confirmationMessage: string;
+                if (anttResult?.found && anttResult?.rntrc) {
+                  const situacao = anttResult.situacao ? ` — situação na ANTT: ${anttResult.situacao}` : '';
+                  confirmationMessage = `Encontrei: ${companyName.toUpperCase()}. RNTRC nº ${anttResult.rntrc}${situacao}. Está correto?`;
+                } else {
+                  confirmationMessage = `Encontrei: ${companyName.toUpperCase()}. Não localizei um RNTRC ativo na ANTT para este CNPJ. Você já tem registro de ETC (Empresa de Transporte de Carga) na ANTT? Está correto o nome da empresa?`;
+                }
+
                 
                 // Calculate delay
                 const delayMin = settings?.response_delay_min || 1000;
