@@ -2667,6 +2667,10 @@ const ChatInterface: React.FC = () => {
               setEditPetName={setEditPetName}
               editPhone={editPhone}
               setEditPhone={setEditPhone}
+              editCnpj={editCnpj}
+              setEditCnpj={setEditCnpj}
+              editCompany={editCompany}
+              setEditCompany={setEditCompany}
               isSavingContact={isSavingContact}
               handleSaveContactData={handleSaveContactData}
               availableTags={availableTags}
