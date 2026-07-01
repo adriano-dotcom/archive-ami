@@ -67,6 +67,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
   const { companyName } = useCompanySettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const [showWhatsAppToken, setShowWhatsAppToken] = useState(false);
   const [showElevenLabsKey, setShowElevenLabsKey] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
