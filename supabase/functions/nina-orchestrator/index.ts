@@ -5402,6 +5402,34 @@ function enforceOrbe360Link(content: string): string {
   return content;
 }
 
+const CONTRACT_SITE_URL = 'https://transporte.jacometoseguros.com.br';
+
+/**
+ * Garante que, quando o lead demonstra intenção de contratar (pedir link, "como faço",
+ * "quero contratar", "como pago" etc.), a resposta contenha o link do site oficial de
+ * contratação. A contratação é feita EXCLUSIVAMENTE pelo site.
+ */
+function enforceContractSiteLink(content: string, userMessage: string): string {
+  if (!content) return content;
+
+  const domainRegex = /transporte\.jacometoseguros\.com\.br/i;
+  if (domainRegex.test(content)) return content;
+
+  const userLower = (userMessage || '').toLowerCase();
+  const contractIntent = [
+    'quero contratar', 'quero assinar', 'como contrato', 'como assino',
+    'como faço', 'como faco', 'como funciona a contrata', 'fechar',
+    'pagamento', 'como pago', 'link', 'proposta', 'preencher',
+    'contratar', 'assinar', 'quero o seguro', 'quero fazer',
+  ].some((k) => userLower.includes(k));
+
+  if (!contractIntent) return content;
+
+  console.log('[Nina][ContractSite] link_appended (intenção de contratação detectada)');
+  return `${content.trim()}\n\nA contratação é rápida e feita direto pelo site oficial. É só preencher a proposta aqui: ${CONTRACT_SITE_URL}`;
+}
+
+
 function sanitizeAiResponse(content: string): string {
   if (!content) return content;
   
