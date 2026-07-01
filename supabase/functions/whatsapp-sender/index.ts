@@ -31,9 +31,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: 'Sistema não configurado',
         message: 'Acesse /settings para configurar o WhatsApp',
+        fallback: true,
         processed: 0 
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -59,9 +60,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: 'WhatsApp não configurado',
         message: 'Configure Access Token e Phone Number ID em /settings',
+        fallback: true,
         processed: 0 
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
