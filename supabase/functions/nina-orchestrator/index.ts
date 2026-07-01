@@ -3650,6 +3650,15 @@ IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cob
 - Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
 - NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
+      plansCatalogContent += `
+⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
+- Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
+- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
+- Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
+- Fluxo correto: (1) esclareça as dúvidas do transportador → (2) confirme que ele é MEI/ME/EPP com RNTRC/ETC (inclui quem atua como subcontratado) → (3) envie o link do site para ele preencher a proposta.
+- Sempre que o lead demonstrar interesse em contratar, pedir link ou perguntar "como faço", envie: https://transporte.jacometoseguros.com.br para ele preencher a proposta.
+`;
+
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       for (const plan of plans) {
@@ -4752,6 +4761,9 @@ async function queueTextResponse(
   // Substitui aiContent pelo conteúdo final (regenerado/fallback se aplicável)
   aiContent = finalContent;
 
+  // Garante o link do site de contratação quando o lead demonstra intenção de fechar
+  aiContent = enforceContractSiteLink(aiContent, userMessage);
+
   const messageChunks = settings?.message_breaking_enabled 
     ? breakMessageIntoChunks(aiContent)
     : [aiContent];
@@ -4797,20 +4809,23 @@ function getDefaultSystemPrompt(): string {
   return `Você é Iris, assistente virtual da Jacometo Corretora de Seguros, especialista em seguros obrigatórios de transporte rodoviário de carga (RCTR-C, RC-DC e RC-V) para pequenos transportadores (MEI, ME e EPP). Seu papel é:
 
 1. ATENDIMENTO: Responder de forma profissional, direta e sem burocracia (estilo WhatsApp)
-2. QUALIFICAÇÃO: Entender o transportador (CNPJ, RNTRC, porte, veículo, tipo de carga, rota)
-3. VENDAS: Apresentar as 3 coberturas obrigatórias e o preço (R$ 900/ano + averbação por embarque)
-4. REGULARIZAÇÃO: Conduzir o transportador a ficar regular na ANTT (indicar a apólice no RNTRC)
+2. TIRAR DÚVIDAS: Esclarecer coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores
+3. QUALIFICAÇÃO: Entender o transportador (CNPJ, RNTRC, porte, veículo, tipo de carga, rota)
+4. DIRECIONAR PARA CONTRATAÇÃO: A contratação é feita SOMENTE pelo site oficial. Após esclarecer as dúvidas, envie o link para o transportador preencher a proposta: https://transporte.jacometoseguros.com.br
+5. REGULARIZAÇÃO: Conduzir o transportador a ficar regular na ANTT (indicar a apólice no RNTRC)
 
 REGRAS:
 - Use linguagem natural e amigável (estilo WhatsApp)
 - Seja conciso (mensagens de até 3 parágrafos)
 - Faça perguntas para entender melhor o transportador
 - Nunca invente informações sobre preços, coberturas ou percentuais
+- Você NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat — a contratação é exclusivamente pelo site https://transporte.jacometoseguros.com.br
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
 - Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices Sompo Seguros)
-- Atende MEI, ME e EPP registrados como ETC na ANTT
+- Atende MEI, ME e EPP registrados como ETC na ANTT (inclui quem atua como subcontratado)
+- Contratação exclusiva pelo site: https://transporte.jacometoseguros.com.br
 - Para casos urgentes, um humano pode assumir a conversa`;
 }
 
@@ -4896,7 +4911,7 @@ function buildEnhancedPrompt(
 - Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP), tipo de veículo, tipo de carga e rota típica (km).
 - Explique de forma simples e direta as 3 coberturas e o preço (R$ 900/ano de prêmio básico + averbação por embarque).
 - Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC) e fechar mais fretes com quem exige seguro.
-- Conduza o lead à proposta online / contratação, sem burocracia.
+- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá, sem burocracia).
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da Sompo Seguros.
 - Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
 
@@ -5386,6 +5401,34 @@ function enforceOrbe360Link(content: string): string {
 
   return content;
 }
+
+const CONTRACT_SITE_URL = 'https://transporte.jacometoseguros.com.br';
+
+/**
+ * Garante que, quando o lead demonstra intenção de contratar (pedir link, "como faço",
+ * "quero contratar", "como pago" etc.), a resposta contenha o link do site oficial de
+ * contratação. A contratação é feita EXCLUSIVAMENTE pelo site.
+ */
+function enforceContractSiteLink(content: string, userMessage: string): string {
+  if (!content) return content;
+
+  const domainRegex = /transporte\.jacometoseguros\.com\.br/i;
+  if (domainRegex.test(content)) return content;
+
+  const userLower = (userMessage || '').toLowerCase();
+  const contractIntent = [
+    'quero contratar', 'quero assinar', 'como contrato', 'como assino',
+    'como faço', 'como faco', 'como funciona a contrata', 'fechar',
+    'pagamento', 'como pago', 'link', 'proposta', 'preencher',
+    'contratar', 'assinar', 'quero o seguro', 'quero fazer',
+  ].some((k) => userLower.includes(k));
+
+  if (!contractIntent) return content;
+
+  console.log('[Nina][ContractSite] link_appended (intenção de contratação detectada)');
+  return `${content.trim()}\n\nA contratação é rápida e feita direto pelo site oficial. É só preencher a proposta aqui: ${CONTRACT_SITE_URL}`;
+}
+
 
 function sanitizeAiResponse(content: string): string {
   if (!content) return content;
