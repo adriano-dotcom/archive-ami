@@ -32,6 +32,10 @@ interface ContactProfilePanelProps {
   setEditPetName: (v: string) => void;
   editPhone: string;
   setEditPhone: (v: string) => void;
+  editCnpj: string;
+  setEditCnpj: (v: string) => void;
+  editCompany: string;
+  setEditCompany: (v: string) => void;
   isSavingContact: boolean;
   handleSaveContactData: () => void;
   // Tags
