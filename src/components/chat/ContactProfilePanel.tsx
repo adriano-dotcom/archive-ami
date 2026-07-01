@@ -67,6 +67,12 @@ const formatCpf = (cpf: string) => {
   return clean.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
 };
 
+const formatCnpj = (cnpj: string) => {
+  const clean = cnpj.replace(/\D/g, '');
+  if (clean.length !== 14) return cnpj;
+  return clean.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+};
+
 const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
   activeChat,
   sdrName,
