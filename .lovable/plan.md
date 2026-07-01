@@ -1,45 +1,38 @@
-## Diagnóstico confirmado
+## Objetivo
 
-O envio parou em **28/06** (limpeza do banco na virada para Jacometo apagou o `whatsapp_access_token`). Recebimento continua OK. O token é secreto e irrecuperável — precisa ser gerado de novo na Meta. Você disse que não sabe pegá-lo, então incluo o passo a passo, e vou adicionar um **aviso visível de desconexão** no app para isso nunca mais passar despercebido.
+Trazer para este projeto (Iris / WhatsApp) a consulta combinada de **CNPJ (Receita)** + **RNTRC (ANTT)** do transportador que existe no projeto **[Mitsui Projeto](/projects/3d1c0091-2181-4f95-bad0-814558013036)**, e devolver o resultado ao contato para conferência.
 
-## Parte 1 — Como gerar o Access Token na Meta (guia)
+Hoje este projeto já detecta o CNPJ na mensagem e consulta a BrasilAPI para pegar a razão social, respondendo "Encontrei: EMPRESA. Está correto?". **Falta a parte da ANTT/RNTRC.** No Mitsui, a ANTT é obtida via scraping do portal oficial (ASP.NET WebForms + desafio Altcha PoW), pois não existe API pública. Vamos portar essa lógica.
 
-Passo a passo que vou te entregar no app (e resumido aqui):
+## O que será feito
 
-1. Acesse **developers.facebook.com** → seu App do WhatsApp.
-2. Menu **WhatsApp → Configuração da API**: ali aparece o **Phone Number ID** (já restaurado no app) e um **token temporário** (dura 24h — foi esse que expirou/foi perdido).
-3. Para um token que **não expira**, vá em **Configurações do Negócio (business.facebook.com) → Usuários → Usuários do sistema**:
-   - Crie/selecione um **System User** do tipo Admin.
-   - Clique em **Gerar token** → escolha o App → marque as permissões **`whatsapp_business_messaging`** e **`whatsapp_business_management`**.
-   - Copie o token gerado (ele só aparece uma vez).
-4. No app: **Configurações → aba APIs → bloco WhatsApp** → cole o token → **Salvar**. A fila é reprocessada automaticamente (botão "Reprocessar fila de envios" também disponível).
+### 1. Nova Edge Function `consulta-antt`
+Porta em Deno do scraper da ANTT do Mitsui (`antt.consulta.ts`):
+- Recebe `POST { cnpj }` e retorna `{ found, rntrc, situacao, transportador, cpfCnpj, cadastradoDesde, municipioUf }`.
+- Fluxo: GET no formulário da ANTT (captura `__VIEWSTATE`/`__EVENTVALIDATION` + cookies) → busca o desafio Altcha → resolve o Proof-of-Work (sha256 do `salt+n`) usando `node:crypto` → POST com o CNPJ → parseia a tabela de resultado.
+- Cache em nova tabela `antt_cache` (24h para positivos, 1h para negativos) para não reconsultar o portal lento a cada mensagem.
+- `verify_jwt = false` (chamada interna com service key).
 
-## Parte 2 — Aviso visível de desconexão (código)
+### 2. Enriquecer a detecção de CNPJ no `nina-orchestrator`
+No bloco existente "IMMEDIATE CNPJ DETECTION WITH CONFIRMATION" (~linha 3296):
+- Após a consulta BrasilAPI, chamar também a `consulta-antt`.
+- Salvar no contato: `cnpj`, `company` (já existe) e agora `rntrc` (a coluna já existe na tabela `contacts`).
+- Montar a mensagem de conferência combinando os dois resultados. Exemplos:
+  - Com RNTRC: `Encontrei: RAZÃO SOCIAL. RNTRC nº 1234567 — situação: Ativo na ANTT. Está correto?`
+  - Sem RNTRC: `Encontrei: RAZÃO SOCIAL. Não localizei RNTRC ativo na ANTT para este CNPJ — você já tem registro de ETC na ANTT? Está correto?`
+- Manter o comportamento atual como fallback quando a BrasilAPI ou a ANTT falharem (salva o que conseguir e segue).
 
-Objetivo: um banner claro no topo do app sempre que o WhatsApp estiver sem token (ou o envio estiver travado), com atalho para reconectar.
-
-**Backend — nova função `whatsapp-connection-status`**
-- Edge function que usa service role e retorna JSON seguro (sem expor o token):
-  `{ connected: boolean, phone_configured: boolean, token_present: boolean, pending_count: number, oldest_pending_at: string | null }`.
-- `token_present` = existe token na tabela **ou** no Vault; `connected` = `phone_configured && token_present`.
-
-**Frontend**
-- `src/hooks/useWhatsAppConnection.ts`: chama a função a cada ~60s e expõe o status.
-- `src/components/WhatsAppConnectionBanner.tsx`: banner fixo (tom de alerta via tokens do design system, ex.: `bg-destructive/10 border-destructive/30`) exibido só quando `!connected` ou `pending_count > 0` sem token. Mostra:
-  - Título: "WhatsApp desconectado — mensagens não estão sendo enviadas".
-  - Contador de mensagens presas na fila.
-  - Botão **"Reconectar"** que leva a Configurações → APIs.
-- Renderizar o banner no layout principal (acima da área de conteúdo, junto ao `OnboardingBanner`), visível em `/chat` e nas demais telas.
-
-**Reforço opcional já suportado**: após salvar o token, o `handleReprocessQueue` existente dispara `trigger-whatsapp-sender` para esvaziar a fila.
+### 3. Migração de banco
+Criar tabela `antt_cache` (`cnpj text pk`, `payload jsonb`, `fetched_at timestamptz`) com RLS habilitado e GRANT apenas para `service_role` (uso exclusivo das edge functions).
 
 ## Detalhes técnicos
 
-- A leitura de status roda via edge function com service role — o token nunca é enviado ao browser, só o booleano `token_present`.
-- Sem migração de banco necessária (colunas `whatsapp_access_token`, `whatsapp_phone_number_id`, `whatsapp_token_in_vault` já existem em `nina_settings`).
-- As 40 mensagens em `pending` mais antigas que 24h desde a última resposta do cliente vão falhar como "fora da janela 24h" ao reprocessar — comportamento esperado da API do WhatsApp; as recentes serão entregues.
+- O Mitsui é TanStack Start (server routes); este projeto é React+Vite com Supabase Edge Functions, então o código é reescrito como função Deno em vez de reaproveitado diretamente.
+- O Altcha PoW é síncrono e leve (loop de sha256 até `maxnumber`); roda bem em Deno via `node:crypto`.
+- A conversão base64 do payload Altcha seguirá o padrão iterativo byte-a-byte já adotado no projeto (memória do projeto sobre limitação de spread em arrays grandes) — aqui o payload é pequeno, mas manteremos consistência.
+- A consulta ANTT depende do layout do portal oficial; se ele mudar, a função retorna `found:false` com erro amigável sem quebrar o fluxo do chat.
+- Sem novos segredos: BrasilAPI e ANTT são públicas; a `consulta-antt` usa `SUPABASE_SERVICE_ROLE_KEY` já disponível.
 
-## Resultado
-
-- Você recebe o guia para gerar o token permanente e reconectar.
-- O app passa a mostrar um alerta claro sempre que o WhatsApp cair, com atalho de reconexão — evitando ficar dias sem enviar sem ninguém perceber.
+## Validação
+- Deploy da `consulta-antt` e teste via curl com um CNPJ de transportadora conhecido (RNTRC ativo) e um sem RNTRC.
+- Deploy do `nina-orchestrator` e verificação nos logs de que a mensagem de conferência inclui razão social + RNTRC.
