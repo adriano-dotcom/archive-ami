@@ -4908,7 +4908,7 @@ function buildEnhancedPrompt(
 - Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP), tipo de veículo, tipo de carga e rota típica (km).
 - Explique de forma simples e direta as 3 coberturas e o preço (R$ 900/ano de prêmio básico + averbação por embarque).
 - Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC) e fechar mais fretes com quem exige seguro.
-- Conduza o lead à proposta online / contratação, sem burocracia.
+- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá, sem burocracia).
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da Sompo Seguros.
 - Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
 
