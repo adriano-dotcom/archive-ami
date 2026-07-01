@@ -1,37 +1,35 @@
-# Dados da Empresa no painel Informações do Lead
+## Objetivo
 
-Hoje o painel "Informações do Lead" mostra apenas **Dados do Transportador** (Telefone, Região, Email, CPF, Tipo de Carga). Os dados de empresa (CNPJ, razão social e RNTRC) já existem no banco e já vêm carregados na consulta, mas não são exibidos. Vou adicionar uma seção **Dados da Empresa** logo abaixo dos dados do transportador.
+Deixar explícito, na fala da Iris, que ela **tira dúvidas** do lead/transportador (inclusive quem atua como **subcontratado**) e que a **contratação é feita exclusivamente pelo site**. Ao final da conversa, ela orienta o lead a preencher o formulário em `https://transporte.jacometoseguros.com.br`.
 
-## O que será exibido
-- **Empresa** — razão social / nome da empresa (`contacts.company`, com fallback para a empresa vinculada `linked_company.razao_social` / `nome_fantasia`)
-- **CNPJ** — formatado `00.000.000/0000-00` (`contacts.cnpj`, fallback `linked_company.cnpj`)
-- **RNTRC** — número do registro ANTT (`contacts.rntrc`), preenchido automaticamente pela consulta ANTT
+Tudo é ajuste de prompt/comportamento no orquestrador — sem mudança de schema ou de UI.
 
-Cada campo mostra "Não informado" quando vazio, seguindo o mesmo padrão visual atual (ícone + label + valor).
+## Mudanças em `supabase/functions/nina-orchestrator/index.ts`
 
-## Edição
-Ao ativar o modo de edição (lápis já existente), **Empresa** e **CNPJ** ficam editáveis (inputs), no mesmo estilo dos outros campos. **RNTRC** permanece somente leitura (é resultado da consulta oficial ANTT). O botão "Salvar Alterações" passa a gravar também empresa e CNPJ.
+### 1. Papel da Iris (bloco `getDefaultSystemPrompt` e definição de papel, ~linha 4797)
+- Reforçar que a Iris **esclarece dúvidas** sobre as coberturas obrigatórias (RCTR-C, RC-DC, RC-V), regularização ANTT e sobre atuar como **subcontratado** de transportadoras maiores.
+- Deixar claro que a **contratação NÃO é feita pelo chat** — ela acontece somente pelo site oficial.
 
-## Detalhes técnicos
+### 2. Nova regra inegociável de contratação (junto ao bloco "QUEM PODE CONTRATAR", ~linha 3644)
+Adicionar bloco fixo:
+```text
+⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
+- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
+- A Iris NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
+- Fluxo: (1) tirar as dúvidas do transportador → (2) confirmar que ele é MEI/ME/EPP com RNTRC/ETC (inclui quem atua como subcontratado) → (3) enviar o link do site para ele preencher a proposta.
+- Sempre que o lead demonstrar interesse em contratar / pedir link / perguntar "como faço", envie o site para preenchimento.
+```
 
-1. **`src/types.ts`**
-   - Adicionar em `UIConversation`: `contactCnpj: string | null`, `contactCompany: string | null`, `contactRntrc: string | null`.
-   - Em `transformDBToUIConversation`, mapear esses campos a partir de `conv.contact` (cnpj, company, rntrc) com fallback para `conv.contact.linked_company` (razao_social/nome_fantasia/cnpj).
+### 3. Orientação de atendimento (~linha 4899)
+- Trocar `Conduza o lead à proposta online / contratação, sem burocracia.` por: conduzir o lead a **preencher a proposta no site** `https://transporte.jacometoseguros.com.br`, após esclarecer as dúvidas.
 
-2. **`src/hooks/useConversations.ts`** (handler de realtime ~linha 269)
-   - Incluir `contactCnpj`, `contactCompany`, `contactRntrc` na atualização otimista quando o contato muda.
+### 4. Reforço no fechamento (sanitizer, opcional mas recomendado)
+- Quando houver intenção de fechamento (`closingKeywords`: "quero contratar", "manda o link", "como pago" etc.) e a resposta final da LLM **não** contiver o domínio `transporte.jacometoseguros.com.br`, anexar automaticamente uma linha convidando a preencher a proposta no site.
+- Isso garante que o lead sempre receba o link correto no momento certo.
 
-3. **`src/services/api.ts`**
-   - Em `updateContact`, incluir `rntrc?: string | null` na assinatura (company e cnpj já existem). Não é obrigatório se RNTRC ficar somente leitura.
+## Resultado esperado
+- Iris passa a se posicionar como canal de **dúvidas** (não de contratação).
+- Menciona explicitamente o cenário de **subcontratado**.
+- Em todo momento de interesse/fechamento, envia `https://transporte.jacometoseguros.com.br` para o lead preencher.
 
-4. **`src/components/chat/ContactProfilePanel.tsx`**
-   - Nova seção "Dados da Empresa" com os três campos (ícones: prédio para empresa, documento para CNPJ, caminhão para RNTRC).
-   - Novos props: `editCnpj/setEditCnpj`, `editCompany/setEditCompany` para edição.
-   - Formatação de CNPJ para exibição.
-
-5. **`src/components/ChatInterface.tsx`**
-   - Novos estados `editCnpj`, `editCompany` inicializados a partir de `activeChat` (junto dos demais `edit*`, ~linha 521).
-   - Passar novos props ao `ContactProfilePanel` (~linha 2649).
-   - Em `handleSaveContactData`, incluir `company` e `cnpj` no `api.updateContact`.
-
-Nenhuma mudança de banco de dados é necessária — os campos já existem em `contacts` e já são consultados.
+Após aplicar, farei o redeploy do `nina-orchestrator`.
