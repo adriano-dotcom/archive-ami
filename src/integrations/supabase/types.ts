@@ -119,6 +119,24 @@ export type Database = {
           },
         ]
       }
+      antt_cache: {
+        Row: {
+          cnpj: string
+          fetched_at: string
+          payload: Json
+        }
+        Insert: {
+          cnpj: string
+          fetched_at?: string
+          payload: Json
+        }
+        Update: {
+          cnpj?: string
+          fetched_at?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           attendees: string[] | null
