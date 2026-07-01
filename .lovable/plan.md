@@ -1,33 +1,30 @@
-## Situação confirmada
+# Botão "Reprocessar fila de envios" do WhatsApp
 
-- ✅ **Recebimento funciona**: 4 mensagens de clientes nas últimas 24h (última hoje 18:17).
-- ✅ **Iris responde**: respostas geradas e enfileiradas normalmente.
-- ⛔ **Envio parado**: **26 mensagens presas** na fila de envio (`send_queue` pending):
-  - 15 respostas da **Iris**
-  - 7 mensagens de **atendentes humanos**
-- ✅ **Phone Number ID já restaurado** (`1003906669464570`).
-- 🔑 **Falta o Access Token** — ainda ausente (`whatsapp_access_token` vazio, nada no cofre). Sem ele, nada é entregue no WhatsApp.
+## Objetivo
+Permitir disparar manualmente o envio das mensagens presas em `send_queue` logo após salvar o Access Token / Phone Number ID, sem esperar o cron.
 
-O Access Token é secreto e foi apagado na limpeza do banco; **não é recuperável** — precisa ser colado de novo.
+## O que já existe (reaproveitar)
+- Edge function `trigger-whatsapp-sender` já pronta: chama `whatsapp-sender` que processa a fila `send_queue`. Não precisa criar função nova.
+- `ApiSettings.tsx` já tem o card **WhatsApp Cloud API** com os campos e o botão de salvar (`handleSave`), além da flag `whatsappConfigured`.
 
-## O que você precisa fazer (1 passo)
+## Mudanças (somente frontend em `src/components/settings/ApiSettings.tsx`)
 
-1. Abrir **Configurações → aba "APIs"**.
-2. No bloco do **WhatsApp**, colar o **Access Token** (o campo "Phone Number ID" já aparece preenchido).
-3. Clicar em **Salvar**.
+1. **Novo estado** `reprocessing` (boolean) para controlar o loading do botão.
 
-**Onde pegar na Meta:** Meta for Developers → seu App → **WhatsApp → Configuração da API**. Para não parar de novo, gere um **token permanente** via *Business Settings → Users → System Users → Generate Token* (permissões `whatsapp_business_messaging` e `whatsapp_business_management`). O token temporário dura só 24h.
+2. **Nova função** `handleReprocessQueue`:
+   - Valida se `whatsappConfigured` (Access Token + Phone Number ID preenchidos); se não, mostra toast pedindo para salvar antes.
+   - Chama `supabase.functions.invoke('trigger-whatsapp-sender', { body: { source: 'api_settings' } })`.
+   - Em caso de sucesso, mostra toast com o resultado (ex.: quantas mensagens foram processadas, lendo `result.processed` quando disponível).
+   - Trata erro com toast e `console.error`.
 
-## O que eu faço depois que você salvar
+3. **Novo botão** no card WhatsApp Cloud API (logo abaixo dos campos, junto do bloco de status), rotulado **"Reprocessar fila de envios"**, com ícone (ex.: `Send`/`RefreshCw`), spinner enquanto `reprocessing`, desabilitado quando não configurado.
 
-1. **Reprocessar a fila** chamando a função `whatsapp-sender` para despachar as 26 mensagens presas.
-2. **Validar**: confirmar que a `send_queue` passa de `pending` para `completed` e que as mensagens chegam no WhatsApp.
-
-## Observação importante (janela de 24h)
-
-Pela regra do WhatsApp, mensagens livres só saem dentro de **24h após a última mensagem do cliente**. As mensagens mais antigas da fila (algumas de 30/06) provavelmente estão **fora da janela** e vão falhar como "fora da janela" — isso é esperado, não é bug. As conversas recentes (dentro de 24h) serão entregues normalmente; mensagens novas reabrem a janela.
+4. **Reprocesso automático após salvar (opcional, incluído):** ao final de `handleSave` bem-sucedido, se `whatsappConfigured` for verdadeiro, disparar `handleReprocessQueue()` automaticamente e avisar no toast que a fila está sendo reprocessada — atendendo diretamente ao "imediatamente após salvar as credenciais".
 
 ## Detalhes técnicos
+- Sem alterações de banco, RLS ou edge functions — apenas UI que invoca a função existente.
+- Import de ícone adicional do `lucide-react` se necessário.
 
-- Sem alteração de schema. A única dependência é o Access Token, salvo via `ApiSettings.tsx` (grava em `nina_settings` / cofre).
-- Reprocessamento: invocar edge function `whatsapp-sender` (já ajustada para retornar 200 com `fallback: true` quando faltam credenciais, evitando tela branca).
+## Validação
+- Salvar credenciais válidas e confirmar que o toast indica reprocessamento e as mensagens saem de `pending`.
+- Clicar no botão manualmente com credenciais ausentes → toast de aviso, sem chamada.

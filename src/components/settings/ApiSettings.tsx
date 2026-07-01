@@ -67,6 +67,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
   const { companyName } = useCompanySettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const [showWhatsAppToken, setShowWhatsAppToken] = useState(false);
   const [showElevenLabsKey, setShowElevenLabsKey] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -265,11 +266,48 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
       if (error) throw error;
 
       toast.success('Configurações de APIs salvas com sucesso!');
+
+      // Reprocessa a fila automaticamente se o WhatsApp estiver configurado
+      if (settings.whatsapp_access_token && settings.whatsapp_phone_number_id) {
+        toast.info('Reprocessando fila de envios do WhatsApp...');
+        await handleReprocessQueue();
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Erro ao salvar configurações');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReprocessQueue = async () => {
+    if (!settings.whatsapp_access_token || !settings.whatsapp_phone_number_id) {
+      toast.error('Configure e salve o Access Token e o Phone Number ID antes de reprocessar.');
+      return;
+    }
+
+    setReprocessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-whatsapp-sender', {
+        body: { source: 'api_settings' }
+      });
+      if (error) throw error;
+
+      const processed = data?.result?.processed;
+      if (typeof processed === 'number') {
+        toast.success(
+          processed > 0
+            ? `Fila reprocessada: ${processed} mensagem(ns) enviada(s).`
+            : 'Fila reprocessada. Nenhuma mensagem pendente para enviar.'
+        );
+      } else {
+        toast.success('Fila de envios reprocessada com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error reprocessing queue:', error);
+      toast.error('Erro ao reprocessar a fila de envios.');
+    } finally {
+      setReprocessing(false);
     }
   };
 
@@ -676,6 +714,27 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
             </div>
           </Collapsible.Content>
         </Collapsible.Root>
+
+        {/* Reprocessar fila de envios */}
+        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between gap-4">
+          <p className="text-xs text-slate-400">
+            Dispara imediatamente o envio das mensagens pendentes na fila do WhatsApp.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleReprocessQueue}
+            disabled={!whatsappConfigured || reprocessing}
+            className="shrink-0"
+          >
+            {reprocessing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Reprocessar fila de envios
+          </Button>
+        </div>
       </div>
 
       {/* ElevenLabs */}
