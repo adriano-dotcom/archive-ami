@@ -12,6 +12,7 @@ import { usePrefetchSeguradosData } from './hooks/useSeguradosData';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IncomingCallModal } from './components/IncomingCallModal';
 import { useIncomingWhatsAppCall } from './hooks/useIncomingWhatsAppCall';
+import { WhatsAppConnectionBanner } from './components/WhatsAppConnectionBanner';
 
 // Lazy load route components for code splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -77,7 +78,9 @@ const AppLayout: React.FC = () => {
       
       <main className="flex-1 h-full overflow-hidden relative z-10 flex flex-col">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent opacity-50 z-20"></div>
-        
+
+        <WhatsAppConnectionBanner />
+
         <div className="flex-1 w-full h-full relative overflow-hidden">
           <Suspense fallback={<PageLoader />}>
             <Outlet />
