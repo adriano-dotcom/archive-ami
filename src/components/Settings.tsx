@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Shield, Plug, Loader2, Save, Users, Mail, Settings2, MessageSquare, Zap, Brain, Stethoscope, BookOpen, FolderOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
@@ -20,7 +21,9 @@ const Settings: React.FC = () => {
   const apiRef = useRef<ApiSettingsRef>(null);
   const agentsRef = useRef<AgentsSettingsRef>(null);
   
-  const [activeTab, setActiveTab] = useState('general');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'agents';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const handleSave = async () => {
     if (activeTab === 'apis') {
@@ -60,7 +63,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="agents" className="w-full" onValueChange={setActiveTab}>
+      <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
         <div className="flex items-center justify-between mb-8">
           <TabsList>
             <TabsTrigger value="general" className="gap-2">
