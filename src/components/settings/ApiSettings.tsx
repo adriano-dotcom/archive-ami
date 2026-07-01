@@ -266,11 +266,48 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
       if (error) throw error;
 
       toast.success('Configurações de APIs salvas com sucesso!');
+
+      // Reprocessa a fila automaticamente se o WhatsApp estiver configurado
+      if (settings.whatsapp_access_token && settings.whatsapp_phone_number_id) {
+        toast.info('Reprocessando fila de envios do WhatsApp...');
+        await handleReprocessQueue();
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Erro ao salvar configurações');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReprocessQueue = async () => {
+    if (!settings.whatsapp_access_token || !settings.whatsapp_phone_number_id) {
+      toast.error('Configure e salve o Access Token e o Phone Number ID antes de reprocessar.');
+      return;
+    }
+
+    setReprocessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-whatsapp-sender', {
+        body: { source: 'api_settings' }
+      });
+      if (error) throw error;
+
+      const processed = data?.result?.processed;
+      if (typeof processed === 'number') {
+        toast.success(
+          processed > 0
+            ? `Fila reprocessada: ${processed} mensagem(ns) enviada(s).`
+            : 'Fila reprocessada. Nenhuma mensagem pendente para enviar.'
+        );
+      } else {
+        toast.success('Fila de envios reprocessada com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error reprocessing queue:', error);
+      toast.error('Erro ao reprocessar a fila de envios.');
+    } finally {
+      setReprocessing(false);
     }
   };
 
