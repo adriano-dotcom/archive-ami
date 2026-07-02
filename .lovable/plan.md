@@ -1,36 +1,46 @@
 ## Objetivo
 
-Inserir no system prompt da Iris uma explicação clara e inegociável sobre **como funciona a apólice para o transportador subcontratado (agregado)** — destacando que é uma modalidade de **compliance legal** (comprovação de seguro perante a ANTT) e que **NÃO possui cobertura efetiva** nos ramos RCTR-C, RC-DC e RC-V, pois os embarques não são averbados. Também deve orientar a migração para o produto com averbação caso o transportador passe a atuar como **contratado** (responsável pela carga).
+Verificar, via **teste automatizado (simulação)**, que a Iris responde de forma **consistente** às perguntas de leads sobre a apólice do transportador **subcontratado (agregado)** — sempre deixando explícito que é modalidade de **compliance legal** e que **NÃO há cobertura efetiva** (sem indenização em sinistro). Nenhuma conversa real é criada no banco.
 
-É apenas ajuste de prompt/comportamento no orquestrador — sem mudança de schema, UI ou lógica de negócio.
+## Como funciona a verificação
 
-## Mudança em `supabase/functions/nina-orchestrator/index.ts`
+Um script Deno standalone envia, direto ao Lovable AI Gateway, o **bloco de regras do subcontratado** (o mesmo texto já injetado no prompt) como `system`, e várias formulações de pergunta de lead como `user`. Depois valida cada resposta por palavras-chave obrigatórias.
 
-Adicionar um novo bloco fixo logo após o bloco "⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO" (após a linha ~3660), dentro de `plansCatalogContent`, para que faça parte da fonte única de verdade injetada no prompt:
+Não altera o `nina-orchestrator`; apenas exercita o mesmo modelo/prompt de forma isolada e repetível.
 
-```text
-⛔ REGRA INEGOCIÁVEL — APÓLICE DO TRANSPORTADOR SUBCONTRATADO (AGREGADO)
-Modalidade inédita no mercado, criada para o transportador que atua como SUBCONTRATADO (agregado) e precisa apenas cumprir a exigência legal de possuir seguro de transporte para operar com o RNTRC (ANTT).
+### Arquivo novo: `supabase/functions/nina-orchestrator/subcontratado.test.ts`
 
-Como funciona na prática:
-- Como subcontratado, o transportador NÃO precisa averbar os embarques. A averbação e a cobertura da carga são responsabilidade do CONTRATANTE PRINCIPAL (transportador contratado) da operação.
-- Esta apólice serve para COMPROVAR que o transportador possui o seguro obrigatório, funcionando como DOCUMENTO DE COMPLIANCE perante a ANTT — e NÃO como seguro ativo sobre a carga.
-- Sem burocracia de averbação a cada viagem: mantém a regularidade legal de forma simples e direta.
+- Carrega credenciais com `import "https://deno.land/std@0.224.0/dotenv/load.ts"` e lê `LOVABLE_API_KEY` do ambiente.
+- Define o `SYSTEM_PROMPT` de teste contendo o bloco "⛔ REGRA INEGOCIÁVEL — APÓLICE DO TRANSPORTADOR SUBCONTRATADO (AGREGADO)" exatamente como está em `index.ts` (linhas ~3662–3679), mais uma instrução curta de persona (Iris, tira-dúvidas de seguro de cargas).
+- Modelo: `google/gemini-3-flash-preview` (default atual do orquestrador em `getAISettings`).
+- Bateria de perguntas (variações de fraseado):
+  1. "Como funciona essa apólice pra quem é subcontratado?"
+  2. "Sou agregado de uma transportadora, essa apólice cobre minha carga?"
+  3. "Se der um sinistro trabalhando como subcontratado, eu recebo indenização?"
+  4. "Preciso averbar os embarques sendo subcontratado?"
+  5. "Comecei a pegar carga como contratado, e agora?"
+- Para cada resposta, checa (case-insensitive) a presença dos conceitos-chave conforme a pergunta:
+  - Perguntas 1–3: DEVE conter sinal de "sem cobertura efetiva / não há indenização" (ex.: `não` + `cobertura`/`indeniz`) e menção a "compliance"/"comprovação"/"obrigatoriedade legal".
+  - Pergunta 4: DEVE indicar que subcontratado NÃO averba (responsabilidade do contratante).
+  - Pergunta 5: DEVE orientar averbação obrigatória + migração/contato com a Jacometo.
+- Consome o corpo de toda resposta (`await res.text()`/`res.json()`) para evitar leak.
+- Imprime uma tabela PASS/FAIL por pergunta e falha o teste (`assert`) se qualquer resposta não trouxer o alerta essencial.
+- Opcional: roda cada pergunta 2x para medir consistência (temperatura padrão), reportando taxa de acerto.
 
-⚠️ ATENÇÃO — INFORMAÇÃO ESSENCIAL (NUNCA OMITIR):
-- Como os embarques NÃO são averbados, esta apólice NÃO possui cobertura efetiva nos ramos RCTR-C, RC-DC e RC-V.
-- Em caso de sinistro, NÃO haverá indenização nesta modalidade. Ela existe EXCLUSIVAMENTE para atender à obrigatoriedade legal de comprovação de seguro.
-- Sempre que explicar a modalidade subcontratado, deixe esse ponto EXPLÍCITO. Nunca dê a entender que há cobertura efetiva sobre a carga.
+### Execução
 
-MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
-- Se o transportador for atuar como CONTRATADO (assumir a carga) e precisar de cobertura REAL e EFETIVA, é OBRIGATÓRIO averbar os embarques.
-- Nesse caso, oriente-o a entrar em contato com a Jacometo Corretora e solicitar a MIGRAÇÃO para o produto COM averbação — somente assim as viagens ficam efetivamente protegidas.
 ```
+cd supabase/functions/nina-orchestrator && deno test -A subcontratado.test.ts
+```
+
+(o `LOVABLE_API_KEY` já está disponível como secret do projeto).
 
 ## Resultado esperado
 
-- A Iris passa a explicar corretamente a apólice do subcontratado como documento de compliance, sem cobertura efetiva.
-- Sempre reforça o alerta de que não há indenização nessa modalidade.
-- Orienta a migração para o produto com averbação quando o transportador atua como contratado.
+- Relatório PASS/FAIL por variação de pergunta.
+- Se todas passarem: confirma que o prompt novo é seguido de forma consistente.
+- Se alguma falhar: evidência concreta de que o prompt sozinho não garante consistência — nesse caso eu recomendo, num próximo passo, adicionar uma rede de segurança (sanitizer `enforceSubcontratadoWarning`) nos moldes de `enforceContractSiteLink`.
 
-Após aplicar, farei o redeploy da função `nina-orchestrator`.
+## Observação
+
+O teste valida o comportamento do modelo com o texto do prompt, não a montagem completa do orquestrador. É a forma mais rápida e sem efeitos colaterais de medir consistência. Após aprovar, implemento o script e rodo a bateria, retornando os resultados.
