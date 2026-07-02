@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
+import { LeadsTable } from './LeadsTable';
 import { CreateCompanyModal } from './CreateCompanyModal';
 import { CreateSeguradoPFModal } from './CreateSeguradoPFModal';
 import { EditCompanyModal } from './EditCompanyModal';
