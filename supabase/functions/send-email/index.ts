@@ -64,10 +64,27 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
+      // Role check: only admin/operator may send arbitrary emails
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: roles } = await serviceClient
+        .from("user_roles").select("role").eq("user_id", user.id);
+      const allowed = (roles || []).some((r: { role: string }) => r.role === "admin" || r.role === "operator");
+      if (!allowed) {
+        console.error("User lacks required role:", user.id);
+        return new Response(
+          JSON.stringify({ error: "Forbidden - requires admin or operator role" }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+
       console.log(`Email request from authenticated user: ${user.id}`);
     } else {
       console.log("Email request from service role (internal call)");
     }
+
 
     const { to, subject, html, from, bcc }: SendEmailRequest = await req.json();
 

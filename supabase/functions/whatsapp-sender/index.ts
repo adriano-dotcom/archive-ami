@@ -15,7 +15,26 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // --- Authorization: internal service role (cron/triggers) or authenticated user only ---
+  const authHeader = req.headers.get('Authorization') || '';
+  const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+  if (!isServiceRole) {
+    const token = authHeader.replace('Bearer ', '');
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = token
+      ? await authClient.auth.getUser(token)
+      : { data: null, error: new Error('missing token') } as any;
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   try {
     console.log('[Sender] Starting send process...');

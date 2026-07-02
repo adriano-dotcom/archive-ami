@@ -38,6 +38,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendApiKey) {
@@ -45,6 +46,36 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // --- Authorization: require admin/operator (or internal service role) ---
+    const authHeader = req.headers.get("Authorization") || "";
+    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+    if (!isServiceRole) {
+      const token = authHeader.replace("Bearer ", "");
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: roles } = await supabase
+        .from("user_roles").select("role").eq("user_id", userData.user.id);
+      const allowed = (roles || []).some((r: { role: string }) => r.role === "admin" || r.role === "operator");
+      if (!allowed) {
+        return new Response(JSON.stringify({ error: "Forbidden - requires admin or operator role" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const resend = new Resend(resendApiKey);
 
     // Fetch email configuration from nina_settings

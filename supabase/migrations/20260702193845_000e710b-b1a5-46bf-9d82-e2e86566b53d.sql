@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Authenticated users can view whatsapp-media" ON storage.objects;
