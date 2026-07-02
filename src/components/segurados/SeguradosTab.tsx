@@ -43,6 +43,7 @@ export const SeguradosTab: React.FC = () => {
   // Extract data from hook
   const companies = data?.companies || [];
   const seguradosPF = data?.seguradosPF || [];
+  const leads = data?.leads || [];
   
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
