@@ -81,6 +81,13 @@ export const SeguradosTab: React.FC = () => {
   const [selectedSeguradoIds, setSelectedSeguradoIds] = useState<string[]>([]);
   const [showBulkDeleteSeguradosConfirm, setShowBulkDeleteSeguradosConfirm] = useState(false);
   const [bulkDeleteSeguradosLoading, setBulkDeleteSeguradosLoading] = useState(false);
+
+  // Bulk selection / delete states - Leads
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const [showBulkDeleteLeadsConfirm, setShowBulkDeleteLeadsConfirm] = useState(false);
+  const [bulkDeleteLeadsLoading, setBulkDeleteLeadsLoading] = useState(false);
+
   
   // Company details drawer
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
