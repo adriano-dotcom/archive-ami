@@ -803,8 +803,8 @@ export const SeguradosTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Sub-tabs for PJ and PF */}
-      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'pj' | 'pf')}>
+      {/* Sub-tabs for PJ, PF and Leads */}
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'pj' | 'pf' | 'leads')}>
         <TabsList className="bg-slate-900/50 border border-slate-700">
           <TabsTrigger 
             value="pj" 
@@ -826,7 +826,18 @@ export const SeguradosTab: React.FC = () => {
               {filteredSeguradosPF.length}
             </span>
           </TabsTrigger>
+          <TabsTrigger 
+            value="leads" 
+            className="gap-2 text-slate-300 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
+          >
+            <Sparkles className="w-4 h-4" />
+            Leads
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
+              {filteredLeads.length}
+            </span>
+          </TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="pj" className="mt-4 space-y-3">
           {/* Actions Bar */}
