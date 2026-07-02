@@ -184,13 +184,16 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
         </TableBody>
       </Table>
 
-      {totalPages > 1 && (
+      {leads.length > 0 && (
         <TablePagination
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalItems={leads.length}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
         />
       )}
+
     </div>
   );
 };
