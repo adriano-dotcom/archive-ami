@@ -33,7 +33,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 export const SeguradosTab: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
-  const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf'>('pj');
+  const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf' | 'leads'>('pj');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Use optimized data hook with caching
