@@ -752,7 +752,7 @@ export const SeguradosTab: React.FC = () => {
               </Button>
             )}
           </>
-        )}
+        ) : null}
         
         {/* Active filters badges */}
         <div className="flex items-center gap-1 ml-2">
