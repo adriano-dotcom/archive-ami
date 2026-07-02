@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CompaniesTable } from './CompaniesTable';
 import { SeguradosPFTable } from './SeguradosPFTable';
+import { LeadsTable } from './LeadsTable';
 import { CreateCompanyModal } from './CreateCompanyModal';
 import { CreateSeguradoPFModal } from './CreateSeguradoPFModal';
 import { EditCompanyModal } from './EditCompanyModal';
@@ -26,13 +27,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
 
-import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
+import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF, type Lead } from '@/hooks/useSeguradosData';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export const SeguradosTab: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
-  const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf'>('pj');
+  const [activeSubTab, setActiveSubTab] = useState<'pj' | 'pf' | 'leads'>('pj');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Use optimized data hook with caching
@@ -42,6 +43,7 @@ export const SeguradosTab: React.FC = () => {
   // Extract data from hook
   const companies = data?.companies || [];
   const seguradosPF = data?.seguradosPF || [];
+  const leads = data?.leads || [];
   
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showCreateSeguradoPF, setShowCreateSeguradoPF] = useState(false);
@@ -79,6 +81,13 @@ export const SeguradosTab: React.FC = () => {
   const [selectedSeguradoIds, setSelectedSeguradoIds] = useState<string[]>([]);
   const [showBulkDeleteSeguradosConfirm, setShowBulkDeleteSeguradosConfirm] = useState(false);
   const [bulkDeleteSeguradosLoading, setBulkDeleteSeguradosLoading] = useState(false);
+
+  // Bulk selection / delete states - Leads
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const [showBulkDeleteLeadsConfirm, setShowBulkDeleteLeadsConfirm] = useState(false);
+  const [bulkDeleteLeadsLoading, setBulkDeleteLeadsLoading] = useState(false);
+
   
   // Company details drawer
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState<Company | null>(null);
@@ -475,6 +484,82 @@ export const SeguradosTab: React.FC = () => {
     });
   }, [seguradosPF, searchTerm, stateFilterPF, overdueStatusPF, overdueRangePF]);
 
+  const filteredLeads = useMemo(() => {
+    const normalizedSearch = searchTerm.replace(/\D/g, '');
+    const lowerSearch = searchTerm.toLowerCase();
+    return leads.filter(l => {
+      if (searchTerm === '') return true;
+      const matchesName = l.name?.toLowerCase().includes(lowerSearch);
+      const matchesDoc = normalizedSearch.length > 0 &&
+        ((l.cpf || '').includes(normalizedSearch) || (l.cnpj || '').includes(normalizedSearch));
+      const matchesPhone = l.phone_number.includes(normalizedSearch);
+      return matchesName || matchesDoc || matchesPhone;
+    });
+  }, [leads, searchTerm]);
+
+  // Delete a single lead (contact + its conversations/messages)
+  const deleteContactCascade = async (contactId: string) => {
+    const { data: policies } = await supabase
+      .from('policies').select('id').eq('contact_id', contactId);
+    if (policies && policies.length > 0) {
+      const policyIds = policies.map(p => p.id);
+      await supabase.from('installments').delete().in('policy_id', policyIds);
+      await supabase.from('policies').delete().eq('contact_id', contactId);
+    }
+    const { data: convs } = await supabase
+      .from('conversations').select('id').eq('contact_id', contactId);
+    if (convs && convs.length > 0) {
+      const convIds = convs.map(c => c.id);
+      await supabase.from('messages').delete().in('conversation_id', convIds);
+      await supabase.from('conversations').delete().eq('contact_id', contactId);
+    }
+    const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+    if (error) throw error;
+  };
+
+  const handleDeleteLead = async () => {
+    if (!deletingLead) return;
+    setDeleteLoading(true);
+    try {
+      await deleteContactCascade(deletingLead.id);
+      toast.success('Lead excluído com sucesso!');
+      setDeletingLead(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      toast.error('Erro ao excluir lead');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleBulkDeleteLeads = async () => {
+    setBulkDeleteLeadsLoading(true);
+    let deletedCount = 0;
+    let errorCount = 0;
+    try {
+      for (const leadId of selectedLeadIds) {
+        try {
+          await deleteContactCascade(leadId);
+          deletedCount++;
+        } catch (err) {
+          console.error('Error deleting lead:', err);
+          errorCount++;
+        }
+      }
+      if (deletedCount > 0) toast.success(`${deletedCount} lead(s) excluído(s) com sucesso!`);
+      if (errorCount > 0) toast.error(`${errorCount} lead(s) não puderam ser excluídos`);
+      setSelectedLeadIds([]);
+      setShowBulkDeleteLeadsConfirm(false);
+      loadData();
+    } catch (error) {
+      console.error('Error in bulk delete leads:', error);
+      toast.error('Erro ao excluir leads');
+    } finally {
+      setBulkDeleteLeadsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with search and filters */}
@@ -551,7 +636,7 @@ export const SeguradosTab: React.FC = () => {
             <Plus className="w-4 h-4" />
             Nova Empresa
           </Button>
-        ) : (
+        ) : activeSubTab === 'pf' ? (
           <Button
             size="sm"
             onClick={() => setShowCreateSeguradoPF(true)}
@@ -560,7 +645,7 @@ export const SeguradosTab: React.FC = () => {
             <Plus className="w-4 h-4" />
             Novo Transportador
           </Button>
-        )}
+        ) : null}
       </div>
 
       {/* Filters Row */}
@@ -616,8 +701,9 @@ export const SeguradosTab: React.FC = () => {
               </Button>
             )}
           </>
-        ) : (
+        ) : activeSubTab === 'pf' ? (
           <>
+
             
             <Select value={stateFilterPF} onValueChange={setStateFilterPF}>
               <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
@@ -666,7 +752,7 @@ export const SeguradosTab: React.FC = () => {
               </Button>
             )}
           </>
-        )}
+        ) : null}
         
         {/* Active filters badges */}
         <div className="flex items-center gap-1 ml-2">
@@ -717,8 +803,8 @@ export const SeguradosTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Sub-tabs for PJ and PF */}
-      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'pj' | 'pf')}>
+      {/* Sub-tabs for PJ, PF and Leads */}
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'pj' | 'pf' | 'leads')}>
         <TabsList className="bg-slate-900/50 border border-slate-700">
           <TabsTrigger 
             value="pj" 
@@ -740,7 +826,18 @@ export const SeguradosTab: React.FC = () => {
               {filteredSeguradosPF.length}
             </span>
           </TabsTrigger>
+          <TabsTrigger 
+            value="leads" 
+            className="gap-2 text-slate-300 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
+          >
+            <Sparkles className="w-4 h-4" />
+            Leads
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
+              {filteredLeads.length}
+            </span>
+          </TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="pj" className="mt-4 space-y-3">
           {/* Actions Bar */}
@@ -884,7 +981,63 @@ export const SeguradosTab: React.FC = () => {
             />
           </Card>
         </TabsContent>
+
+        <TabsContent value="leads" className="mt-4 space-y-3">
+          {isAdmin && filteredLeads.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedLeadIds(filteredLeads.map(l => l.id))}
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+              >
+                <CheckSquare className="w-4 h-4" />
+                Selecionar Todos ({filteredLeads.length})
+              </Button>
+            </div>
+          )}
+
+          {selectedLeadIds.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+              <span className="text-sm text-cyan-400 font-medium">
+                {selectedLeadIds.length} selecionado(s)
+              </span>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowBulkDeleteLeadsConfirm(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir ({selectedLeadIds.length})
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedLeadIds([])}
+                className="text-slate-400 hover:text-slate-200 gap-2"
+              >
+                <X className="w-4 h-4" />
+                Limpar seleção
+              </Button>
+            </div>
+          )}
+
+          <Card className="bg-slate-900/30 border-white/5">
+            <LeadsTable
+              leads={filteredLeads}
+              loading={loading}
+              selectedIds={selectedLeadIds}
+              onSelectionChange={setSelectedLeadIds}
+              onOpenConversation={handleOpenConversation}
+              onDeleteLead={(lead) => setDeletingLead(lead)}
+            />
+          </Card>
+        </TabsContent>
       </Tabs>
+
 
       {/* Modals */}
       <CreateCompanyModal
@@ -1042,6 +1195,63 @@ export const SeguradosTab: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete single lead */}
+      <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Lead</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir o lead <strong className="text-slate-200">{deletingLead?.name || deletingLead?.phone_number}</strong>?
+              <br /><br />
+              <span className="text-red-400">⚠️ Atenção:</span> As conversas e mensagens deste contato serão removidas.
+              <br /><br />
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteLead}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteLoading ? 'Excluindo...' : 'Excluir lead'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete leads */}
+      <AlertDialog open={showBulkDeleteLeadsConfirm} onOpenChange={setShowBulkDeleteLeadsConfirm}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Leads em Lote</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedLeadIds.length} lead(s)</strong>?
+              <br /><br />
+              <span className="text-red-400">⚠️ Atenção:</span> As conversas e mensagens serão removidas junto com os leads.
+              <br /><br />
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteLeads}
+              disabled={bulkDeleteLeadsLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {bulkDeleteLeadsLoading ? 'Excluindo...' : `Excluir ${selectedLeadIds.length} lead(s)`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       <ImportDocumentAIModal
         open={showImportDocumentAI}

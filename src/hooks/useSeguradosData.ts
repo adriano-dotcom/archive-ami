@@ -25,6 +25,22 @@ export interface SeguradoSubscription {
   started_at?: string;
 }
 
+export interface Lead {
+  id: string;
+  name: string | null;
+  phone_number: string;
+  email: string | null;
+  cpf: string | null;
+  cnpj: string | null;
+  city: string | null;
+  state: string | null;
+  lead_status: string | null;
+  lead_source: string | null;
+  tags: string[] | null;
+  created_at: string;
+  last_activity: string | null;
+}
+
 export interface SeguradoPF {
   id: string;
   name: string | null;
@@ -262,13 +278,95 @@ async function fetchSeguradosPFOptimized(): Promise<SeguradoPF[]> {
     });
 }
 
-// Fetch all segurados data (companies + PF)
+// Fetch leads (contacts that came in via chat and are NOT yet segurados)
+async function fetchLeadsOptimized(): Promise<Lead[]> {
+  // 1. Fetch candidate contacts (not linked to a company)
+  const { data: contacts, error } = await supabase
+    .from('contacts')
+    .select(`
+      id,
+      name,
+      phone_number,
+      email,
+      cpf,
+      cnpj,
+      city,
+      state,
+      lead_source,
+      lead_status,
+      tags,
+      client_memory,
+      created_at
+    `)
+    .is('company_id', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!contacts || contacts.length === 0) return [];
+
+  const contactIds = contacts.map(c => c.id);
+
+  // 2. Which contacts have policies (=> they are segurados, not leads)
+  const { data: allPolicies } = await supabase
+    .from('policies')
+    .select('contact_id')
+    .in('contact_id', contactIds);
+
+  const contactsWithPolicies = new Set<string>();
+  allPolicies?.forEach(p => {
+    if (p.contact_id) contactsWithPolicies.add(p.contact_id);
+  });
+
+  // 3. Last activity per contact (from conversations)
+  const { data: conversations } = await supabase
+    .from('conversations')
+    .select('contact_id, last_message_at')
+    .in('contact_id', contactIds);
+
+  const lastActivityByContact = new Map<string, string>();
+  conversations?.forEach(c => {
+    if (!c.contact_id || !c.last_message_at) return;
+    const existing = lastActivityByContact.get(c.contact_id);
+    if (!existing || c.last_message_at > existing) {
+      lastActivityByContact.set(c.contact_id, c.last_message_at);
+    }
+  });
+
+  // 4. Leads = inverse of segurados criteria (keep company-like names, they are still leads)
+  return contacts
+    .filter(contact => {
+      const hasPolicies = contactsWithPolicies.has(contact.id);
+      const isCobrancaImport = contact.lead_source === 'import_cobranca';
+      const isCustomer = (contact as any).lead_status === 'customer';
+      const hasSubscription = !!((contact as any).client_memory?.subscription?.plan_name);
+      const isEcommerce = contact.lead_source === 'ecommerce';
+      return !(hasPolicies || isCobrancaImport || isCustomer || hasSubscription || isEcommerce);
+    })
+    .map(contact => ({
+      id: contact.id,
+      name: contact.name,
+      phone_number: contact.phone_number,
+      email: contact.email,
+      cpf: contact.cpf,
+      cnpj: (contact as any).cnpj ?? null,
+      city: contact.city,
+      state: contact.state,
+      lead_status: (contact as any).lead_status ?? null,
+      lead_source: contact.lead_source,
+      tags: (contact as any).tags ?? null,
+      created_at: (contact as any).created_at,
+      last_activity: lastActivityByContact.get(contact.id) ?? null,
+    }));
+}
+
+// Fetch all segurados data (companies + PF + leads)
 export async function fetchSeguradosData() {
-  const [companies, seguradosPF] = await Promise.all([
+  const [companies, seguradosPF, leads] = await Promise.all([
     fetchCompaniesOptimized(),
-    fetchSeguradosPFOptimized()
+    fetchSeguradosPFOptimized(),
+    fetchLeadsOptimized()
   ]);
-  return { companies, seguradosPF };
+  return { companies, seguradosPF, leads };
 }
 
 // Main hook with cache
