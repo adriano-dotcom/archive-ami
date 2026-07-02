@@ -854,6 +854,30 @@ function isProspectingRejection(messageContent: string): boolean {
   return rejectionPhrases.some(phrase => content.includes(phrase));
 }
 
+// Check if the message is ONLY a simple greeting (no substantive question/request).
+// Used to decide whether to send the fixed greeting_message or let the AI answer.
+function isPureGreeting(messageContent: string): boolean {
+  let content = (messageContent || '').toLowerCase().trim();
+  if (!content) return true;
+
+  // Remove common greeting phrases/words
+  const greetingPhrases = [
+    'bom dia', 'boa tarde', 'boa noite',
+    'tudo bem', 'tudo bom', 'como vai', 'como você está', 'como voce esta',
+    'olá', 'ola', 'oie', 'oi', 'opa', 'eae', 'e aí', 'e ai', 'salve',
+    'hello', 'hi', 'ola tudo bem', 'prazer'
+  ];
+  for (const phrase of greetingPhrases) {
+    content = content.replace(new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ');
+  }
+  // Strip punctuation/emojis and collapse whitespace
+  content = content.replace(/[^a-zà-ú0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
+
+  // If almost nothing meaningful remains, it's a pure greeting
+  return content.length <= 3;
+}
+
+
 // Check if message is a soft rejection (has broker, satisfied, not now - can nurture later)
 function isSoftRejection(messageContent: string): boolean {
   const content = typeof messageContent === 'string' ? messageContent.toLowerCase().trim() : '';
