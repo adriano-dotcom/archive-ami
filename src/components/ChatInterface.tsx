@@ -51,7 +51,7 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker, QuickRepliesPopover } from './chat';
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -820,6 +820,25 @@ const ChatInterface: React.FC = () => {
     setInputText('');
     
     await sendMessage(activeChat.id, content, operatorDisplayName);
+  };
+
+  // Insert a quick reply (canned message) at the cursor position in the composer
+  const handleInsertQuickReply = (text: string) => {
+    const el = messageInputRef.current;
+    setInputText((prev) => {
+      if (!el) return prev ? `${prev} ${text}` : text;
+      const start = el.selectionStart ?? prev.length;
+      const end = el.selectionEnd ?? prev.length;
+      const next = prev.slice(0, start) + text + prev.slice(end);
+      requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + text.length;
+        el.setSelectionRange(pos, pos);
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+      });
+      return next;
+    });
   };
 
   // Format duration for audio recording
@@ -2543,6 +2562,18 @@ const ChatInterface: React.FC = () => {
                   >
                     <FileType className="w-5 h-5" />
                   </Button>
+                  {/* Respostas Prontas (canned WhatsApp replies) */}
+                  <QuickRepliesPopover
+                    disabled={!windowTimeRemaining.isOpen}
+                    variables={{
+                      nome: activeChat.contactName,
+                      empresa: activeChat.contactCompany,
+                      cnpj: activeChat.contactCnpj,
+                      rntrc: activeChat.contactRntrc,
+                      telefone: activeChat.contactPhone,
+                    }}
+                    onSelect={handleInsertQuickReply}
+                  />
                   {/* Message Tone Assistant - Only visible when human is in control and there's text */}
                   {activeChat.status === 'human' && !isMobile && (
                     <MessageToneAssistant
