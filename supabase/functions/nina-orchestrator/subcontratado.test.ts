@@ -193,3 +193,50 @@ Deno.test("Iris responde consistentemente sobre apólice do subcontratado", asyn
 
   assert(failures.length === 0, `Consistência insuficiente: ${failures.length} checagem(ns) falharam. Ver log acima.`);
 });
+
+// ---------------------------------------------------------------------------
+// Verificação: abertura para LEAD DO SITE (primeira mensagem).
+// A Iris deve abrir com o modelo do subcontratado, mantendo compliance ANTT,
+// o aviso de sem cobertura/indenização e a pergunta final de direcionamento.
+// ---------------------------------------------------------------------------
+const askQuestion = (t: string) =>
+  hasAny(t, "ficar regular", "regular na antt", "cobertura efetiva", "cobertura da carga", "regularizar", "?");
+
+Deno.test("Iris abre com o modelo do subcontratado para lead do site", async () => {
+  if (!LOVABLE_API_KEY) {
+    console.warn("⚠️  LOVABLE_API_KEY ausente — pulando teste.");
+    return;
+  }
+
+  const RUNS = 2;
+  const firstMessage = "Olá! Vim pelo site e tenho dúvidas sobre os 3 seguros obrigatórios do transportador.";
+  const failures: string[] = [];
+
+  console.log("\n===== VERIFICAÇÃO: ABERTURA LEAD DO SITE (SUBCONTRATADO) =====\n");
+
+  for (let run = 1; run <= RUNS; run++) {
+    let answer = "";
+    try {
+      answer = await ask(firstMessage, SITE_LEAD_SYSTEM_PROMPT);
+    } catch (e) {
+      failures.push(`run${run}: erro na chamada — ${e instanceof Error ? e.message : e}`);
+      continue;
+    }
+
+    const checks = [
+      { label: "compliance/comprovação ANTT", ok: compliance(answer) },
+      { label: "sem cobertura/indenização", ok: noEffectiveCoverage(answer) },
+      { label: "pergunta de direcionamento final", ok: askQuestion(answer) },
+    ];
+    const allOk = checks.every((c) => c.ok);
+    console.log(`${allOk ? "✅ PASS" : "❌ FAIL"} run${run}`);
+    for (const c of checks) console.log(`      ${c.ok ? "✓" : "✗"} ${c.label}`);
+    if (!allOk) {
+      failures.push(`run${run}: faltou [${checks.filter((c) => !c.ok).map((c) => c.label).join(", ")}]`);
+      console.log(`      ↳ resposta: ${answer.replace(/\s+/g, " ").slice(0, 260)}...`);
+    }
+  }
+
+  console.log("");
+  assert(failures.length === 0, `Abertura inconsistente: ${failures.length} falha(s). Ver log acima.`);
+});
