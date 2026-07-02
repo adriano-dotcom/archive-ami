@@ -4939,7 +4939,25 @@ function buildEnhancedPrompt(
     if (contact.name) contextInfo += `\n- Nome: ${contact.name}`;
     if (contact.call_name) contextInfo += ` (trate por: ${contact.call_name})`;
     if (contact.tags?.length) contextInfo += `\n- Tags: ${contact.tags.join(', ')}`;
-    
+
+    // ===== DADOS DO TRANSPORTADOR JÁ CONSULTADOS (CNPJ / RAZÃO SOCIAL / RNTRC-ANTT) =====
+    // Estes dados JÁ foram consultados automaticamente (BrasilAPI + portal da ANTT).
+    // O agente DEVE usar essas informações e NUNCA perguntar novamente o CNPJ ou o RNTRC.
+    if (contact.cnpj || contact.company || contact.rntrc) {
+      contextInfo += `\n\n## 🚚 DADOS DO TRANSPORTADOR (JÁ CONSULTADOS — NÃO PERGUNTAR NOVAMENTE):`;
+      if (contact.cnpj) {
+        const cnpjFmt = String(contact.cnpj).replace(/\D/g, '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+        contextInfo += `\n- CNPJ: ${cnpjFmt || contact.cnpj} (já consultado — NÃO peça o CNPJ de novo)`;
+      }
+      if (contact.company) contextInfo += `\n- Razão social/Empresa: ${contact.company}`;
+      if (contact.rntrc) {
+        contextInfo += `\n- RNTRC (ANTT): ${contact.rntrc} — transportador REGULAR na ANTT. Confirme e siga a qualificação.`;
+      } else if (contact.cnpj) {
+        contextInfo += `\n- RNTRC (ANTT): NÃO localizado para este CNPJ na ANTT. Este CNPJ pode não ter registro de ETC ativo. Pergunte com tato se ele já possui RNTRC/registro de ETC ou se precisa regularizar.`;
+      }
+      contextInfo += `\n⚠️ Estes dados já foram buscados automaticamente. Use-os na conversa e NUNCA volte a pedir o CNPJ ou o número do RNTRC.`;
+    }
+
     // Cidade/Estado do lead (extraído do DDD do telefone)
     if (contact.city && contact.state) {
       contextInfo += `\n- Localização (pelo DDD): ${contact.city} - ${contact.state}`;
