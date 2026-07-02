@@ -3658,6 +3658,24 @@ IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cob
 - Fluxo correto: (1) esclareça as dúvidas do transportador → (2) confirme que ele é MEI/ME/EPP com RNTRC/ETC (inclui quem atua como subcontratado) → (3) envie o link do site para ele preencher a proposta.
 - Sempre que o lead demonstrar interesse em contratar, pedir link ou perguntar "como faço", envie: https://transporte.jacometoseguros.com.br para ele preencher a proposta.
 `;
+      plansCatalogContent += `
+⛔ REGRA INEGOCIÁVEL — APÓLICE DO TRANSPORTADOR SUBCONTRATADO (AGREGADO)
+Modalidade inédita no mercado, criada para o transportador que atua como SUBCONTRATADO (agregado) e precisa apenas cumprir a exigência legal de possuir seguro de transporte para operar com o RNTRC (ANTT).
+
+Como funciona na prática:
+- Como subcontratado, o transportador NÃO precisa averbar os embarques. A averbação e a cobertura da carga são responsabilidade do CONTRATANTE PRINCIPAL (transportador contratado) da operação.
+- Esta apólice serve para COMPROVAR que o transportador possui o seguro obrigatório, funcionando como DOCUMENTO DE COMPLIANCE perante a ANTT — e NÃO como seguro ativo sobre a carga.
+- Sem burocracia de averbação a cada viagem: mantém a regularidade legal de forma simples e direta.
+
+⚠️ ATENÇÃO — INFORMAÇÃO ESSENCIAL (NUNCA OMITIR):
+- Como os embarques NÃO são averbados, esta apólice NÃO possui cobertura efetiva nos ramos RCTR-C, RC-DC e RC-V.
+- Em caso de sinistro, NÃO haverá indenização nesta modalidade. Ela existe EXCLUSIVAMENTE para atender à obrigatoriedade legal de comprovação de seguro.
+- Sempre que explicar a modalidade subcontratado, deixe esse ponto EXPLÍCITO. Nunca dê a entender que há cobertura efetiva sobre a carga.
+
+MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
+- Se o transportador for atuar como CONTRATADO (assumir a carga) e precisar de cobertura REAL e EFETIVA, é OBRIGATÓRIO averbar os embarques.
+- Nesse caso, oriente-o a entrar em contato com a Jacometo Corretora e solicitar a MIGRAÇÃO para o produto COM averbação — somente assim as viagens ficam efetivamente protegidas.
+`;
 
       const formatLimitKey = (key: string) =>
         key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
