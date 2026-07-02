@@ -46,11 +46,75 @@ serve(async (req) => {
       throw new Error('WhatsApp Access Token não configurado');
     }
 
-    // Use WABA ID from settings
-    const wabaId = settings.whatsapp_waba_id;
+    // Use WABA ID from settings, or auto-discover it from the phone number id
+    let wabaId = settings.whatsapp_waba_id;
+
+    if (!wabaId && settings.whatsapp_phone_number_id) {
+      console.log('WABA ID ausente, tentando descobrir via debug_token (granular scopes)...');
+      const dbgResp = await fetch(
+        `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(accessToken)}`
+      );
+      const dbgData = await dbgResp.json();
+      if (dbgResp.ok) {
+        const scopes = dbgData?.data?.granular_scopes || [];
+        const waScope = scopes.find((s: any) =>
+          s.scope === 'whatsapp_business_management' || s.scope === 'whatsapp_business_messaging'
+        );
+        const targetId = waScope?.target_ids?.[0];
+        if (targetId) {
+          wabaId = targetId;
+          console.log(`WABA ID descoberto via debug_token: ${wabaId}`);
+          await supabase
+            .from('nina_settings')
+            .update({ whatsapp_waba_id: wabaId })
+            .not('id', 'is', null);
+        } else {
+          console.error('debug_token sem WABA target_ids:', JSON.stringify(dbgData?.data?.granular_scopes));
+        }
+      } else {
+        console.error('Falha no debug_token:', dbgData);
+      }
+
+      // Fallback: walk the businesses owned/accessible by this token to find WABAs
+      if (!wabaId) {
+        console.log('Tentando descobrir WABA via /me/businesses...');
+        const bizResp = await fetch(
+          `https://graph.facebook.com/v21.0/me/businesses?fields=id,name`,
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        const bizData = await bizResp.json();
+        if (bizResp.ok && Array.isArray(bizData?.data)) {
+          for (const biz of bizData.data) {
+            for (const edge of ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts']) {
+              const wabaResp = await fetch(
+                `https://graph.facebook.com/v21.0/${biz.id}/${edge}?fields=id,name`,
+                { headers: { 'Authorization': `Bearer ${accessToken}` } }
+              );
+              const wabaData = await wabaResp.json();
+              if (wabaResp.ok && wabaData?.data?.[0]?.id) {
+                wabaId = wabaData.data[0].id;
+                console.log(`WABA ID descoberto via business ${biz.id} (${edge}): ${wabaId}`);
+                break;
+              }
+            }
+            if (wabaId) break;
+          }
+          if (wabaId) {
+            await supabase
+              .from('nina_settings')
+              .update({ whatsapp_waba_id: wabaId })
+              .not('id', 'is', null);
+          } else {
+            console.error('Nenhum WABA encontrado nos negócios acessíveis.');
+          }
+        } else {
+          console.error('Falha ao listar /me/businesses:', bizData);
+        }
+      }
+    }
 
     if (!wabaId) {
-      throw new Error('WABA ID não configurado. Vá em Configurações → APIs → WhatsApp e preencha o WABA ID. Encontre-o no Meta Business Manager → Contas → WhatsApp Business.');
+      throw new Error('WABA ID não configurado e não foi possível descobri-lo automaticamente. Verifique o token/permissões do WhatsApp.');
     }
 
     console.log(`Syncing templates for WABA ID: ${wabaId}`);
