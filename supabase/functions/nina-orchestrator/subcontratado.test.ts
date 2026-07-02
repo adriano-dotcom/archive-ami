@@ -99,7 +99,29 @@ const QUESTIONS: Question[] = [
   },
 ];
 
-async function ask(question: string): Promise<string> {
+// Bloco EXATO injetado em index.ts para leads do site na PRIMEIRA mensagem
+const SITE_LEAD_FIRST_RESPONSE_BLOCK = `
+## 🟢 MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO)
+Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, NÃO use a saudação genérica: responda com base no MODELO abaixo, apresentando a apólice do transportador SUBCONTRATADO (agregado).
+
+⚠️ Como usar o modelo:
+- ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp). Não precisa copiar literalmente.
+- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- MANTENHA a pergunta final de direcionamento (ficar regular na ANTT × precisar de cobertura efetiva da carga).
+
+MODELO (base para adaptar):
+"""
+Olá! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
+Sobre a apólice que você buscou: é a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
+✅ Mantém você *regular perante a fiscalização*
+⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*.
+Pra eu te orientar: seu foco agora é *ficar regular na ANTT* ou você precisa de *cobertura efetiva da carga*?
+"""`;
+
+const SITE_LEAD_SYSTEM_PROMPT = `${SYSTEM_PROMPT}\n${SITE_LEAD_FIRST_RESPONSE_BLOCK}`;
+
+async function ask(question: string, systemPrompt: string = SYSTEM_PROMPT): Promise<string> {
   const res = await fetch(LOVABLE_AI_URL, {
     method: "POST",
     headers: {
@@ -109,7 +131,7 @@ async function ask(question: string): Promise<string> {
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: question },
       ],
     }),
@@ -170,4 +192,51 @@ Deno.test("Iris responde consistentemente sobre apólice do subcontratado", asyn
   console.log("");
 
   assert(failures.length === 0, `Consistência insuficiente: ${failures.length} checagem(ns) falharam. Ver log acima.`);
+});
+
+// ---------------------------------------------------------------------------
+// Verificação: abertura para LEAD DO SITE (primeira mensagem).
+// A Iris deve abrir com o modelo do subcontratado, mantendo compliance ANTT,
+// o aviso de sem cobertura/indenização e a pergunta final de direcionamento.
+// ---------------------------------------------------------------------------
+const askQuestion = (t: string) =>
+  hasAny(t, "ficar regular", "regular na antt", "cobertura efetiva", "cobertura da carga", "regularizar", "?");
+
+Deno.test("Iris abre com o modelo do subcontratado para lead do site", async () => {
+  if (!LOVABLE_API_KEY) {
+    console.warn("⚠️  LOVABLE_API_KEY ausente — pulando teste.");
+    return;
+  }
+
+  const RUNS = 2;
+  const firstMessage = "Olá! Vim pelo site e tenho dúvidas sobre os 3 seguros obrigatórios do transportador.";
+  const failures: string[] = [];
+
+  console.log("\n===== VERIFICAÇÃO: ABERTURA LEAD DO SITE (SUBCONTRATADO) =====\n");
+
+  for (let run = 1; run <= RUNS; run++) {
+    let answer = "";
+    try {
+      answer = await ask(firstMessage, SITE_LEAD_SYSTEM_PROMPT);
+    } catch (e) {
+      failures.push(`run${run}: erro na chamada — ${e instanceof Error ? e.message : e}`);
+      continue;
+    }
+
+    const checks = [
+      { label: "compliance/comprovação ANTT", ok: compliance(answer) },
+      { label: "sem cobertura/indenização", ok: noEffectiveCoverage(answer) },
+      { label: "pergunta de direcionamento final", ok: askQuestion(answer) },
+    ];
+    const allOk = checks.every((c) => c.ok);
+    console.log(`${allOk ? "✅ PASS" : "❌ FAIL"} run${run}`);
+    for (const c of checks) console.log(`      ${c.ok ? "✓" : "✗"} ${c.label}`);
+    if (!allOk) {
+      failures.push(`run${run}: faltou [${checks.filter((c) => !c.ok).map((c) => c.label).join(", ")}]`);
+      console.log(`      ↳ resposta: ${answer.replace(/\s+/g, " ").slice(0, 260)}...`);
+    }
+  }
+
+  console.log("");
+  assert(failures.length === 0, `Abertura inconsistente: ${failures.length} falha(s). Ver log acima.`);
 });
