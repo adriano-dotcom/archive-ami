@@ -701,8 +701,9 @@ export const SeguradosTab: React.FC = () => {
               </Button>
             )}
           </>
-        ) : (
+        ) : activeSubTab === 'pf' ? (
           <>
+
             
             <Select value={stateFilterPF} onValueChange={setStateFilterPF}>
               <SelectTrigger className="w-[130px] h-8 bg-slate-900/50 border-slate-600 text-sm">
