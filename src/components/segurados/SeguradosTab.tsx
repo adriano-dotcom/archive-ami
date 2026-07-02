@@ -27,7 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
 
-import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF } from '@/hooks/useSeguradosData';
+import { useSeguradosData, useInvalidateSeguradosData, type Company, type SeguradoPF, type Lead } from '@/hooks/useSeguradosData';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export const SeguradosTab: React.FC = () => {
