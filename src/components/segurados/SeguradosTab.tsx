@@ -1196,6 +1196,63 @@ export const SeguradosTab: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete single lead */}
+      <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Lead</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir o lead <strong className="text-slate-200">{deletingLead?.name || deletingLead?.phone_number}</strong>?
+              <br /><br />
+              <span className="text-red-400">⚠️ Atenção:</span> As conversas e mensagens deste contato serão removidas.
+              <br /><br />
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteLead}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteLoading ? 'Excluindo...' : 'Excluir lead'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete leads */}
+      <AlertDialog open={showBulkDeleteLeadsConfirm} onOpenChange={setShowBulkDeleteLeadsConfirm}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Excluir Leads em Lote</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Tem certeza que deseja excluir <strong className="text-slate-200">{selectedLeadIds.length} lead(s)</strong>?
+              <br /><br />
+              <span className="text-red-400">⚠️ Atenção:</span> As conversas e mensagens serão removidas junto com os leads.
+              <br /><br />
+              <strong className="text-red-400">Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteLeads}
+              disabled={bulkDeleteLeadsLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {bulkDeleteLeadsLoading ? 'Excluindo...' : `Excluir ${selectedLeadIds.length} lead(s)`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       <ImportDocumentAIModal
         open={showImportDocumentAI}
         onOpenChange={setShowImportDocumentAI}
