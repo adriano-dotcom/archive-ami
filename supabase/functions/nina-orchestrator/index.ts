@@ -4681,6 +4681,8 @@ async function queueTextResponse(
   delay: number,
   agent?: Agent | null
 ) {
+  const userMessage: string = (message?.content || '').toString();
+
   // ===== ANTI-LOOP: comparar candidata com últimas mensagens enviadas =====
   // Pega últimas N mensagens enviadas pela Orbi/humano (independente do tempo)
   const { data: recentSentMessages } = await supabase
