@@ -50,22 +50,29 @@ serve(async (req) => {
     let wabaId = settings.whatsapp_waba_id;
 
     if (!wabaId && settings.whatsapp_phone_number_id) {
-      console.log('WABA ID ausente, tentando descobrir via phone_number_id...');
-      const discoverResp = await fetch(
-        `https://graph.facebook.com/v21.0/${settings.whatsapp_phone_number_id}?fields=whatsapp_business_account`,
-        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      console.log('WABA ID ausente, tentando descobrir via debug_token (granular scopes)...');
+      const dbgResp = await fetch(
+        `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(accessToken)}`
       );
-      const discoverData = await discoverResp.json();
-      if (discoverResp.ok && discoverData?.whatsapp_business_account?.id) {
-        wabaId = discoverData.whatsapp_business_account.id;
-        console.log(`WABA ID descoberto: ${wabaId}`);
-        // Persist for future use
-        await supabase
-          .from('nina_settings')
-          .update({ whatsapp_waba_id: wabaId })
-          .not('id', 'is', null);
+      const dbgData = await dbgResp.json();
+      if (dbgResp.ok) {
+        const scopes = dbgData?.data?.granular_scopes || [];
+        const waScope = scopes.find((s: any) =>
+          s.scope === 'whatsapp_business_management' || s.scope === 'whatsapp_business_messaging'
+        );
+        const targetId = waScope?.target_ids?.[0];
+        if (targetId) {
+          wabaId = targetId;
+          console.log(`WABA ID descoberto via debug_token: ${wabaId}`);
+          await supabase
+            .from('nina_settings')
+            .update({ whatsapp_waba_id: wabaId })
+            .not('id', 'is', null);
+        } else {
+          console.error('debug_token sem WABA target_ids:', JSON.stringify(dbgData?.data?.granular_scopes));
+        }
       } else {
-        console.error('Falha ao descobrir WABA ID:', discoverData);
+        console.error('Falha no debug_token:', dbgData);
       }
     }
 
