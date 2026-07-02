@@ -66,3 +66,7 @@ verify_jwt = false
 
 [functions.jarvis-sync]
 verify_jwt = false
+
+[functions.replicate-lead-to-crm]
+verify_jwt = false
+
