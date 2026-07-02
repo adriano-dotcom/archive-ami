@@ -822,6 +822,25 @@ const ChatInterface: React.FC = () => {
     await sendMessage(activeChat.id, content, operatorDisplayName);
   };
 
+  // Insert a quick reply (canned message) at the cursor position in the composer
+  const handleInsertQuickReply = (text: string) => {
+    const el = messageInputRef.current;
+    setInputText((prev) => {
+      if (!el) return prev ? `${prev} ${text}` : text;
+      const start = el.selectionStart ?? prev.length;
+      const end = el.selectionEnd ?? prev.length;
+      const next = prev.slice(0, start) + text + prev.slice(end);
+      requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + text.length;
+        el.setSelectionRange(pos, pos);
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+      });
+      return next;
+    });
+  };
+
   // Format duration for audio recording
   const formatRecordingDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
