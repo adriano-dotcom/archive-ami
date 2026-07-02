@@ -2543,6 +2543,18 @@ const ChatInterface: React.FC = () => {
                   >
                     <FileType className="w-5 h-5" />
                   </Button>
+                  {/* Respostas Prontas (canned WhatsApp replies) */}
+                  <QuickRepliesPopover
+                    disabled={!windowTimeRemaining.isOpen}
+                    variables={{
+                      nome: activeChat.contactName,
+                      empresa: activeChat.contactCompany,
+                      cnpj: activeChat.contactCnpj,
+                      rntrc: activeChat.contactRntrc,
+                      telefone: activeChat.contactPhone,
+                    }}
+                    onSelect={handleInsertQuickReply}
+                  />
                   {/* Message Tone Assistant - Only visible when human is in control and there's text */}
                   {activeChat.status === 'human' && !isMobile && (
                     <MessageToneAssistant
