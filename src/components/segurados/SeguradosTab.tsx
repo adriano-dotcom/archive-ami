@@ -484,6 +484,82 @@ export const SeguradosTab: React.FC = () => {
     });
   }, [seguradosPF, searchTerm, stateFilterPF, overdueStatusPF, overdueRangePF]);
 
+  const filteredLeads = useMemo(() => {
+    const normalizedSearch = searchTerm.replace(/\D/g, '');
+    const lowerSearch = searchTerm.toLowerCase();
+    return leads.filter(l => {
+      if (searchTerm === '') return true;
+      const matchesName = l.name?.toLowerCase().includes(lowerSearch);
+      const matchesDoc = normalizedSearch.length > 0 &&
+        ((l.cpf || '').includes(normalizedSearch) || (l.cnpj || '').includes(normalizedSearch));
+      const matchesPhone = l.phone_number.includes(normalizedSearch);
+      return matchesName || matchesDoc || matchesPhone;
+    });
+  }, [leads, searchTerm]);
+
+  // Delete a single lead (contact + its conversations/messages)
+  const deleteContactCascade = async (contactId: string) => {
+    const { data: policies } = await supabase
+      .from('policies').select('id').eq('contact_id', contactId);
+    if (policies && policies.length > 0) {
+      const policyIds = policies.map(p => p.id);
+      await supabase.from('installments').delete().in('policy_id', policyIds);
+      await supabase.from('policies').delete().eq('contact_id', contactId);
+    }
+    const { data: convs } = await supabase
+      .from('conversations').select('id').eq('contact_id', contactId);
+    if (convs && convs.length > 0) {
+      const convIds = convs.map(c => c.id);
+      await supabase.from('messages').delete().in('conversation_id', convIds);
+      await supabase.from('conversations').delete().eq('contact_id', contactId);
+    }
+    const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+    if (error) throw error;
+  };
+
+  const handleDeleteLead = async () => {
+    if (!deletingLead) return;
+    setDeleteLoading(true);
+    try {
+      await deleteContactCascade(deletingLead.id);
+      toast.success('Lead excluído com sucesso!');
+      setDeletingLead(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      toast.error('Erro ao excluir lead');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleBulkDeleteLeads = async () => {
+    setBulkDeleteLeadsLoading(true);
+    let deletedCount = 0;
+    let errorCount = 0;
+    try {
+      for (const leadId of selectedLeadIds) {
+        try {
+          await deleteContactCascade(leadId);
+          deletedCount++;
+        } catch (err) {
+          console.error('Error deleting lead:', err);
+          errorCount++;
+        }
+      }
+      if (deletedCount > 0) toast.success(`${deletedCount} lead(s) excluído(s) com sucesso!`);
+      if (errorCount > 0) toast.error(`${errorCount} lead(s) não puderam ser excluídos`);
+      setSelectedLeadIds([]);
+      setShowBulkDeleteLeadsConfirm(false);
+      loadData();
+    } catch (error) {
+      console.error('Error in bulk delete leads:', error);
+      toast.error('Erro ao excluir leads');
+    } finally {
+      setBulkDeleteLeadsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with search and filters */}
