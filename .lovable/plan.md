@@ -1,31 +1,41 @@
-## Causa raiz
+## Contexto
 
-As edge functions críticas do fluxo de WhatsApp estão **retornando 404 (não implantadas)**. A Meta entregou as mensagens do cliente +55 43 9125-5007, recebeu 404 e as descartou — por isso não há contato, conversa nem log, e a Iris não respondeu. Testes ao vivo confirmam que `whatsapp-webhook`, `nina-orchestrator`, `whatsapp-sender` e a maioria das outras funções estão em 404, enquanto apenas as implantadas por último (`whatsapp-connection-status`, `replicate-lead-to-crm`) estão no ar. O `config.toml` e o código estão corretos — o deploy é que ficou incompleto (provavelmente após os deploys/migrations recentes).
+Os contatos que entram pelo chat **já são salvos** na base (tabela `contacts`) e ficam ligados às conversas. O que acontece é que a única tela no menu (`Transportadores` → `/tutores`) tem duas abas:
+- **Empresas** — lê da tabela `companies` (vazia).
+- **Transportadores** — mostra só **segurados/clientes** (quem tem apólice, é `cliente`, tem assinatura, ou veio de cobrança/e-commerce).
 
-## Correção
+Leads novos vindos do chat (status `novo`/`qualificado`, sem apólice) são filtrados para fora de propósito, então aparecem "0". Não há perda de dados.
 
-### 1. Reimplantar todas as edge functions
-Fazer um deploy completo de todas as funções em `supabase/functions/`, com prioridade para as do fluxo de WhatsApp/IA:
-- `whatsapp-webhook` (recebe mensagens da Meta)
-- `nina-orchestrator` (motor da IA / Iris)
-- `whatsapp-sender` (envio das respostas)
-- `whatsapp-webhook-health`, `whatsapp-call-webhook`, `whatsapp-call-*`
-- Demais funções em 404: `jarvis-sync`, `capture-lead`, `send-email`, `process-followups`, e todas as outras do diretório.
+## Solução escolhida
 
-### 2. Verificar que voltaram ao ar
-Após o deploy, testar cada endpoint e confirmar que não retornam mais 404:
-- `GET whatsapp-webhook?hub.mode=subscribe&...` deve responder o challenge (200)
-- `POST whatsapp-webhook` com body vazio deve responder 200 (`{status:'ignored'}`)
-- `nina-orchestrator` e `whatsapp-sender` devem responder (não-404)
+Adicionar uma **terceira aba "Leads"** dentro da tela de Transportadores, ao lado de *Empresas* e *Transportadores*, listando exatamente os contatos que entraram pelo chat e ainda não viraram segurados. Segurados e empresas continuam separados, sem misturar.
 
-### 3. Recuperar a conversa perdida do cliente
-Como a mensagem foi descartada pela Meta (404), ela não será reprocessada automaticamente após a janela de retry. Opções, a confirmar com você:
-- **(a)** Enviar uma mensagem proativa de retomada para o +55 43 9125-5007 assim que o webhook estiver no ar (via `send-whatsapp-template`/`whatsapp-sender`), já que o cliente ficou sem resposta.
-- **(b)** Apenas aguardar — se a Meta ainda estiver dentro da janela de retry, a mensagem pode reentrar sozinha assim que o webhook responder 200.
+Nenhuma mudança de banco é necessária — é só leitura/exibição de dados que já existem.
 
-### 4. (Opcional) Prevenção
-Adicionar um alerta de saúde: como já existe `whatsapp-webhook-health`, podemos usá-lo num check periódico (cron) para detectar rapidamente se o webhook voltar a cair, evitando ficar mudo sem ninguém perceber.
+## O que será feito
+
+### 1. Buscar os leads (`src/hooks/useSeguradosData.ts`)
+- Criar a interface `Lead` (id, nome, telefone, e-mail, CPF, CNPJ, cidade, estado, status do lead, origem, tags, data de entrada, última atividade).
+- Adicionar `fetchLeads()`: retorna contatos que **não** se qualificam como segurados — ou seja, sem apólice, não `cliente`, sem assinatura, e origem diferente de cobrança/e-commerce. Diferente da aba Transportadores, **não** vai esconder nomes que parecem empresa (ex.: "RM transporte", "Sm Tuning"), pois esses também são leads legítimos do chat.
+- Incluir `leads` no retorno de `fetchSeguradosData()` (ao lado de `companies` e `seguradosPF`).
+
+### 2. Nova tabela de leads (`src/components/segurados/LeadsTable.tsx`)
+- Componente novo, no estilo da tabela de Transportadores existente.
+- Colunas: **Nome**, **Telefone**, **CNPJ/CPF**, **Status** (badge do estágio do lead), **Origem**, **Entrou em** (data formatada com `parseISO` do date-fns, conforme padrão do projeto) e **Ações**.
+- Ações por linha: **Abrir conversa** (usa o fluxo já existente `handleOpenConversation`) e **Excluir**. Seleção múltipla para exclusão em lote.
+
+### 3. Integrar a aba (`src/components/segurados/SeguradosTab.tsx`)
+- Ampliar `activeSubTab` para `'pj' | 'pf' | 'leads'`.
+- Adicionar um `TabsTrigger` **"Leads"** com contador e cor própria (ex.: âmbar/ciano) e um `TabsContent value="leads"` renderizando a `LeadsTable`.
+- Adicionar `filteredLeads` (respeita a busca por nome/telefone/documento já existente).
+- Reaproveitar a exclusão em lote já existente de contatos para a aba Leads.
+- Botão de criação: manter "Nova Empresa"/"Novo Transportador" nas abas atuais; na aba Leads não é necessário botão de criação (os leads chegam pelo chat).
 
 ## Detalhes técnicos
-- Nenhuma alteração de código-fonte é necessária para restaurar o serviço — é uma reimplantação. O `config.toml` já tem `verify_jwt = false` para `whatsapp-webhook`.
-- Evidência: último log em `webhook_request_logs` às 20:40 UTC; `POST 404 whatsapp-webhook` às 21:00:44 UTC nos logs da plataforma; teste ao vivo dos endpoints confirmando 404 nas funções críticas e 200/400 nas recém-implantadas.
+- A definição de "lead" é o inverso do filtro de segurados PF já presente em `fetchSeguradosPFOptimized` (linhas 230-238), sem a exclusão por nome-de-empresa.
+- Sem migração de banco: apenas frontend + consulta de leitura.
+- Datas exibidas com `parseISO` (nunca `new Date()`), seguindo o padrão do projeto.
+- Terminologia mantida: rótulos "Transportadores"/"Empresas"/"Leads"; valores de banco legados intactos.
+
+## Resultado
+Ao abrir **Transportadores**, você verá 3 abas: **Empresas**, **Transportadores** (segurados) e **Leads** — esta última já listando Adriano, RM transporte, Aldair Santos, Sm Tuning, DEOLINDA, Jocileny e o Lead +55 43 9125-5007, com botão para abrir a conversa de cada um.
