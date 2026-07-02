@@ -3628,26 +3628,24 @@ Agradeço pela compreensão! 🙏`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O prêmio básico anual cobre a emissão das 3 apólices obrigatórias. Cada embarque é averbado à parte, conforme o valor da carga e a quilometragem.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento mensal recorrente. NÃO há averbação por embarque.\n';
       plansCatalogContent += `
-🚫 REGRA CRÍTICA DE AVERBAÇÃO E PREÇO — use EXATAMENTE estes valores, nunca invente percentuais ou prazos:
+🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
-• Prêmio básico anual: R$ 900,00/ano (emissão das 3 apólices: RCTR-C, RC-DC e RC-V, vigência de 1 ano).
-• Averbação RCTR-C: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
-• Averbação RC-DC: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
-• Total carga (RCTR-C + RC-DC): 0,1% sobre o valor da carga.
-• RC-V: R$ 10 por viagem de até 400 km; acima disso há acréscimo pelos km excedentes, LIMITADO A R$ 25 por viagem.
-• Emissão da apólice: em até 5 dias após o aceite da proposta.
-• Vencimento do boleto de averbação: em média até 30 dias após o embarque.
+• Preço: R$ 644,28/mês (prêmio mensal recorrente, IOF e encargos inclusos).
+• O pagamento mensal mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• Vigência: 1 ano a partir da emissão.
+• Emissão da apólice: em até 5 dias úteis após o aceite da proposta.
+• NÃO existe averbação por embarque nesta modalidade — é um valor mensal único.
 
-IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cobertura sem averbação.
+⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório (transportador SUBCONTRATADO). Estas apólices NÃO indenizam sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal. Nunca prometa cobertura efetiva ou indenização nesta modalidade.
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
 - MEI e ME com registro no RNTRC da ANTT como ETC (Empresa de Transporte de Carga).
 - Também atende EPP de pequeno porte, principalmente como subcontratada de transportadoras maiores.
-- Base legal: os seguros RCTR-C, RC-DC e RC-V são obrigatórios pela ETC (Art. 13 da Lei 11.442/2007) e exigências ANTT 478/2024 e 488/26.
-- Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
+- Base legal: RCTR-C, RC-DC e RC-V são obrigatórios pela Lei 14.599/2023 (obrigatório desde 09/01/2026); base histórica no Art. 13 da Lei 11.442/2007.
+- Seguradora emissora: seguradora parceira registrada na SUSEP. A Jacometo é a corretora que cuida de toda a contratação.
 - NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
       plansCatalogContent += `
@@ -3682,10 +3680,10 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coverages = Array.isArray(plan.coverages) ? plan.coverages.join('; ') : 'Consulte detalhes';
-        plansCatalogContent += `\n### ${plan.plan_name} — prêmio básico ${price}/ano`;
+        plansCatalogContent += `\n### ${plan.plan_name} — ${price}/mês`;
         plansCatalogContent += `\n- Coberturas: ${coverages}`;
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
-          plansCatalogContent += `\n- Regras de averbação e valores:`;
+          plansCatalogContent += `\n- Regras e valores:`;
           for (const [key, raw] of Object.entries(plan.limits_per_event)) {
             const label = formatLimitKey(key);
             if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -4841,7 +4839,7 @@ REGRAS:
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
-- Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices Sompo Seguros)
+- Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices emitidas por seguradora parceira registrada na SUSEP)
 - Atende MEI, ME e EPP registrados como ETC na ANTT (inclui quem atua como subcontratado)
 - Contratação exclusiva pelo site: https://transporte.jacometoseguros.com.br
 - Para casos urgentes, um humano pode assumir a conversa`;
@@ -4909,8 +4907,9 @@ function buildEnhancedPrompt(
   contextInfo += `\n\n## INFORMAÇÕES OFICIAIS DA EMPRESA:
 - **Empresa:** Jacometo Corretora de Seguros
 - **Segmento:** Seguros obrigatórios de transporte rodoviário de carga
-- **Seguradora emissora:** Sompo Seguros
+- **Seguradora emissora:** seguradora parceira registrada na SUSEP
 - **Corretor responsável:** Adriano Jacometo
+- **Atendimento:** humano, em Londrina/PR · +25 anos de experiência
 
 ⚠️ NUNCA invente endereços, telefones ou informações da empresa.`;
 
@@ -4919,18 +4918,22 @@ function buildEnhancedPrompt(
 
 ### REGRAS GERAIS:
 - A Jacometo é a corretora especialista que regulariza pequenos transportadores (MEI, ME e EPP) na ANTT.
-- O produto principal é o pacote com as 3 coberturas obrigatórias: RCTR-C (danos à carga por acidente), RC-DC (roubo/furto/desaparecimento da carga) e RC-V (danos a terceiros pelo veículo).
+- O produto oficial é o pacote com as 3 apólices obrigatórias — RCTR-C, RC-DC e RC-V — na modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO (agregado), por R$ 644,28/mês.
+- Esta modalidade serve para comprovar o seguro obrigatório perante a ANTT e NÃO indeniza sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal.
 - Os detalhes completos estão na base de conhecimento e no catálogo de seguros (injetados abaixo). É a FONTE ÚNICA DE VERDADE.
-- Sempre consulte essas fontes antes de responder sobre coberturas, preços, averbação e prazos.
-- NUNCA invente coberturas, percentuais, descontos ou produtos que não estejam documentados.
-- Base legal: Art. 13 da Lei 11.442/2007 e exigências ANTT 478/2024 e 488/26.
+- Sempre consulte essas fontes antes de responder sobre coberturas, preço e prazos.
+- NUNCA invente coberturas, percentuais, descontos ou produtos que não estejam documentados. NÃO existe averbação por embarque nesta modalidade.
+- Base legal: Lei 14.599/2023 (obrigatório desde 09/01/2026); base histórica no Art. 13 da Lei 11.442/2007.
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
-- Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP), tipo de veículo, tipo de carga e rota típica (km).
-- Explique de forma simples e direta as 3 coberturas e o preço (R$ 900/ano de prêmio básico + averbação por embarque).
-- Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC) e fechar mais fretes com quem exige seguro.
-- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá, sem burocracia).
-- Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da Sompo Seguros.
+- Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP) e se atua como subcontratado (agregado).
+- Explique de forma simples e direta o pacote das 3 apólices e o preço: R$ 644,28/mês (mensal recorrente, IOF incluso), sem averbação por embarque.
+- Deixe SEMPRE explícito que a modalidade é de comprovação/compliance e NÃO indeniza sinistro.
+- Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC).
+- Passo a passo: preencher online com CNPJ → aceitar a proposta → emissão em até 5 dias úteis → indicar o número da apólice no RNTRC.
+- Se o transportador atua como CONTRATADO (responsável pela carga) e precisa de cobertura efetiva, oriente a falar com a Jacometo para migrar para o produto com cobertura da carga.
+- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá).
+- Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da seguradora parceira (SUSEP).
  - Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
 
   // ===== MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO) =====
@@ -5210,7 +5213,7 @@ ${contact.notes}
 - "RCTR-C" (danos à carga por acidente com o veículo)
 - "RC-DC" (roubo, furto e desaparecimento da carga)
 - "RC-V" (danos a terceiros causados pelo veículo)
-- "Pacote 3 Seguros Obrigatórios" (as três coberturas juntas — R$ 900/ano de prêmio básico)
+- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 644,28/mês, modalidade de comprovação do subcontratado, sem indenização)
 ⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
 
 
