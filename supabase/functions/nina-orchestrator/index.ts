@@ -3515,8 +3515,12 @@ Agradeço pela compreensão! 🙏`;
   const assistantMessages = conversationHistory.filter((m: any) => m.role === 'assistant');
   const isFirstInteraction = userMessages.length === 1 && assistantMessages.length === 0;
 
-  // If first interaction and agent has greeting_message, use it instead of AI
-  if (isFirstInteraction && agent?.greeting_message) {
+  // If first interaction and agent has greeting_message, use it ONLY when the
+  // first message is a pure greeting. If the lead already arrives with a real
+  // question/request (e.g. "Olá! ...dúvidas sobre os 3 seguros..."), let the AI
+  // answer it instead of sending the fixed greeting text.
+  if (isFirstInteraction && agent?.greeting_message && isPureGreeting(message.content)) {
+
     // Normal greeting
     console.log(`[Nina] First interaction - using greeting_message for ${agent.name}`);
     const greetingContent = processPromptTemplate(agent.greeting_message, conversation.contact);
