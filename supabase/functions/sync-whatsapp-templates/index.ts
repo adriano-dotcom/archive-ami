@@ -46,11 +46,31 @@ serve(async (req) => {
       throw new Error('WhatsApp Access Token não configurado');
     }
 
-    // Use WABA ID from settings
-    const wabaId = settings.whatsapp_waba_id;
+    // Use WABA ID from settings, or auto-discover it from the phone number id
+    let wabaId = settings.whatsapp_waba_id;
+
+    if (!wabaId && settings.whatsapp_phone_number_id) {
+      console.log('WABA ID ausente, tentando descobrir via phone_number_id...');
+      const discoverResp = await fetch(
+        `https://graph.facebook.com/v21.0/${settings.whatsapp_phone_number_id}?fields=whatsapp_business_account`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      );
+      const discoverData = await discoverResp.json();
+      if (discoverResp.ok && discoverData?.whatsapp_business_account?.id) {
+        wabaId = discoverData.whatsapp_business_account.id;
+        console.log(`WABA ID descoberto: ${wabaId}`);
+        // Persist for future use
+        await supabase
+          .from('nina_settings')
+          .update({ whatsapp_waba_id: wabaId })
+          .not('id', 'is', null);
+      } else {
+        console.error('Falha ao descobrir WABA ID:', discoverData);
+      }
+    }
 
     if (!wabaId) {
-      throw new Error('WABA ID não configurado. Vá em Configurações → APIs → WhatsApp e preencha o WABA ID. Encontre-o no Meta Business Manager → Contas → WhatsApp Business.');
+      throw new Error('WABA ID não configurado e não foi possível descobri-lo automaticamente. Verifique o token/permissões do WhatsApp.');
     }
 
     console.log(`Syncing templates for WABA ID: ${wabaId}`);
