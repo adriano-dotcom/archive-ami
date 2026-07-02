@@ -1,41 +1,37 @@
-## Contexto
+# Verificar resposta da Iris para lead "Olá!" + pergunta
 
-Os contatos que entram pelo chat **já são salvos** na base (tabela `contacts`) e ficam ligados às conversas. O que acontece é que a única tela no menu (`Transportadores` → `/tutores`) tem duas abas:
-- **Empresas** — lê da tabela `companies` (vazia).
-- **Transportadores** — mostra só **segurados/clientes** (quem tem apólice, é `cliente`, tem assinatura, ou veio de cobrança/e-commerce).
+## Objetivo
+Confirmar, no fluxo ao vivo, que quando um lead do site inicia a conversa com
+*"Olá! Vim pelo site e tenho dúvidas sobre os 3 seguros obrigatórios do transportador."*
+a Iris **responde a pergunta com a IA** (coberturas RCTR-C / RC-DC / RC-V, pacote único),
+e **não** devolve apenas o `greeting_message` fixo.
 
-Leads novos vindos do chat (status `novo`/`qualificado`, sem apólice) são filtrados para fora de propósito, então aparecem "0". Não há perda de dados.
+## O que já foi confirmado na análise de código
+- `isPureGreeting()` (linha ~859) remove saudações e, se sobrar texto (a pergunta), retorna `false`.
+- A condição do greeting fixo (linha ~3522) só dispara quando
+  `isFirstInteraction && agent?.greeting_message && isPureGreeting(message.content)`.
+- Para a frase-teste, `isPureGreeting` retorna `false` → o caminho de IA é usado. Lógica correta.
 
-## Solução escolhida
+## Passos da verificação (ao vivo, sem tocar em WhatsApp real)
+1. Disparar a mensagem-teste pelo pipeline usando a Edge Function `simulate-webhook`
+   (injeta a mensagem como se viesse do site/WhatsApp) com um telefone de teste
+   dedicado, em uma conversa nova (primeira interação).
+2. Aguardar o processamento do `nina-orchestrator`.
+3. Inspecionar o resultado sem enviar nada real:
+   - Ler os logs do `nina-orchestrator` e confirmar que **não** aparece
+     `First interaction - using greeting_message`.
+   - Ler `send_queue` / `messages` da conversa de teste e confirmar que a resposta
+     enfileirada é uma resposta de IA sobre os 3 seguros (RCTR-C, RC-DC, RC-V),
+     e não o texto de saudação fixo.
+4. Repetir com um caso de controle: mensagem só de saudação ("Olá, bom dia")
+   deve gerar o `greeting_message` fixo — garantindo que não quebramos o comportamento esperado.
+5. Registrar o veredito (passou / falhou) com evidência dos logs e da fila.
 
-Adicionar uma **terceira aba "Leads"** dentro da tela de Transportadores, ao lado de *Empresas* e *Transportadores*, listando exatamente os contatos que entraram pelo chat e ainda não viraram segurados. Segurados e empresas continuam separados, sem misturar.
+## Observações
+- É uma verificação: nenhuma alteração de código é prevista, a menos que o teste
+  revele uma falha, caso em que proponho o ajuste em um novo plano.
+- O teste usa `simulate-webhook` para não enviar mensagens a números reais.
 
-Nenhuma mudança de banco é necessária — é só leitura/exibição de dados que já existem.
-
-## O que será feito
-
-### 1. Buscar os leads (`src/hooks/useSeguradosData.ts`)
-- Criar a interface `Lead` (id, nome, telefone, e-mail, CPF, CNPJ, cidade, estado, status do lead, origem, tags, data de entrada, última atividade).
-- Adicionar `fetchLeads()`: retorna contatos que **não** se qualificam como segurados — ou seja, sem apólice, não `cliente`, sem assinatura, e origem diferente de cobrança/e-commerce. Diferente da aba Transportadores, **não** vai esconder nomes que parecem empresa (ex.: "RM transporte", "Sm Tuning"), pois esses também são leads legítimos do chat.
-- Incluir `leads` no retorno de `fetchSeguradosData()` (ao lado de `companies` e `seguradosPF`).
-
-### 2. Nova tabela de leads (`src/components/segurados/LeadsTable.tsx`)
-- Componente novo, no estilo da tabela de Transportadores existente.
-- Colunas: **Nome**, **Telefone**, **CNPJ/CPF**, **Status** (badge do estágio do lead), **Origem**, **Entrou em** (data formatada com `parseISO` do date-fns, conforme padrão do projeto) e **Ações**.
-- Ações por linha: **Abrir conversa** (usa o fluxo já existente `handleOpenConversation`) e **Excluir**. Seleção múltipla para exclusão em lote.
-
-### 3. Integrar a aba (`src/components/segurados/SeguradosTab.tsx`)
-- Ampliar `activeSubTab` para `'pj' | 'pf' | 'leads'`.
-- Adicionar um `TabsTrigger` **"Leads"** com contador e cor própria (ex.: âmbar/ciano) e um `TabsContent value="leads"` renderizando a `LeadsTable`.
-- Adicionar `filteredLeads` (respeita a busca por nome/telefone/documento já existente).
-- Reaproveitar a exclusão em lote já existente de contatos para a aba Leads.
-- Botão de criação: manter "Nova Empresa"/"Novo Transportador" nas abas atuais; na aba Leads não é necessário botão de criação (os leads chegam pelo chat).
-
-## Detalhes técnicos
-- A definição de "lead" é o inverso do filtro de segurados PF já presente em `fetchSeguradosPFOptimized` (linhas 230-238), sem a exclusão por nome-de-empresa.
-- Sem migração de banco: apenas frontend + consulta de leitura.
-- Datas exibidas com `parseISO` (nunca `new Date()`), seguindo o padrão do projeto.
-- Terminologia mantida: rótulos "Transportadores"/"Empresas"/"Leads"; valores de banco legados intactos.
-
-## Resultado
-Ao abrir **Transportadores**, você verá 3 abas: **Empresas**, **Transportadores** (segurados) e **Leads** — esta última já listando Adriano, RM transporte, Aldair Santos, Sm Tuning, DEOLINDA, Jocileny e o Lead +55 43 9125-5007, com botão para abrir a conversa de cada um.
+## Confirmação necessária
+- Posso usar `simulate-webhook` com um telefone de teste para rodar essa verificação ao vivo?
+  Se preferir, indique um número/telefone específico para o teste.
