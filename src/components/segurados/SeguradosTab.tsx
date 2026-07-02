@@ -636,7 +636,7 @@ export const SeguradosTab: React.FC = () => {
             <Plus className="w-4 h-4" />
             Nova Empresa
           </Button>
-        ) : (
+        ) : activeSubTab === 'pf' ? (
           <Button
             size="sm"
             onClick={() => setShowCreateSeguradoPF(true)}
@@ -645,7 +645,7 @@ export const SeguradosTab: React.FC = () => {
             <Plus className="w-4 h-4" />
             Novo Transportador
           </Button>
-        )}
+        ) : null}
       </div>
 
       {/* Filters Row */}
