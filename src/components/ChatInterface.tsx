@@ -51,7 +51,7 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker, QuickRepliesPopover } from './chat';
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
