@@ -55,14 +55,15 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
   onDeleteLead,
 }) => {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-  const totalPages = Math.max(1, Math.ceil(leads.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
   const currentPage = Math.min(page, totalPages);
 
   const pageLeads = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return leads.slice(start, start + PAGE_SIZE);
-  }, [leads, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return leads.slice(start, start + pageSize);
+  }, [leads, currentPage, pageSize]);
 
   const allPageSelected = pageLeads.length > 0 && pageLeads.every(l => selectedIds.includes(l.id));
 
