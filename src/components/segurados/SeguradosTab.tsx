@@ -981,7 +981,63 @@ export const SeguradosTab: React.FC = () => {
             />
           </Card>
         </TabsContent>
+
+        <TabsContent value="leads" className="mt-4 space-y-3">
+          {isAdmin && filteredLeads.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedLeadIds(filteredLeads.map(l => l.id))}
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10 gap-2"
+              >
+                <CheckSquare className="w-4 h-4" />
+                Selecionar Todos ({filteredLeads.length})
+              </Button>
+            </div>
+          )}
+
+          {selectedLeadIds.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+              <span className="text-sm text-cyan-400 font-medium">
+                {selectedLeadIds.length} selecionado(s)
+              </span>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowBulkDeleteLeadsConfirm(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir ({selectedLeadIds.length})
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedLeadIds([])}
+                className="text-slate-400 hover:text-slate-200 gap-2"
+              >
+                <X className="w-4 h-4" />
+                Limpar seleção
+              </Button>
+            </div>
+          )}
+
+          <Card className="bg-slate-900/30 border-white/5">
+            <LeadsTable
+              leads={filteredLeads}
+              loading={loading}
+              selectedIds={selectedLeadIds}
+              onSelectionChange={setSelectedLeadIds}
+              onOpenConversation={handleOpenConversation}
+              onDeleteLead={(lead) => setDeletingLead(lead)}
+            />
+          </Card>
+        </TabsContent>
       </Tabs>
+
 
       {/* Modals */}
       <CreateCompanyModal
