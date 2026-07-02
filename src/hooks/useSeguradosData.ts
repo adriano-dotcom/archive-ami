@@ -25,6 +25,22 @@ export interface SeguradoSubscription {
   started_at?: string;
 }
 
+export interface Lead {
+  id: string;
+  name: string | null;
+  phone_number: string;
+  email: string | null;
+  cpf: string | null;
+  cnpj: string | null;
+  city: string | null;
+  state: string | null;
+  lead_status: string | null;
+  lead_source: string | null;
+  tags: string[] | null;
+  created_at: string;
+  last_activity: string | null;
+}
+
 export interface SeguradoPF {
   id: string;
   name: string | null;
