@@ -74,6 +74,43 @@ serve(async (req) => {
       } else {
         console.error('Falha no debug_token:', dbgData);
       }
+
+      // Fallback: walk the businesses owned/accessible by this token to find WABAs
+      if (!wabaId) {
+        console.log('Tentando descobrir WABA via /me/businesses...');
+        const bizResp = await fetch(
+          `https://graph.facebook.com/v21.0/me/businesses?fields=id,name`,
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        const bizData = await bizResp.json();
+        if (bizResp.ok && Array.isArray(bizData?.data)) {
+          for (const biz of bizData.data) {
+            for (const edge of ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts']) {
+              const wabaResp = await fetch(
+                `https://graph.facebook.com/v21.0/${biz.id}/${edge}?fields=id,name`,
+                { headers: { 'Authorization': `Bearer ${accessToken}` } }
+              );
+              const wabaData = await wabaResp.json();
+              if (wabaResp.ok && wabaData?.data?.[0]?.id) {
+                wabaId = wabaData.data[0].id;
+                console.log(`WABA ID descoberto via business ${biz.id} (${edge}): ${wabaId}`);
+                break;
+              }
+            }
+            if (wabaId) break;
+          }
+          if (wabaId) {
+            await supabase
+              .from('nina_settings')
+              .update({ whatsapp_waba_id: wabaId })
+              .not('id', 'is', null);
+          } else {
+            console.error('Nenhum WABA encontrado nos negócios acessíveis.');
+          }
+        } else {
+          console.error('Falha ao listar /me/businesses:', bizData);
+        }
+      }
     }
 
     if (!wabaId) {
