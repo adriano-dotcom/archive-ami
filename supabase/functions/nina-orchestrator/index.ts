@@ -4839,7 +4839,7 @@ REGRAS:
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
-- Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices Sompo Seguros)
+- Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices emitidas por seguradora parceira registrada na SUSEP)
 - Atende MEI, ME e EPP registrados como ETC na ANTT (inclui quem atua como subcontratado)
 - Contratação exclusiva pelo site: https://transporte.jacometoseguros.com.br
 - Para casos urgentes, um humano pode assumir a conversa`;
@@ -5213,7 +5213,7 @@ ${contact.notes}
 - "RCTR-C" (danos à carga por acidente com o veículo)
 - "RC-DC" (roubo, furto e desaparecimento da carga)
 - "RC-V" (danos a terceiros causados pelo veículo)
-- "Pacote 3 Seguros Obrigatórios" (as três coberturas juntas — R$ 900/ano de prêmio básico)
+- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 644,28/mês, modalidade de comprovação do subcontratado, sem indenização)
 ⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
 
 
