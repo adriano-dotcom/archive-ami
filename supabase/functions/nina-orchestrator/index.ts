@@ -4931,7 +4931,45 @@ function buildEnhancedPrompt(
 - Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC) e fechar mais fretes com quem exige seguro.
 - Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá, sem burocracia).
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da Sompo Seguros.
-- Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
+ - Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.`;
+
+  // ===== MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO) =====
+  // Só injeta quando: (1) lead veio do site (landing_page/utm_source) E (2) é o
+  // primeiro contato (a Iris ainda não respondeu nesta conversa).
+  const isSiteLead = !!contact && (contact.lead_source === 'landing_page' || !!contact.utm_source);
+  const isFirstContact = !recentAgentMessages || recentAgentMessages.length === 0;
+  if (isSiteLead && isFirstContact) {
+    const leadName = contact?.call_name || contact?.name || '';
+    const leadCompany = contact?.company || '';
+    contextInfo += `\n\n## 🟢 MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO)
+Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, NÃO use a saudação genérica: responda com base no MODELO abaixo, apresentando a apólice do transportador SUBCONTRATADO (agregado).
+
+⚠️ Como usar o modelo:
+- ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp). Não precisa copiar literalmente.
+- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- MANTENHA a pergunta final de direcionamento (ficar regular na ANTT × precisar de cobertura efetiva da carga).
+- Preserve os destaques em *negrito* (asteriscos do WhatsApp) nos pontos-chave.
+${leadName ? `- PERSONALIZE cumprimentando pelo nome: "Olá, ${leadName}!".` : `- Se souber o nome do lead depois, personalize o cumprimento.`}
+${leadCompany ? `- Se fizer sentido, cite a empresa "${leadCompany}" de forma natural.` : ''}
+
+MODELO (base para adaptar):
+"""
+Olá${leadName ? `, ${leadName}` : ''}! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
+
+Sobre a apólice que você buscou: é a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+
+*O que ela resolve:*
+✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
+✅ Mantém você *regular perante a fiscalização*, evitando multas e impedimentos
+✅ *Sem averbação por viagem* — a cobertura da carga fica com o *contratante principal*
+
+⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*. É um produto *estritamente de regularização legal*.
+
+Quando você atua como *contratado* e assume a carga, o certo é o produto *com averbação* — e a gente faz a migração.
+
+Pra eu te orientar: seu foco agora é *ficar regular na ANTT* ou você precisa de *cobertura efetiva da carga*?
+"""`;
+  }
 
 
   if (contact) {
