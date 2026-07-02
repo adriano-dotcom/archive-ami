@@ -99,7 +99,29 @@ const QUESTIONS: Question[] = [
   },
 ];
 
-async function ask(question: string): Promise<string> {
+// Bloco EXATO injetado em index.ts para leads do site na PRIMEIRA mensagem
+const SITE_LEAD_FIRST_RESPONSE_BLOCK = `
+## 🟢 MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO)
+Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, NÃO use a saudação genérica: responda com base no MODELO abaixo, apresentando a apólice do transportador SUBCONTRATADO (agregado).
+
+⚠️ Como usar o modelo:
+- ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp). Não precisa copiar literalmente.
+- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- MANTENHA a pergunta final de direcionamento (ficar regular na ANTT × precisar de cobertura efetiva da carga).
+
+MODELO (base para adaptar):
+"""
+Olá! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
+Sobre a apólice que você buscou: é a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
+✅ Mantém você *regular perante a fiscalização*
+⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*.
+Pra eu te orientar: seu foco agora é *ficar regular na ANTT* ou você precisa de *cobertura efetiva da carga*?
+"""`;
+
+const SITE_LEAD_SYSTEM_PROMPT = `${SYSTEM_PROMPT}\n${SITE_LEAD_FIRST_RESPONSE_BLOCK}`;
+
+async function ask(question: string, systemPrompt: string = SYSTEM_PROMPT): Promise<string> {
   const res = await fetch(LOVABLE_AI_URL, {
     method: "POST",
     headers: {
@@ -109,7 +131,7 @@ async function ask(question: string): Promise<string> {
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: question },
       ],
     }),
