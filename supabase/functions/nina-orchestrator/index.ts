@@ -3628,26 +3628,24 @@ Agradeço pela compreensão! 🙏`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O prêmio básico anual cobre a emissão das 3 apólices obrigatórias. Cada embarque é averbado à parte, conforme o valor da carga e a quilometragem.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento mensal recorrente. NÃO há averbação por embarque.\n';
       plansCatalogContent += `
-🚫 REGRA CRÍTICA DE AVERBAÇÃO E PREÇO — use EXATAMENTE estes valores, nunca invente percentuais ou prazos:
+🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
-• Prêmio básico anual: R$ 900,00/ano (emissão das 3 apólices: RCTR-C, RC-DC e RC-V, vigência de 1 ano).
-• Averbação RCTR-C: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
-• Averbação RC-DC: 0,05% sobre o valor da mercadoria (NF/CT-e) por embarque.
-• Total carga (RCTR-C + RC-DC): 0,1% sobre o valor da carga.
-• RC-V: R$ 10 por viagem de até 400 km; acima disso há acréscimo pelos km excedentes, LIMITADO A R$ 25 por viagem.
-• Emissão da apólice: em até 5 dias após o aceite da proposta.
-• Vencimento do boleto de averbação: em média até 30 dias após o embarque.
+• Preço: R$ 644,28/mês (prêmio mensal recorrente, IOF e encargos inclusos).
+• O pagamento mensal mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• Vigência: 1 ano a partir da emissão.
+• Emissão da apólice: em até 5 dias úteis após o aceite da proposta.
+• NÃO existe averbação por embarque nesta modalidade — é um valor mensal único.
 
-IMPORTANTE: se a viagem não for averbada, NÃO há cobertura. Nunca prometa cobertura sem averbação.
+⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório (transportador SUBCONTRATADO). Estas apólices NÃO indenizam sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal. Nunca prometa cobertura efetiva ou indenização nesta modalidade.
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
 - MEI e ME com registro no RNTRC da ANTT como ETC (Empresa de Transporte de Carga).
 - Também atende EPP de pequeno porte, principalmente como subcontratada de transportadoras maiores.
-- Base legal: os seguros RCTR-C, RC-DC e RC-V são obrigatórios pela ETC (Art. 13 da Lei 11.442/2007) e exigências ANTT 478/2024 e 488/26.
-- Seguradora emissora: Sompo Seguros. A Jacometo é a corretora que cuida de toda a contratação.
+- Base legal: RCTR-C, RC-DC e RC-V são obrigatórios pela Lei 14.599/2023 (obrigatório desde 09/01/2026); base histórica no Art. 13 da Lei 11.442/2007.
+- Seguradora emissora: seguradora parceira registrada na SUSEP. A Jacometo é a corretora que cuida de toda a contratação.
 - NUNCA invente outras coberturas, descontos ou produtos que não estejam neste catálogo.
 `;
       plansCatalogContent += `
