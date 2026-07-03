@@ -5000,6 +5000,7 @@ Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, 
 - Preserve os destaques em *negrito* (asteriscos do WhatsApp) nos pontos-chave.
 ${leadName ? `- PERSONALIZE cumprimentando pelo nome: "Olá, ${leadName}!".` : `- Se souber o nome do lead depois, personalize o cumprimento.`}
 ${leadCompany ? `- Se fizer sentido, cite a empresa "${leadCompany}" de forma natural.` : ''}
+- ⚠️ EXCEÇÃO: se o lead deixar claro que busca OUTRO seguro (ex.: van/passageiros, auto, vida, empresa), NÃO use este modelo de carga — siga o protocolo "OUTROS SEGUROS" (acolher, coletar necessidade + contato + PF/PJ com CNPJ, e repassar ao responsável). Jamais dispense.
 
 MODELO (base para adaptar):
 """
