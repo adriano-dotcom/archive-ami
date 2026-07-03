@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -21,6 +22,22 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Auth guard: require authenticated admin/operator caller
+    const _token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!_token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    {
+      const _authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${_token}` } } });
+      const { data: _authData, error: _authErr } = await _authClient.auth.getUser();
+      if (_authErr || !_authData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: _roleRows } = await _authClient.from("user_roles").select("role").eq("user_id", _authData.user.id);
+      if (!(_roleRows || []).some((r: any) => r.role === "admin" || r.role === "operator")) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
     const { email, name, role, inviter_name }: SendInviteRequest = await req.json();
 
     if (!email || !name) {

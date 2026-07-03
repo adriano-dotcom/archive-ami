@@ -3,8 +3,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-hub-signature-256',
 };
+
+// Verify Meta X-Hub-Signature-256 (HMAC-SHA256 of the raw body using the WhatsApp App Secret)
+async function verifyMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): Promise<boolean> {
+  if (!signatureHeader) return false;
+  const expected = signatureHeader.startsWith('sha256=') ? signatureHeader.slice(7) : signatureHeader;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(appSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,7 +61,21 @@ serve(async (req) => {
 
   // POST: process call events from Meta
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // Verify Meta signature when the app secret is configured
+    const appSecret = Deno.env.get('WHATSAPP_APP_SECRET');
+    if (appSecret) {
+      const valid = await verifyMetaSignature(rawBody, req.headers.get('x-hub-signature-256'), appSecret);
+      if (!valid) {
+        console.error('[whatsapp-call-webhook] Invalid signature - rejecting payload');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    } else {
+      console.warn('[whatsapp-call-webhook] WHATSAPP_APP_SECRET not set - skipping signature verification');
+    }
+
+    const body = JSON.parse(rawBody || '{}');
     console.log('[whatsapp-call-webhook] Received payload:', JSON.stringify(body, null, 2));
 
     const entries = body?.entry ?? [];
