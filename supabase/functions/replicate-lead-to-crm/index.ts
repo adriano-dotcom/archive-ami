@@ -35,6 +35,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth guard: internal service-role calls only (triggered by DB automation)
+    const _svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const _token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!_token || _token !== _svcKey) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const secret = Deno.env.get("CRM_INGEST_SECRET");
     if (!secret) {
       console.error("[replicate-lead-to-crm] CRM_INGEST_SECRET não configurado");
