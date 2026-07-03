@@ -61,7 +61,21 @@ serve(async (req) => {
 
   // POST: process call events from Meta
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // Verify Meta signature when the app secret is configured
+    const appSecret = Deno.env.get('WHATSAPP_APP_SECRET');
+    if (appSecret) {
+      const valid = await verifyMetaSignature(rawBody, req.headers.get('x-hub-signature-256'), appSecret);
+      if (!valid) {
+        console.error('[whatsapp-call-webhook] Invalid signature - rejecting payload');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    } else {
+      console.warn('[whatsapp-call-webhook] WHATSAPP_APP_SECRET not set - skipping signature verification');
+    }
+
+    const body = JSON.parse(rawBody || '{}');
     console.log('[whatsapp-call-webhook] Received payload:', JSON.stringify(body, null, 2));
 
     const entries = body?.entry ?? [];
