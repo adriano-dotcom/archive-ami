@@ -5209,14 +5209,9 @@ ${contact.notes}
     const fieldLabels: Record<string, string> = {
       cnpj: 'CNPJ',
       rntrc: 'RNTRC (ANTT)',
-      porte_empresa: 'Porte da empresa (MEI/ME/EPP)',
-      tipo_veiculo: 'Tipo de veículo',
-      tipo_carga: 'Tipo de carga',
-      rota_km: 'Rota típica (km)',
-      tipo_contratacao: 'Tipo de contratação (direto/subcontratado)',
-      estados_atendidos: 'Estados/regiões atendidos',
-      cidade: 'Cidade/região',
-      emite_cte: 'Emite CT-e'
+      tipo_transportador: 'Tipo de transportador (contratado/subcontratado)',
+      email: 'E-mail',
+      celular: 'Celular (WhatsApp)'
     };
 
     
