@@ -1,52 +1,22 @@
-# Iris nunca dispensa leads de outros seguros
+All code changes for the 7 requested security findings are already written and deployed. You skipped adding the `WHATSAPP_APP_SECRET`, which is fine — the webhook fix stays active with a safe fallback until you add it later.
 
-## Problema
-Hoje a Iris dispensa quem procura um seguro diferente do de carga (ex.: van de passageiros) e manda "procurar outra corretora especializada" — como visto na conversa com a Regieli. Isso perde leads.
+## What was already done (deployed)
 
-## Objetivo
-Para QUALQUER lead que busque outro tipo de seguro (não seja o pacote de carga), a Iris deve:
-1. **Nunca** dispensar nem mandar procurar outra corretora — a Jacometo trabalha com **todos os tipos de seguro**.
-2. Coletar os dados do seguro que a pessoa precisa (qual seguro/objetivo).
-3. Coletar os dados de contato (nome, telefone/e-mail).
-4. Descobrir se é **Pessoa Física ou Jurídica** — se **PJ, pedir o CNPJ**.
-5. Informar que **vamos repassar ao responsável** que fará o atendimento.
+- **api4com_dial_open** — `api4com-dial` now requires an authenticated admin/operator caller before dialing.
+- **invite_email_open** — `send-invite-email` now requires an authenticated admin/operator caller.
+- **ai_gateway_open** — `generate-summary`, `rewrite-message`, `generate-prompt`, `generate-email-copy`, `generate-followup-message`, `extract-product-text`, `extract-documents` now require a valid caller (admin/operator; internal automations still work via the service-role key where applicable).
+- **analyze_conv_no_auth** — `analyze-conversation` now accepts only internal service-role calls or authenticated admin/operator users.
+- **wa_template_open** — `send-whatsapp-template` gated (service-role or admin/operator); `test-whatsapp-message` gated to admin/operator.
+- **lead_replicate_open** — `replicate-lead-to-crm` restricted to internal service-role calls only.
+- **webhook_no_sig_verify** — `whatsapp-webhook` and `whatsapp-call-webhook` now verify Meta's `X-Hub-Signature-256` HMAC. Enforcement activates automatically once `WHATSAPP_APP_SECRET` is set; until then it logs a warning and keeps processing so live messages don't break.
 
-## O que muda (técnico)
-Todo o comportamento vem do prompt montado em `supabase/functions/nina-orchestrator/index.ts` (função `buildEnhancedPrompt`). A base do agente no banco é curta; as instruções efetivas estão no código.
+## Remaining step
 
-### 1. Remover a instrução de dispensa
-Na seção "ORIENTAÇÕES DE ATENDIMENTO" (linha ~4967), trocar:
-```
-- Se o contato NÃO for transportador / não tiver RNTRC, explique educadamente que o produto é para empresas de transporte de carga registradas na ANTT.
-```
-por uma orientação que **não dispensa**: se não for transportador de carga / buscar outro seguro, seguir o novo protocolo abaixo (nunca mandar procurar outra corretora).
+1. Mark all 7 findings (`ai_gateway_open`, `analyze_conv_no_auth`, `api4com_dial_open`, `invite_email_open`, `lead_replicate_open`, `wa_template_open`, `webhook_no_sig_verify`) as fixed via the security-findings tool, with an explanation of the change applied to each.
 
-### 2. Adicionar nova seção de captação de outros seguros
-Injetar no `contextInfo` um bloco novo, por exemplo:
+No other findings will be touched. To fully close the webhook item, add `WHATSAPP_APP_SECRET` (Meta App Secret) whenever you're ready.
 
-```
-## 🟩 OUTROS SEGUROS (FORA DO PACOTE DE CARGA) — NUNCA DISPENSE
-A Jacometo trabalha com TODOS os tipos de seguro (auto, vida, empresarial,
-passageiros, residencial, saúde, etc.). Se o lead buscar um seguro diferente
-do pacote obrigatório de carga:
-- NUNCA diga para procurar outra corretora nem que "não se aplica ao seu caso".
-- Acolha e colete, de forma natural (uma pergunta por vez):
-  1. Qual seguro/necessidade (o que quer proteger).
-  2. Nome e melhor contato (telefone/e-mail).
-  3. Se é Pessoa Física ou Jurídica — se PJ, pedir o CNPJ.
-- Ao ter os dados, informe que vai repassar ao RESPONSÁVEL da Jacometo,
-  que fará o atendimento especializado. Ex.: "Perfeito! Já vou repassar seus
-  dados ao nosso responsável, que fala com você em breve."
-- Depois disso, acione o handoff para atendimento humano.
-```
+## Technical notes
 
-### 3. Ajuste do modelo de primeira resposta do site
-O "MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE" (linha ~4977) assume sempre seguro de carga. Adicionar uma ressalva: se o lead deixar claro que quer outro seguro, seguir o protocolo de "OUTROS SEGUROS" em vez do modelo de carga.
-
-## Observações
-- Não altera o produto oficial de carga (segue fonte única, R$ 644,28/mês) — apenas deixa de dispensar leads de outros ramos.
-- Os dados coletados ficam registrados na conversa e o lead é encaminhado via handoff humano já existente.
-- Mudança concentrada em `nina-orchestrator/index.ts` (prompt). Nenhuma mudança de schema.
-
-## Verificação
-Após aplicar: simular um lead como o da Regieli ("empresa de van de passageiros") e confirmar que a Iris coleta seguro desejado + contato + PF/PJ (CNPJ se PJ) e diz que vai repassar ao responsável, sem mandar procurar outra corretora.
+- Guard pattern: validate the caller JWT with an anon-key client (`auth.getUser()`), then check `user_roles` for `admin`/`operator`. Functions with internal callers also accept a `Bearer <service-role-key>` shortcut, matching how `nina-orchestrator`, `process-followups`, `send-collection-whatsapp`, and `receive-ecommerce-webhook` invoke them.
+- Webhook signature check reads the raw request body, computes HMAC-SHA256, and constant-time compares against the `x-hub-signature-256` header.
