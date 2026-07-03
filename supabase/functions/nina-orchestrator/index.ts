@@ -1520,68 +1520,42 @@ async function generateAudioElevenLabs(supabase: any, settings: any, text: strin
 }
 
 // ===== QUALIFICATION COMPLETION CHECK FUNCTION =====
-// Check if all essential qualification fields are collected
+// Check if all essential qualification fields (modelo Mitsui) are collected.
+// Sequence: CNPJ -> empresa/RNTRC confirmados -> tipo de transportador -> e-mail -> celular.
 function isQualificationComplete(contact: any, qualificationAnswers: { [key: string]: string }): boolean {
-  // Essential fields for Seguro de Cargas qualification
   const hasCnpj = !!contact?.cnpj;
-  const hasTipoCarga = !!qualificationAnswers?.tipo_carga;
-  const hasEstados = !!qualificationAnswers?.estados;
-  const hasVolume = !!(qualificationAnswers?.viagens_mes || qualificationAnswers?.valor_medio);
-  const hasTipoFrota = !!qualificationAnswers?.tipo_frota;
-  
-  const isComplete = hasCnpj && hasTipoCarga && hasEstados && hasVolume && hasTipoFrota;
-  
+  const hasEmail = !!contact?.email;
+  // Celular: a conversa já é no WhatsApp, então o número de telefone do contato serve.
+  const hasCelular = !!(contact?.phone_number || contact?.whatsapp_id);
+  const tipo = (qualificationAnswers?.tipo_transportador || '').toLowerCase();
+  const isSubcontratado = tipo.includes('subcontrat') || tipo.includes('agregad');
+
+  const isComplete = hasCnpj && hasEmail && hasCelular && isSubcontratado;
+
   if (isComplete) {
-    console.log(`[Nina] 📊 Qualification check: CNPJ=${hasCnpj}, TipoCarga=${hasTipoCarga}, Estados=${hasEstados}, Volume=${hasVolume}, TipoFrota=${hasTipoFrota} -> COMPLETE`);
+    console.log(`[Nina] 📊 Qualification check (Mitsui): CNPJ=${hasCnpj}, Email=${hasEmail}, Celular=${hasCelular}, Subcontratado=${isSubcontratado} -> COMPLETE`);
   }
-  
+
   return isComplete;
 }
 
 // ===== REAL-TIME QUALIFICATION EXTRACTION FUNCTION =====
-// Extract qualification answers from user messages for immediate saving
+// Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
   const extracted: { [key: string]: string | null } = {};
   const allText = userMessages.join(' ').toLowerCase();
-  
-  // Patterns for qualification fields
-  const patterns: { [key: string]: RegExp } = {
-    contratacao: /\b(direto|subcontratado|ambos|contratado direto|subcontrata|sub-contratado)\b/i,
-    tipo_carga: /\b(alumínio|aluminio|ferro|grão|grãos|graos|grao|alimento|alimentos|químico|quimicos|químicos|madeira|cimento|frigorific|refrigerad|seca|geral|carga geral|paletizada|granel|container|containers|bebidas?|perecíveis|pereciveis|eletrônicos|eletronicos|máquinas|maquinas|equipamentos?)\b/i,
-    tipo_frota: /\b(própria|propria|próprio|proprio|agregado|agregados|terceiro|terceiros|frota própria|frota propria|mista)\b/i,
-    antt: /\b(regularizada|pessoa física|pessoa fisica|ativa|não tenho antt|nao tenho antt|em processo|sim tenho|tenho sim|antt ok|antt ativa)\b/i,
-    cte: /\b(sim|não|nao|emito|emite|vou começar|vou comecar|já emito|ja emito|emitimos|não emito|nao emito|emissão|emissao)\b/i,
-  };
-  
-  // Extract estados (can be multiple)
-  const estadosRegex = /(SP|PR|MG|MT|MS|GO|RS|SC|RJ|BA|ES|DF|TO|PA|AM|CE|PE|MA|PI|RN|PB|AL|SE|RO|RR|AP|AC|São Paulo|Paraná|Minas|Mato Grosso|Goiás|Rio Grande|Santa Catarina|Rio de Janeiro|Bahia|Ceará|Pernambuco)/gi;
-  const estadosMatches = allText.match(estadosRegex);
-  if (estadosMatches && estadosMatches.length > 0) {
-    extracted.estados = [...new Set(estadosMatches.map(s => s.toUpperCase()))].join(', ');
+
+  // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
+  // termo que o lead usa para se descrever como agregado de outra transportadora.
+  if (/\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+    extracted.tipo_transportador = 'subcontratado';
+  } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal|emito o cte|emito o ct-e)\w*/i.test(allText)) {
+    extracted.tipo_transportador = 'contratado';
   }
-  
-  // Extract other fields
-  for (const [field, regex] of Object.entries(patterns)) {
-    const match = allText.match(regex);
-    if (match) {
-      extracted[field] = match[0];
-    }
-  }
-  
-  // Extract viagens/mes (numeric pattern)
-  const viagensMatch = allText.match(/(\d+)\s*(?:viagens?|vezes?|por mês|ao mês|por mes|mensal|mensais)/i);
-  if (viagensMatch) {
-    extracted.viagens_mes = viagensMatch[1];
-  }
-  
-  // Extract valor médio (currency pattern)
-  const valorMatch = allText.match(/(?:R\$|reais)\s*(\d+(?:\.\d{3})*(?:,\d{2})?)|(\d+(?:\.\d{3})*(?:,\d{2})?)\s*(?:mil|reais)/gi);
-  if (valorMatch && valorMatch.length > 0) {
-    extracted.valor_medio = valorMatch[0];
-  }
-  
+
   return extracted;
 }
+
 
 // Sanitize text for TTS - simplify URLs for natural speech
 function sanitizeTextForAudio(text: string): string {
