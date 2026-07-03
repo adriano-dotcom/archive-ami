@@ -1520,68 +1520,42 @@ async function generateAudioElevenLabs(supabase: any, settings: any, text: strin
 }
 
 // ===== QUALIFICATION COMPLETION CHECK FUNCTION =====
-// Check if all essential qualification fields are collected
+// Check if all essential qualification fields (modelo Mitsui) are collected.
+// Sequence: CNPJ -> empresa/RNTRC confirmados -> tipo de transportador -> e-mail -> celular.
 function isQualificationComplete(contact: any, qualificationAnswers: { [key: string]: string }): boolean {
-  // Essential fields for Seguro de Cargas qualification
   const hasCnpj = !!contact?.cnpj;
-  const hasTipoCarga = !!qualificationAnswers?.tipo_carga;
-  const hasEstados = !!qualificationAnswers?.estados;
-  const hasVolume = !!(qualificationAnswers?.viagens_mes || qualificationAnswers?.valor_medio);
-  const hasTipoFrota = !!qualificationAnswers?.tipo_frota;
-  
-  const isComplete = hasCnpj && hasTipoCarga && hasEstados && hasVolume && hasTipoFrota;
-  
+  const hasEmail = !!contact?.email;
+  // Celular: a conversa já é no WhatsApp, então o número de telefone do contato serve.
+  const hasCelular = !!(contact?.phone_number || contact?.whatsapp_id);
+  const tipo = (qualificationAnswers?.tipo_transportador || '').toLowerCase();
+  const isSubcontratado = tipo.includes('subcontrat') || tipo.includes('agregad');
+
+  const isComplete = hasCnpj && hasEmail && hasCelular && isSubcontratado;
+
   if (isComplete) {
-    console.log(`[Nina] 📊 Qualification check: CNPJ=${hasCnpj}, TipoCarga=${hasTipoCarga}, Estados=${hasEstados}, Volume=${hasVolume}, TipoFrota=${hasTipoFrota} -> COMPLETE`);
+    console.log(`[Nina] 📊 Qualification check (Mitsui): CNPJ=${hasCnpj}, Email=${hasEmail}, Celular=${hasCelular}, Subcontratado=${isSubcontratado} -> COMPLETE`);
   }
-  
+
   return isComplete;
 }
 
 // ===== REAL-TIME QUALIFICATION EXTRACTION FUNCTION =====
-// Extract qualification answers from user messages for immediate saving
+// Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
   const extracted: { [key: string]: string | null } = {};
   const allText = userMessages.join(' ').toLowerCase();
-  
-  // Patterns for qualification fields
-  const patterns: { [key: string]: RegExp } = {
-    contratacao: /\b(direto|subcontratado|ambos|contratado direto|subcontrata|sub-contratado)\b/i,
-    tipo_carga: /\b(alumínio|aluminio|ferro|grão|grãos|graos|grao|alimento|alimentos|químico|quimicos|químicos|madeira|cimento|frigorific|refrigerad|seca|geral|carga geral|paletizada|granel|container|containers|bebidas?|perecíveis|pereciveis|eletrônicos|eletronicos|máquinas|maquinas|equipamentos?)\b/i,
-    tipo_frota: /\b(própria|propria|próprio|proprio|agregado|agregados|terceiro|terceiros|frota própria|frota propria|mista)\b/i,
-    antt: /\b(regularizada|pessoa física|pessoa fisica|ativa|não tenho antt|nao tenho antt|em processo|sim tenho|tenho sim|antt ok|antt ativa)\b/i,
-    cte: /\b(sim|não|nao|emito|emite|vou começar|vou comecar|já emito|ja emito|emitimos|não emito|nao emito|emissão|emissao)\b/i,
-  };
-  
-  // Extract estados (can be multiple)
-  const estadosRegex = /(SP|PR|MG|MT|MS|GO|RS|SC|RJ|BA|ES|DF|TO|PA|AM|CE|PE|MA|PI|RN|PB|AL|SE|RO|RR|AP|AC|São Paulo|Paraná|Minas|Mato Grosso|Goiás|Rio Grande|Santa Catarina|Rio de Janeiro|Bahia|Ceará|Pernambuco)/gi;
-  const estadosMatches = allText.match(estadosRegex);
-  if (estadosMatches && estadosMatches.length > 0) {
-    extracted.estados = [...new Set(estadosMatches.map(s => s.toUpperCase()))].join(', ');
+
+  // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
+  // termo que o lead usa para se descrever como agregado de outra transportadora.
+  if (/\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+    extracted.tipo_transportador = 'subcontratado';
+  } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal|emito o cte|emito o ct-e)\w*/i.test(allText)) {
+    extracted.tipo_transportador = 'contratado';
   }
-  
-  // Extract other fields
-  for (const [field, regex] of Object.entries(patterns)) {
-    const match = allText.match(regex);
-    if (match) {
-      extracted[field] = match[0];
-    }
-  }
-  
-  // Extract viagens/mes (numeric pattern)
-  const viagensMatch = allText.match(/(\d+)\s*(?:viagens?|vezes?|por mês|ao mês|por mes|mensal|mensais)/i);
-  if (viagensMatch) {
-    extracted.viagens_mes = viagensMatch[1];
-  }
-  
-  // Extract valor médio (currency pattern)
-  const valorMatch = allText.match(/(?:R\$|reais)\s*(\d+(?:\.\d{3})*(?:,\d{2})?)|(\d+(?:\.\d{3})*(?:,\d{2})?)\s*(?:mil|reais)/gi);
-  if (valorMatch && valorMatch.length > 0) {
-    extracted.valor_medio = valorMatch[0];
-  }
-  
+
   return extracted;
 }
+
 
 // Sanitize text for TTS - simplify URLs for natural speech
 function sanitizeTextForAudio(text: string): string {
@@ -3500,10 +3474,103 @@ Agradeço pela compreensão! 🙏`;
   }
   // ===== END EMAIL DETECTION =====
 
-  // ===== REAL-TIME QUALIFICATION EXTRACTION =====
-  // Qualification extraction is now handled by individual agent AI prompts
+  // ===== REAL-TIME QUALIFICATION EXTRACTION (modelo Mitsui) =====
   const existingQA = conversation.nina_context?.qualification_answers || {};
   const mergedQA: { [key: string]: string } = { ...existingQA };
+
+  // Extrai o tipo de transportador (contratado/subcontratado) das mensagens do lead
+  const userMsgTexts = (conversationHistory as any[])
+    .filter((m: any) => m.role === 'user' && m.content)
+    .map((m: any) => String(m.content));
+  if (message.content) userMsgTexts.push(String(message.content));
+
+  const extractedQA = extractQualificationFromMessages(userMsgTexts);
+  for (const [k, v] of Object.entries(extractedQA)) {
+    if (v) mergedQA[k] = v as string;
+  }
+
+  // Persiste as respostas de qualificação no nina_context (usado no prompt anti-repetição)
+  if (Object.keys(extractedQA).length > 0) {
+    const newContext = { ...(conversation.nina_context || {}), qualification_answers: mergedQA };
+    conversation.nina_context = newContext;
+    await supabase
+      .from('conversations')
+      .update({ nina_context: newContext })
+      .eq('id', conversation.id);
+  }
+
+  // ===== AÇÃO DE CONCLUSÃO DA QUALIFICAÇÃO =====
+  // Recarrega o contato para ter cnpj/email/telefone mais recentes (podem ter sido
+  // atualizados acima na detecção de CNPJ/e-mail).
+  const { data: freshContact } = await supabase
+    .from('contacts')
+    .select('id, cnpj, email, phone_number, whatsapp_id')
+    .eq('id', conversation.contact_id)
+    .maybeSingle();
+  const contactForCheck = freshContact || conversation.contact;
+
+  const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
+  const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
+
+  // GATILHO CRÍTICO: lead é CONTRATADO -> produto não serve, encaminhar p/ humano.
+  if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
+    console.log('[Nina] 🚨 Lead atua como CONTRATADO — encaminhando para corretor humano (produto não serve).');
+    const handoffMsg = 'Entendi! Como você atua como contratado (responsável pela carga), você precisa de um produto com cobertura efetiva/averbação — este pacote é só de compliance e não indeniza sinistro. Vou te conectar com um dos nossos corretores especialistas para montar a proposta certa. 👍';
+    const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
+    const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
+    await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
+    await supabase
+      .from('conversations')
+      .update({
+        status: 'open',
+        is_active: false,
+        nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
+      })
+      .eq('id', conversation.id);
+    await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
+    try {
+      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
+      }).catch((e) => console.error('[Nina] sender trigger error:', e));
+    } catch (_) { /* noop */ }
+    return new Response(JSON.stringify({ success: true, action: 'contratado_handoff' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
+  if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
+    console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
+    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://transporte.jacometoseguros.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+    const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
+    const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
+    await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
+
+    // Registra/avisa o corretor: lead_status='proposal' dispara notify_lead_proposal -> replicate-lead-to-crm
+    await supabase
+      .from('contacts')
+      .update({ lead_status: 'proposal', updated_at: new Date().toISOString() })
+      .eq('id', conversation.contact_id);
+
+    await supabase
+      .from('conversations')
+      .update({ nina_context: { ...(conversation.nina_context || {}), qualification_link_sent: true } })
+      .eq('id', conversation.id);
+
+    await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
+    try {
+      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({ triggered_by: 'nina-orchestrator-qualification-complete' }),
+      }).catch((e) => console.error('[Nina] sender trigger error:', e));
+    } catch (_) { /* noop */ }
+    return new Response(JSON.stringify({ success: true, action: 'qualification_complete_link_sent' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
   // ===== END REAL-TIME QUALIFICATION EXTRACTION =====
 
   // (Cargo email capture and qualification blocks removed - not applicable for OrbePet)
@@ -3678,11 +3745,22 @@ Agradeço pela compreensão! 🙏`;
 `;
       plansCatalogContent += `
 ⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
-- Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
+- Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
 - A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
 - Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
-- Fluxo correto: (1) esclareça as dúvidas do transportador → (2) confirme que ele é MEI/ME/EPP com RNTRC/ETC (inclui quem atua como subcontratado) → (3) envie o link do site para ele preencher a proposta.
-- Sempre que o lead demonstrar interesse em contratar, pedir link ou perguntar "como faço", envie: https://transporte.jacometoseguros.com.br para ele preencher a proposta.
+
+🎯 FLUXO DE QUALIFICAÇÃO (SIGA ESTA ORDEM — UMA PERGUNTA POR VEZ):
+Quando o lead demonstrar interesse (quer contratar, pedir link, "como faço", "quanto custa" já esclarecido), conduza esta sequência, uma pergunta de cada vez, sem pular etapas e sem repetir o que já foi coletado:
+1. CNPJ da transportadora. (Ao receber, o sistema consulta Receita + ANTT automaticamente e já mostra a confirmação — não peça de novo.)
+2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
+3. Pergunte o TIPO DE TRANSPORTADOR: "Você atua como CONTRATADO (responsável pela carga, emite o próprio CT-e como principal) ou como SUBCONTRATADO/agregado de outra transportadora?"
+4. Peça o E-MAIL para envio da cotação.
+5. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
+6. Com tudo confirmado (subcontratado + CNPJ + e-mail + celular), envie o link: https://transporte.jacometoseguros.com.br para o lead preencher a proposta.
+
+🚨 GATILHO CRÍTICO — TIPO CONTRATADO:
+- Se o lead confirmar que atua como CONTRATADO (responsável pela carga), este pacote (compliance, SEM indenização) NÃO serve para ele.
+- NÃO envie o link do site. Explique em 1 frase que ele precisa de um produto COM cobertura efetiva/averbação da carga e encaminhe para um corretor humano (handoff).
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — APÓLICE DO TRANSPORTADOR SUBCONTRATADO (AGREGADO)
@@ -5198,14 +5276,9 @@ ${contact.notes}
     const fieldLabels: Record<string, string> = {
       cnpj: 'CNPJ',
       rntrc: 'RNTRC (ANTT)',
-      porte_empresa: 'Porte da empresa (MEI/ME/EPP)',
-      tipo_veiculo: 'Tipo de veículo',
-      tipo_carga: 'Tipo de carga',
-      rota_km: 'Rota típica (km)',
-      tipo_contratacao: 'Tipo de contratação (direto/subcontratado)',
-      estados_atendidos: 'Estados/regiões atendidos',
-      cidade: 'Cidade/região',
-      emite_cte: 'Emite CT-e'
+      tipo_transportador: 'Tipo de transportador (contratado/subcontratado)',
+      email: 'E-mail',
+      celular: 'Celular (WhatsApp)'
     };
 
     
@@ -5272,8 +5345,8 @@ ${contact.notes}
 - Vá DIRETO para a próxima pergunta ou ação
 - NÃO use frases como "Entendi que você...", "Então você transporta...", "Certo, [resposta]..."
 
-ERRADO: "Entendi, alimentos. Quais estados atende?"
-CORRETO: "Quais estados atende?"
+ERRADO: "Entendi, subcontratado. Qual seu e-mail?"
+CORRETO: "Qual seu e-mail?"
 
 ### 🔴 REGRA ANTI-REPETIÇÃO DE AÇÕES (CRÍTICO!):
 Antes de QUALQUER resposta, verifique suas ÚLTIMAS 3 MENSAGENS no histórico acima:
@@ -5326,14 +5399,12 @@ Antes de fazer QUALQUER pergunta:
 - Responda: "Vi aqui. Sobre [próxima pergunta pendente]?"
 - Continue para o próximo item pendente
 
-### Lista de verificação antes de perguntar:
-- Tipo de contratação (direto/subcontratado) - já informou?
-- Tipo de carga - já mencionou no histórico?
-- Estados/regiões - já apareceu nas mensagens?
+### Lista de verificação antes de perguntar (sequência de qualificação Mitsui):
 - CNPJ - já está no contexto do cliente?
-- Tipo de frota - própria/agregado/terceiro definido?
-- ANTT - já falou sobre regularização?
-- CT-e - já confirmou se emite ou não?
+- Empresa/RNTRC (ANTT) - já foi confirmado?
+- Tipo de transportador (contratado/subcontratado) - já informou?
+- E-mail - já forneceu?
+- Celular (WhatsApp) - já confirmou o número atual?
 
 ### REGRA DE FINALIZAÇÃO (IMPORTANTE):
 - Ao coletar todas as informações de qualificação, SEMPRE solicite o email antes de encerrar
