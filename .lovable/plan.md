@@ -1,22 +1,47 @@
-All code changes for the 7 requested security findings are already written and deployed. You skipped adding the `WHATSAPP_APP_SECRET`, which is fine — the webhook fix stays active with a safe fallback until you add it later.
+# Questionário de qualificação da Iris (modelo Mitsui)
 
-## What was already done (deployed)
+Quando o lead demonstra interesse, a Iris passa a conduzir a **mesma sequência de qualificação do Mitsui Projeto**, uma pergunta por vez, e ao concluir envia o link de contratação **e** registra o lead para um corretor.
 
-- **api4com_dial_open** — `api4com-dial` now requires an authenticated admin/operator caller before dialing.
-- **invite_email_open** — `send-invite-email` now requires an authenticated admin/operator caller.
-- **ai_gateway_open** — `generate-summary`, `rewrite-message`, `generate-prompt`, `generate-email-copy`, `generate-followup-message`, `extract-product-text`, `extract-documents` now require a valid caller (admin/operator; internal automations still work via the service-role key where applicable).
-- **analyze_conv_no_auth** — `analyze-conversation` now accepts only internal service-role calls or authenticated admin/operator users.
-- **wa_template_open** — `send-whatsapp-template` gated (service-role or admin/operator); `test-whatsapp-message` gated to admin/operator.
-- **lead_replicate_open** — `replicate-lead-to-crm` restricted to internal service-role calls only.
-- **webhook_no_sig_verify** — `whatsapp-webhook` and `whatsapp-call-webhook` now verify Meta's `X-Hub-Signature-256` HMAC. Enforcement activates automatically once `WHATSAPP_APP_SECRET` is set; until then it logs a warning and keeps processing so live messages don't break.
+## Sequência de qualificação (modelo Mitsui exato)
+1. **CNPJ** da transportadora.
+2. **Confirmar empresa + RNTRC/ANTT** (o sistema já consulta Receita + ANTT automaticamente e pede confirmação).
+3. **Tipo de transportador**: atua como **contratado** (responsável pela carga) ou **subcontratado** (agregado)?
+4. **E-mail** para envio da cotação.
+5. **Celular (WhatsApp)** — como a conversa já ocorre no WhatsApp, a Iris **confirma** o número atual ("Posso usar este mesmo número?") em vez de pedir do zero.
 
-## Remaining step
+**Gatilho crítico:** se o lead disser que atua como **contratado** (responsável pela carga), este produto (compliance, sem indenização) não serve — a Iris não envia o link, encerra a qualificação e encaminha para um corretor humano (produto com cobertura efetiva/averbação).
 
-1. Mark all 7 findings (`ai_gateway_open`, `analyze_conv_no_auth`, `api4com_dial_open`, `invite_email_open`, `lead_replicate_open`, `wa_template_open`, `webhook_no_sig_verify`) as fixed via the security-findings tool, with an explanation of the change applied to each.
+## Ao concluir a qualificação (subcontratado + CNPJ + e-mail + celular)
+A Iris executa as **duas** ações:
+- **Envia o link** oficial: `https://transporte.jacometoseguros.com.br` para o lead preencher a proposta.
+- **Registra/avisa o corretor**: o orquestrador marca o contato como `lead_status = 'proposal'`, o que dispara o pipeline já existente (`notify_lead_proposal` → `replicate-lead-to-crm`) que registra/replica o lead no CRM.
 
-No other findings will be touched. To fully close the webhook item, add `WHATSAPP_APP_SECRET` (Meta App Secret) whenever you're ready.
+## Substituição da qualificação legada
+Os campos antigos que não batem com o produto de compliance (`tipo_carga`, `estados`, `viagens_mes/valor_medio`, `tipo_frota`, `emite_cte`) são removidos da lógica e das instruções do prompt. Passam a valer apenas os 4 dados do modelo Mitsui: **CNPJ, tipo de transportador, e-mail, celular**.
 
-## Technical notes
+---
 
-- Guard pattern: validate the caller JWT with an anon-key client (`auth.getUser()`), then check `user_roles` for `admin`/`operator`. Functions with internal callers also accept a `Bearer <service-role-key>` shortcut, matching how `nina-orchestrator`, `process-followups`, `send-collection-whatsapp`, and `receive-ecommerce-webhook` invoke them.
-- Webhook signature check reads the raw request body, computes HMAC-SHA256, and constant-time compares against the `x-hub-signature-256` header.
+## Detalhes técnicos (arquivo: `supabase/functions/nina-orchestrator/index.ts`)
+
+1. **Prompt de fluxo (`buildEnhancedPrompt`, bloco ~3679–3704 "REGRA DE CONTRATAÇÃO"):**
+   - Reescrever o "Fluxo correto" para a sequência Mitsui: (1) CNPJ → (2) confirmar empresa/RNTRC → (3) tipo de transportador → (4) e-mail → (5) confirmar celular → (6) enviar link.
+   - Adicionar o **gatilho crítico** contratado → não enviar link, encaminhar para humano.
+   - Reforçar "UMA pergunta por vez".
+
+2. **Bloco anti-repetição / checklist (~5198–5209 e ~5329–5342):**
+   - Substituir `fieldLabels` e a "Lista de verificação antes de perguntar" pelos 4 campos Mitsui (CNPJ, tipo de transportador, e-mail, celular). Remover referências a tipo de carga, estados, frota, CT-e.
+   - Ajustar exemplos anti-eco (linhas ~5275–5276, ~5331–5332) que citam "alimentos"/"estados".
+
+3. **`isQualificationComplete` (~1524):**
+   - Reescrever para exigir: `contact.cnpj`, `qa.tipo_transportador === 'subcontratado'`, `contact.email`, e celular (`contact.phone_number`/`whatsapp_id`).
+
+4. **`extractQualificationFromMessages` (~1543):**
+   - Remover padrões legados; extrair `tipo_transportador` (contratado/subcontratado/agregado). Persistir em `nina_context.qualification_answers` (hoje `mergedQA` em ~3506 é montado mas não salvo — passará a ser salvo).
+
+5. **Ação de conclusão (novo bloco após detecção de e-mail, ~3501):**
+   - Após atualizar `qualification_answers`, chamar `isQualificationComplete`. Se completo e **subcontratado**: enfileirar mensagem com o link e `update contacts set lead_status='proposal'` (dispara `replicate-lead-to-crm`), evitando repetir se já enviado (flag em `nina_context`).
+   - Se **contratado**: pausar para handoff humano (sem link), usando o mecanismo de handoff já existente.
+
+6. **Deploy** da função `nina-orchestrator` e teste rápido: simular mensagens (CNPJ → confirmação → "sou subcontratado" → e-mail) e verificar envio do link + `lead_status='proposal'`.
+
+Nenhuma alteração de schema é necessária (usa `nina_context.qualification_answers`, `contacts.lead_status` e o trigger já existentes).
