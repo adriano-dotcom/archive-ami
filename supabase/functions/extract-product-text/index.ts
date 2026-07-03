@@ -21,6 +21,22 @@ serve(async (req) => {
   let productId: string | null = null;
 
   try {
+    // Auth guard: require authenticated admin/operator caller
+    const _token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+    if (!_token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    {
+      const _authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: `Bearer ${_token}` } } });
+      const { data: _authData, error: _authErr } = await _authClient.auth.getUser();
+      if (_authErr || !_authData?.user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const { data: _roleRows } = await _authClient.from('user_roles').select('role').eq('user_id', _authData.user.id);
+      if (!(_roleRows || []).some((r: any) => r.role === 'admin' || r.role === 'operator')) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
     const body = await req.json();
     productId = body.productId;
     const fileUrl = body.fileUrl;
