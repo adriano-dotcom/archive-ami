@@ -5278,8 +5278,8 @@ ${contact.notes}
 - Vá DIRETO para a próxima pergunta ou ação
 - NÃO use frases como "Entendi que você...", "Então você transporta...", "Certo, [resposta]..."
 
-ERRADO: "Entendi, alimentos. Quais estados atende?"
-CORRETO: "Quais estados atende?"
+ERRADO: "Entendi, subcontratado. Qual seu e-mail?"
+CORRETO: "Qual seu e-mail?"
 
 ### 🔴 REGRA ANTI-REPETIÇÃO DE AÇÕES (CRÍTICO!):
 Antes de QUALQUER resposta, verifique suas ÚLTIMAS 3 MENSAGENS no histórico acima:
