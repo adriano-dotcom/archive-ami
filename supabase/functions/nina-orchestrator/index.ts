@@ -3527,32 +3527,46 @@ Agradeço pela compreensão! 🙏`;
   const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
   const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
 
-  // GATILHO CRÍTICO: lead é CONTRATADO -> produto não serve, encaminhar p/ humano.
+  // GATILHO: lead é CONTRATADO -> precisa do produto COM cobertura/averbação.
+  // Antes de encaminhar para o corretor humano, COLETAMOS os dados essenciais
+  // (CNPJ + e-mail + celular). Enquanto faltar dado, NÃO faz handoff — deixa a
+  // IA continuar coletando (uma pergunta por vez, conforme o prompt).
   if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
-    console.log('[Nina] 🚨 Lead atua como CONTRATADO — encaminhando para corretor humano (produto não serve).');
-    const handoffMsg = 'Entendi! Como você atua como contratado (responsável pela carga), você precisa de um produto com cobertura efetiva/averbação — este pacote é só de compliance e não indeniza sinistro. Vou te conectar com um dos nossos corretores especialistas para montar a proposta certa. 👍';
-    const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
-    const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
-    await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
-    await supabase
-      .from('conversations')
-      .update({
-        status: 'open',
-        is_active: false,
-        nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
-      })
-      .eq('id', conversation.id);
-    await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
-    try {
-      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
-        body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
-      }).catch((e) => console.error('[Nina] sender trigger error:', e));
-    } catch (_) { /* noop */ }
-    return new Response(JSON.stringify({ success: true, action: 'contratado_handoff' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (isContratadoDataComplete(contactForCheck)) {
+      console.log('[Nina] ✅ Contratado com dados completos — encaminhando para corretor humano.');
+      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o produto COM cobertura efetiva/averbação — este pacote de compliance não indeniza sinistro. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
+      const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
+      const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
+      await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
+
+      // Registra/avisa o corretor: lead_status='proposal' dispara notify_lead_proposal -> replicate-lead-to-crm
+      await supabase
+        .from('contacts')
+        .update({ lead_status: 'proposal', updated_at: new Date().toISOString() })
+        .eq('id', conversation.contact_id);
+
+      await supabase
+        .from('conversations')
+        .update({
+          status: 'open',
+          is_active: false,
+          nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
+        })
+        .eq('id', conversation.id);
+      await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
+      try {
+        fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+          body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
+        }).catch((e) => console.error('[Nina] sender trigger error:', e));
+      } catch (_) { /* noop */ }
+      return new Response(JSON.stringify({ success: true, action: 'contratado_handoff' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // Dados ainda incompletos: segue o fluxo normal da IA para coletar CNPJ/e-mail/celular.
+    console.log('[Nina] ⏳ Contratado sem dados completos — continuando coleta antes do handoff.');
   }
 
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
