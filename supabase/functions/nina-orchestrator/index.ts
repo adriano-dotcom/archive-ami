@@ -1539,6 +1539,21 @@ function isQualificationComplete(contact: any, qualificationAnswers: { [key: str
   return isComplete;
 }
 
+// ===== CONTRATADO DATA COMPLETION CHECK =====
+// Para o transportador CONTRATADO (responsável pela carga) coletamos os mesmos
+// dados essenciais (CNPJ + e-mail + celular) ANTES de encaminhar para o corretor
+// humano — que fará o produto COM cobertura/averbação.
+function isContratadoDataComplete(contact: any): boolean {
+  const hasCnpj = !!contact?.cnpj;
+  const hasEmail = !!contact?.email;
+  const hasCelular = !!(contact?.phone_number || contact?.whatsapp_id);
+  const isComplete = hasCnpj && hasEmail && hasCelular;
+  if (isComplete) {
+    console.log(`[Nina] 📊 Contratado data check: CNPJ=${hasCnpj}, Email=${hasEmail}, Celular=${hasCelular} -> COMPLETE (handoff)`);
+  }
+  return isComplete;
+}
+
 // ===== REAL-TIME QUALIFICATION EXTRACTION FUNCTION =====
 // Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
@@ -3512,32 +3527,46 @@ Agradeço pela compreensão! 🙏`;
   const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
   const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
 
-  // GATILHO CRÍTICO: lead é CONTRATADO -> produto não serve, encaminhar p/ humano.
+  // GATILHO: lead é CONTRATADO -> precisa do produto COM cobertura/averbação.
+  // Antes de encaminhar para o corretor humano, COLETAMOS os dados essenciais
+  // (CNPJ + e-mail + celular). Enquanto faltar dado, NÃO faz handoff — deixa a
+  // IA continuar coletando (uma pergunta por vez, conforme o prompt).
   if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
-    console.log('[Nina] 🚨 Lead atua como CONTRATADO — encaminhando para corretor humano (produto não serve).');
-    const handoffMsg = 'Entendi! Como você atua como contratado (responsável pela carga), você precisa de um produto com cobertura efetiva/averbação — este pacote é só de compliance e não indeniza sinistro. Vou te conectar com um dos nossos corretores especialistas para montar a proposta certa. 👍';
-    const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
-    const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
-    await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
-    await supabase
-      .from('conversations')
-      .update({
-        status: 'open',
-        is_active: false,
-        nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
-      })
-      .eq('id', conversation.id);
-    await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
-    try {
-      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
-        body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
-      }).catch((e) => console.error('[Nina] sender trigger error:', e));
-    } catch (_) { /* noop */ }
-    return new Response(JSON.stringify({ success: true, action: 'contratado_handoff' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (isContratadoDataComplete(contactForCheck)) {
+      console.log('[Nina] ✅ Contratado com dados completos — encaminhando para corretor humano.');
+      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o produto COM cobertura efetiva/averbação — este pacote de compliance não indeniza sinistro. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
+      const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
+      const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
+      await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
+
+      // Registra/avisa o corretor: lead_status='proposal' dispara notify_lead_proposal -> replicate-lead-to-crm
+      await supabase
+        .from('contacts')
+        .update({ lead_status: 'proposal', updated_at: new Date().toISOString() })
+        .eq('id', conversation.contact_id);
+
+      await supabase
+        .from('conversations')
+        .update({
+          status: 'open',
+          is_active: false,
+          nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
+        })
+        .eq('id', conversation.id);
+      await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
+      try {
+        fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+          body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
+        }).catch((e) => console.error('[Nina] sender trigger error:', e));
+      } catch (_) { /* noop */ }
+      return new Response(JSON.stringify({ success: true, action: 'contratado_handoff' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // Dados ainda incompletos: segue o fluxo normal da IA para coletar CNPJ/e-mail/celular.
+    console.log('[Nina] ⏳ Contratado sem dados completos — continuando coleta antes do handoff.');
   }
 
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
@@ -3750,17 +3779,26 @@ Agradeço pela compreensão! 🙏`;
 - Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
 
 🎯 FLUXO DE QUALIFICAÇÃO (SIGA ESTA ORDEM — UMA PERGUNTA POR VEZ):
-Quando o lead demonstrar interesse (quer contratar, pedir link, "como faço", "quanto custa" já esclarecido), conduza esta sequência, uma pergunta de cada vez, sem pular etapas e sem repetir o que já foi coletado:
+
+PERGUNTA 0 — TRIAGEM (SEMPRE PRIMEIRO, ANTES DE QUALQUER PITCH):
+Logo na abertura da conversa, faça APENAS a pergunta de triagem, sem apresentar produto, preço ou coberturas ainda:
+"Você atua como CONTRATADO (responsável pela carga, emite o próprio CT-e como principal) ou como SUBCONTRATADO/agregado de outra transportadora?"
+Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a apólice antes dessa resposta.
+
+➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação, sem cobertura RCTR-C/RC-DC/RC-V, sem indenização) e conduza a qualificação:
 1. CNPJ da transportadora. (Ao receber, o sistema consulta Receita + ANTT automaticamente e já mostra a confirmação — não peça de novo.)
 2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
-3. Pergunte o TIPO DE TRANSPORTADOR: "Você atua como CONTRATADO (responsável pela carga, emite o próprio CT-e como principal) ou como SUBCONTRATADO/agregado de outra transportadora?"
-4. Peça o E-MAIL para envio da cotação.
-5. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
-6. Com tudo confirmado (subcontratado + CNPJ + e-mail + celular), envie o link: https://transporte.jacometoseguros.com.br para o lead preencher a proposta.
+3. Peça o E-MAIL para envio da cotação.
+4. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
+5. Com tudo confirmado (CNPJ + e-mail + celular), envie o link: https://transporte.jacometoseguros.com.br para o lead preencher a proposta.
 
-🚨 GATILHO CRÍTICO — TIPO CONTRATADO:
-- Se o lead confirmar que atua como CONTRATADO (responsável pela carga), este pacote (compliance, SEM indenização) NÃO serve para ele.
-- NÃO envie o link do site. Explique em 1 frase que ele precisa de um produto COM cobertura efetiva/averbação da carga e encaminhe para um corretor humano (handoff).
+➡️ SE CONTRATADO (responsável pela carga): este pacote de compliance NÃO serve — ele precisa do produto COM cobertura efetiva/averbação da carga. NÃO envie o link do site. Explique isso em 1 frase e COLETE os dados para o corretor humano montar a proposta certa, uma pergunta por vez:
+1. CNPJ da transportadora. (O sistema consulta Receita + ANTT automaticamente — não peça de novo.)
+2. Confirme a empresa e o RNTRC/situação na ANTT.
+3. Peça o E-MAIL para envio da cotação.
+4. Confirme o CELULAR (WhatsApp): "Posso usar este mesmo número?" — NÃO peça do zero.
+5. Com CNPJ + e-mail + celular coletados, avise que vai encaminhar para um corretor especialista (o sistema faz o handoff automaticamente).
+
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — APÓLICE DO TRANSPORTADOR SUBCONTRATADO (AGREGADO)
@@ -5060,31 +5098,48 @@ A Jacometo Corretora trabalha com TODOS os tipos de seguro (auto, vida, empresar
    Ex.: "Perfeito! Já vou repassar seus dados ao nosso responsável, que fala com você em breve pra montar seu seguro. 💙"
 - Depois de coletar e avisar que vai repassar, acione o handoff para atendimento humano.`;
 
-  // ===== MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO) =====
-  // Só injeta quando: (1) lead veio do site (landing_page/utm_source) E (2) é o
-  // primeiro contato (a Iris ainda não respondeu nesta conversa).
-  const isSiteLead = !!contact && (contact.lead_source === 'landing_page' || !!contact.utm_source);
+  // ===== ABERTURA = PERGUNTA DE TRIAGEM (TODOS OS LEADS NOVOS) =====
+  // Na PRIMEIRA mensagem de qualquer lead, a Iris faz APENAS a pergunta de
+  // triagem (contratado × subcontratado), sem pitch de produto. Só depois da
+  // resposta é que apresenta o caminho certo.
   const isFirstContact = !recentAgentMessages || recentAgentMessages.length === 0;
-  if (isSiteLead && isFirstContact) {
-    const leadName = contact?.call_name || contact?.name || '';
-    const leadCompany = contact?.company || '';
-    contextInfo += `\n\n## 🟢 MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO)
-Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, NÃO use a saudação genérica: responda com base no MODELO abaixo, apresentando a apólice do transportador SUBCONTRATADO (agregado).
+  const tipoJaConhecido = (ninaContext?.qualification_answers?.tipo_transportador || '').toLowerCase();
+  const leadName = contact?.call_name || contact?.name || '';
+
+  if (isFirstContact && !tipoJaConhecido) {
+    contextInfo += `\n\n## 🟢 ABERTURA — PERGUNTA DE TRIAGEM (PRIMEIRA MENSAGEM)
+Esta é a PRIMEIRA mensagem da conversa. Nesta abertura, faça APENAS a pergunta de triagem para descobrir o tipo de transportador. NÃO apresente produto, preço, coberturas nem o modelo do subcontratado ainda — só depois da resposta você segue o caminho certo.
 
 ⚠️ Como usar o modelo:
 - ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp). Não precisa copiar literalmente.
-- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
-- MANTENHA a pergunta final de direcionamento (ficar regular na ANTT × precisar de cobertura efetiva da carga).
+- Faça SÓ UMA pergunta: contratado × subcontratado. Nada de explicar a apólice nesta mensagem.
 - Preserve os destaques em *negrito* (asteriscos do WhatsApp) nos pontos-chave.
 ${leadName ? `- PERSONALIZE cumprimentando pelo nome: "Olá, ${leadName}!".` : `- Se souber o nome do lead depois, personalize o cumprimento.`}
-${leadCompany ? `- Se fizer sentido, cite a empresa "${leadCompany}" de forma natural.` : ''}
-- ⚠️ EXCEÇÃO: se o lead deixar claro que busca OUTRO seguro (ex.: van/passageiros, auto, vida, empresa), NÃO use este modelo de carga — siga o protocolo "OUTROS SEGUROS" (acolher, coletar necessidade + contato + PF/PJ com CNPJ, e repassar ao responsável). Jamais dispense.
+- ⚠️ EXCEÇÃO: se o lead já deixar claro que busca OUTRO seguro (ex.: van/passageiros, auto, vida, empresa), NÃO faça a triagem de carga — siga o protocolo "OUTROS SEGUROS" (acolher, coletar necessidade + contato + PF/PJ com CNPJ, e repassar ao responsável). Jamais dispense.
 
 MODELO (base para adaptar):
 """
 Olá${leadName ? `, ${leadName}` : ''}! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
 
-Sobre a apólice que você buscou: é a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+Pra eu te direcionar certo: você atua como *contratado* (responsável pela carga, emite o próprio CT-e como principal) ou como *subcontratado/agregado* de outra transportadora?
+"""`;
+  }
+
+  // ===== PÓS-TRIAGEM: APÓLICE DO SUBCONTRATADO (só depois de identificado) =====
+  const isSubcontratadoLead = tipoJaConhecido.includes('subcontrat') || tipoJaConhecido.includes('agregad');
+  if (isSubcontratadoLead) {
+    contextInfo += `\n\n## 🟢 APRESENTAÇÃO DA APÓLICE — TRANSPORTADOR SUBCONTRATADO (AGREGADO)
+O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresentou a apólice de compliance nesta conversa, apresente agora com base no MODELO abaixo e depois siga a qualificação (CNPJ → e-mail → confirmar celular → link).
+
+⚠️ Como usar o modelo:
+- ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp).
+- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- Preserve os destaques em *negrito*.
+- NÃO repita a apresentação se já a fez antes nesta conversa — nesse caso, apenas continue a qualificação.
+
+MODELO (base para adaptar):
+"""
+É a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
 
 *O que ela resolve:*
 ✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
@@ -5092,12 +5147,9 @@ Sobre a apólice que você buscou: é a nossa *solução inédita de compliance*
 ✅ *Sem averbação por viagem* — a cobertura da carga fica com o *contratante principal*
 
 ⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*. É um produto *estritamente de regularização legal*.
-
-Quando você atua como *contratado* e assume a carga, o certo é o produto *com averbação* — e a gente faz a migração.
-
-Pra eu te orientar: seu foco agora é *ficar regular na ANTT* ou você precisa de *cobertura efetiva da carga*?
 """`;
   }
+
 
 
   if (contact) {
