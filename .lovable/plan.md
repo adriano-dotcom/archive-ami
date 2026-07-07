@@ -1,32 +1,32 @@
-# Triagem contratado × subcontratado no início do atendimento
+# Coleta de dados no fluxo "Contratado"
 
-Hoje a Iris (nina-orchestrator) já tem os dois caminhos, mas a primeira mensagem — só para leads do site — já abre apresentando o produto do subcontratado e deixa a pergunta de direção para o fim. Além disso, o gatilho "contratado" faz handoff imediato, sem coletar dados. Vamos inverter e padronizar.
+## Objetivo
+Quando o lead se identifica como **contratado** (responsável pela carga), a Iris deve coletar CNPJ, e-mail e celular — um por vez — e só encaminhar ao corretor humano quando os três estiverem salvos no banco.
 
-## Comportamento novo (conforme respostas)
+## Situação atual (o que já funciona)
+- **Persistência já existe:** os blocos de detecção de CNPJ (com consulta BrasilAPI + confirmação), de e-mail e o telefone do WhatsApp já gravam esses dados na tabela `contacts` para qualquer mensagem, independente do tipo.
+- **Gate de handoff já existe:** `isContratadoDataComplete()` só libera o encaminhamento quando CNPJ + e-mail + celular estão presentes; enquanto faltar dado, deixa a IA continuar coletando.
+- **Encaminhamento ao corretor já leva os dados:** o handoff do contratado seta `lead_status='proposal'`, que dispara `replicate-lead-to-crm` — payload já inclui CNPJ, e-mail, telefone e razão social. O painel "Informações do Lead" também exibe esses campos.
 
-**1. Abertura = só a pergunta de triagem (todos os leads novos)**
-Na PRIMEIRA mensagem de qualquer lead (site ou WhatsApp direto), a Iris cumprimenta curto e faz apenas UMA pergunta, sem pitch de produto:
+## Lacuna a corrigir
+Falta a **orientação no prompt** para o caminho contratado. Hoje existe o bloco de apresentação do subcontratado (`isSubcontratadoLead`), mas nenhum bloco equivalente para o contratado. Sem isso, a IA fica sem instrução clara de pedir CNPJ → e-mail → confirmar celular, e o gate pode nunca completar.
 
-> "Olá! Aqui é da Jacometo Corretora 🚛 Pra te direcionar certo: você atua como **contratado** (responsável pela carga, emite o próprio CT-e) ou como **subcontratado/agregado** de outra transportadora?"
+## Mudança
+Em `supabase/functions/nina-orchestrator/index.ts`, na função que monta o prompt (`buildEnhancedPrompt`), logo após o bloco `isSubcontratadoLead` (por volta da linha 5151), adicionar um novo bloco condicional para quando `tipoJaConhecido` for **contratado**:
 
-Exceção mantida: se o lead já disser que quer OUTRO seguro (van, auto, vida etc.), segue o protocolo "Outros Seguros" (acolher + coletar + repassar, nunca dispensar).
+- Explicar em 1 frase que, como ele é responsável pela carga, o produto certo é o **com cobertura efetiva/averbação**, feito por um corretor especialista.
+- Instruir a coletar, **uma pergunta por vez**, na ordem: **CNPJ → e-mail → confirmar o melhor celular** (o número do WhatsApp já serve como celular; apenas confirmar).
+- Respeitar as regras anti-repetição já existentes: se o CNPJ/RNTRC já foi consultado, não perguntar de novo.
+- Não prometer preço/cobertura específica — isso é papel do corretor.
+- Deixar claro que, assim que tiver os dados, vai repassar ao corretor especialista.
 
-**2. Se SUBCONTRATADO → fluxo de compliance (já existente)**
-Depois da resposta, a Iris apresenta a apólice de compliance (o conteúdo que hoje está na abertura), com os avisos obrigatórios (sem averbação, sem cobertura RCTR-C/RC-DC/RC-V, sem indenização) e segue a qualificação: CNPJ → confirmar empresa/RNTRC → e-mail → confirmar celular → envia o link `https://transporte.jacometoseguros.com.br` e registra o lead (`lead_status='proposal'`, dispara replicação para o CRM). Sem mudança de destino, só deixa de ser a abertura.
+O gate `isContratadoDataComplete()` e o handoff (mensagem final + `lead_status='proposal'` + `is_active=false` + `contratado_handoff_done`) permanecem como estão — passam a ser efetivamente acionados porque a IA agora coleta os dados.
 
-**3. Se CONTRATADO → coletar dados e depois encaminhar (mudança principal)**
-Em vez do handoff imediato, a Iris explica em 1 frase que ele precisa do produto COM cobertura/averbação e coleta CNPJ → e-mail → confirma celular. Só quando os 3 dados estiverem completos, envia a mensagem de encaminhamento, marca o lead para o corretor humano e dispara a replicação para o CRM (mesmo pipeline do subcontratado). Enquanto faltar dado, continua perguntando um por vez.
+## Verificação
+- Type-check e deploy da função `nina-orchestrator`.
+- Simular conversa: lead responde "contratado" → Iris pede CNPJ → e-mail → confirma celular → após completar, dispara a mensagem de handoff.
+- Conferir no banco (`contacts`) que CNPJ, e-mail e telefone ficaram salvos e que `lead_status` virou `proposal`.
 
 ## Detalhes técnicos
-
-Arquivo único: `supabase/functions/nina-orchestrator/index.ts` (sem mudança de schema — usa `nina_context`, `contacts.lead_status` e os triggers existentes).
-
-1. **Abertura de triagem (substitui o bloco ~5063–5100):** trocar a condição `isSiteLead && isFirstContact` por apenas `isFirstContact`. Substituir o modelo que apresenta o produto do subcontratado por um modelo curto de triagem (só cumprimento + pergunta contratado × subcontratado), preservando a exceção "Outros Seguros" e a personalização por nome.
-
-2. **Pitch do subcontratado movido para pós-resposta:** injetar o conteúdo atual da apólice de compliance (avisos obrigatórios) num bloco condicional que só entra quando `mergedQA.tipo_transportador === 'subcontratado'`, para a Iris apresentar o produto depois que o lead se identifica.
-
-3. **Fluxo de qualificação no prompt (~3752–3763):** reescrever para o tipo ser a PERGUNTA 0 (triagem). Depois, ramificar: subcontratado segue CNPJ→e-mail→celular→link; contratado segue CNPJ→e-mail→celular→encaminhamento humano.
-
-4. **Branch CONTRATADO (~3515–3541):** deixar de fazer handoff imediato. Adicionar `isContratadoDataComplete(contact)` (CNPJ + e-mail + celular). Se incompleto, não dispara handoff — deixa a IA continuar coletando (com instrução no prompt). Quando completo e `!contratado_handoff_done`: enviar mensagem de encaminhamento, `update contacts set lead_status='proposal'` (dispara `notify_lead_proposal` → `replicate-lead-to-crm`), marcar `contratado_handoff_done` e `is_active=false`, e acionar o `whatsapp-sender`.
-
-5. **Deploy** da função `nina-orchestrator` e teste rápido simulando: (a) primeira mensagem → recebe só a pergunta de triagem; (b) "sou contratado" → coleta CNPJ/e-mail/celular e só então encaminha; (c) "sou subcontratado" → apresenta produto e segue até o link.
+- Arquivo único: `supabase/functions/nina-orchestrator/index.ts`.
+- Sem alterações de schema — usa colunas existentes (`contacts.cnpj/email/phone_number`, `conversations.nina_context`) e triggers já ativos (`notify_lead_proposal`).
