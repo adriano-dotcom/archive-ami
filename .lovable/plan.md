@@ -1,47 +1,32 @@
-# Questionário de qualificação da Iris (modelo Mitsui)
+# Triagem contratado × subcontratado no início do atendimento
 
-Quando o lead demonstra interesse, a Iris passa a conduzir a **mesma sequência de qualificação do Mitsui Projeto**, uma pergunta por vez, e ao concluir envia o link de contratação **e** registra o lead para um corretor.
+Hoje a Iris (nina-orchestrator) já tem os dois caminhos, mas a primeira mensagem — só para leads do site — já abre apresentando o produto do subcontratado e deixa a pergunta de direção para o fim. Além disso, o gatilho "contratado" faz handoff imediato, sem coletar dados. Vamos inverter e padronizar.
 
-## Sequência de qualificação (modelo Mitsui exato)
-1. **CNPJ** da transportadora.
-2. **Confirmar empresa + RNTRC/ANTT** (o sistema já consulta Receita + ANTT automaticamente e pede confirmação).
-3. **Tipo de transportador**: atua como **contratado** (responsável pela carga) ou **subcontratado** (agregado)?
-4. **E-mail** para envio da cotação.
-5. **Celular (WhatsApp)** — como a conversa já ocorre no WhatsApp, a Iris **confirma** o número atual ("Posso usar este mesmo número?") em vez de pedir do zero.
+## Comportamento novo (conforme respostas)
 
-**Gatilho crítico:** se o lead disser que atua como **contratado** (responsável pela carga), este produto (compliance, sem indenização) não serve — a Iris não envia o link, encerra a qualificação e encaminha para um corretor humano (produto com cobertura efetiva/averbação).
+**1. Abertura = só a pergunta de triagem (todos os leads novos)**
+Na PRIMEIRA mensagem de qualquer lead (site ou WhatsApp direto), a Iris cumprimenta curto e faz apenas UMA pergunta, sem pitch de produto:
 
-## Ao concluir a qualificação (subcontratado + CNPJ + e-mail + celular)
-A Iris executa as **duas** ações:
-- **Envia o link** oficial: `https://transporte.jacometoseguros.com.br` para o lead preencher a proposta.
-- **Registra/avisa o corretor**: o orquestrador marca o contato como `lead_status = 'proposal'`, o que dispara o pipeline já existente (`notify_lead_proposal` → `replicate-lead-to-crm`) que registra/replica o lead no CRM.
+> "Olá! Aqui é da Jacometo Corretora 🚛 Pra te direcionar certo: você atua como **contratado** (responsável pela carga, emite o próprio CT-e) ou como **subcontratado/agregado** de outra transportadora?"
 
-## Substituição da qualificação legada
-Os campos antigos que não batem com o produto de compliance (`tipo_carga`, `estados`, `viagens_mes/valor_medio`, `tipo_frota`, `emite_cte`) são removidos da lógica e das instruções do prompt. Passam a valer apenas os 4 dados do modelo Mitsui: **CNPJ, tipo de transportador, e-mail, celular**.
+Exceção mantida: se o lead já disser que quer OUTRO seguro (van, auto, vida etc.), segue o protocolo "Outros Seguros" (acolher + coletar + repassar, nunca dispensar).
 
----
+**2. Se SUBCONTRATADO → fluxo de compliance (já existente)**
+Depois da resposta, a Iris apresenta a apólice de compliance (o conteúdo que hoje está na abertura), com os avisos obrigatórios (sem averbação, sem cobertura RCTR-C/RC-DC/RC-V, sem indenização) e segue a qualificação: CNPJ → confirmar empresa/RNTRC → e-mail → confirmar celular → envia o link `https://transporte.jacometoseguros.com.br` e registra o lead (`lead_status='proposal'`, dispara replicação para o CRM). Sem mudança de destino, só deixa de ser a abertura.
 
-## Detalhes técnicos (arquivo: `supabase/functions/nina-orchestrator/index.ts`)
+**3. Se CONTRATADO → coletar dados e depois encaminhar (mudança principal)**
+Em vez do handoff imediato, a Iris explica em 1 frase que ele precisa do produto COM cobertura/averbação e coleta CNPJ → e-mail → confirma celular. Só quando os 3 dados estiverem completos, envia a mensagem de encaminhamento, marca o lead para o corretor humano e dispara a replicação para o CRM (mesmo pipeline do subcontratado). Enquanto faltar dado, continua perguntando um por vez.
 
-1. **Prompt de fluxo (`buildEnhancedPrompt`, bloco ~3679–3704 "REGRA DE CONTRATAÇÃO"):**
-   - Reescrever o "Fluxo correto" para a sequência Mitsui: (1) CNPJ → (2) confirmar empresa/RNTRC → (3) tipo de transportador → (4) e-mail → (5) confirmar celular → (6) enviar link.
-   - Adicionar o **gatilho crítico** contratado → não enviar link, encaminhar para humano.
-   - Reforçar "UMA pergunta por vez".
+## Detalhes técnicos
 
-2. **Bloco anti-repetição / checklist (~5198–5209 e ~5329–5342):**
-   - Substituir `fieldLabels` e a "Lista de verificação antes de perguntar" pelos 4 campos Mitsui (CNPJ, tipo de transportador, e-mail, celular). Remover referências a tipo de carga, estados, frota, CT-e.
-   - Ajustar exemplos anti-eco (linhas ~5275–5276, ~5331–5332) que citam "alimentos"/"estados".
+Arquivo único: `supabase/functions/nina-orchestrator/index.ts` (sem mudança de schema — usa `nina_context`, `contacts.lead_status` e os triggers existentes).
 
-3. **`isQualificationComplete` (~1524):**
-   - Reescrever para exigir: `contact.cnpj`, `qa.tipo_transportador === 'subcontratado'`, `contact.email`, e celular (`contact.phone_number`/`whatsapp_id`).
+1. **Abertura de triagem (substitui o bloco ~5063–5100):** trocar a condição `isSiteLead && isFirstContact` por apenas `isFirstContact`. Substituir o modelo que apresenta o produto do subcontratado por um modelo curto de triagem (só cumprimento + pergunta contratado × subcontratado), preservando a exceção "Outros Seguros" e a personalização por nome.
 
-4. **`extractQualificationFromMessages` (~1543):**
-   - Remover padrões legados; extrair `tipo_transportador` (contratado/subcontratado/agregado). Persistir em `nina_context.qualification_answers` (hoje `mergedQA` em ~3506 é montado mas não salvo — passará a ser salvo).
+2. **Pitch do subcontratado movido para pós-resposta:** injetar o conteúdo atual da apólice de compliance (avisos obrigatórios) num bloco condicional que só entra quando `mergedQA.tipo_transportador === 'subcontratado'`, para a Iris apresentar o produto depois que o lead se identifica.
 
-5. **Ação de conclusão (novo bloco após detecção de e-mail, ~3501):**
-   - Após atualizar `qualification_answers`, chamar `isQualificationComplete`. Se completo e **subcontratado**: enfileirar mensagem com o link e `update contacts set lead_status='proposal'` (dispara `replicate-lead-to-crm`), evitando repetir se já enviado (flag em `nina_context`).
-   - Se **contratado**: pausar para handoff humano (sem link), usando o mecanismo de handoff já existente.
+3. **Fluxo de qualificação no prompt (~3752–3763):** reescrever para o tipo ser a PERGUNTA 0 (triagem). Depois, ramificar: subcontratado segue CNPJ→e-mail→celular→link; contratado segue CNPJ→e-mail→celular→encaminhamento humano.
 
-6. **Deploy** da função `nina-orchestrator` e teste rápido: simular mensagens (CNPJ → confirmação → "sou subcontratado" → e-mail) e verificar envio do link + `lead_status='proposal'`.
+4. **Branch CONTRATADO (~3515–3541):** deixar de fazer handoff imediato. Adicionar `isContratadoDataComplete(contact)` (CNPJ + e-mail + celular). Se incompleto, não dispara handoff — deixa a IA continuar coletando (com instrução no prompt). Quando completo e `!contratado_handoff_done`: enviar mensagem de encaminhamento, `update contacts set lead_status='proposal'` (dispara `notify_lead_proposal` → `replicate-lead-to-crm`), marcar `contratado_handoff_done` e `is_active=false`, e acionar o `whatsapp-sender`.
 
-Nenhuma alteração de schema é necessária (usa `nina_context.qualification_answers`, `contacts.lead_status` e o trigger já existentes).
+5. **Deploy** da função `nina-orchestrator` e teste rápido simulando: (a) primeira mensagem → recebe só a pergunta de triagem; (b) "sou contratado" → coleta CNPJ/e-mail/celular e só então encaminha; (c) "sou subcontratado" → apresenta produto e segue até o link.
