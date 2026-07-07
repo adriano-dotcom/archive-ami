@@ -5098,31 +5098,48 @@ A Jacometo Corretora trabalha com TODOS os tipos de seguro (auto, vida, empresar
    Ex.: "Perfeito! Já vou repassar seus dados ao nosso responsável, que fala com você em breve pra montar seu seguro. 💙"
 - Depois de coletar e avisar que vai repassar, acione o handoff para atendimento humano.`;
 
-  // ===== MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO) =====
-  // Só injeta quando: (1) lead veio do site (landing_page/utm_source) E (2) é o
-  // primeiro contato (a Iris ainda não respondeu nesta conversa).
-  const isSiteLead = !!contact && (contact.lead_source === 'landing_page' || !!contact.utm_source);
+  // ===== ABERTURA = PERGUNTA DE TRIAGEM (TODOS OS LEADS NOVOS) =====
+  // Na PRIMEIRA mensagem de qualquer lead, a Iris faz APENAS a pergunta de
+  // triagem (contratado × subcontratado), sem pitch de produto. Só depois da
+  // resposta é que apresenta o caminho certo.
   const isFirstContact = !recentAgentMessages || recentAgentMessages.length === 0;
-  if (isSiteLead && isFirstContact) {
-    const leadName = contact?.call_name || contact?.name || '';
-    const leadCompany = contact?.company || '';
-    contextInfo += `\n\n## 🟢 MODELO DE PRIMEIRA RESPOSTA — LEAD DO SITE (SUBCONTRATADO)
-Este contato veio do SITE e é a PRIMEIRA mensagem da conversa. Nesta abertura, NÃO use a saudação genérica: responda com base no MODELO abaixo, apresentando a apólice do transportador SUBCONTRATADO (agregado).
+  const tipoJaConhecido = (ninaContext?.qualification_answers?.tipo_transportador || '').toLowerCase();
+  const leadName = contact?.call_name || contact?.name || '';
+
+  if (isFirstContact && !tipoJaConhecido) {
+    contextInfo += `\n\n## 🟢 ABERTURA — PERGUNTA DE TRIAGEM (PRIMEIRA MENSAGEM)
+Esta é a PRIMEIRA mensagem da conversa. Nesta abertura, faça APENAS a pergunta de triagem para descobrir o tipo de transportador. NÃO apresente produto, preço, coberturas nem o modelo do subcontratado ainda — só depois da resposta você segue o caminho certo.
 
 ⚠️ Como usar o modelo:
 - ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp). Não precisa copiar literalmente.
-- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
-- MANTENHA a pergunta final de direcionamento (ficar regular na ANTT × precisar de cobertura efetiva da carga).
+- Faça SÓ UMA pergunta: contratado × subcontratado. Nada de explicar a apólice nesta mensagem.
 - Preserve os destaques em *negrito* (asteriscos do WhatsApp) nos pontos-chave.
 ${leadName ? `- PERSONALIZE cumprimentando pelo nome: "Olá, ${leadName}!".` : `- Se souber o nome do lead depois, personalize o cumprimento.`}
-${leadCompany ? `- Se fizer sentido, cite a empresa "${leadCompany}" de forma natural.` : ''}
-- ⚠️ EXCEÇÃO: se o lead deixar claro que busca OUTRO seguro (ex.: van/passageiros, auto, vida, empresa), NÃO use este modelo de carga — siga o protocolo "OUTROS SEGUROS" (acolher, coletar necessidade + contato + PF/PJ com CNPJ, e repassar ao responsável). Jamais dispense.
+- ⚠️ EXCEÇÃO: se o lead já deixar claro que busca OUTRO seguro (ex.: van/passageiros, auto, vida, empresa), NÃO faça a triagem de carga — siga o protocolo "OUTROS SEGUROS" (acolher, coletar necessidade + contato + PF/PJ com CNPJ, e repassar ao responsável). Jamais dispense.
 
 MODELO (base para adaptar):
 """
 Olá${leadName ? `, ${leadName}` : ''}! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
 
-Sobre a apólice que você buscou: é a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+Pra eu te direcionar certo: você atua como *contratado* (responsável pela carga, emite o próprio CT-e como principal) ou como *subcontratado/agregado* de outra transportadora?
+"""`;
+  }
+
+  // ===== PÓS-TRIAGEM: APÓLICE DO SUBCONTRATADO (só depois de identificado) =====
+  const isSubcontratadoLead = tipoJaConhecido.includes('subcontrat') || tipoJaConhecido.includes('agregad');
+  if (isSubcontratadoLead) {
+    contextInfo += `\n\n## 🟢 APRESENTAÇÃO DA APÓLICE — TRANSPORTADOR SUBCONTRATADO (AGREGADO)
+O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresentou a apólice de compliance nesta conversa, apresente agora com base no MODELO abaixo e depois siga a qualificação (CNPJ → e-mail → confirmar celular → link).
+
+⚠️ Como usar o modelo:
+- ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp).
+- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- Preserve os destaques em *negrito*.
+- NÃO repita a apresentação se já a fez antes nesta conversa — nesse caso, apenas continue a qualificação.
+
+MODELO (base para adaptar):
+"""
+É a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
 
 *O que ela resolve:*
 ✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
@@ -5130,12 +5147,9 @@ Sobre a apólice que você buscou: é a nossa *solução inédita de compliance*
 ✅ *Sem averbação por viagem* — a cobertura da carga fica com o *contratante principal*
 
 ⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*. É um produto *estritamente de regularização legal*.
-
-Quando você atua como *contratado* e assume a carga, o certo é o produto *com averbação* — e a gente faz a migração.
-
-Pra eu te orientar: seu foco agora é *ficar regular na ANTT* ou você precisa de *cobertura efetiva da carga*?
 """`;
   }
+
 
 
   if (contact) {
