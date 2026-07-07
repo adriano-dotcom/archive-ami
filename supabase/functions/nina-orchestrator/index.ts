@@ -1539,6 +1539,21 @@ function isQualificationComplete(contact: any, qualificationAnswers: { [key: str
   return isComplete;
 }
 
+// ===== CONTRATADO DATA COMPLETION CHECK =====
+// Para o transportador CONTRATADO (responsável pela carga) coletamos os mesmos
+// dados essenciais (CNPJ + e-mail + celular) ANTES de encaminhar para o corretor
+// humano — que fará o produto COM cobertura/averbação.
+function isContratadoDataComplete(contact: any): boolean {
+  const hasCnpj = !!contact?.cnpj;
+  const hasEmail = !!contact?.email;
+  const hasCelular = !!(contact?.phone_number || contact?.whatsapp_id);
+  const isComplete = hasCnpj && hasEmail && hasCelular;
+  if (isComplete) {
+    console.log(`[Nina] 📊 Contratado data check: CNPJ=${hasCnpj}, Email=${hasEmail}, Celular=${hasCelular} -> COMPLETE (handoff)`);
+  }
+  return isComplete;
+}
+
 // ===== REAL-TIME QUALIFICATION EXTRACTION FUNCTION =====
 // Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
