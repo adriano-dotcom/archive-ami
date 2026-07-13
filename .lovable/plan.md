@@ -1,32 +1,60 @@
-# Coleta de dados no fluxo "Contratado"
+# Secure internal automation edge functions
 
-## Objetivo
-Quando o lead se identifica como **contratado** (responsável pela carga), a Iris deve coletar CNPJ, e-mail e celular — um por vez — e só encaminhar ao corretor humano quando os três estiverem salvos no banco.
+## Problem
+19 backend edge functions run with `verify_jwt = false` and have **no auth check** in code, so anyone with the public function URL can invoke them. This lets an attacker rack up AI/WhatsApp/email costs, send real messages to customers, and control live WhatsApp calls — all with no credentials.
 
-## Situação atual (o que já funciona)
-- **Persistência já existe:** os blocos de detecção de CNPJ (com consulta BrasilAPI + confirmação), de e-mail e o telefone do WhatsApp já gravam esses dados na tabela `contacts` para qualquer mensagem, independente do tipo.
-- **Gate de handoff já existe:** `isContratadoDataComplete()` só libera o encaminhamento quando CNPJ + e-mail + celular estão presentes; enquanto faltar dado, deixa a IA continuar coletando.
-- **Encaminhamento ao corretor já leva os dados:** o handoff do contratado seta `lead_status='proposal'`, que dispara `replicate-lead-to-crm` — payload já inclui CNPJ, e-mail, telefone e razão social. O painel "Informações do Lead" também exibe esses campos.
+The fix already exists elsewhere in the codebase (`whatsapp-sender`, `analyze-conversation`): a guard that accepts **either** the service-role bearer token (used by cron jobs, DB triggers, and the bridge server) **or** a logged-in staff session with `admin`/`operator` role, and rejects everyone else with 401/403.
 
-## Lacuna a corrigir
-Falta a **orientação no prompt** para o caminho contratado. Hoje existe o bloco de apresentação do subcontratado (`isSubcontratadoLead`), mas nenhum bloco equivalente para o contratado. Sem isso, a IA fica sem instrução clara de pedir CNPJ → e-mail → confirmar celular, e o gate pode nunca completar.
+## Approach
+Add the same guard, right after the `OPTIONS`/CORS handling, to every function below. The guard is intentionally uniform so it works for all callers:
+- Cron jobs, DB triggers (`trigger_nina_orchestrator`, `trigger_whatsapp_sender`), and the bridge server already send `Authorization: Bearer <SERVICE_ROLE_KEY>` → pass.
+- The frontend (`IncomingCallModal`, `ActiveCallIndicator`, admin Settings panels) calls via `supabase.functions.invoke`, which forwards the user's session JWT → verified as a staff user with `admin`/`operator` role.
+- Everyone else → `401 Unauthorized` / `403 Forbidden`.
 
-## Mudança
-Em `supabase/functions/nina-orchestrator/index.ts`, na função que monta o prompt (`buildEnhancedPrompt`), logo após o bloco `isSubcontratadoLead` (por volta da linha 5151), adicionar um novo bloco condicional para quando `tipoJaConhecido` for **contratado**:
+No database changes, no config changes, no frontend changes are required — all current callers already send a valid credential.
 
-- Explicar em 1 frase que, como ele é responsável pela carga, o produto certo é o **com cobertura efetiva/averbação**, feito por um corretor especialista.
-- Instruir a coletar, **uma pergunta por vez**, na ordem: **CNPJ → e-mail → confirmar o melhor celular** (o número do WhatsApp já serve como celular; apenas confirmar).
-- Respeitar as regras anti-repetição já existentes: se o CNPJ/RNTRC já foi consultado, não perguntar de novo.
-- Não prometer preço/cobertura específica — isso é papel do corretor.
-- Deixar claro que, assim que tiver os dados, vai repassar ao corretor especialista.
+## Guard snippet (inserted near the top of each `serve` handler)
+```ts
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const svcKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+if (token !== svcKey) {
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+  const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  const { data: authData, error: authErr } = await authClient.auth.getUser();
+  if (authErr || !authData?.user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+  const { data: roleRows } = await authClient.from('user_roles').select('role').eq('user_id', authData.user.id);
+  if (!(roleRows || []).some((r: any) => r.role === 'admin' || r.role === 'operator')) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+}
+```
+Each function is adapted to its existing structure (it already creates a service-role client and imports `createClient`); the guard is placed before any side-effecting work.
 
-O gate `isContratadoDataComplete()` e o handoff (mensagem final + `lead_status='proposal'` + `is_active=false` + `contratado_handoff_done`) permanecem como estão — passam a ser efetivamente acionados porque a IA agora coleta os dados.
+## Functions to secure (all 19)
+**Cron / trigger only** (reached via service role): `nina-orchestrator`, `trigger-nina-orchestrator`, `trigger-whatsapp-sender`, `process-followups`, `process-scheduled-emails`, `cleanup-queues`, `send-daily-callbacks`, `transcribe-call-recording`
 
-## Verificação
-- Type-check e deploy da função `nina-orchestrator`.
-- Simular conversa: lead responde "contratado" → Iris pede CNPJ → e-mail → confirma celular → após completar, dispara a mensagem de handoff.
-- Conferir no banco (`contacts`) que CNPJ, e-mail e telefone ficaram salvos e que `lead_status` virou `proposal`.
+**Admin / test actions** (reached via staff session): `register-whatsapp-number`, `whatsapp-subscribe-webhook`, `whatsapp-webhook-health`, `sync-whatsapp-templates`, `redownload-documents`, `test-elevenlabs-tts`, `test-qualification-email`
 
-## Detalhes técnicos
-- Arquivo único: `supabase/functions/nina-orchestrator/index.ts`.
-- Sem alterações de schema — usa colunas existentes (`contacts.cnpj/email/phone_number`, `conversations.nina_context`) e triggers já ativos (`notify_lead_proposal`).
+**Call control** (reached via bridge server service role *and* staff session): `api4com-hangup`, `whatsapp-call-accept`, `whatsapp-call-reject`, `whatsapp-call-terminate`
+
+## Explicitly NOT touched
+- `whatsapp-webhook` and `whatsapp-call-webhook` — public webhooks from Meta that must stay open (they have their own verification). Not in scope.
+- `capture-lead`, `receive-ecommerce-webhook`, `jarvis-sync`, `replicate-lead-to-crm` — external-facing endpoints with their own secret/HMAC checks. Not in scope.
+
+## Verification
+1. Type-check and deploy all 19 functions.
+2. Confirm an unauthenticated `curl` to one function (e.g. `cleanup-queues`) now returns `401`.
+3. Confirm a service-role-authenticated call still returns `200` (cron/trigger path).
+4. Confirm the in-app incoming-call flow (accept/reject/terminate/hangup) still works from the logged-in UI (staff-session path).
+
+## Note on the second finding
+The security panel also lists `bridge_socketio_noauth` (the bridge Socket.IO server accepts unauthenticated WebSocket connections). That is a separate finding in a different codebase (`bridge-server/`) and is **not** part of this request. I can tackle it in a follow-up if you want.
