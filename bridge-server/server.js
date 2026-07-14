@@ -423,6 +423,7 @@ io.on('connection', (socket) => {
 
   // ── ICE candidate from browser ─────────────────────────────────────────────
   socket.on('ice_candidate', async ({ wa_call_id, candidate }) => {
+    if (!allowSocketEvent(socket, 'ice_candidate')) return;
     const call = activeCalls.get(wa_call_id);
     if (!call) return;
     try {
@@ -434,6 +435,7 @@ io.on('connection', (socket) => {
 
   // ── Agent rejects the call ─────────────────────────────────────────────────
   socket.on('reject_call', async ({ wa_call_id }) => {
+    if (!allowSocketEvent(socket, 'reject_call')) return;
     console.log(`[bridge] Agent ${socket.id} rejecting call ${wa_call_id}`);
     const pending = pendingCalls.get(wa_call_id);
     pendingCalls.delete(wa_call_id);
@@ -452,6 +454,7 @@ io.on('connection', (socket) => {
 
   // ── Agent terminates an active call ───────────────────────────────────────
   socket.on('terminate_call', async ({ wa_call_id }) => {
+    if (!allowSocketEvent(socket, 'terminate_call')) return;
     console.log(`[bridge] Agent ${socket.id} terminating call ${wa_call_id}`);
     await handleCallEnded(wa_call_id, 'user_hangup');
   });
