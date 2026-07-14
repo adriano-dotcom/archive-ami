@@ -245,8 +245,51 @@ app.post('/sdp-offer', (req, res) => {
 
 // ─── Socket.IO — Agent Browser ───────────────────────────────────────────────
 
+// Authentication middleware: require a valid Supabase staff (admin/operator) JWT.
+// The browser must pass `auth: { token: <access_token> }` when calling io(url, { auth }).
+io.use(async (socket, next) => {
+  try {
+    const ip =
+      (socket.handshake.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+      socket.handshake.address ||
+      'unknown';
+
+    // Per-IP connection rate limit (20/min)
+    if (!checkRateLimit(`ws-conn:${ip}`, 20, 60_000)) {
+      return next(new Error('Rate limit exceeded'));
+    }
+
+    const token =
+      socket.handshake.auth?.token ||
+      (socket.handshake.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+
+    if (!token) return next(new Error('Unauthorized: missing token'));
+
+    const staff = await verifyStaffToken(token);
+    if (!staff) return next(new Error('Unauthorized: invalid token or insufficient role'));
+
+    socket.data.userId = staff.id;
+    socket.data.email = staff.email;
+    socket.data.ip = ip;
+    next();
+  } catch (err) {
+    console.error('[bridge] socket auth error:', err.message);
+    next(new Error('Unauthorized'));
+  }
+});
+
+// Per-user event rate limit helper — 30 events/min per user
+function allowSocketEvent(socket, eventName) {
+  const key = `ws-evt:${socket.data.userId || socket.data.ip}:${eventName}`;
+  if (!checkRateLimit(key, 30, 60_000)) {
+    socket.emit('rate_limited', { event: eventName });
+    return false;
+  }
+  return true;
+}
+
 io.on('connection', (socket) => {
-  console.log(`[bridge] Agent connected: ${socket.id}`);
+  console.log(`[bridge] Agent connected: ${socket.id} (user=${socket.data.email})`);
 
   // ── List pending calls for newly connected agent ──────────────────────────
   socket.emit('pending_calls', Array.from(pendingCalls.values()).map((c) => ({
@@ -259,6 +302,7 @@ io.on('connection', (socket) => {
   // ── Agent accepts the call ─────────────────────────────────────────────────
   // Payload: { wa_call_id, browser_sdp_offer }
   socket.on('accept_call', async ({ wa_call_id, browser_sdp_offer }) => {
+    if (!allowSocketEvent(socket, 'accept_call')) return;
     const pending = pendingCalls.get(wa_call_id);
     if (!pending) {
       socket.emit('call_error', { wa_call_id, error: 'Call not found or already handled' });
