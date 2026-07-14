@@ -1,60 +1,57 @@
-# Secure internal automation edge functions
+# Rate limiting & abuse protection
 
-## Problem
-19 backend edge functions run with `verify_jwt = false` and have **no auth check** in code, so anyone with the public function URL can invoke them. This lets an attacker rack up AI/WhatsApp/email costs, send real messages to customers, and control live WhatsApp calls — all with no credentials.
+Recommended: **Full scope** (edge functions + bridge). The bridge is the higher-risk surface (open WebSocket, live calls), but the internal functions matter too since a leaked staff JWT would otherwise have unlimited blast radius. Cost is small — one DB call per invocation.
 
-The fix already exists elsewhere in the codebase (`whatsapp-sender`, `analyze-conversation`): a guard that accepts **either** the service-role bearer token (used by cron jobs, DB triggers, and the bridge server) **or** a logged-in staff session with `admin`/`operator` role, and rejects everyone else with 401/403.
+## 1. Postgres rate limiter (shared primitive)
 
-## Approach
-Add the same guard, right after the `OPTIONS`/CORS handling, to every function below. The guard is intentionally uniform so it works for all callers:
-- Cron jobs, DB triggers (`trigger_nina_orchestrator`, `trigger_whatsapp_sender`), and the bridge server already send `Authorization: Bearer <SERVICE_ROLE_KEY>` → pass.
-- The frontend (`IncomingCallModal`, `ActiveCallIndicator`, admin Settings panels) calls via `supabase.functions.invoke`, which forwards the user's session JWT → verified as a staff user with `admin`/`operator` role.
-- Everyone else → `401 Unauthorized` / `403 Forbidden`.
+New table + function via migration:
 
-No database changes, no config changes, no frontend changes are required — all current callers already send a valid credential.
+- `public.rate_limit_hits(key text, window_start timestamptz, count int, primary key(key, window_start))`
+- `public.check_rate_limit(_key text, _max int, _window_seconds int) returns boolean` — SECURITY DEFINER, upserts the current bucket, returns `false` when over limit.
+- GRANT EXECUTE to `service_role` and `authenticated`.
+- Cron/cleanup: delete rows older than 1 hour (add to existing `cleanup-queues` function).
 
-## Guard snippet (inserted near the top of each `serve` handler)
-```ts
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const svcKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-if (token !== svcKey) {
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-  const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
-  const { data: authData, error: authErr } = await authClient.auth.getUser();
-  if (authErr || !authData?.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-  const { data: roleRows } = await authClient.from('user_roles').select('role').eq('user_id', authData.user.id);
-  if (!(roleRows || []).some((r: any) => r.role === 'admin' || r.role === 'operator')) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }),
-      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-}
-```
-Each function is adapted to its existing structure (it already creates a service-role client and imports `createClient`); the guard is placed before any side-effecting work.
+Key format: `"<fn_name>:<subject>"` where subject is user_id if staff JWT, otherwise `ip:<x-forwarded-for>`, otherwise `service_role` (skipped — trusted).
 
-## Functions to secure (all 19)
-**Cron / trigger only** (reached via service role): `nina-orchestrator`, `trigger-nina-orchestrator`, `trigger-whatsapp-sender`, `process-followups`, `process-scheduled-emails`, `cleanup-queues`, `send-daily-callbacks`, `transcribe-call-recording`
+## 2. Apply to internal edge functions
 
-**Admin / test actions** (reached via staff session): `register-whatsapp-number`, `whatsapp-subscribe-webhook`, `whatsapp-webhook-health`, `sync-whatsapp-templates`, `redownload-documents`, `test-elevenlabs-tts`, `test-qualification-email`
+Add a small helper block (same shape as the auth guard already in place) right after the auth guard in each function. Skips the check when caller is service-role.
 
-**Call control** (reached via bridge server service role *and* staff session): `api4com-hangup`, `whatsapp-call-accept`, `whatsapp-call-reject`, `whatsapp-call-terminate`
+Limits (per subject):
+- Heavy AI / send functions (`nina-orchestrator`, `whatsapp-sender`, `send-collection-*`, `analyze-conversation`, `sales-coaching-analysis`, `transcribe-call-recording`, `summarize-transcription`, `rewrite-message`, `generate-*`): **30 / minute**
+- Admin/test/register/sync functions: **10 / minute**
+- Call-control (`whatsapp-call-accept/reject/terminate`, `api4com-*`): **20 / minute**
+- Public-facing with own secrets (`capture-lead`, `receive-ecommerce-webhook`, `jarvis-sync`, `replicate-lead-to-crm`, `whatsapp-webhook`, `whatsapp-call-webhook`): **60 / minute per IP** (defense-in-depth against flooding).
 
-## Explicitly NOT touched
-- `whatsapp-webhook` and `whatsapp-call-webhook` — public webhooks from Meta that must stay open (they have their own verification). Not in scope.
-- `capture-lead`, `receive-ecommerce-webhook`, `jarvis-sync`, `replicate-lead-to-crm` — external-facing endpoints with their own secret/HMAC checks. Not in scope.
+On limit exceeded → `429` with `Retry-After` header.
 
-## Verification
-1. Type-check and deploy all 19 functions.
-2. Confirm an unauthenticated `curl` to one function (e.g. `cleanup-queues`) now returns `401`.
-3. Confirm a service-role-authenticated call still returns `200` (cron/trigger path).
-4. Confirm the in-app incoming-call flow (accept/reject/terminate/hangup) still works from the logged-in UI (staff-session path).
+## 3. Bridge server (`bridge-server/server.js`)
 
-## Note on the second finding
-The security panel also lists `bridge_socketio_noauth` (the bridge Socket.IO server accepts unauthenticated WebSocket connections). That is a separate finding in a different codebase (`bridge-server/`) and is **not** part of this request. I can tackle it in a follow-up if you want.
+Two-part fix — auth first (the actual security hole per the scan), then limits.
+
+**a. Socket.IO authentication** (fixes `bridge_socketio_noauth`):
+- Add `io.use(async (socket, next) => { ... })` middleware.
+- Client passes `auth: { token: <supabase access_token> }` when connecting.
+- Middleware calls Supabase `/auth/v1/user` with the token, then checks `user_roles` for `admin`/`operator`. Reject otherwise.
+- Update `useIncomingWhatsAppCall.ts` (frontend) to pass the current session token in the Socket.IO client config, and reconnect on token refresh.
+
+**b. Rate limiting** (in-memory Map, per socket user_id + IP):
+- Connection attempts: 20 / minute per IP.
+- `accept_call` / `reject_call` / `terminate_call`: 30 / minute per user.
+- Reject the event and emit `rate_limited` if exceeded.
+
+**c. REST endpoints** on the bridge (`/incoming-call`, `/sdp-offer`) already require `X-Bridge-Secret`; add a 120/min per-IP in-memory limit as defense-in-depth.
+
+## 4. Verification
+
+- Type-check all touched edge functions.
+- `curl` an internal function past the limit → confirm `429`.
+- Connect to the bridge with no token → confirm rejected. With a valid staff token → confirm accepted, incoming-call flow still works end-to-end.
+- Mark `bridge_socketio_noauth` finding as fixed after deploy.
+
+## Technical notes
+
+- `check_rate_limit` uses `date_trunc('second', now()) - (extract(epoch from now())::int % window)` to snap to fixed buckets — simple and index-friendly.
+- Service-role callers (cron, DB triggers, bridge → edge function) bypass the limiter; they're already trusted.
+- Bridge in-memory limits reset on redeploy; acceptable for a single-instance Railway deploy. If we ever run multiple instances, move to Redis or the Postgres limiter.
+- No changes to public webhook signature verification (Meta, HMAC secrets) — those stay as-is; rate limiting is added on top.
