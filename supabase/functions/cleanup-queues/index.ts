@@ -60,6 +60,14 @@ Deno.serve(async (req) => {
       console.log('[CleanupQueues] cleanup_processed_message_queue completed successfully');
     }
 
+    // Execute cleanup_rate_limit_hits (removes rate-limit buckets >1h)
+    const { error: cleanupError3 } = await supabase.rpc('cleanup_rate_limit_hits');
+    if (cleanupError3) {
+      console.error('[CleanupQueues] Error in cleanup_rate_limit_hits:', cleanupError3);
+    } else {
+      console.log('[CleanupQueues] cleanup_rate_limit_hits completed successfully');
+    }
+
     // Reset stuck processing items (processing for more than 5 minutes)
     console.log('[CleanupQueues] Checking for stuck processing items...');
     const stuckThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 minutes ago
