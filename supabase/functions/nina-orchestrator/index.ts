@@ -477,6 +477,21 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Rate limit: 120/min per IP (heavy AI function)
+  {
+    const _rlIp = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+    const _rlClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: _rlAllowed } = await _rlClient.rpc('check_rate_limit', {
+      _key: `nina-orchestrator:${_rlIp}`, _max: 120, _window_seconds: 60,
+    });
+    if (_rlAllowed === false) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+      });
+    }
+  }
+
+
   // --- Auth guard: internal service-role (cron/triggers/bridge) OR authenticated staff (admin/operator) ---
   {
     const _supabaseUrl = Deno.env.get('SUPABASE_URL')!;
