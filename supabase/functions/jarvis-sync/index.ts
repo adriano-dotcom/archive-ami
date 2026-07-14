@@ -22,6 +22,22 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // --- Rate limit: 60/min per IP ---
+  {
+    const _rlIp = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+    const _rlClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: _rlAllowed } = await _rlClient.rpc('check_rate_limit', {
+      _key: `jarvis-sync:${_rlIp}`, _max: 60, _window_seconds: 60,
+    });
+    if (_rlAllowed === false) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+      });
+    }
+  }
+
+
   try {
     const secret = Deno.env.get("JARVIS_SYNC_SECRET")?.trim();
     if (!secret) {

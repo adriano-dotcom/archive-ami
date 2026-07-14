@@ -56,12 +56,77 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+// ─── Rate limiting (in-memory, per key + fixed window) ───────────────────────
+// Map key -> { count, windowStart }
+const rateLimitBuckets = new Map();
+
+function checkRateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(key);
+  if (!bucket || now - bucket.windowStart >= windowMs) {
+    rateLimitBuckets.set(key, { count: 1, windowStart: now });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= max;
+}
+
+// Periodic GC of stale buckets
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of rateLimitBuckets) {
+    if (now - b.windowStart > 5 * 60_000) rateLimitBuckets.delete(k);
+  }
+}, 60_000);
+
+function clientIp(req) {
+  const xff = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xff || req.socket?.remoteAddress || 'unknown';
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function verifyStaffToken(token) {
+  if (!token) return null;
+  try {
+    const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+      },
+    });
+    if (!userResp.ok) return null;
+    const user = await userResp.json();
+    if (!user?.id) return null;
+    const roleResp = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_roles?select=role&user_id=eq.${user.id}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        },
+      }
+    );
+    if (!roleResp.ok) return null;
+    const roles = await roleResp.json();
+    const allowed = (roles || []).some((r) => r.role === 'admin' || r.role === 'operator');
+    return allowed ? { id: user.id, email: user.email } : null;
+  } catch (err) {
+    console.error('[bridge] verifyStaffToken error:', err.message);
+    return null;
+  }
+}
 
 function validateBridgeSecret(req, res) {
   const provided = req.headers['x-bridge-secret'];
   if (!BRIDGE_SECRET || provided !== BRIDGE_SECRET) {
     res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+  // Rate limit REST endpoints per-IP (120/min) as defense in depth
+  const ip = clientIp(req);
+  if (!checkRateLimit(`rest:${ip}`, 120, 60_000)) {
+    res.status(429).json({ error: 'Rate limit exceeded' });
     return false;
   }
   return true;
@@ -180,8 +245,51 @@ app.post('/sdp-offer', (req, res) => {
 
 // ─── Socket.IO — Agent Browser ───────────────────────────────────────────────
 
+// Authentication middleware: require a valid Supabase staff (admin/operator) JWT.
+// The browser must pass `auth: { token: <access_token> }` when calling io(url, { auth }).
+io.use(async (socket, next) => {
+  try {
+    const ip =
+      (socket.handshake.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+      socket.handshake.address ||
+      'unknown';
+
+    // Per-IP connection rate limit (20/min)
+    if (!checkRateLimit(`ws-conn:${ip}`, 20, 60_000)) {
+      return next(new Error('Rate limit exceeded'));
+    }
+
+    const token =
+      socket.handshake.auth?.token ||
+      (socket.handshake.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+
+    if (!token) return next(new Error('Unauthorized: missing token'));
+
+    const staff = await verifyStaffToken(token);
+    if (!staff) return next(new Error('Unauthorized: invalid token or insufficient role'));
+
+    socket.data.userId = staff.id;
+    socket.data.email = staff.email;
+    socket.data.ip = ip;
+    next();
+  } catch (err) {
+    console.error('[bridge] socket auth error:', err.message);
+    next(new Error('Unauthorized'));
+  }
+});
+
+// Per-user event rate limit helper — 30 events/min per user
+function allowSocketEvent(socket, eventName) {
+  const key = `ws-evt:${socket.data.userId || socket.data.ip}:${eventName}`;
+  if (!checkRateLimit(key, 30, 60_000)) {
+    socket.emit('rate_limited', { event: eventName });
+    return false;
+  }
+  return true;
+}
+
 io.on('connection', (socket) => {
-  console.log(`[bridge] Agent connected: ${socket.id}`);
+  console.log(`[bridge] Agent connected: ${socket.id} (user=${socket.data.email})`);
 
   // ── List pending calls for newly connected agent ──────────────────────────
   socket.emit('pending_calls', Array.from(pendingCalls.values()).map((c) => ({
@@ -194,6 +302,7 @@ io.on('connection', (socket) => {
   // ── Agent accepts the call ─────────────────────────────────────────────────
   // Payload: { wa_call_id, browser_sdp_offer }
   socket.on('accept_call', async ({ wa_call_id, browser_sdp_offer }) => {
+    if (!allowSocketEvent(socket, 'accept_call')) return;
     const pending = pendingCalls.get(wa_call_id);
     if (!pending) {
       socket.emit('call_error', { wa_call_id, error: 'Call not found or already handled' });
@@ -314,6 +423,7 @@ io.on('connection', (socket) => {
 
   // ── ICE candidate from browser ─────────────────────────────────────────────
   socket.on('ice_candidate', async ({ wa_call_id, candidate }) => {
+    if (!allowSocketEvent(socket, 'ice_candidate')) return;
     const call = activeCalls.get(wa_call_id);
     if (!call) return;
     try {
@@ -325,6 +435,7 @@ io.on('connection', (socket) => {
 
   // ── Agent rejects the call ─────────────────────────────────────────────────
   socket.on('reject_call', async ({ wa_call_id }) => {
+    if (!allowSocketEvent(socket, 'reject_call')) return;
     console.log(`[bridge] Agent ${socket.id} rejecting call ${wa_call_id}`);
     const pending = pendingCalls.get(wa_call_id);
     pendingCalls.delete(wa_call_id);
@@ -343,6 +454,7 @@ io.on('connection', (socket) => {
 
   // ── Agent terminates an active call ───────────────────────────────────────
   socket.on('terminate_call', async ({ wa_call_id }) => {
+    if (!allowSocketEvent(socket, 'terminate_call')) return;
     console.log(`[bridge] Agent ${socket.id} terminating call ${wa_call_id}`);
     await handleCallEnded(wa_call_id, 'user_hangup');
   });
