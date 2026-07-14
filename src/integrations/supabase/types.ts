@@ -2627,6 +2627,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_hits: {
+        Row: {
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       reimbursement_claims: {
         Row: {
           amount_paid: number | null
@@ -3518,6 +3536,10 @@ export type Database = {
     }
     Functions: {
       auth_email: { Args: never; Returns: string }
+      check_rate_limit: {
+        Args: { _key: string; _max: number; _window_seconds: number }
+        Returns: boolean
+      }
       claim_message_processing_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -3595,6 +3617,7 @@ export type Database = {
       }
       cleanup_processed_message_queue: { Args: never; Returns: undefined }
       cleanup_processed_queues: { Args: never; Returns: undefined }
+      cleanup_rate_limit_hits: { Args: never; Returns: undefined }
       delete_vault_secret: { Args: { secret_name: string }; Returns: boolean }
       get_current_team_member_id: { Args: never; Returns: string }
       get_or_create_conversation_state: {
