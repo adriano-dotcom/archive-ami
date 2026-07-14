@@ -291,6 +291,14 @@ async function transcribeAudio(
 serve(async (req) => {
   const startTime = Date.now();
   const url = new URL(req.url);
+
+  // Rate limit: 300/min per IP (Meta legitimately sends bursts)
+  if (!(await _checkPublicRateLimit(req, 'wa-webhook', 300, 60))) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+    });
+  }
+
   
   // Log ALL incoming requests for debugging
   console.log('[Webhook] ========== REQUEST RECEIVED ==========');
