@@ -123,6 +123,12 @@ function validateBridgeSecret(req, res) {
     res.status(401).json({ error: 'Unauthorized' });
     return false;
   }
+  // Rate limit REST endpoints per-IP (120/min) as defense in depth
+  const ip = clientIp(req);
+  if (!checkRateLimit(`rest:${ip}`, 120, 60_000)) {
+    res.status(429).json({ error: 'Rate limit exceeded' });
+    return false;
+  }
   return true;
 }
 
