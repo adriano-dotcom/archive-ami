@@ -7,6 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-hub-signature-256',
 };
 
+async function _checkPublicRateLimit(req: Request, keyPrefix: string, max = 120, windowSeconds = 60) {
+  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+  const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data } = await client.rpc('check_rate_limit', { _key: `${keyPrefix}:${ip}`, _max: max, _window_seconds: windowSeconds });
+  return data !== false;
+}
+
+
 // Verify Meta X-Hub-Signature-256 (HMAC-SHA256 of the raw body using the WhatsApp App Secret)
 async function verifyMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): Promise<boolean> {
   if (!signatureHeader) return false;
