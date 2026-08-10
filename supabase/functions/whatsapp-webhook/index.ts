@@ -243,13 +243,23 @@ async function transcribeAudio(
   supabase: any
 ): Promise<string | null> {
   try {
-    // Get ElevenLabs API key from settings
-    const { data: settings } = await supabase
-      .from('nina_settings')
-      .select('elevenlabs_api_key')
-      .maybeSingle();
+    // Chave da ElevenLabs: env (conector) > vault > nina_settings
+    let apiKey: string | null = Deno.env.get('ELEVENLABS_API_KEY') || null;
 
-    if (!settings?.elevenlabs_api_key) {
+    if (!apiKey) {
+      const { data: settings } = await supabase
+        .from('nina_settings')
+        .select('elevenlabs_api_key, elevenlabs_key_in_vault')
+        .maybeSingle();
+
+      if (settings?.elevenlabs_key_in_vault) {
+        const { data: vaultKey } = await supabase.rpc('get_vault_secret', { secret_name: 'vault_elevenlabs_key' });
+        if (vaultKey) apiKey = vaultKey as string;
+      }
+      if (!apiKey) apiKey = settings?.elevenlabs_api_key || null;
+    }
+
+    if (!apiKey) {
       console.log('[Webhook] ElevenLabs API key not configured, skipping transcription');
       return null;
     }
@@ -261,10 +271,11 @@ async function transcribeAudio(
     const blob = new Blob([audioBuffer], { type: mimeType });
     formData.append('file', blob, `audio.${extension}`);
     formData.append('model_id', 'scribe_v1');
+    formData.append('language_code', 'por');
 
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
-      headers: { 'xi-api-key': settings.elevenlabs_api_key },
+      headers: { 'xi-api-key': apiKey },
       body: formData,
     });
 
