@@ -8,6 +8,8 @@ import {
   Calendar, Building2, Wifi, WifiOff
 } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
+import { useElevenLabsVoices } from '@/hooks/useElevenLabsVoices';
+
 import { Button } from '../Button';
 import { Switch } from '../ui/switch';
 import { Slider } from '../ui/slider';
