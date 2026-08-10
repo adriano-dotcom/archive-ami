@@ -775,47 +775,96 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Voz</label>
-              <select
-                value={settings.elevenlabs_voice_id}
-                onChange={async (e) => {
-                  const newVoiceId = e.target.value;
-                  setSettings(prev => ({ ...prev, elevenlabs_voice_id: newVoiceId }));
-                  
-                  const { error } = await supabase
-                    .from('nina_settings')
-                    .update({ elevenlabs_voice_id: newVoiceId })
-                    .eq('id', settings.id!);
-                  
-                  if (error) {
-                    toast.error('Erro ao salvar voz');
-                  } else {
-                    toast.success('Voz atualizada!');
-                  }
-                }}
-                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              >
-                {VOICE_OPTIONS.map(voice => (
-                  <option key={voice.id} value={voice.id}>{voice.name} - {voice.desc}</option>
+          {/* Ambiente do perfil de voz */}
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm font-medium text-white">Perfil de voz por ambiente</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Testes no CRM usam o perfil de <span className="text-slate-300">Teste</span>; conversas reais no WhatsApp usam <span className="text-slate-300">Produção</span>.
+                </p>
+              </div>
+              <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+                {(['test', 'production'] as const).map((env) => (
+                  <button
+                    key={env}
+                    type="button"
+                    onClick={() => setTtsEnv(env)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      ttsEnv === env ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {env === 'test' ? 'Teste' : 'Produção'}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Modelo</label>
-              <select
-                value={settings.elevenlabs_model || 'eleven_turbo_v2_5'}
-                onChange={(e) => setSettings({ ...settings, elevenlabs_model: e.target.value })}
-                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">
+                  Voz {voicesLive ? <span className="text-emerald-400">(conta ElevenLabs)</span> : <span className="text-slate-600">(lista padrão)</span>}
+                </label>
+                <select
+                  value={ttsProfile.voice_id}
+                  onChange={(e) => setProfile(ttsEnv, { voice_id: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                >
+                  {availableVoices.map(voice => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name}{voice.description ? ` - ${voice.description}` : ''}
+                    </option>
+                  ))}
+                  {!availableVoices.some(v => v.id === ttsProfile.voice_id) && (
+                    <option value={ttsProfile.voice_id}>{ttsProfile.voice_id}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Modelo</label>
+                <select
+                  value={ttsProfile.model}
+                  onChange={(e) => setProfile(ttsEnv, { model: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                >
+                  {availableModels.map(model => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                  {!availableModels.some(m => m.id === ttsProfile.model) && (
+                    <option value={ttsProfile.model}>{ttsProfile.model}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              {ttsEnv === 'test' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyTestToProduction}
+                  disabled={savingTtsProfile}
+                  className="text-slate-400 hover:text-slate-200"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copiar para Produção
+                </Button>
+              )}
+              <Button
+                onClick={handleSaveTtsProfile}
+                disabled={savingTtsProfile}
+                className="bg-violet-600 hover:bg-violet-700"
               >
-                {MODEL_OPTIONS.map(model => (
-                  <option key={model.id} value={model.id}>{model.name}</option>
-                ))}
-              </select>
+                {savingTtsProfile ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" />Salvar perfil ({ttsEnv === 'test' ? 'Teste' : 'Produção'})</>
+                )}
+              </Button>
             </div>
           </div>
+
 
           {/* Audio Response Toggle */}
           <div className="p-4 bg-violet-500/5 border border-violet-500/20 rounded-lg">
