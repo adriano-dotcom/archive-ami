@@ -5467,6 +5467,11 @@ ${contact.notes}
   // ===== ANTI-ECO + VERIFICAÇÃO DE HISTÓRICO =====
   contextInfo += `\n\n## REGRAS CRÍTICAS DE COMUNICAÇÃO:
 
+### REGRA DE ESTILO — SEM EMOJIS (OBRIGATÓRIA):
+- NUNCA use emojis, emoticons, figurinhas ou pictogramas em nenhuma mensagem enviada ao contato.
+- Sem exceções: nem em saudações, nem em despedidas, nem para suavizar o tom.
+- Transmita simpatia apenas com as palavras (padrão de comunicação da empresa).
+
 ### REGRA ANTI-ECO:
 - NUNCA repita ou resuma o que o cliente acabou de dizer
 - Vá DIRETO para a próxima pergunta ou ação
