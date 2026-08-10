@@ -51,7 +51,7 @@ import { SendWhatsAppTemplateModal } from './SendWhatsAppTemplateModal';
 import { AudioPlayer } from './AudioPlayer';
 import { QuickQuestionsDropdown } from './QuickQuestionsDropdown';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
-import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker, QuickRepliesPopover } from './chat';
+import { LeadScoreBadge, WaitingTimeBadge, HandoffSummaryCard, MessageToneAssistant, ConversationSummaryNotes, PDFPreviewModal, VideoThumbnailPreview, ContactProfilePanel, MediaLibraryPicker, QuickRepliesPopover, SignedMedia } from './chat';
 import { PhoneInput } from './ui/phone-input';
 import { EmailComposeModal } from './EmailComposeModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1373,15 +1373,19 @@ const ChatInterface: React.FC = () => {
     if (msg.type === MessageType.IMAGE) {
       return (
         <div className="mb-1 group relative">
-          <img 
-            src={msg.mediaUrl || msg.content} 
-            alt="Anexo" 
-            className="rounded-lg max-w-full h-auto max-h-72 object-cover border border-slate-700/50 shadow-lg"
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://placehold.co/300x200/1e293b/cbd5e1?text=Erro+Imagem';
-            }}
-          />
+          <SignedMedia url={msg.mediaUrl || msg.content}>
+            {(src) => (
+              <img
+                src={src || undefined}
+                alt="Anexo"
+                className="rounded-lg max-w-full h-auto max-h-72 object-cover border border-slate-700/50 shadow-lg"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://placehold.co/300x200/1e293b/cbd5e1?text=Erro+Imagem';
+                }}
+              />
+            )}
+          </SignedMedia>
         </div>
       );
     }
@@ -1392,12 +1396,16 @@ const ChatInterface: React.FC = () => {
     
     if (isAudioMessage) {
       return (
-        <AudioPlayer
-          messageId={msg.id}
-          mediaUrl={msg.mediaUrl}
-          transcription={msg.content}
-          isOutgoing={msg.direction === MessageDirection.OUTGOING}
-        />
+        <SignedMedia url={msg.mediaUrl}>
+          {(src) => (
+            <AudioPlayer
+              messageId={msg.id}
+              mediaUrl={src}
+              transcription={msg.content}
+              isOutgoing={msg.direction === MessageDirection.OUTGOING}
+            />
+          )}
+        </SignedMedia>
       );
     }
 
@@ -1409,32 +1417,37 @@ const ChatInterface: React.FC = () => {
       return (
         <div className="max-w-xs">
           {hasVideoUrl ? (
-            <div className="rounded-lg overflow-hidden bg-slate-800/50 border border-slate-700/50">
-              <video 
-                className="w-full max-h-64 object-contain bg-black"
-                controls
-                preload="metadata"
-                playsInline
-              >
-                <source src={msg.mediaUrl!} type="video/mp4" />
-                Seu navegador não suporta vídeo.
-              </video>
-              {caption && caption !== '[vídeo]' && (
-                <p className="p-2 text-sm text-white">{caption}</p>
+            <SignedMedia url={msg.mediaUrl}>
+              {(src) => (
+                <div className="rounded-lg overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                  <video
+                    className="w-full max-h-64 object-contain bg-black"
+                    controls
+                    preload="metadata"
+                    playsInline
+                    key={src || 'loading'}
+                  >
+                    {src && <source src={src} type="video/mp4" />}
+                    Seu navegador não suporta vídeo.
+                  </video>
+                  {caption && caption !== '[vídeo]' && (
+                    <p className="p-2 text-sm text-white">{caption}</p>
+                  )}
+                  <div className="flex items-center gap-2 p-2 border-t border-slate-700/30">
+                    <a
+                      href={src || undefined}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Baixar vídeo
+                    </a>
+                  </div>
+                </div>
               )}
-              <div className="flex items-center gap-2 p-2 border-t border-slate-700/30">
-                <a 
-                  href={msg.mediaUrl!} 
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  Baixar vídeo
-                </a>
-              </div>
-            </div>
+            </SignedMedia>
           ) : (
             <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
               <div className="bg-purple-500/20 p-2.5 rounded-lg shrink-0">
@@ -1467,26 +1480,30 @@ const ChatInterface: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate" title={filename}>{filename}</p>
             {hasDownloadUrl ? (
-              <div className="flex items-center gap-2 mt-1.5">
-                {isPDF && (
-                  <button
-                    onClick={() => setPdfPreview({ url: msg.mediaUrl!, filename })}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
-                  >
-                    <Eye className="w-3 h-3" />
-                    Visualizar
-                  </button>
+              <SignedMedia url={msg.mediaUrl}>
+                {(src) => (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {isPDF && (
+                      <button
+                        onClick={() => src && setPdfPreview({ url: src, filename })}
+                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Visualizar
+                      </button>
+                    )}
+                    <a
+                      href={src || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Baixar
+                    </a>
+                  </div>
                 )}
-                <a 
-                  href={msg.mediaUrl!} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  Baixar
-                </a>
-              </div>
+              </SignedMedia>
             ) : (
               <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                 <AlertCircle className="w-3 h-3" />

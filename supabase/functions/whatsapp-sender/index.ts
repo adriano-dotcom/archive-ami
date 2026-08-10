@@ -227,6 +227,31 @@ serve(async (req) => {
   }
 });
 
+// Buckets privados do projeto: precisam de URL assinada para a Meta baixar a mídia
+const PRIVATE_BUCKETS = ['whatsapp-media', 'nina-audio'];
+
+async function resolveMediaLink(supabase: any, url: string | null | undefined): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/);
+    if (!m) return url;
+    const bucket = m[1];
+    const path = decodeURIComponent(m[2]);
+    if (!PRIVATE_BUCKETS.includes(bucket)) return url;
+
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      console.error('[Sender] Falha ao assinar mídia:', bucket, path, error);
+      return url;
+    }
+    return data.signedUrl;
+  } catch (e) {
+    console.error('[Sender] resolveMediaLink error:', e);
+    return url;
+  }
+}
+
 async function sendMessage(supabase: any, settings: any, queueItem: any) {
   console.log(`[Sender] Sending message: ${queueItem.id}`);
 
@@ -332,6 +357,9 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
   const safeContent = stripEmojis(queueItem.content);
   const safeCaption = stripEmojisOptional(queueItem.content);
 
+  // Buckets privados: a Meta precisa de um link acessível — gerar URL assinada
+  const mediaLink = await resolveMediaLink(supabase, queueItem.media_url);
+
   switch (queueItem.message_type) {
     case 'text':
       payload.type = 'text';
@@ -341,20 +369,20 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
     case 'image':
       payload.type = 'image';
       payload.image = { 
-        link: queueItem.media_url,
+        link: mediaLink,
         caption: safeCaption
       };
       break;
     
     case 'audio':
       payload.type = 'audio';
-      payload.audio = { link: queueItem.media_url };
+      payload.audio = { link: mediaLink };
       break;
     
     case 'document':
       payload.type = 'document';
       payload.document = { 
-        link: queueItem.media_url,
+        link: mediaLink,
         filename: queueItem.content || 'document'
       };
       break;
@@ -362,10 +390,11 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
     case 'video':
       payload.type = 'video';
       payload.video = {
-        link: queueItem.media_url,
+        link: mediaLink,
         caption: safeCaption
       };
       break;
+
     
     default:
       payload.type = 'text';
