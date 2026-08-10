@@ -332,6 +332,9 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
   const safeContent = stripEmojis(queueItem.content);
   const safeCaption = stripEmojisOptional(queueItem.content);
 
+  // Buckets privados: a Meta precisa de um link acessível — gerar URL assinada
+  const mediaLink = await resolveMediaLink(supabase, queueItem.media_url);
+
   switch (queueItem.message_type) {
     case 'text':
       payload.type = 'text';
@@ -341,20 +344,20 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
     case 'image':
       payload.type = 'image';
       payload.image = { 
-        link: queueItem.media_url,
+        link: mediaLink,
         caption: safeCaption
       };
       break;
     
     case 'audio':
       payload.type = 'audio';
-      payload.audio = { link: queueItem.media_url };
+      payload.audio = { link: mediaLink };
       break;
     
     case 'document':
       payload.type = 'document';
       payload.document = { 
-        link: queueItem.media_url,
+        link: mediaLink,
         filename: queueItem.content || 'document'
       };
       break;
@@ -362,10 +365,11 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
     case 'video':
       payload.type = 'video';
       payload.video = {
-        link: queueItem.media_url,
+        link: mediaLink,
         caption: safeCaption
       };
       break;
+
     
     default:
       payload.type = 'text';
