@@ -613,7 +613,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
   };
 
   const whatsappConfigured = settings.whatsapp_access_token && settings.whatsapp_phone_number_id;
-  const elevenlabsConfigured = settings.elevenlabs_api_key;
+  const elevenlabsConfigured = settings.elevenlabs_api_key || voicesLive;
   const api4comConfigured = settings.api4com_api_token && settings.api4com_enabled;
   
   const api4comWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api4com-webhook`;
