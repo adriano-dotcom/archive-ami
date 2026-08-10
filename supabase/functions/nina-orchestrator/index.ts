@@ -3610,7 +3610,7 @@ Agradeço pela compreensão! 🙏`;
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
   if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
     console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://transporte.jacometoseguros.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
@@ -3794,7 +3794,7 @@ Agradeço pela compreensão! 🙏`;
       plansCatalogContent += `
 🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
-• Preço: R$ 644,28/mês (prêmio mensal recorrente, IOF e encargos inclusos).
+• Preço: R$ 911,66/ano (prêmio mensal recorrente, IOF e encargos inclusos).
 • O pagamento mensal mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
 • Vigência: 1 ano a partir da emissão.
 • Emissão da apólice: em até 5 dias úteis após o aceite da proposta.
@@ -3813,7 +3813,7 @@ Agradeço pela compreensão! 🙏`;
       plansCatalogContent += `
 ⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
 - Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
-- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
+- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
 
 🎯 FLUXO DE QUALIFICAÇÃO (SIGA ESTA ORDEM — UMA PERGUNTA POR VEZ):
@@ -3828,7 +3828,7 @@ Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a a
 2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
 3. Peça o E-MAIL para envio da cotação.
 4. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
-5. Com tudo confirmado (CNPJ + e-mail + celular), envie o link: https://transporte.jacometoseguros.com.br para o lead preencher a proposta.
+5. Com tudo confirmado (CNPJ + e-mail + celular), envie o link: https://rctr-c.rc-dc.rc-v.jacometo.com.br para o lead preencher a proposta.
 
 ➡️ SE CONTRATADO (responsável pela carga): este pacote de compliance NÃO serve — ele precisa do produto COM cobertura efetiva/averbação da carga. NÃO envie o link do site. Explique isso em 1 frase e COLETE os dados para o corretor humano montar a proposta certa, uma pergunta por vez:
 1. CNPJ da transportadora. (O sistema consulta Receita + ANTT automaticamente — não peça de novo.)
@@ -5011,7 +5011,7 @@ function getDefaultSystemPrompt(): string {
 1. ATENDIMENTO: Responder de forma profissional, direta e sem burocracia (estilo WhatsApp)
 2. TIRAR DÚVIDAS: Esclarecer coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores
 3. QUALIFICAÇÃO: Entender o transportador (CNPJ, RNTRC, porte, veículo, tipo de carga, rota)
-4. DIRECIONAR PARA CONTRATAÇÃO: A contratação é feita SOMENTE pelo site oficial. Após esclarecer as dúvidas, envie o link para o transportador preencher a proposta: https://transporte.jacometoseguros.com.br
+4. DIRECIONAR PARA CONTRATAÇÃO: A contratação é feita SOMENTE pelo site oficial. Após esclarecer as dúvidas, envie o link para o transportador preencher a proposta: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 5. REGULARIZAÇÃO: Conduzir o transportador a ficar regular na ANTT (indicar a apólice no RNTRC)
 
 REGRAS:
@@ -5019,13 +5019,13 @@ REGRAS:
 - Seja conciso (mensagens de até 3 parágrafos)
 - Faça perguntas para entender melhor o transportador
 - Nunca invente informações sobre preços, coberturas ou percentuais
-- Você NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat — a contratação é exclusivamente pelo site https://transporte.jacometoseguros.com.br
+- Você NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat — a contratação é exclusivamente pelo site https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
 - Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices emitidas por seguradora parceira registrada na SUSEP)
 - Atende MEI, ME e EPP registrados como ETC na ANTT (inclui quem atua como subcontratado)
-- Contratação exclusiva pelo site: https://transporte.jacometoseguros.com.br
+- Contratação exclusiva pelo site: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Para casos urgentes, um humano pode assumir a conversa`;
 }
 
@@ -5102,7 +5102,7 @@ function buildEnhancedPrompt(
 
 ### REGRAS GERAIS:
 - A Jacometo é a corretora especialista que regulariza pequenos transportadores (MEI, ME e EPP) na ANTT.
-- O produto oficial é o pacote com as 3 apólices obrigatórias — RCTR-C, RC-DC e RC-V — na modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO (agregado), por R$ 644,28/mês.
+- O produto oficial é o pacote com as 3 apólices obrigatórias — RCTR-C, RC-DC e RC-V — na modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO (agregado), por R$ 911,66/ano.
 - Esta modalidade serve para comprovar o seguro obrigatório perante a ANTT e NÃO indeniza sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal.
 - Os detalhes completos estão na base de conhecimento e no catálogo de seguros (injetados abaixo). É a FONTE ÚNICA DE VERDADE.
 - Sempre consulte essas fontes antes de responder sobre coberturas, preço e prazos.
@@ -5111,12 +5111,12 @@ function buildEnhancedPrompt(
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
 - Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP) e se atua como subcontratado (agregado).
-- Explique de forma simples e direta o pacote das 3 apólices e o preço: R$ 644,28/mês (mensal recorrente, IOF incluso), sem averbação por embarque.
+- Explique de forma simples e direta o pacote das 3 apólices e o preço: R$ 911,66/ano (mensal recorrente, IOF incluso), sem averbação por embarque.
 - Deixe SEMPRE explícito que a modalidade é de comprovação/compliance e NÃO indeniza sinistro.
 - Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC).
 - Passo a passo: preencher online com CNPJ → aceitar a proposta → emissão em até 5 dias úteis → indicar o número da apólice no RNTRC.
 - Se o transportador atua como CONTRATADO (responsável pela carga) e precisa de cobertura efetiva, oriente a falar com a Jacometo para migrar para o produto com cobertura da carga.
-- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá).
+- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br (a contratação é feita exclusivamente por lá).
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da seguradora parceira (SUSEP).
  - Se o contato NÃO for transportador de carga OU buscar outro tipo de seguro, NUNCA dispense e NUNCA mande procurar outra corretora. Siga o protocolo "OUTROS SEGUROS" abaixo: a Jacometo trabalha com TODOS os tipos de seguro.`;
 
@@ -5445,7 +5445,7 @@ ${contact.notes}
 - "RCTR-C" (danos à carga por acidente com o veículo)
 - "RC-DC" (roubo, furto e desaparecimento da carga)
 - "RC-V" (danos a terceiros causados pelo veículo)
-- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 644,28/mês, modalidade de comprovação do subcontratado, sem indenização)
+- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 911,66/ano, modalidade de comprovação do subcontratado, sem indenização)
 ⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
 
 
@@ -5709,7 +5709,7 @@ function enforceOrbe360Link(content: string): string {
   return content;
 }
 
-const CONTRACT_SITE_URL = 'https://transporte.jacometoseguros.com.br';
+const CONTRACT_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
 
 /**
  * Garante que, quando o lead demonstra intenção de contratar (pedir link, "como faço",
