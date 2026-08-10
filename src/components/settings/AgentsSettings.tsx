@@ -546,9 +546,12 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
 
   const getVoiceName = (voiceId: string | null) => {
     if (!voiceId) return 'Voz do Sistema';
+    const dynamic = dynamicVoices.find(v => v.id === voiceId);
+    if (dynamic) return dynamic.description ? `${dynamic.name} (${dynamic.description})` : dynamic.name;
     const voice = VOICES.find(v => v.id === voiceId);
     return voice ? `${voice.name} (${voice.gender})` : voiceId;
   };
+
 
   const getDistributionBadge = (agent: Agent) => {
     if (agent.owner_distribution_type === 'round_robin' && agent.owner_rotation_ids?.length > 0) {
