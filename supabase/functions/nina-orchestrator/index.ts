@@ -1519,14 +1519,22 @@ async function generateAudioElevenLabs(supabase: any, settings: any, text: strin
 
 
   try {
-    // Priority: agent config > global config > fallback defaults
-    const voiceId = agent?.elevenlabs_voice_id || settings.elevenlabs_voice_id || '9BWtsMINqrJLrRacOk9x';
-    const model = agent?.elevenlabs_model || settings.elevenlabs_model || 'eleven_turbo_v2_5';
-    const stability = agent?.elevenlabs_stability ?? settings.elevenlabs_stability ?? 0.75;
-    const similarityBoost = agent?.elevenlabs_similarity_boost ?? settings.elevenlabs_similarity_boost ?? 0.80;
-    const style = agent?.elevenlabs_style ?? settings.elevenlabs_style ?? 0.30;
-    const speed = agent?.elevenlabs_speed ?? settings.elevenlabs_speed ?? 1.0;
-    const speakerBoost = agent?.elevenlabs_speaker_boost ?? settings.elevenlabs_speaker_boost ?? true;
+    // Perfil de voz do ambiente de produção (conversas reais)
+    const { data: ttsProfile } = await supabase
+      .from('tts_profiles')
+      .select('*')
+      .eq('environment', 'production')
+      .maybeSingle();
+
+    // Priority: agent config > perfil do ambiente > global config > fallback defaults
+    const voiceId = agent?.elevenlabs_voice_id || ttsProfile?.voice_id || settings.elevenlabs_voice_id || '9BWtsMINqrJLrRacOk9x';
+    const model = agent?.elevenlabs_model || ttsProfile?.model || settings.elevenlabs_model || 'eleven_turbo_v2_5';
+    const stability = agent?.elevenlabs_stability ?? ttsProfile?.stability ?? settings.elevenlabs_stability ?? 0.75;
+    const similarityBoost = agent?.elevenlabs_similarity_boost ?? ttsProfile?.similarity_boost ?? settings.elevenlabs_similarity_boost ?? 0.80;
+    const style = agent?.elevenlabs_style ?? ttsProfile?.style ?? settings.elevenlabs_style ?? 0.30;
+    const speed = agent?.elevenlabs_speed ?? ttsProfile?.speed ?? settings.elevenlabs_speed ?? 1.0;
+    const speakerBoost = agent?.elevenlabs_speaker_boost ?? ttsProfile?.speaker_boost ?? settings.elevenlabs_speaker_boost ?? true;
+
 
     console.log(`[Nina] Generating audio (MP3) - voice: ${voiceId}, model: ${model}, agent: ${agent?.name || 'global'}`);
 
