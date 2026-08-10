@@ -1373,15 +1373,19 @@ const ChatInterface: React.FC = () => {
     if (msg.type === MessageType.IMAGE) {
       return (
         <div className="mb-1 group relative">
-          <img 
-            src={msg.mediaUrl || msg.content} 
-            alt="Anexo" 
-            className="rounded-lg max-w-full h-auto max-h-72 object-cover border border-slate-700/50 shadow-lg"
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://placehold.co/300x200/1e293b/cbd5e1?text=Erro+Imagem';
-            }}
-          />
+          <SignedMedia url={msg.mediaUrl || msg.content}>
+            {(src) => (
+              <img
+                src={src || undefined}
+                alt="Anexo"
+                className="rounded-lg max-w-full h-auto max-h-72 object-cover border border-slate-700/50 shadow-lg"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://placehold.co/300x200/1e293b/cbd5e1?text=Erro+Imagem';
+                }}
+              />
+            )}
+          </SignedMedia>
         </div>
       );
     }
@@ -1392,12 +1396,16 @@ const ChatInterface: React.FC = () => {
     
     if (isAudioMessage) {
       return (
-        <AudioPlayer
-          messageId={msg.id}
-          mediaUrl={msg.mediaUrl}
-          transcription={msg.content}
-          isOutgoing={msg.direction === MessageDirection.OUTGOING}
-        />
+        <SignedMedia url={msg.mediaUrl}>
+          {(src) => (
+            <AudioPlayer
+              messageId={msg.id}
+              mediaUrl={src}
+              transcription={msg.content}
+              isOutgoing={msg.direction === MessageDirection.OUTGOING}
+            />
+          )}
+        </SignedMedia>
       );
     }
 
