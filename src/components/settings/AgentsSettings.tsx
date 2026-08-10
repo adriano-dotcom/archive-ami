@@ -131,6 +131,8 @@ const MODELS = [
 
 const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
   const { refetch: refetchCompany } = useCompanySettings();
+  const { voices: dynamicVoices, models: dynamicModels } = useElevenLabsVoices();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
