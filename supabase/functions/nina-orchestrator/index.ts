@@ -3844,18 +3844,28 @@ Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a a
 Modalidade inédita no mercado, criada para o transportador que atua como SUBCONTRATADO (agregado) e precisa apenas cumprir a exigência legal de possuir seguro de transporte para operar com o RNTRC (ANTT).
 
 Como funciona na prática:
-- Como subcontratado, o transportador NÃO precisa averbar os embarques. A averbação e a cobertura da carga são responsabilidade do CONTRATANTE PRINCIPAL (transportador contratado) da operação.
-- Esta apólice serve para COMPROVAR que o transportador possui o seguro obrigatório, funcionando como DOCUMENTO DE COMPLIANCE perante a ANTT — e NÃO como seguro ativo sobre a carga.
-- Sem burocracia de averbação a cada viagem: mantém a regularidade legal de forma simples e direta.
+- Como subcontratado, o transportador NÃO precisa averbar os embarques. A carga é averbada na apólice da TRANSPORTADORA CONTRATANTE, que responde pela cobertura do embarque.
+- Esta apólice COMPROVA que o transportador possui o seguro obrigatório exigido para operar com o RNTRC (ANTT), sem burocracia de averbação a cada viagem.
+- A fiscalização é ELETRÔNICA: as seguradoras informam as apólices emitidas e a ANTT cruza esses dados com o RNTRC. Sem apólice vinculada, o registro fica irregular/suspenso.
+- Passo a passo: preencher a proposta online com o CNPJ → aceitar a proposta e pagar → emissão em até 2 horas → indicar o número da apólice no RNTRC.
 
 ⚠️ ATENÇÃO — INFORMAÇÃO ESSENCIAL (NUNCA OMITIR):
-- Como os embarques NÃO são averbados, esta apólice NÃO possui cobertura efetiva nos ramos RCTR-C, RC-DC e RC-V.
-- Em caso de sinistro, NÃO haverá indenização nesta modalidade. Ela existe EXCLUSIVAMENTE para atender à obrigatoriedade legal de comprovação de seguro.
-- Sempre que explicar a modalidade subcontratado, deixe esse ponto EXPLÍCITO. Nunca dê a entender que há cobertura efetiva sobre a carga.
+- Esta apólice cobre a operação como SUBCONTRATADO. Embarques em que o transportador atua como CONTRATADO DIRETO (fecha frete direto com o dono da carga) NÃO estão cobertos por ela.
+- Sempre que explicar a modalidade subcontratado, deixe esse limite EXPLÍCITO.
+
+⛔ QUEM NÃO É ELEGÍVEL:
+- Quem fecha frete direto com o dono da carga ou precisa averbar cada embarque.
+- Pessoa física / autônomo (TAC) — o produto é EXCLUSIVO para PJ (MEI, ME ou EPP) com RNTRC ativo como ETC.
+
+📌 REGRAS OPERACIONAIS:
+- Apenas UMA apólice ativa por registro RNTRC. Quem já tem seguro vigente deve falar com a Central antes, para fazer a troca na virada.
+- RNTRC vencido ou suspenso: a proposta pode ser registrada, mas a emissão depende de regularizar o registro na ANTT.
+- Central de Atendimento Jacometo: (43) 3321-5007 · WhatsApp (43) 99156-2099.
 
 MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
-- Se o transportador for atuar como CONTRATADO (assumir a carga) e precisar de cobertura REAL e EFETIVA, é OBRIGATÓRIO averbar os embarques.
-- Nesse caso, oriente-o a entrar em contato com a Jacometo Corretora e solicitar a MIGRAÇÃO para o produto COM averbação — somente assim as viagens ficam efetivamente protegidas.
+- Se o transportador passar a atuar como CONTRATADO direto, precisa avisar a Central ANTES do embarque para migrar ao seguro convencional (com averbação, faturamento mensal e gerenciamento de risco).
+- Somente com o produto convencional as viagens como contratado ficam efetivamente protegidas.
+
 `;
 
       const formatLimitKey = (key: string) =>
