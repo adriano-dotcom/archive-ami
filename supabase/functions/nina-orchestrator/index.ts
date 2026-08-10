@@ -4378,26 +4378,29 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
     // Logic: respond with audio IF:
     // 1. Global audio_response_enabled is ON, OR
     // 2. Incoming was audio AND agent allows audio response
-    // AND always: ElevenLabs is configured
+    // AND always: ElevenLabs configurado (conector/env, Vault ou tabela)
+    const elevenLabsKey = await getElevenLabsKey(supabase, settings);
+    const sanitizedText = sanitizeTextForAudio(aiContent);
+    const tooLongForTTS = sanitizedText.length > TTS_MAX_CHARS;
+
     const shouldSendAudio = (
       settings?.audio_response_enabled || 
       (incomingWasAudio && agentAudioEnabled)
-    ) && settings?.elevenlabs_api_key;
+    ) && !!elevenLabsKey && !tooLongForTTS;
 
     console.log(`[Nina] 🎵 → Condition 1 (Global enabled): ${settings?.audio_response_enabled}`);
     console.log(`[Nina] 🎵 → Condition 2 (Incoming audio + Agent enabled): ${incomingWasAudio && agentAudioEnabled}`);
-    console.log(`[Nina] 🎵 → Has ElevenLabs key: ${!!settings?.elevenlabs_api_key}`);
+    console.log(`[Nina] 🎵 → Has ElevenLabs key (env/vault/table): ${!!elevenLabsKey}`);
+    console.log(`[Nina] 🎵 → Texto longo demais para TTS (${sanitizedText.length}/${TTS_MAX_CHARS}): ${tooLongForTTS}`);
     console.log(`[Nina] 🎵 → FINAL DECISION - Should send audio: ${shouldSendAudio}`);
     console.log('[Nina] 🎵 ========== FIM AUDIO DECISION ==========');
 
     if (shouldSendAudio) {
       console.log('[Nina] 🎤 Attempting audio generation...');
-      
-      // Sanitize text for natural TTS pronunciation (simplify URLs)
-      const sanitizedText = sanitizeTextForAudio(aiContent);
       console.log(`[Nina] 🎤 Text sanitized for TTS (${sanitizedText.length} chars)`);
       
       const audioResult = await generateAudioElevenLabs(supabase, settings, sanitizedText, agent);
+
       
       if (audioResult) {
         console.log(`[Nina] ✅ Audio generated successfully: ${audioResult.buffer.byteLength} bytes, format: ${audioResult.format}`);
