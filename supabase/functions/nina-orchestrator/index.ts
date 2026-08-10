@@ -3572,7 +3572,7 @@ Agradeço pela compreensão! 🙏`;
   if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
     if (isContratadoDataComplete(contactForCheck)) {
       console.log('[Nina] ✅ Contratado com dados completos — encaminhando para corretor humano.');
-      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o produto COM cobertura efetiva/averbação — este pacote de compliance não indeniza sinistro. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
+      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o seguro convencional COM averbação dos embarques — o pacote de compliance do subcontratado não cobre frete fechado direto com o dono da carga. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
       const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
       const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
       await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
@@ -3610,7 +3610,7 @@ Agradeço pela compreensão! 🙏`;
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
   if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
     console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://transporte.jacometoseguros.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
@@ -3790,17 +3790,18 @@ Agradeço pela compreensão! 🙏`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento mensal recorrente. NÃO há averbação por embarque.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
 🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
-• Preço: R$ 644,28/mês (prêmio mensal recorrente, IOF e encargos inclusos).
-• O pagamento mensal mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• Preço: R$ 911,66/ano (prêmio básico anual, pagamento à vista via Pix).
+• O pagamento anual mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
 • Vigência: 1 ano a partir da emissão.
-• Emissão da apólice: em até 5 dias úteis após o aceite da proposta.
-• NÃO existe averbação por embarque nesta modalidade — é um valor mensal único.
+• Emissão da apólice: em até 2 HORAS após o aceite da proposta e a confirmação do pagamento.
+• NÃO existe averbação por embarque nesta modalidade — é um valor anual único.
 
-⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório (transportador SUBCONTRATADO). Estas apólices NÃO indenizam sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal. Nunca prometa cobertura efetiva ou indenização nesta modalidade.
+⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO. A carga transportada é averbada na apólice da TRANSPORTADORA CONTRATANTE, que é quem responde pela cobertura do embarque. Deixe SEMPRE explícito que embarques feitos como CONTRATADO DIRETO (frete fechado direto com o dono da carga) NÃO estão cobertos por esta apólice. Nunca prometa cobertura própria da carga nesta modalidade.
+
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
@@ -3813,7 +3814,7 @@ Agradeço pela compreensão! 🙏`;
       plansCatalogContent += `
 ⛔ REGRA DE CONTRATAÇÃO — CANAL ÚNICO
 - Seu papel é TIRAR DÚVIDAS do transportador (coberturas, preços, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores).
-- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://transporte.jacometoseguros.com.br
+- A contratação é feita EXCLUSIVAMENTE pelo site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Você (Iris) NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat.
 
 🎯 FLUXO DE QUALIFICAÇÃO (SIGA ESTA ORDEM — UMA PERGUNTA POR VEZ):
@@ -3823,12 +3824,12 @@ Logo na abertura da conversa, faça APENAS a pergunta de triagem, sem apresentar
 "Você atua como CONTRATADO (responsável pela carga, emite o próprio CT-e como principal) ou como SUBCONTRATADO/agregado de outra transportadora?"
 Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a apólice antes dessa resposta.
 
-➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação, sem cobertura RCTR-C/RC-DC/RC-V, sem indenização) e conduza a qualificação:
+➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação por viagem, carga averbada na apólice do contratante, e embarques como contratado direto NÃO cobertos) e conduza a qualificação:
 1. CNPJ da transportadora. (Ao receber, o sistema consulta Receita + ANTT automaticamente e já mostra a confirmação — não peça de novo.)
 2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
 3. Peça o E-MAIL para envio da cotação.
 4. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
-5. Com tudo confirmado (CNPJ + e-mail + celular), envie o link: https://transporte.jacometoseguros.com.br para o lead preencher a proposta.
+5. Com tudo confirmado (CNPJ + e-mail + celular), envie o link: https://rctr-c.rc-dc.rc-v.jacometo.com.br para o lead preencher a proposta.
 
 ➡️ SE CONTRATADO (responsável pela carga): este pacote de compliance NÃO serve — ele precisa do produto COM cobertura efetiva/averbação da carga. NÃO envie o link do site. Explique isso em 1 frase e COLETE os dados para o corretor humano montar a proposta certa, uma pergunta por vez:
 1. CNPJ da transportadora. (O sistema consulta Receita + ANTT automaticamente — não peça de novo.)
@@ -3843,18 +3844,28 @@ Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a a
 Modalidade inédita no mercado, criada para o transportador que atua como SUBCONTRATADO (agregado) e precisa apenas cumprir a exigência legal de possuir seguro de transporte para operar com o RNTRC (ANTT).
 
 Como funciona na prática:
-- Como subcontratado, o transportador NÃO precisa averbar os embarques. A averbação e a cobertura da carga são responsabilidade do CONTRATANTE PRINCIPAL (transportador contratado) da operação.
-- Esta apólice serve para COMPROVAR que o transportador possui o seguro obrigatório, funcionando como DOCUMENTO DE COMPLIANCE perante a ANTT — e NÃO como seguro ativo sobre a carga.
-- Sem burocracia de averbação a cada viagem: mantém a regularidade legal de forma simples e direta.
+- Como subcontratado, o transportador NÃO precisa averbar os embarques. A carga é averbada na apólice da TRANSPORTADORA CONTRATANTE, que responde pela cobertura do embarque.
+- Esta apólice COMPROVA que o transportador possui o seguro obrigatório exigido para operar com o RNTRC (ANTT), sem burocracia de averbação a cada viagem.
+- A fiscalização é ELETRÔNICA: as seguradoras informam as apólices emitidas e a ANTT cruza esses dados com o RNTRC. Sem apólice vinculada, o registro fica irregular/suspenso.
+- Passo a passo: preencher a proposta online com o CNPJ → aceitar a proposta e pagar → emissão em até 2 horas → indicar o número da apólice no RNTRC.
 
 ⚠️ ATENÇÃO — INFORMAÇÃO ESSENCIAL (NUNCA OMITIR):
-- Como os embarques NÃO são averbados, esta apólice NÃO possui cobertura efetiva nos ramos RCTR-C, RC-DC e RC-V.
-- Em caso de sinistro, NÃO haverá indenização nesta modalidade. Ela existe EXCLUSIVAMENTE para atender à obrigatoriedade legal de comprovação de seguro.
-- Sempre que explicar a modalidade subcontratado, deixe esse ponto EXPLÍCITO. Nunca dê a entender que há cobertura efetiva sobre a carga.
+- Esta apólice cobre a operação como SUBCONTRATADO. Embarques em que o transportador atua como CONTRATADO DIRETO (fecha frete direto com o dono da carga) NÃO estão cobertos por ela.
+- Sempre que explicar a modalidade subcontratado, deixe esse limite EXPLÍCITO.
+
+⛔ QUEM NÃO É ELEGÍVEL:
+- Quem fecha frete direto com o dono da carga ou precisa averbar cada embarque.
+- Pessoa física / autônomo (TAC) — o produto é EXCLUSIVO para PJ (MEI, ME ou EPP) com RNTRC ativo como ETC.
+
+📌 REGRAS OPERACIONAIS:
+- Apenas UMA apólice ativa por registro RNTRC. Quem já tem seguro vigente deve falar com a Central antes, para fazer a troca na virada.
+- RNTRC vencido ou suspenso: a proposta pode ser registrada, mas a emissão depende de regularizar o registro na ANTT.
+- Central de Atendimento Jacometo: (43) 3321-5007 · WhatsApp (43) 99156-2099.
 
 MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
-- Se o transportador for atuar como CONTRATADO (assumir a carga) e precisar de cobertura REAL e EFETIVA, é OBRIGATÓRIO averbar os embarques.
-- Nesse caso, oriente-o a entrar em contato com a Jacometo Corretora e solicitar a MIGRAÇÃO para o produto COM averbação — somente assim as viagens ficam efetivamente protegidas.
+- Se o transportador passar a atuar como CONTRATADO direto, precisa avisar a Central ANTES do embarque para migrar ao seguro convencional (com averbação, faturamento mensal e gerenciamento de risco).
+- Somente com o produto convencional as viagens como contratado ficam efetivamente protegidas.
+
 `;
 
       const formatLimitKey = (key: string) =>
@@ -3862,7 +3873,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coverages = Array.isArray(plan.coverages) ? plan.coverages.join('; ') : 'Consulte detalhes';
-        plansCatalogContent += `\n### ${plan.plan_name} — ${price}/mês`;
+        plansCatalogContent += `\n### ${plan.plan_name} — ${price}/ano`;
         plansCatalogContent += `\n- Coberturas: ${coverages}`;
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
           plansCatalogContent += `\n- Regras e valores:`;
@@ -5011,7 +5022,7 @@ function getDefaultSystemPrompt(): string {
 1. ATENDIMENTO: Responder de forma profissional, direta e sem burocracia (estilo WhatsApp)
 2. TIRAR DÚVIDAS: Esclarecer coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores
 3. QUALIFICAÇÃO: Entender o transportador (CNPJ, RNTRC, porte, veículo, tipo de carga, rota)
-4. DIRECIONAR PARA CONTRATAÇÃO: A contratação é feita SOMENTE pelo site oficial. Após esclarecer as dúvidas, envie o link para o transportador preencher a proposta: https://transporte.jacometoseguros.com.br
+4. DIRECIONAR PARA CONTRATAÇÃO: A contratação é feita SOMENTE pelo site oficial. Após esclarecer as dúvidas, envie o link para o transportador preencher a proposta: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 5. REGULARIZAÇÃO: Conduzir o transportador a ficar regular na ANTT (indicar a apólice no RNTRC)
 
 REGRAS:
@@ -5019,13 +5030,13 @@ REGRAS:
 - Seja conciso (mensagens de até 3 parágrafos)
 - Faça perguntas para entender melhor o transportador
 - Nunca invente informações sobre preços, coberturas ou percentuais
-- Você NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat — a contratação é exclusivamente pelo site https://transporte.jacometoseguros.com.br
+- Você NÃO fecha contrato, NÃO gera boleto e NÃO coleta pagamento pelo chat — a contratação é exclusivamente pelo site https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Se não souber algo, ofereça transferir para um atendente humano
 
 INFORMAÇÕES DA EMPRESA:
 - Jacometo Corretora de Seguros — seguros obrigatórios do transportador (apólices emitidas por seguradora parceira registrada na SUSEP)
 - Atende MEI, ME e EPP registrados como ETC na ANTT (inclui quem atua como subcontratado)
-- Contratação exclusiva pelo site: https://transporte.jacometoseguros.com.br
+- Contratação exclusiva pelo site: https://rctr-c.rc-dc.rc-v.jacometo.com.br
 - Para casos urgentes, um humano pode assumir a conversa`;
 }
 
@@ -5102,8 +5113,9 @@ function buildEnhancedPrompt(
 
 ### REGRAS GERAIS:
 - A Jacometo é a corretora especialista que regulariza pequenos transportadores (MEI, ME e EPP) na ANTT.
-- O produto oficial é o pacote com as 3 apólices obrigatórias — RCTR-C, RC-DC e RC-V — na modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO (agregado), por R$ 644,28/mês.
-- Esta modalidade serve para comprovar o seguro obrigatório perante a ANTT e NÃO indeniza sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal.
+- O produto oficial é o pacote com as 3 apólices obrigatórias — RCTR-C, RC-DC e RC-V — na modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO (agregado), por R$ 911,66/ano (prêmio básico anual, pago via Pix).
+- Esta modalidade comprova o seguro obrigatório perante a ANTT. A carga é averbada na apólice da TRANSPORTADORA CONTRATANTE, que responde pela cobertura do embarque. Embarques como CONTRATADO DIRETO não estão cobertos por esta apólice.
+- Produto EXCLUSIVO para PJ (MEI, ME ou EPP) com RNTRC ativo como ETC. Pessoa física / autônomo (TAC) não é elegível.
 - Os detalhes completos estão na base de conhecimento e no catálogo de seguros (injetados abaixo). É a FONTE ÚNICA DE VERDADE.
 - Sempre consulte essas fontes antes de responder sobre coberturas, preço e prazos.
 - NUNCA invente coberturas, percentuais, descontos ou produtos que não estejam documentados. NÃO existe averbação por embarque nesta modalidade.
@@ -5111,12 +5123,14 @@ function buildEnhancedPrompt(
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
 - Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP) e se atua como subcontratado (agregado).
-- Explique de forma simples e direta o pacote das 3 apólices e o preço: R$ 644,28/mês (mensal recorrente, IOF incluso), sem averbação por embarque.
-- Deixe SEMPRE explícito que a modalidade é de comprovação/compliance e NÃO indeniza sinistro.
-- Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC).
-- Passo a passo: preencher online com CNPJ → aceitar a proposta → emissão em até 5 dias úteis → indicar o número da apólice no RNTRC.
-- Se o transportador atua como CONTRATADO (responsável pela carga) e precisa de cobertura efetiva, oriente a falar com a Jacometo para migrar para o produto com cobertura da carga.
-- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://transporte.jacometoseguros.com.br (a contratação é feita exclusivamente por lá).
+- Explique de forma simples e direta o pacote das 3 apólices e o preço: R$ 911,66/ano (pagamento anual à vista via Pix), sem averbação por embarque.
+- Deixe SEMPRE explícito o limite: a apólice cobre a atuação como subcontratado; frete fechado direto com o dono da carga exige o seguro convencional com averbação.
+- Reforce o benefício: ficar regular na ANTT (indicar o número da apólice no RNTRC). A fiscalização é eletrônica — a ANTT cruza as apólices informadas pelas seguradoras com o RNTRC.
+- Passo a passo: preencher online com CNPJ → aceitar a proposta e pagar → emissão em até 2 horas → indicar o número da apólice no RNTRC.
+- Apenas uma apólice ativa por registro RNTRC; quem já tem seguro vigente fala com a Central antes para trocar na virada. RNTRC vencido/suspenso: a proposta é registrada, mas a emissão depende de regularizar o registro.
+- Se o transportador atua como CONTRATADO (responsável pela carga), oriente a falar com a Jacometo ANTES do embarque para migrar ao seguro convencional (averbação, faturamento mensal, gerenciamento de risco).
+- Central de Atendimento Jacometo: (43) 3321-5007 · WhatsApp (43) 99156-2099.
+- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br (a contratação é feita exclusivamente por lá).
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da seguradora parceira (SUSEP).
  - Se o contato NÃO for transportador de carga OU buscar outro tipo de seguro, NUNCA dispense e NUNCA mande procurar outra corretora. Siga o protocolo "OUTROS SEGUROS" abaixo: a Jacometo trabalha com TODOS os tipos de seguro.`;
 
@@ -5171,20 +5185,21 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 
 ⚠️ Como usar o modelo:
 - ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp).
-- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- MANTENHA obrigatoriamente os avisos essenciais: a carga é averbada na apólice da transportadora contratante e embarques como contratado direto NÃO estão cobertos por esta apólice.
 - Preserve os destaques em *negrito*.
 - NÃO repita a apresentação se já a fez antes nesta conversa — nesse caso, apenas continue a qualificação.
 
 MODELO (base para adaptar):
 """
-É a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) por *R$ 911,66/ano* (Pix).
 
 *O que ela resolve:*
 ✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
-✅ Mantém você *regular perante a fiscalização*, evitando multas e impedimentos
-✅ *Sem averbação por viagem* — a cobertura da carga fica com o *contratante principal*
+✅ Mantém você *regular perante a fiscalização eletrônica*, evitando multas e suspensão do registro
+✅ *Sem averbação por viagem* — a carga é averbada na apólice da *transportadora contratante*
+✅ *Emissão em até 2 horas* após o aceite e o pagamento
 
-⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*. É um produto *estritamente de regularização legal*.
+⚠️ *Importante:* ela vale para a sua atuação como *subcontratado*. Se você fechar frete *direto com o dono da carga*, esse embarque *não é coberto* por esta apólice — nesse caso o certo é o seguro convencional, com averbação.
 """`;
   }
 
@@ -5445,7 +5460,7 @@ ${contact.notes}
 - "RCTR-C" (danos à carga por acidente com o veículo)
 - "RC-DC" (roubo, furto e desaparecimento da carga)
 - "RC-V" (danos a terceiros causados pelo veículo)
-- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 644,28/mês, modalidade de comprovação do subcontratado, sem indenização)
+- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 911,66/ano, modalidade de comprovação do subcontratado)
 ⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
 
 
@@ -5709,7 +5724,7 @@ function enforceOrbe360Link(content: string): string {
   return content;
 }
 
-const CONTRACT_SITE_URL = 'https://transporte.jacometoseguros.com.br';
+const CONTRACT_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
 
 /**
  * Garante que, quando o lead demonstra intenção de contratar (pedir link, "como faço",
@@ -5719,7 +5734,7 @@ const CONTRACT_SITE_URL = 'https://transporte.jacometoseguros.com.br';
 function enforceContractSiteLink(content: string, userMessage: string): string {
   if (!content) return content;
 
-  const domainRegex = /transporte\.jacometoseguros\.com\.br/i;
+  const domainRegex = /rctr-c\.rc-dc\.rc-v\.jacometo\.com\.br/i;
   if (domainRegex.test(content)) return content;
 
   const userLower = (userMessage || '').toLowerCase();
