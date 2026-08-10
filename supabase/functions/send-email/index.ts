@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis, stripEmojisHtml } from '../_shared/text-sanitize.ts';
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -121,8 +122,8 @@ const handler = async (req: Request): Promise<Response> => {
       from: fromEmail,
       to: [to],
       bcc: bcc || [],
-      subject: subject,
-      html: html,
+      subject: stripEmojis(subject),
+      html: stripEmojisHtml(html),
     });
 
     // Verificar se houve erro na resposta do Resend

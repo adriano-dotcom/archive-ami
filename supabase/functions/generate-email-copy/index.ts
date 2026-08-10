@@ -163,7 +163,7 @@ ESTRUTURA HTML OBRIGATÓRIA:
 6. Box de VALOR TOTAL com:
    - border: 2px solid #f59e0b (laranja)
    - background: #fffbeb
-   - Ícone de alerta (pode usar emoji ⚠️ no texto)
+   - Ícone de alerta em texto (ex.: "ATENÇÃO:") — NUNCA emoji
 7. Parágrafo sobre importância de manter apólice ativa
 8. Botão CTA laranja: background #f59e0b, color white
 9. Footer com Equipe de Cobrança
@@ -424,7 +424,7 @@ ${emailTypeInstructions}
 ${htmlBaseTemplate}
 
 REGRAS CRÍTICAS:
-1. NUNCA use emojis no corpo do email (exceto em badges de urgência quando apropriado)
+1. NUNCA use emojis em nenhuma parte do email (sem exceções)
 2. Use as variáveis disponíveis: {{nome}}, {{empresa}}, {{cnpj}}, {{valor_total}}, {{qtd_parcelas}}, {{dias_atraso}}
 3. ${isCollectionEmail ? 'Gere HTML PROFISSIONAL E RESPONSIVO usando a estrutura base fornecida. Use INLINE STYLES (não classes CSS).' : 'O HTML deve ser simples e responsivo (max-width: 600px)'}
 4. Parágrafos curtos (máx 3 linhas)

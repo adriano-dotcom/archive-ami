@@ -193,7 +193,7 @@ REGRAS OBRIGATÓRIAS:
 5. NUNCA comece com "Olá!" - prefira "Oi" ou "E aí"
 6. Use o nome do cliente de forma natural
 7. A mensagem deve parecer escrita por um humano
-8. NÃO use emojis em excesso (máximo 1)
+8. NUNCA use emojis (regra da empresa, sem exceções)
 9. Faça apenas UMA pergunta ou solicitação
 10. CADA MENSAGEM DEVE SER ÚNICA - nunca repita estrutura ou conteúdo
 ${antiRepetitionRule}
