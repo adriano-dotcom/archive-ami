@@ -863,15 +863,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Stability</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_stability.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.stability.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_stability}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_stability: parseFloat(e.target.value) })}
+                    value={ttsProfile.stability}
+                    onChange={(e) => setProfile(ttsEnv, { stability: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -879,15 +879,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Similarity</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_similarity_boost.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.similarity_boost.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_similarity_boost}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_similarity_boost: parseFloat(e.target.value) })}
+                    value={ttsProfile.similarity_boost}
+                    onChange={(e) => setProfile(ttsEnv, { similarity_boost: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -895,15 +895,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Style</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_style.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.style.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_style}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_style: parseFloat(e.target.value) })}
+                    value={ttsProfile.style}
+                    onChange={(e) => setProfile(ttsEnv, { style: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -911,15 +911,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Speed</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_speed?.toFixed(1) || '1.0'}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.speed.toFixed(1)}</span>
                   </div>
                   <input
                     type="range"
                     min="0.5"
                     max="2"
                     step="0.1"
-                    value={settings.elevenlabs_speed || 1.0}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_speed: parseFloat(e.target.value) })}
+                    value={ttsProfile.speed}
+                    onChange={(e) => setProfile(ttsEnv, { speed: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -929,14 +929,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={settings.elevenlabs_speaker_boost}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_speaker_boost: e.target.checked })}
+                    checked={ttsProfile.speaker_boost}
+                    onChange={(e) => setProfile(ttsEnv, { speaker_boost: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-violet-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-500"></div>
                 </label>
                 <span className="text-sm text-slate-300">Speaker Boost</span>
               </div>
+
             </Collapsible.Content>
           </Collapsible.Root>
 
