@@ -149,7 +149,8 @@ export const SendInstallmentWhatsAppModal: React.FC<SendInstallmentWhatsAppModal
         .from('conversations')
         .select('id')
         .eq('contact_id', selectedContact.id)
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
 
