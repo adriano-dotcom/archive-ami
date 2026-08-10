@@ -665,7 +665,7 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
               <Select value={editingAgent.elevenlabs_model || 'eleven_turbo_v2_5'} onValueChange={(value) => setEditingAgent({ ...editingAgent, elevenlabs_model: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
                 <SelectContent>
-                  {MODELS.map((model) => (<SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>))}
+                  {dynamicModels.map((model) => (<SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
