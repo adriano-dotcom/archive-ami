@@ -83,8 +83,8 @@ serve(async (req) => {
       );
     }
 
-    // Get API key from Vault or fallback to table
-    let apiKey = settings?.elevenlabs_api_key;
+    // Chave: conector (env) > Vault > tabela
+    let apiKey = Deno.env.get('ELEVENLABS_API_KEY') || settings?.elevenlabs_api_key;
     if (settings?.elevenlabs_key_in_vault) {
       try {
         const { data: vaultKey } = await supabase.rpc('get_vault_secret', { 
