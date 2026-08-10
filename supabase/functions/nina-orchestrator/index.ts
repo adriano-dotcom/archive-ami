@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis } from '../_shared/text-sanitize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -5789,11 +5790,14 @@ function sanitizeAiResponse(content: string): string {
   sanitized = sanitized.replace(/\bOrbePet\b/gi, 'Jacometo Corretora de Seguros');
   sanitized = sanitized.replace(/\bOrbi\b/g, 'Iris');
   
+  // REGRA DA EMPRESA: nunca enviar emoji para contatos
+  sanitized = stripEmojis(sanitized);
+
   // Clean up multiple blank lines
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
 
 
-  return sanitized || content; // fallback to original if sanitization emptied it
+  return sanitized || stripEmojis(content); // fallback to original if sanitization emptied it
 }
 
 function breakMessageIntoChunks(content: string): string[] {
