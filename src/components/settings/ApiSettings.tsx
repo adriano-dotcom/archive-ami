@@ -125,6 +125,14 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
     api4com_enabled: false,
     openai_api_key: null,
   });
+
+  // TTS profiles per environment (test / production)
+  const { profiles: ttsProfiles, setProfile, saveProfile } = useTtsProfiles();
+  const { voices: availableVoices, models: availableModels, isLive: voicesLive } = useElevenLabsVoices();
+  const [ttsEnv, setTtsEnv] = useState<TtsEnvironment>('test');
+  const [savingTtsProfile, setSavingTtsProfile] = useState(false);
+  const ttsProfile = ttsProfiles[ttsEnv];
+
   
   // API4Com states
   const [showApi4comToken, setShowApi4comToken] = useState(false);
