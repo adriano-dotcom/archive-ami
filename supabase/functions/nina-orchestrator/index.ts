@@ -3572,7 +3572,7 @@ Agradeço pela compreensão! 🙏`;
   if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
     if (isContratadoDataComplete(contactForCheck)) {
       console.log('[Nina] ✅ Contratado com dados completos — encaminhando para corretor humano.');
-      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o produto COM cobertura efetiva/averbação — este pacote de compliance não indeniza sinistro. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
+      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o seguro convencional COM averbação dos embarques — o pacote de compliance do subcontratado não cobre frete fechado direto com o dono da carga. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
       const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
       const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
       await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
