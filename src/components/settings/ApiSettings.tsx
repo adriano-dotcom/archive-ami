@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { VaultMigrationPanel } from './VaultMigrationPanel';
+import { useTtsProfiles, type TtsEnvironment } from '@/hooks/useTtsProfiles';
+import { useElevenLabsVoices } from '@/hooks/useElevenLabsVoices';
+
 
 interface NinaSettings {
   id?: string;
