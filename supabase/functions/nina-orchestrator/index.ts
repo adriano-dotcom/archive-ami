@@ -3824,7 +3824,7 @@ Logo na abertura da conversa, faça APENAS a pergunta de triagem, sem apresentar
 "Você atua como CONTRATADO (responsável pela carga, emite o próprio CT-e como principal) ou como SUBCONTRATADO/agregado de outra transportadora?"
 Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a apólice antes dessa resposta.
 
-➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação, sem cobertura RCTR-C/RC-DC/RC-V, sem indenização) e conduza a qualificação:
+➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação por viagem, carga averbada na apólice do contratante, e embarques como contratado direto NÃO cobertos) e conduza a qualificação:
 1. CNPJ da transportadora. (Ao receber, o sistema consulta Receita + ANTT automaticamente e já mostra a confirmação — não peça de novo.)
 2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
 3. Peça o E-MAIL para envio da cotação.
