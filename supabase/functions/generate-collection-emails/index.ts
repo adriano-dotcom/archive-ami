@@ -513,7 +513,7 @@ REGRAS:
 5. Use estilo profissional com cores corporativas (azul marinho #1e3a5f)
 6. Inclua chamada para ação clara para regularização
 7. Tom: ${emailTone === 'friendly' ? 'amigável' : emailTone === 'reminder' ? 'lembrete cordial' : emailTone === 'urgent' ? 'urgente' : 'aviso final'}
-8. SEM emojis
+8. SEM emojis (regra da empresa, sem exceções)
 9. Assinatura:
    Atenciosamente,
    Equipe OrbePet

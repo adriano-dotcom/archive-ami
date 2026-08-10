@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis, stripEmojisOptional } from '../_shared/text-sanitize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -327,17 +328,21 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
     to: recipient
   };
 
+  // REGRA DA EMPRESA: nunca enviar emoji para contatos (última barreira antes da entrega)
+  const safeContent = stripEmojis(queueItem.content);
+  const safeCaption = stripEmojisOptional(queueItem.content);
+
   switch (queueItem.message_type) {
     case 'text':
       payload.type = 'text';
-      payload.text = { body: queueItem.content };
+      payload.text = { body: safeContent };
       break;
     
     case 'image':
       payload.type = 'image';
       payload.image = { 
         link: queueItem.media_url,
-        caption: queueItem.content || undefined
+        caption: safeCaption
       };
       break;
     
@@ -358,13 +363,13 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
       payload.type = 'video';
       payload.video = {
         link: queueItem.media_url,
-        caption: queueItem.content || undefined
+        caption: safeCaption
       };
       break;
     
     default:
       payload.type = 'text';
-      payload.text = { body: queueItem.content };
+      payload.text = { body: safeContent };
   }
 
   console.log('[Sender] WhatsApp API payload:', JSON.stringify(payload, null, 2));
