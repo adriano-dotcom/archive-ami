@@ -1417,32 +1417,37 @@ const ChatInterface: React.FC = () => {
       return (
         <div className="max-w-xs">
           {hasVideoUrl ? (
-            <div className="rounded-lg overflow-hidden bg-slate-800/50 border border-slate-700/50">
-              <video 
-                className="w-full max-h-64 object-contain bg-black"
-                controls
-                preload="metadata"
-                playsInline
-              >
-                <source src={msg.mediaUrl!} type="video/mp4" />
-                Seu navegador não suporta vídeo.
-              </video>
-              {caption && caption !== '[vídeo]' && (
-                <p className="p-2 text-sm text-white">{caption}</p>
+            <SignedMedia url={msg.mediaUrl}>
+              {(src) => (
+                <div className="rounded-lg overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                  <video
+                    className="w-full max-h-64 object-contain bg-black"
+                    controls
+                    preload="metadata"
+                    playsInline
+                    key={src || 'loading'}
+                  >
+                    {src && <source src={src} type="video/mp4" />}
+                    Seu navegador não suporta vídeo.
+                  </video>
+                  {caption && caption !== '[vídeo]' && (
+                    <p className="p-2 text-sm text-white">{caption}</p>
+                  )}
+                  <div className="flex items-center gap-2 p-2 border-t border-slate-700/30">
+                    <a
+                      href={src || undefined}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Baixar vídeo
+                    </a>
+                  </div>
+                </div>
               )}
-              <div className="flex items-center gap-2 p-2 border-t border-slate-700/30">
-                <a 
-                  href={msg.mediaUrl!} 
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  Baixar vídeo
-                </a>
-              </div>
-            </div>
+            </SignedMedia>
           ) : (
             <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
               <div className="bg-purple-500/20 p-2.5 rounded-lg shrink-0">
