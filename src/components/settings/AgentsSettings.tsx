@@ -656,7 +656,7 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
               <Select value={editingAgent.elevenlabs_voice_id || 'FGY2WhTYpPnrIDTdsKH5'} onValueChange={(value) => setEditingAgent({ ...editingAgent, elevenlabs_voice_id: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione uma voz" /></SelectTrigger>
                 <SelectContent>
-                  {VOICES.map((voice) => (<SelectItem key={voice.id} value={voice.id}>{voice.name} - {voice.gender}</SelectItem>))}
+                  {dynamicVoices.map((voice) => (<SelectItem key={voice.id} value={voice.id}>{voice.name}{voice.description ? ` - ${voice.description}` : ''}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
