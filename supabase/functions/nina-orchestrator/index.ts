@@ -3790,17 +3790,18 @@ Agradeço pela compreensão! 🙏`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento mensal recorrente. NÃO há averbação por embarque.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
 🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
-• Preço: R$ 911,66/ano (prêmio mensal recorrente, IOF e encargos inclusos).
-• O pagamento mensal mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• Preço: R$ 911,66/ano (prêmio básico anual, pagamento à vista via Pix).
+• O pagamento anual mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
 • Vigência: 1 ano a partir da emissão.
-• Emissão da apólice: em até 5 dias úteis após o aceite da proposta.
-• NÃO existe averbação por embarque nesta modalidade — é um valor mensal único.
+• Emissão da apólice: em até 2 HORAS após o aceite da proposta e a confirmação do pagamento.
+• NÃO existe averbação por embarque nesta modalidade — é um valor anual único.
 
-⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório (transportador SUBCONTRATADO). Estas apólices NÃO indenizam sinistro — a cobertura efetiva da carga é responsabilidade do contratante principal. Nunca prometa cobertura efetiva ou indenização nesta modalidade.
+⚠️ IMPORTANTE: esta é a modalidade de COMPROVAÇÃO do seguro obrigatório do transportador SUBCONTRATADO. A carga transportada é averbada na apólice da TRANSPORTADORA CONTRATANTE, que é quem responde pela cobertura do embarque. Deixe SEMPRE explícito que embarques feitos como CONTRATADO DIRETO (frete fechado direto com o dono da carga) NÃO estão cobertos por esta apólice. Nunca prometa cobertura própria da carga nesta modalidade.
+
 `;
       plansCatalogContent += `
 ⛔ REGRA INEGOCIÁVEL — QUEM PODE CONTRATAR
