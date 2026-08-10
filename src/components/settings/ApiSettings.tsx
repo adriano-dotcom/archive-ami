@@ -318,12 +318,33 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
     setTimeout(() => setCopiedWebhook(false), 2000);
   };
 
-  const handleGenerateAudio = async () => {
-    if (!settings.elevenlabs_api_key) {
-      toast.error('Configure sua API Key da ElevenLabs primeiro');
-      return;
+  const handleSaveTtsProfile = async () => {
+    setSavingTtsProfile(true);
+    try {
+      await saveProfile(ttsEnv);
+      toast.success(`Perfil de voz (${ttsEnv === 'test' ? 'Teste' : 'Produção'}) salvo`);
+    } catch (e) {
+      console.error('Error saving TTS profile:', e);
+      toast.error('Erro ao salvar perfil de voz');
+    } finally {
+      setSavingTtsProfile(false);
     }
+  };
 
+  const handleCopyTestToProduction = async () => {
+    setSavingTtsProfile(true);
+    try {
+      await saveProfile('production', { ...ttsProfiles.test, environment: 'production', id: ttsProfiles.production.id });
+      toast.success('Perfil de Teste copiado para Produção');
+    } catch (e) {
+      console.error('Error copying TTS profile:', e);
+      toast.error('Erro ao copiar perfil');
+    } finally {
+      setSavingTtsProfile(false);
+    }
+  };
+
+  const handleGenerateAudio = async () => {
     if (!audioTestText.trim()) {
       toast.error('Insira um texto para converter em áudio');
       return;
@@ -335,8 +356,19 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
 
     try {
       const { data, error } = await supabase.functions.invoke('test-elevenlabs-tts', {
-        body: { text: audioTestText }
+        body: {
+          text: audioTestText,
+          environment: ttsEnv,
+          voiceId: ttsProfile.voice_id,
+          model: ttsProfile.model,
+          stability: ttsProfile.stability,
+          similarity: ttsProfile.similarity_boost,
+          style: ttsProfile.style,
+          speed: ttsProfile.speed,
+          speakerBoost: ttsProfile.speaker_boost,
+        }
       });
+
 
       if (error) throw error;
 
