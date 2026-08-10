@@ -1036,15 +1036,14 @@ async function processIncomingMessage(
       p_contact_id: contact.id,
       p_status: 'nina',
       p_touch_window: true,
-    })
-    .maybeSingle();
+    });
 
   if (convError || !convData) {
     console.error('[Webhook] Error getting/creating conversation:', convError);
     throw convError || new Error('Failed to resolve conversation');
   }
 
-  const conversation: any = convData;
+  const conversation: any = Array.isArray(convData) ? convData[0] : convData;
   console.log('[Webhook] Using conversation:', conversation.id);
 
 
