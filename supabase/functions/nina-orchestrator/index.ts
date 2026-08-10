@@ -5460,7 +5460,7 @@ ${contact.notes}
 - "RCTR-C" (danos à carga por acidente com o veículo)
 - "RC-DC" (roubo, furto e desaparecimento da carga)
 - "RC-V" (danos a terceiros causados pelo veículo)
-- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 911,66/ano, modalidade de comprovação do subcontratado, sem indenização)
+- "Pacote 3 Seguros Obrigatórios" (as três apólices juntas — R$ 911,66/ano, modalidade de comprovação do subcontratado)
 ⚠️ Nunca troque os nomes nem invente outras coberturas. Se o cliente perguntar sobre UMA cobertura específica, responda sobre ela sem confundir com as demais.`;
 
 
