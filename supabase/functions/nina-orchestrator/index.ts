@@ -1498,15 +1498,25 @@ async function getSecret(supabase: any, vaultName: string, tableValue: string | 
   return tableValue;
 }
 
+// Resolve ElevenLabs key: conector (env) > Vault > tabela
+async function getElevenLabsKey(supabase: any, settings: any): Promise<string | null> {
+  const envKey = Deno.env.get('ELEVENLABS_API_KEY');
+  if (envKey) return envKey;
+  return await getSecret(supabase, 'vault_elevenlabs_key', settings?.elevenlabs_api_key);
+}
+
+// Limite de caracteres para TTS (áudios longos ficam caros/ruins)
+const TTS_MAX_CHARS = 900;
+
 // Generate audio using ElevenLabs (outputs MP3 for WhatsApp compatibility)
 async function generateAudioElevenLabs(supabase: any, settings: any, text: string, agent?: Agent | null): Promise<{ buffer: ArrayBuffer; format: 'mp3' } | null> {
-  // Get API key from Vault or fallback to table
-  const apiKey = await getSecret(supabase, 'vault_elevenlabs_key', settings.elevenlabs_api_key);
+  const apiKey = await getElevenLabsKey(supabase, settings);
   
   if (!apiKey) {
     console.log('[Nina] ElevenLabs API key not configured');
     return null;
   }
+
 
   try {
     // Priority: agent config > global config > fallback defaults
