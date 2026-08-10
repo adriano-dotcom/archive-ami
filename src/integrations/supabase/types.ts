@@ -3203,6 +3203,48 @@ export type Database = {
           },
         ]
       }
+      tts_profiles: {
+        Row: {
+          created_at: string
+          environment: string
+          id: string
+          model: string
+          similarity_boost: number
+          speaker_boost: boolean
+          speed: number
+          stability: number
+          style: number
+          updated_at: string
+          voice_id: string
+        }
+        Insert: {
+          created_at?: string
+          environment: string
+          id?: string
+          model?: string
+          similarity_boost?: number
+          speaker_boost?: boolean
+          speed?: number
+          stability?: number
+          style?: number
+          updated_at?: string
+          voice_id?: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          id?: string
+          model?: string
+          similarity_boost?: number
+          speaker_boost?: boolean
+          speed?: number
+          stability?: number
+          style?: number
+          updated_at?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

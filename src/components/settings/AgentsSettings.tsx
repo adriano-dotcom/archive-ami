@@ -8,6 +8,8 @@ import {
   Calendar, Building2, Wifi, WifiOff
 } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
+import { useElevenLabsVoices } from '@/hooks/useElevenLabsVoices';
+
 import { Button } from '../Button';
 import { Switch } from '../ui/switch';
 import { Slider } from '../ui/slider';
@@ -131,6 +133,8 @@ const MODELS = [
 
 const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
   const { refetch: refetchCompany } = useCompanySettings();
+  const { voices: dynamicVoices, models: dynamicModels } = useElevenLabsVoices();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -546,9 +550,12 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
 
   const getVoiceName = (voiceId: string | null) => {
     if (!voiceId) return 'Voz do Sistema';
+    const dynamic = dynamicVoices.find(v => v.id === voiceId);
+    if (dynamic) return dynamic.description ? `${dynamic.name} (${dynamic.description})` : dynamic.name;
     const voice = VOICES.find(v => v.id === voiceId);
     return voice ? `${voice.name} (${voice.gender})` : voiceId;
   };
+
 
   const getDistributionBadge = (agent: Agent) => {
     if (agent.owner_distribution_type === 'round_robin' && agent.owner_rotation_ids?.length > 0) {
@@ -656,7 +663,7 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
               <Select value={editingAgent.elevenlabs_voice_id || 'FGY2WhTYpPnrIDTdsKH5'} onValueChange={(value) => setEditingAgent({ ...editingAgent, elevenlabs_voice_id: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione uma voz" /></SelectTrigger>
                 <SelectContent>
-                  {VOICES.map((voice) => (<SelectItem key={voice.id} value={voice.id}>{voice.name} - {voice.gender}</SelectItem>))}
+                  {dynamicVoices.map((voice) => (<SelectItem key={voice.id} value={voice.id}>{voice.name}{voice.description ? ` - ${voice.description}` : ''}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -665,7 +672,7 @@ const AgentsSettings = forwardRef<AgentsSettingsRef>((_, ref) => {
               <Select value={editingAgent.elevenlabs_model || 'eleven_turbo_v2_5'} onValueChange={(value) => setEditingAgent({ ...editingAgent, elevenlabs_model: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
                 <SelectContent>
-                  {MODELS.map((model) => (<SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>))}
+                  {dynamicModels.map((model) => (<SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>

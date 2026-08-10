@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { VaultMigrationPanel } from './VaultMigrationPanel';
+import { useTtsProfiles, type TtsEnvironment } from '@/hooks/useTtsProfiles';
+import { useElevenLabsVoices } from '@/hooks/useElevenLabsVoices';
+
 
 interface NinaSettings {
   id?: string;
@@ -125,6 +128,14 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
     api4com_enabled: false,
     openai_api_key: null,
   });
+
+  // TTS profiles per environment (test / production)
+  const { profiles: ttsProfiles, setProfile, saveProfile } = useTtsProfiles();
+  const { voices: availableVoices, models: availableModels, isLive: voicesLive } = useElevenLabsVoices();
+  const [ttsEnv, setTtsEnv] = useState<TtsEnvironment>('test');
+  const [savingTtsProfile, setSavingTtsProfile] = useState(false);
+  const ttsProfile = ttsProfiles[ttsEnv];
+
   
   // API4Com states
   const [showApi4comToken, setShowApi4comToken] = useState(false);
@@ -318,12 +329,33 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
     setTimeout(() => setCopiedWebhook(false), 2000);
   };
 
-  const handleGenerateAudio = async () => {
-    if (!settings.elevenlabs_api_key) {
-      toast.error('Configure sua API Key da ElevenLabs primeiro');
-      return;
+  const handleSaveTtsProfile = async () => {
+    setSavingTtsProfile(true);
+    try {
+      await saveProfile(ttsEnv);
+      toast.success(`Perfil de voz (${ttsEnv === 'test' ? 'Teste' : 'Produção'}) salvo`);
+    } catch (e) {
+      console.error('Error saving TTS profile:', e);
+      toast.error('Erro ao salvar perfil de voz');
+    } finally {
+      setSavingTtsProfile(false);
     }
+  };
 
+  const handleCopyTestToProduction = async () => {
+    setSavingTtsProfile(true);
+    try {
+      await saveProfile('production', { ...ttsProfiles.test, environment: 'production', id: ttsProfiles.production.id });
+      toast.success('Perfil de Teste copiado para Produção');
+    } catch (e) {
+      console.error('Error copying TTS profile:', e);
+      toast.error('Erro ao copiar perfil');
+    } finally {
+      setSavingTtsProfile(false);
+    }
+  };
+
+  const handleGenerateAudio = async () => {
     if (!audioTestText.trim()) {
       toast.error('Insira um texto para converter em áudio');
       return;
@@ -335,8 +367,19 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
 
     try {
       const { data, error } = await supabase.functions.invoke('test-elevenlabs-tts', {
-        body: { text: audioTestText }
+        body: {
+          text: audioTestText,
+          environment: ttsEnv,
+          voiceId: ttsProfile.voice_id,
+          model: ttsProfile.model,
+          stability: ttsProfile.stability,
+          similarity: ttsProfile.similarity_boost,
+          style: ttsProfile.style,
+          speed: ttsProfile.speed,
+          speakerBoost: ttsProfile.speaker_boost,
+        }
       });
+
 
       if (error) throw error;
 
@@ -570,7 +613,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
   };
 
   const whatsappConfigured = settings.whatsapp_access_token && settings.whatsapp_phone_number_id;
-  const elevenlabsConfigured = settings.elevenlabs_api_key;
+  const elevenlabsConfigured = settings.elevenlabs_api_key || voicesLive;
   const api4comConfigured = settings.api4com_api_token && settings.api4com_enabled;
   
   const api4comWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api4com-webhook`;
@@ -775,47 +818,96 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Voz</label>
-              <select
-                value={settings.elevenlabs_voice_id}
-                onChange={async (e) => {
-                  const newVoiceId = e.target.value;
-                  setSettings(prev => ({ ...prev, elevenlabs_voice_id: newVoiceId }));
-                  
-                  const { error } = await supabase
-                    .from('nina_settings')
-                    .update({ elevenlabs_voice_id: newVoiceId })
-                    .eq('id', settings.id!);
-                  
-                  if (error) {
-                    toast.error('Erro ao salvar voz');
-                  } else {
-                    toast.success('Voz atualizada!');
-                  }
-                }}
-                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              >
-                {VOICE_OPTIONS.map(voice => (
-                  <option key={voice.id} value={voice.id}>{voice.name} - {voice.desc}</option>
+          {/* Ambiente do perfil de voz */}
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm font-medium text-white">Perfil de voz por ambiente</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Testes no CRM usam o perfil de <span className="text-slate-300">Teste</span>; conversas reais no WhatsApp usam <span className="text-slate-300">Produção</span>.
+                </p>
+              </div>
+              <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+                {(['test', 'production'] as const).map((env) => (
+                  <button
+                    key={env}
+                    type="button"
+                    onClick={() => setTtsEnv(env)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      ttsEnv === env ? 'bg-violet-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {env === 'test' ? 'Teste' : 'Produção'}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Modelo</label>
-              <select
-                value={settings.elevenlabs_model || 'eleven_turbo_v2_5'}
-                onChange={(e) => setSettings({ ...settings, elevenlabs_model: e.target.value })}
-                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">
+                  Voz {voicesLive ? <span className="text-emerald-400">(conta ElevenLabs)</span> : <span className="text-slate-600">(lista padrão)</span>}
+                </label>
+                <select
+                  value={ttsProfile.voice_id}
+                  onChange={(e) => setProfile(ttsEnv, { voice_id: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                >
+                  {availableVoices.map(voice => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name}{voice.description ? ` - ${voice.description}` : ''}
+                    </option>
+                  ))}
+                  {!availableVoices.some(v => v.id === ttsProfile.voice_id) && (
+                    <option value={ttsProfile.voice_id}>{ttsProfile.voice_id}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Modelo</label>
+                <select
+                  value={ttsProfile.model}
+                  onChange={(e) => setProfile(ttsEnv, { model: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                >
+                  {availableModels.map(model => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                  {!availableModels.some(m => m.id === ttsProfile.model) && (
+                    <option value={ttsProfile.model}>{ttsProfile.model}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              {ttsEnv === 'test' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyTestToProduction}
+                  disabled={savingTtsProfile}
+                  className="text-slate-400 hover:text-slate-200"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copiar para Produção
+                </Button>
+              )}
+              <Button
+                onClick={handleSaveTtsProfile}
+                disabled={savingTtsProfile}
+                className="bg-violet-600 hover:bg-violet-700"
               >
-                {MODEL_OPTIONS.map(model => (
-                  <option key={model.id} value={model.id}>{model.name}</option>
-                ))}
-              </select>
+                {savingTtsProfile ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" />Salvar perfil ({ttsEnv === 'test' ? 'Teste' : 'Produção'})</>
+                )}
+              </Button>
             </div>
           </div>
+
 
           {/* Audio Response Toggle */}
           <div className="p-4 bg-violet-500/5 border border-violet-500/20 rounded-lg">
@@ -863,15 +955,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Stability</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_stability.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.stability.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_stability}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_stability: parseFloat(e.target.value) })}
+                    value={ttsProfile.stability}
+                    onChange={(e) => setProfile(ttsEnv, { stability: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -879,15 +971,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Similarity</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_similarity_boost.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.similarity_boost.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_similarity_boost}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_similarity_boost: parseFloat(e.target.value) })}
+                    value={ttsProfile.similarity_boost}
+                    onChange={(e) => setProfile(ttsEnv, { similarity_boost: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -895,15 +987,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Style</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_style.toFixed(2)}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.style.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.05"
-                    value={settings.elevenlabs_style}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_style: parseFloat(e.target.value) })}
+                    value={ttsProfile.style}
+                    onChange={(e) => setProfile(ttsEnv, { style: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -911,15 +1003,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-slate-400">Speed</label>
-                    <span className="text-xs font-mono text-slate-300">{settings.elevenlabs_speed?.toFixed(1) || '1.0'}</span>
+                    <span className="text-xs font-mono text-slate-300">{ttsProfile.speed.toFixed(1)}</span>
                   </div>
                   <input
                     type="range"
                     min="0.5"
                     max="2"
                     step="0.1"
-                    value={settings.elevenlabs_speed || 1.0}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_speed: parseFloat(e.target.value) })}
+                    value={ttsProfile.speed}
+                    onChange={(e) => setProfile(ttsEnv, { speed: parseFloat(e.target.value) })}
                     className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-violet-500"
                   />
                 </div>
@@ -929,14 +1021,15 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={settings.elevenlabs_speaker_boost}
-                    onChange={(e) => setSettings({ ...settings, elevenlabs_speaker_boost: e.target.checked })}
+                    checked={ttsProfile.speaker_boost}
+                    onChange={(e) => setProfile(ttsEnv, { speaker_boost: e.target.checked })}
                     className="sr-only peer"
                   />
                   <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-violet-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-500"></div>
                 </label>
                 <span className="text-sm text-slate-300">Speaker Boost</span>
               </div>
+
             </Collapsible.Content>
           </Collapsible.Root>
 
@@ -964,7 +1057,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleGenerateAudio}
-                  disabled={audioGenerating || !settings.elevenlabs_api_key}
+                  disabled={audioGenerating}
                   className="bg-violet-600 hover:bg-violet-700"
                 >
                   {audioGenerating ? (
@@ -993,11 +1086,12 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 )}
               </div>
 
-              {!settings.elevenlabs_api_key && (
+              {!settings.elevenlabs_api_key && !voicesLive && (
                 <p className="text-xs text-amber-400">
-                  ⚠️ Configure sua API Key da ElevenLabs acima para testar
+                  Configure a API Key da ElevenLabs (ou conecte a integração) para testar
                 </p>
               )}
+
 
               {audioUrl && (
                 <div className="space-y-2">
