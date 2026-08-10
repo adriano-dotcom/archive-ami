@@ -47,7 +47,9 @@ serve(async (req) => {
       similarity: paramSimilarity,
       style: paramStyle,
       speed: paramSpeed,
-      speakerBoost: paramSpeakerBoost
+      speakerBoost: paramSpeakerBoost,
+      environment: paramEnvironment
+
     } = await req.json();
 
     if (!text || typeof text !== 'string') {
