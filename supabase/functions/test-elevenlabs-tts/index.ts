@@ -106,14 +106,23 @@ serve(async (req) => {
       );
     }
 
-    // Use passed parameters or fall back to system settings
-    const voiceId = paramVoiceId || settings?.elevenlabs_voice_id || '9BWtsMINqrJLrRacOk9x'; // Aria default
-    const model = paramModel || settings?.elevenlabs_model || 'eleven_turbo_v2_5';
-    const stability = paramStability ?? settings?.elevenlabs_stability ?? 0.75;
-    const similarity = paramSimilarity ?? settings?.elevenlabs_similarity_boost ?? 0.80;
-    const style = paramStyle ?? settings?.elevenlabs_style ?? 0.30;
-    const speed = paramSpeed ?? settings?.elevenlabs_speed ?? 1.0;
-    const speakerBoost = paramSpeakerBoost ?? settings?.elevenlabs_speaker_boost ?? true;
+    // Environment profile (test by default for CRM tests)
+    const environment = (paramEnvironment === 'production' ? 'production' : 'test');
+    const { data: profile } = await supabase
+      .from('tts_profiles')
+      .select('*')
+      .eq('environment', environment)
+      .maybeSingle();
+
+    // Priority: parâmetros da requisição > perfil do ambiente > nina_settings > default
+    const voiceId = paramVoiceId || profile?.voice_id || settings?.elevenlabs_voice_id || '9BWtsMINqrJLrRacOk9x'; // Aria default
+    const model = paramModel || profile?.model || settings?.elevenlabs_model || 'eleven_turbo_v2_5';
+    const stability = paramStability ?? profile?.stability ?? settings?.elevenlabs_stability ?? 0.75;
+    const similarity = paramSimilarity ?? profile?.similarity_boost ?? settings?.elevenlabs_similarity_boost ?? 0.80;
+    const style = paramStyle ?? profile?.style ?? settings?.elevenlabs_style ?? 0.30;
+    const speed = paramSpeed ?? profile?.speed ?? settings?.elevenlabs_speed ?? 1.0;
+    const speakerBoost = paramSpeakerBoost ?? profile?.speaker_boost ?? settings?.elevenlabs_speaker_boost ?? true;
+
 
     console.log(`[test-elevenlabs-tts] Generating audio with voice: ${voiceId}, model: ${model}`);
     console.log(`[test-elevenlabs-tts] Settings: stability=${stability}, similarity=${similarity}, style=${style}, speed=${speed}, speakerBoost=${speakerBoost}`);
