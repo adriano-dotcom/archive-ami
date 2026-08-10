@@ -1,57 +1,45 @@
-# Rate limiting & abuse protection
+# Atualizar o treinamento da Iris com a nova landing page
 
-Recommended: **Full scope** (edge functions + bridge). The bridge is the higher-risk surface (open WebSocket, live calls), but the internal functions matter too since a leaked staff JWT would otherwise have unlimited blast radius. Cost is small — one DB call per invocation.
+Nova fonte única: `https://rctr-c.rc-dc.rc-v.jacometo.com.br/`
 
-## 1. Postgres rate limiter (shared primitive)
+## O que muda
 
-New table + function via migration:
+| Item | Hoje | Novo (LP) |
+|---|---|---|
+| Preço | R$ 644,28/mês | **R$ 911,66/ano** (prêmio básico anual, pago por Pix) |
+| Emissão | até 5 dias úteis | **até 2 horas** após aceite da proposta + pagamento |
+| Link de contratação | transporte.jacometoseguros.com.br | **rctr-c.rc-dc.rc-v.jacometo.com.br** |
+| Cobertura | "não há cobertura nem indenização" | a carga é **averbada na apólice da transportadora contratante**, mantendo o aviso explícito de que embarques como contratado direto ficam sem cobertura nesta apólice |
+| Público | MEI/ME/EPP | igual + **exclusivo PJ** (autônomo/TAC pessoa física não é elegível) |
 
-- `public.rate_limit_hits(key text, window_start timestamptz, count int, primary key(key, window_start))`
-- `public.check_rate_limit(_key text, _max int, _window_seconds int) returns boolean` — SECURITY DEFINER, upserts the current bucket, returns `false` when over limit.
-- GRANT EXECUTE to `service_role` and `authenticated`.
-- Cron/cleanup: delete rows older than 1 hour (add to existing `cleanup-queues` function).
+## Novos fatos que a Iris passa a saber
 
-Key format: `"<fn_name>:<subject>"` where subject is user_id if staff JWT, otherwise `ip:<x-forwarded-for>`, otherwise `service_role` (skipped — trusted).
+- Elegibilidade: CNPJ (MEI/ME/EPP) com RNTRC ativo como ETC; roda **exclusivamente como subcontratado**; emite CT-e de subcontratação.
+- Não elegível: fecha frete direto com o dono da carga, precisa averbar cada embarque, ou é pessoa física (TAC).
+- Fiscalização é **eletrônica**: seguradoras informam as apólices e a ANTT cruza com o RNTRC; sem vínculo, o registro fica irregular/suspenso.
+- Passos: preencher online (CNPJ) → aceitar a proposta → emissão em 2h → indicar o número da apólice no RNTRC.
+- **Uma apólice ativa por vez** por registro; quem já tem seguro vigente deve falar com a Central antes, para trocar na virada.
+- **RNTRC vencido/suspenso**: proposta pode ser registrada, mas a emissão depende de regularizar o registro na ANTT.
+- Virou contratado direto: avisar a Central **antes do embarque** para migrar ao seguro convencional (averbação, faturamento mensal, gerenciamento de risco).
+- Central de Atendimento Jacometo: **(43) 3321-5007** · WhatsApp (43) 99156-2099.
+- Vigência de 1 ano · apólice de seguradora parceira registrada na SUSEP · Lei 14.599/2023, obrigatório desde 09/01/2026.
 
-## 2. Apply to internal edge functions
+## Onde aplicar
 
-Add a small helper block (same shape as the auth guard already in place) right after the auth guard in each function. Skips the check when caller is service-role.
+1. **Catálogo no banco** (`orbe_plans_catalog`) — migração atualizando o único plano ativo: preço anual R$ 911,66, `emissao_horas: 2`, `pagamento: anual (Pix)`, remoção do flag `sem_indenizacao`, e coberturas reescritas sem "sem indenização efetiva".
+2. **`supabase/functions/nina-orchestrator/index.ts`** — atualizar todos os pontos de preço/prazo/link/discurso:
+   - bloco `plansCatalogContent` (regra crítica de preço, elegibilidade, canal único, bloco do subcontratado);
+   - constante `CONTRACT_SITE_URL` e todas as URLs hardcoded;
+   - mensagem de link enviada ao concluir a qualificação;
+   - mensagem de handoff do fluxo contratado;
+   - fatos do prompt base e a mensagem-modelo da primeira resposta ao lead do site;
+   - texto do "Pacote 3 Seguros Obrigatórios" no resumo de qualificação.
+   - Acrescentar bloco de FAQ (apólice única por registro, RNTRC irregular, PF não elegível, fiscalização eletrônica, migração).
+3. **Base de conhecimento** (`product_knowledge`) — inserir/atualizar o registro com o conteúdo integral da nova LP como fonte única.
+4. **Memórias** — atualizar `Core` do índice, `iris-persona` e `plans-catalog-source-of-truth` para o novo preço e condições, evitando que o valor antigo volte.
 
-Limits (per subject):
-- Heavy AI / send functions (`nina-orchestrator`, `whatsapp-sender`, `send-collection-*`, `analyze-conversation`, `sales-coaching-analysis`, `transcribe-call-recording`, `summarize-transcription`, `rewrite-message`, `generate-*`): **30 / minute**
-- Admin/test/register/sync functions: **10 / minute**
-- Call-control (`whatsapp-call-accept/reject/terminate`, `api4com-*`): **20 / minute**
-- Public-facing with own secrets (`capture-lead`, `receive-ecommerce-webhook`, `jarvis-sync`, `replicate-lead-to-crm`, `whatsapp-webhook`, `whatsapp-call-webhook`): **60 / minute per IP** (defense-in-depth against flooding).
+## Verificação
 
-On limit exceeded → `429` with `Retry-After` header.
-
-## 3. Bridge server (`bridge-server/server.js`)
-
-Two-part fix — auth first (the actual security hole per the scan), then limits.
-
-**a. Socket.IO authentication** (fixes `bridge_socketio_noauth`):
-- Add `io.use(async (socket, next) => { ... })` middleware.
-- Client passes `auth: { token: <supabase access_token> }` when connecting.
-- Middleware calls Supabase `/auth/v1/user` with the token, then checks `user_roles` for `admin`/`operator`. Reject otherwise.
-- Update `useIncomingWhatsAppCall.ts` (frontend) to pass the current session token in the Socket.IO client config, and reconnect on token refresh.
-
-**b. Rate limiting** (in-memory Map, per socket user_id + IP):
-- Connection attempts: 20 / minute per IP.
-- `accept_call` / `reject_call` / `terminate_call`: 30 / minute per user.
-- Reject the event and emit `rate_limited` if exceeded.
-
-**c. REST endpoints** on the bridge (`/incoming-call`, `/sdp-offer`) already require `X-Bridge-Secret`; add a 120/min per-IP in-memory limit as defense-in-depth.
-
-## 4. Verification
-
-- Type-check all touched edge functions.
-- `curl` an internal function past the limit → confirm `429`.
-- Connect to the bridge with no token → confirm rejected. With a valid staff token → confirm accepted, incoming-call flow still works end-to-end.
-- Mark `bridge_socketio_noauth` finding as fixed after deploy.
-
-## Technical notes
-
-- `check_rate_limit` uses `date_trunc('second', now()) - (extract(epoch from now())::int % window)` to snap to fixed buckets — simple and index-friendly.
-- Service-role callers (cron, DB triggers, bridge → edge function) bypass the limiter; they're already trusted.
-- Bridge in-memory limits reset on redeploy; acceptable for a single-instance Railway deploy. If we ever run multiple instances, move to Redis or the Postgres limiter.
-- No changes to public webhook signature verification (Meta, HMAC secrets) — those stay as-is; rate limiting is added on top.
+- Rodar a suíte de testes existente da função (`subcontratado.test.ts` e demais) e o typecheck Deno.
+- Deploy do `nina-orchestrator`.
+- Conferir por busca no arquivo que não sobrou nenhuma menção a "644,28", "5 dias úteis" ou ao domínio antigo.
