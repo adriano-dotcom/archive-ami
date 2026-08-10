@@ -1480,26 +1480,30 @@ const ChatInterface: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate" title={filename}>{filename}</p>
             {hasDownloadUrl ? (
-              <div className="flex items-center gap-2 mt-1.5">
-                {isPDF && (
-                  <button
-                    onClick={() => setPdfPreview({ url: msg.mediaUrl!, filename })}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
-                  >
-                    <Eye className="w-3 h-3" />
-                    Visualizar
-                  </button>
+              <SignedMedia url={msg.mediaUrl}>
+                {(src) => (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {isPDF && (
+                      <button
+                        onClick={() => src && setPdfPreview({ url: src, filename })}
+                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Visualizar
+                      </button>
+                    )}
+                    <a
+                      href={src || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Baixar
+                    </a>
+                  </div>
                 )}
-                <a 
-                  href={msg.mediaUrl!} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  Baixar
-                </a>
-              </div>
+              </SignedMedia>
             ) : (
               <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                 <AlertCircle className="w-3 h-3" />
