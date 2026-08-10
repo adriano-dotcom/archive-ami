@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enforce_single_active_conversation() FROM PUBLIC, anon, authenticated;
