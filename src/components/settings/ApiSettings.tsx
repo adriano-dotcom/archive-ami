@@ -1086,11 +1086,12 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
                 )}
               </div>
 
-              {!settings.elevenlabs_api_key && (
+              {!settings.elevenlabs_api_key && !voicesLive && (
                 <p className="text-xs text-amber-400">
-                  ⚠️ Configure sua API Key da ElevenLabs acima para testar
+                  Configure a API Key da ElevenLabs (ou conecte a integração) para testar
                 </p>
               )}
+
 
               {audioUrl && (
                 <div className="space-y-2">
