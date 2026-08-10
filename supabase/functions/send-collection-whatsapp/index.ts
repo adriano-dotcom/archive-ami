@@ -288,7 +288,8 @@ serve(async (req) => {
           .from('conversations')
           .select('id')
           .eq('contact_id', contact.id)
-          .order('created_at', { ascending: false })
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle();
 

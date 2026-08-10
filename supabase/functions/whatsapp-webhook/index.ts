@@ -1029,85 +1029,23 @@ async function processIncomingMessage(
     console.log('[Webhook] Using existing contact:', contact.id, 'found by phone variant');
   }
 
-  // 2. Get or create active conversation (tentar reativar conversa existente se não houver ativa)
-  const { data: existingConversations } = await supabase
-    .from('conversations')
-    .select('*')
-    .eq('contact_id', contact.id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1);
+  // 2. Get or create active conversation (operação ATÔMICA no banco — evita conversas duplicadas
+  //    quando o WhatsApp entrega várias mensagens em paralelo)
+  const { data: convData, error: convError } = await supabase
+    .rpc('get_or_create_active_conversation', {
+      p_contact_id: contact.id,
+      p_status: 'nina',
+      p_touch_window: true,
+    });
 
-  let conversation = existingConversations?.[0] || null;
-
-  // Se encontrou conversa ativa, atualizar whatsapp_window_start para a mensagem mais recente
-  if (conversation) {
-    const newWindowStart = new Date().toISOString();
-    const { error: updateWindowError } = await supabase
-      .from('conversations')
-      .update({
-        whatsapp_window_start: newWindowStart,
-        last_message_at: newWindowStart
-      })
-      .eq('id', conversation.id);
-    
-    if (updateWindowError) {
-      console.error('[Webhook] Error updating window start:', updateWindowError);
-    } else {
-      console.log('[Webhook] ✅ Updated whatsapp_window_start for active conversation:', conversation.id);
-    }
+  if (convError || !convData) {
+    console.error('[Webhook] Error getting/creating conversation:', convError);
+    throw convError || new Error('Failed to resolve conversation');
   }
 
-  // Se não encontrou conversa ativa, buscar conversa INATIVA mais recente para reativar
-  if (!conversation) {
-    const { data: inactiveConversations } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('contact_id', contact.id)
-      .eq('is_active', false)
-      .order('updated_at', { ascending: false })
-      .limit(1);
+  const conversation: any = Array.isArray(convData) ? convData[0] : convData;
+  console.log('[Webhook] Using conversation:', conversation.id);
 
-    if (inactiveConversations?.[0]) {
-      // Reativar conversa existente mantendo histórico
-      const { data: reactivatedConv, error: reactivateError } = await supabase
-        .from('conversations')
-        .update({
-          is_active: true,
-          status: 'nina', // Nina assume novamente
-          whatsapp_window_start: new Date().toISOString()
-        })
-        .eq('id', inactiveConversations[0].id)
-        .select()
-        .single();
-
-      if (!reactivateError && reactivatedConv) {
-        conversation = reactivatedConv;
-        console.log('[Webhook] Reactivated existing conversation:', conversation.id);
-      }
-    }
-  }
-
-  // Só cria nova conversa se realmente não existir nenhuma
-  if (!conversation) {
-    const { data: newConversation, error: convError } = await supabase
-      .from('conversations')
-      .insert({
-        contact_id: contact.id,
-        status: 'nina', // Nina handles new conversations by default
-        is_active: true,
-        whatsapp_window_start: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (convError) {
-      console.error('[Webhook] Error creating conversation:', convError);
-      throw convError;
-    }
-    conversation = newConversation;
-    console.log('[Webhook] Created new conversation:', conversation.id);
-  }
 
   // 3. Parse message content based on type
   let content: string | null = null;

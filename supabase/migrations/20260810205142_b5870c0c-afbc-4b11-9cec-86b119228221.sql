@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_or_create_active_conversation(uuid, text, boolean) FROM authenticated;
