@@ -1057,7 +1057,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleGenerateAudio}
-                  disabled={audioGenerating || !settings.elevenlabs_api_key}
+                  disabled={audioGenerating}
                   className="bg-violet-600 hover:bg-violet-700"
                 >
                   {audioGenerating ? (
