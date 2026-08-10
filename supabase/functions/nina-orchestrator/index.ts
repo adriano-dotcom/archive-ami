@@ -5185,20 +5185,21 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 
 ⚠️ Como usar o modelo:
 - ADAPTE a redação com suas palavras (tom curto, humano, estilo WhatsApp).
-- MANTENHA obrigatoriamente os avisos essenciais: por não ter averbação, NÃO há cobertura de RCTR-C, RC-DC e RC-V e NÃO há indenização em sinistro (produto estritamente de regularização legal).
+- MANTENHA obrigatoriamente os avisos essenciais: a carga é averbada na apólice da transportadora contratante e embarques como contratado direto NÃO estão cobertos por esta apólice.
 - Preserve os destaques em *negrito*.
 - NÃO repita a apresentação se já a fez antes nesta conversa — nesse caso, apenas continue a qualificação.
 
 MODELO (base para adaptar):
 """
-É a nossa *solução inédita de compliance* para o transportador *subcontratado (agregado)*.
+É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) por *R$ 911,66/ano* (Pix).
 
 *O que ela resolve:*
 ✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
-✅ Mantém você *regular perante a fiscalização*, evitando multas e impedimentos
-✅ *Sem averbação por viagem* — a cobertura da carga fica com o *contratante principal*
+✅ Mantém você *regular perante a fiscalização eletrônica*, evitando multas e suspensão do registro
+✅ *Sem averbação por viagem* — a carga é averbada na apólice da *transportadora contratante*
+✅ *Emissão em até 2 horas* após o aceite e o pagamento
 
-⚠️ *Deixando claro:* por não ter averbação, *não há cobertura* de RCTR-C, RC-DC e RC-V e *não há indenização em sinistro*. É um produto *estritamente de regularização legal*.
+⚠️ *Importante:* ela vale para a sua atuação como *subcontratado*. Se você fechar frete *direto com o dono da carga*, esse embarque *não é coberto* por esta apólice — nesse caso o certo é o seguro convencional, com averbação.
 """`;
   }
 
