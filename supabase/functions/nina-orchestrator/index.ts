@@ -5734,7 +5734,7 @@ const CONTRACT_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
 function enforceContractSiteLink(content: string, userMessage: string): string {
   if (!content) return content;
 
-  const domainRegex = /transporte\.jacometoseguros\.com\.br/i;
+  const domainRegex = /rctr-c\.rc-dc\.rc-v\.jacometo\.com\.br/i;
   if (domainRegex.test(content)) return content;
 
   const userLower = (userMessage || '').toLowerCase();
