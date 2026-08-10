@@ -3873,7 +3873,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       for (const plan of plans) {
         const price = parseFloat(plan.monthly_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coverages = Array.isArray(plan.coverages) ? plan.coverages.join('; ') : 'Consulte detalhes';
-        plansCatalogContent += `\n### ${plan.plan_name} — ${price}/mês`;
+        plansCatalogContent += `\n### ${plan.plan_name} — ${price}/ano`;
         plansCatalogContent += `\n- Coberturas: ${coverages}`;
         if (plan.limits_per_event && typeof plan.limits_per_event === 'object') {
           plansCatalogContent += `\n- Regras e valores:`;
