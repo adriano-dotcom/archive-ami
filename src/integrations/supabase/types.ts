@@ -3620,6 +3620,42 @@ export type Database = {
       cleanup_rate_limit_hits: { Args: never; Returns: undefined }
       delete_vault_secret: { Args: { secret_name: string }; Returns: boolean }
       get_current_team_member_id: { Args: never; Returns: string }
+      get_or_create_active_conversation: {
+        Args: {
+          p_contact_id: string
+          p_status?: string
+          p_touch_window?: boolean
+        }
+        Returns: {
+          assigned_team: Database["public"]["Enums"]["team_assignment"] | null
+          assigned_user_id: string | null
+          assigned_user_name: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_category: string | null
+          closed_reason: string | null
+          contact_id: string
+          created_at: string
+          current_agent_id: string | null
+          id: string
+          is_active: boolean
+          last_message_at: string
+          metadata: Json | null
+          nina_context: Json | null
+          started_at: string
+          status: Database["public"]["Enums"]["conversation_status"]
+          tags: string[] | null
+          unread_count: number
+          updated_at: string
+          whatsapp_window_start: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "conversations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_or_create_conversation_state: {
         Args: { p_conversation_id: string }
         Returns: {
