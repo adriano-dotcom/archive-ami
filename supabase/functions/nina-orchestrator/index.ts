@@ -5153,7 +5153,7 @@ function buildEnhancedPrompt(
 - Apenas uma apólice ativa por registro RNTRC; quem já tem seguro vigente fala com a Central antes para trocar na virada. RNTRC vencido/suspenso: a proposta é registrada, mas a emissão depende de regularizar o registro.
 - Se o transportador atua como CONTRATADO (responsável pela carga), oriente a falar com a Jacometo ANTES do embarque para migrar ao seguro convencional (averbação, faturamento mensal, gerenciamento de risco).
 - Central de Atendimento Jacometo: (43) 3321-5007 · WhatsApp (43) 99156-2099.
-- Após esclarecer as dúvidas, conduza o lead a preencher a proposta no site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br (a contratação é feita exclusivamente por lá).
+- CONTRATAÇÃO ONLINE (REGRA FIXA): SEMPRE que falar de preço, prazo de emissão, como contratar, ou quando o lead demonstrar interesse ("quero", "como faço", "me manda"), deixe explícito que a contratação é 100% ONLINE, sem fila, e envie o link oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br — NÃO espere concluir a coleta de CNPJ, e-mail e celular para informar isso. A coleta desses dados continua, em paralelo, para registro e acompanhamento do lead.
 - Em caso de dúvida sobre cobertura específica, oriente a consultar as Condições Gerais da seguradora parceira (SUSEP).
  - Se o contato NÃO for transportador de carga OU buscar outro tipo de seguro, NUNCA dispense e NUNCA mande procurar outra corretora. Siga o protocolo "OUTROS SEGUROS" abaixo: a Jacometo trabalha com TODOS os tipos de seguro.`;
 
