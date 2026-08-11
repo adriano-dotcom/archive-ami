@@ -3629,7 +3629,7 @@ Agradeço pela compreensão!`;
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
   if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
     console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+    const linkMsg = 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
@@ -3809,12 +3809,13 @@ Agradeço pela compreensão!`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma ÚNICA apólice da seguradora parceira, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
 🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
 • Preço: R$ 911,66/ano (prêmio básico anual, pagamento à vista via Pix).
-• O pagamento anual mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• O pagamento anual cobre a emissão das 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma única apólice, com um número para indicar no RNTRC.
+
 • Vigência: 1 ano a partir da emissão.
 • Emissão da apólice: em até 2 HORAS após o aceite da proposta e a confirmação do pagamento.
 • NÃO existe averbação por embarque nesta modalidade — é um valor anual único.
@@ -5213,7 +5214,7 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 
 MODELO (base para adaptar):
 """
-É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) por *R$ 911,66/ano* (Pix).
+É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — RCTR-C, RC-DC e RC-V em *uma única apólice* da seguradora parceira (SUSEP) por *R$ 911,66/ano* (Pix).
 
 *O que ela resolve:*
 - Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
