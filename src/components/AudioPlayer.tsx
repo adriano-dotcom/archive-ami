@@ -132,7 +132,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         {/* Play/Pause button */}
         <button 
           onClick={togglePlay}
-          disabled={!mediaUrl}
+          disabled={!mediaUrl || hasError}
+
           className={`flex items-center justify-center rounded-full transition-all shadow-md shrink-0 ${
             isOutgoing 
               ? 'w-10 h-10 bg-white text-cyan-600 hover:bg-cyan-50 disabled:opacity-50' 
