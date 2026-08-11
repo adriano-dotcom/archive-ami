@@ -181,10 +181,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           
           {/* Duration */}
           <span className={`text-[10px] font-medium ${
-            isOutgoing ? 'text-cyan-100' : 'text-slate-400'
+            hasError
+              ? (isOutgoing ? 'text-red-100' : 'text-destructive')
+              : isOutgoing ? 'text-cyan-100' : 'text-slate-400'
           }`}>
-            {formatAudioTime(progress)} / {formatAudioTime(duration)}
+            {hasError
+              ? 'Áudio indisponível'
+              : `${formatAudioTime(progress)} / ${formatAudioTime(duration)}`}
           </span>
+
         </div>
         
         {/* Speed control button - More visible for incoming messages */}
