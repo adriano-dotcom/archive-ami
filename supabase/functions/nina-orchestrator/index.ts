@@ -5214,7 +5214,7 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 
 MODELO (base para adaptar):
 """
-É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) por *R$ 911,66/ano* (Pix).
+É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — RCTR-C, RC-DC e RC-V em *uma única apólice* da seguradora parceira (SUSEP) por *R$ 911,66/ano* (Pix).
 
 *O que ela resolve:*
 - Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
