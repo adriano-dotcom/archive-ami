@@ -5222,6 +5222,8 @@ MODELO (base para adaptar):
 - *Sem averbação por viagem* — a carga é averbada na apólice da *transportadora contratante*
 - *Emissão em até 2 horas* após o aceite e o pagamento
 
+*A contratação é 100% online*, sem fila, direto no site oficial: https://rctr-c.rc-dc.rc-v.jacometo.com.br
+
 *Importante:* ela vale para a sua atuação como *subcontratado*. Se você fechar frete *direto com o dono da carga*, esse embarque *não é coberto* por esta apólice — nesse caso o certo é o seguro convencional, com averbação.
 """`;
   }
