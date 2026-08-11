@@ -37,11 +37,37 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const [hasError, setHasError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const durationFixRef = useRef(false);
 
   const waveformBars = useMemo(() => generateWaveform(messageId), [messageId]);
   const progressPercent = duration ? (progress / duration) * 100 : 0;
   const hasTranscription = transcription && transcription !== '[áudio]';
+
+  // Alguns .ogg/.webm não trazem duração no cabeçalho: força o cálculo com um seek longo
+  const forceDuration = () => {
+    const audio = audioRef.current;
+    if (!audio || durationFixRef.current) return;
+    const d = audio.duration;
+    if (Number.isFinite(d) && d > 0) {
+      setDuration(d);
+      return;
+    }
+    durationFixRef.current = true;
+    const onSeeked = () => {
+      const fixed = audio.duration;
+      if (Number.isFinite(fixed) && fixed > 0) setDuration(fixed);
+      audio.currentTime = 0;
+      audio.removeEventListener('seeked', onSeeked);
+    };
+    audio.addEventListener('seeked', onSeeked);
+    try {
+      audio.currentTime = 1e101;
+    } catch {
+      audio.removeEventListener('seeked', onSeeked);
+    }
+  };
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -52,7 +78,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setIsPlaying(false);
     } else {
       audio.playbackRate = speed;
-      audio.play();
+      audio.play().catch(() => setHasError(true));
       setIsPlaying(true);
     }
   };
@@ -84,15 +110,24 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <audio
             ref={audioRef}
             src={mediaUrl}
-            onLoadedMetadata={(e) => {
-              setDuration(e.currentTarget.duration);
+            preload="metadata"
+            onLoadedMetadata={forceDuration}
+            onDurationChange={(e) => {
+              const d = e.currentTarget.duration;
+              if (Number.isFinite(d) && d > 0) setDuration(d);
             }}
+            onCanPlay={forceDuration}
             onTimeUpdate={(e) => {
               setProgress(e.currentTarget.currentTime);
+            }}
+            onError={() => {
+              setHasError(true);
+              setIsPlaying(false);
             }}
             onEnded={() => setIsPlaying(false)}
           />
         )}
+
         
         {/* Play/Pause button */}
         <button 
