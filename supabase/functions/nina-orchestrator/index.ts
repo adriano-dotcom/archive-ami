@@ -3809,12 +3809,13 @@ Agradeço pela compreensão!`;
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
-      plansCatalogContent += '\nℹ️ O pacote reúne as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) em um único fluxo, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
+      plansCatalogContent += '\nℹ️ O pacote reúne as 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma ÚNICA apólice da seguradora parceira, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
 🚫 REGRA CRÍTICA DE PREÇO — use EXATAMENTE estes valores, nunca invente percentuais, prazos ou descontos:
 
 • Preço: R$ 911,66/ano (prêmio básico anual, pagamento à vista via Pix).
-• O pagamento anual mantém as 3 apólices ativas (RCTR-C, RC-DC e RC-V), cada uma com número próprio.
+• O pagamento anual cobre a emissão das 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma única apólice, com um número para indicar no RNTRC.
+
 • Vigência: 1 ano a partir da emissão.
 • Emissão da apólice: em até 2 HORAS após o aceite da proposta e a confirmação do pagamento.
 • NÃO existe averbação por embarque nesta modalidade — é um valor anual único.
