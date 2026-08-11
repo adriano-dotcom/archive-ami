@@ -678,7 +678,7 @@ serve(async (req) => {
                     .single();
                   
                   const contactName = contact?.call_name || contact?.name || 'Cliente';
-                  const safetyMessage = `Oi ${contactName}! Desculpa a demora, posso te ajudar com algo? 😊`;
+                  const safetyMessage = `Oi ${contactName}! Desculpa a demora, posso te ajudar com algo?`;
                   
                   await supabase
                     .from('send_queue')
@@ -2903,10 +2903,10 @@ async function processQueueItem(
       
       if (onlineAgent) {
         // Mensagem de despedida elaborada com agente online
-        responseMessage = `Foi um prazer conversar com você, ${contactName}! 😊
+        responseMessage = `Foi um prazer conversar com você, ${contactName}!
 
 Vou te transferir agora para ${onlineAgent.name}, que vai continuar te atendendo.
-Obrigada pela paciência e até a próxima! 🙌`;
+Obrigada pela paciência e até a próxima!`;
         
         // Assign conversation to online agent
         await supabase
@@ -2928,10 +2928,10 @@ Obrigada pela paciência e até a próxima! 🙌`;
         console.log(`[Nina] ✅ Conversa transferida para ${onlineAgent.name} (ID: ${onlineAgent.id})`);
       } else if (isWithinBusinessHours) {
         // Dentro do horário comercial, mas sem agente online
-        responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+        responseMessage = `Obrigada por conversar comigo, ${contactName}!
 
 Nossos corretores estão atendendo outros clientes no momento, mas um deles vai te responder em breve.
-Agradeço sua paciência! 🙏`;
+Agradeço sua paciência!`;
         
         // Mark as human without assignment (for triage)
         await supabase
@@ -2956,17 +2956,17 @@ Agradeço sua paciência! 🙏`;
         const isWeekend = currentDayOfWeek === 0 || currentDayOfWeek === 6;
         
         if (isWeekend) {
-          responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+          responseMessage = `Obrigada por conversar comigo, ${contactName}!
 
-Hoje é ${currentDayName} e nosso time está curtindo o merecido descanso. 🏖️
+Hoje é ${currentDayName} e nosso time está curtindo o merecido descanso.
 Um corretor vai te responder na segunda-feira a partir das 09h.
-Tenha um ótimo fim de semana! 🙌`;
+Tenha um ótimo fim de semana!`;
         } else {
-          responseMessage = `Obrigada por conversar comigo, ${contactName}! 😊
+          responseMessage = `Obrigada por conversar comigo, ${contactName}!
 
 Nosso horário de atendimento é de segunda a sexta, das ${startHour}h às ${endHour}h.
 Um corretor vai te responder ${nextBusiness.dayName} a partir das ${nextBusiness.time}.
-Agradeço pela compreensão! 🙏`;
+Agradeço pela compreensão!`;
         }
         
         // Mark as human without assignment (for triage)
@@ -3591,7 +3591,7 @@ Agradeço pela compreensão! 🙏`;
   if (tipoTransportador === 'contratado' && !conversation.nina_context?.contratado_handoff_done) {
     if (isContratadoDataComplete(contactForCheck)) {
       console.log('[Nina] ✅ Contratado com dados completos — encaminhando para corretor humano.');
-      const handoffMsg = 'Perfeito, já tenho seus dados! 🚛 Como você atua como contratado (responsável pela carga), o certo é o seguro convencional COM averbação dos embarques — o pacote de compliance do subcontratado não cobre frete fechado direto com o dono da carga. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você. 👍';
+      const handoffMsg = 'Perfeito, já tenho seus dados! Como você atua como contratado (responsável pela carga), o certo é o seguro convencional COM averbação dos embarques — o pacote de compliance do subcontratado não cobre frete fechado direto com o dono da carga. Já deixei seu atendimento com um dos nossos corretores especialistas, que vai montar a proposta certa pra você.';
       const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
       const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
       await queueTextResponse(supabase, conversation, message, handoffMsg, settings, aiSettings, delay, agent);
@@ -3629,7 +3629,7 @@ Agradeço pela compreensão! 🙏`;
   // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
   if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
     console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil. 🚛✅\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+    const linkMsg = 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e as 3 apólices:\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
@@ -4118,7 +4118,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
     // 🆕 Enhanced fallback message for handoff
     if (!aiContent) {
       console.error('[Nina] All 3 models returned empty response in handoff, using enhanced fallback message');
-      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
+      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
     // Sanitize handoff response (also runs enforceOrbe360Link automatically)
@@ -4313,7 +4313,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
         })
         .eq('id', item.id);
       
-      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. 🙏 Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
+      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
     }
 
     // ===== SANITIZE AI RESPONSE: Remove prompt leaks and internal markers =====
@@ -5169,7 +5169,7 @@ A Jacometo Corretora trabalha com TODOS os tipos de seguro (auto, vida, empresar
 2. Confirme os dados de contato: nome e melhor telefone/e-mail.
 3. Descubra se é Pessoa Física ou Pessoa Jurídica — se for PJ, peça o CNPJ.
 4. Com os dados em mãos, informe que vai REPASSAR AO RESPONSÁVEL da Jacometo, que fará o atendimento especializado.
-   Ex.: "Perfeito! Já vou repassar seus dados ao nosso responsável, que fala com você em breve pra montar seu seguro. 💙"
+   Ex.: "Perfeito! Já vou repassar seus dados ao nosso responsável, que fala com você em breve pra montar seu seguro."
 - Depois de coletar e avisar que vai repassar, acione o handoff para atendimento humano.`;
 
   // ===== ABERTURA = PERGUNTA DE TRIAGEM (TODOS OS LEADS NOVOS) =====
@@ -5193,7 +5193,7 @@ ${leadName ? `- PERSONALIZE cumprimentando pelo nome: "Olá, ${leadName}!".` : `
 
 MODELO (base para adaptar):
 """
-Olá${leadName ? `, ${leadName}` : ''}! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte 🚛
+Olá${leadName ? `, ${leadName}` : ''}! Aqui é da *Jacometo Corretora*, especialista em seguro de transporte
 
 Pra eu te direcionar certo: você atua como *contratado* (responsável pela carga, emite o próprio CT-e como principal) ou como *subcontratado/agregado* de outra transportadora?
 """`;
@@ -5216,12 +5216,12 @@ MODELO (base para adaptar):
 É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — as 3 apólices obrigatórias (RCTR-C, RC-DC e RC-V) por *R$ 911,66/ano* (Pix).
 
 *O que ela resolve:*
-✅ Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
-✅ Mantém você *regular perante a fiscalização eletrônica*, evitando multas e suspensão do registro
-✅ *Sem averbação por viagem* — a carga é averbada na apólice da *transportadora contratante*
-✅ *Emissão em até 2 horas* após o aceite e o pagamento
+- Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
+- Mantém você *regular perante a fiscalização eletrônica*, evitando multas e suspensão do registro
+- *Sem averbação por viagem* — a carga é averbada na apólice da *transportadora contratante*
+- *Emissão em até 2 horas* após o aceite e o pagamento
 
-⚠️ *Importante:* ela vale para a sua atuação como *subcontratado*. Se você fechar frete *direto com o dono da carga*, esse embarque *não é coberto* por esta apólice — nesse caso o certo é o seguro convencional, com averbação.
+*Importante:* ela vale para a sua atuação como *subcontratado*. Se você fechar frete *direto com o dono da carga*, esse embarque *não é coberto* por esta apólice — nesse caso o certo é o seguro convencional, com averbação.
 """`;
   }
 
@@ -5242,7 +5242,7 @@ REGRAS:
 - NÃO prometa preço, coberturas nem percentuais — isso é papel do corretor especialista.
 - NÃO apresente o pacote de compliance/subcontratado (não se aplica a ele).
 - Respeite os dados JÁ consultados (CNPJ/RNTRC): nunca pergunte de novo o que já foi buscado automaticamente.
-- Só depois de ter CNPJ + e-mail + celular confirmados, avise que vai repassar ao corretor especialista. Ex.: "Perfeito, já tenho seus dados! Vou repassar ao nosso corretor especialista pra montar a proposta com cobertura da carga. 👍"`;
+- Só depois de ter CNPJ + e-mail + celular confirmados, avise que vai repassar ao corretor especialista. Ex.: "Perfeito, já tenho seus dados! Vou repassar ao nosso corretor especialista pra montar a proposta com cobertura da carga."`;
   }
 
 
@@ -5643,10 +5643,10 @@ REGRAS OBRIGATÓRIAS PARA ESTA RESPOSTA (SEM EXCEÇÃO):
 5. Resposta CURTA (2–3 linhas), tom acolhedor, sem listas longas.
 
 Exemplo de tom esperado:
-"Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
+"Mesmo sem pet eu tenho uma alternativa pra você. O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360"
 `;
 
-const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra você 💙 O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360`;
+const ORBE_360_FALLBACK_RESPONSE = `Mesmo sem pet eu tenho uma alternativa pra você. O Orbe 360 cobre telemedicina humana 24h e assistência funeral completa pra você e sua família. Confere aqui: https://orbepet.com.br/orbe-360`;
 
 const ORBE_360_LINK = 'https://orbepet.com.br/orbe-360';
 
@@ -5712,7 +5712,7 @@ REGRAS ABSOLUTAS para esta resposta:
 8. Resposta CURTA (2–3 linhas), tom acolhedor.
 `;
 
-const OVER_AGE_FALLBACK_RESPONSE = `Entendo, ele já tem uma idade avançada 💙 Infelizmente nossos planos pet aceitam contratação só até 10 anos completos. Mas posso te oferecer o Orbe 360, com telemedicina humana 24h e assistência funeral completa pra você e sua família. Dá uma olhada: https://orbepet.com.br/orbe-360`;
+const OVER_AGE_FALLBACK_RESPONSE = `Entendo, ele já tem uma idade avançada. Infelizmente nossos planos pet aceitam contratação só até 10 anos completos. Mas posso te oferecer o Orbe 360, com telemedicina humana 24h e assistência funeral completa pra você e sua família. Dá uma olhada: https://orbepet.com.br/orbe-360`;
 
 
 
