@@ -3934,8 +3934,9 @@ Agradeço pela compreensão!`;
       form: mergedForm,
     });
 
+    const resumo = buildProposalSummary(contactForCheck, mergedForm);
     const linkMsg = draft
-      ? `Prontinho! Já deixei sua proposta preenchida com os dados que você me passou.\n\nÉ só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
+      ? `Conferência dos dados que você me passou:\n\n${resumo}\n\nEstá tudo certo? Já deixei sua proposta preenchida. É só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
       : 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
