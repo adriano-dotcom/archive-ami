@@ -545,6 +545,9 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
           </div>
         </div>
 
+        {/* Progresso do formulário da proposta */}
+        <ProposalProgressCard conversationId={activeChat.id} />
+
         {/* Notes Area with AI Summary */}
         <ConversationSummaryNotes
           conversationId={activeChat.id}
