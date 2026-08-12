@@ -7,6 +7,7 @@ O sócio/responsável legal é o campo "Responsável" + "CPF" do formulário —
 ## Sequência da conversa (espelhando o site)
 
 Passo 1 — Empresa
+
 1. CNPJ
 2. Iris consulta e devolve razão social, RNTRC e situação para o lead confirmar
 3. Endereço (logradouro, número, complemento, bairro, município, UF, CEP) — apresentado para confirmação; se a consulta não trouxer, ela pergunta
@@ -17,11 +18,11 @@ Passo 2 — Contato
 6. E-mail
 7. Telefone / WhatsApp
 
-Passo 3 — Pagamento
-8. Confirma o prêmio anual de R$ 911,66 (Pix) e pergunta: já possui algum desses seguros hoje? (sim/não)
+Passo 3 — Pagamento  
+8. Confirma o prêmio anual de R$ 911,66 (Pix) e pergunta: já possui algum desses seguros hoje? (sim/não) este passo vou deixar fixo no formulario ja preenchido para economizar perguntas 
 
-Passo 4 — Conferência
-9. Iris repete um resumo com todos os dados coletados para o lead validar
+Passo 4 — Conferência  
+9. Iris  so eniva um resumo com todos os dados coletados para o lead validar manda so resumo dos dados coletado   
 10. Envia o link pessoal com a proposta já preenchida; os três aceites (LGPD, declaração e autorização de emissão automatizada) e o "transmitir" continuam sendo feitos pelo próprio lead no site
 
 Regras mantidas: uma pergunta por vez, sem emoji, nunca inventar dado, nunca marcar aceite pelo lead, link oficial sempre que o lead falar de preço, prazo ou interesse.
