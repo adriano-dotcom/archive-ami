@@ -9,3 +9,4 @@ export { default as ContactProfilePanel } from './ContactProfilePanel';
 export { default as MediaLibraryPicker } from './MediaLibraryPicker';
 export { QuickRepliesPopover } from './QuickReplies';
 export { SignedMedia } from './SignedMedia';
+export { ProposalProgressCard } from './ProposalProgressCard';
