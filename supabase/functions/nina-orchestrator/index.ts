@@ -5768,6 +5768,8 @@ ${contact.notes}
     
     // Campos do formulário da proposta já coletados no chat
     const pf = ninaContext?.proposta_form || {};
+    if (pf.empresa_confirmada) answeredFields.push('- Razão social / RNTRC: confirmados pelo lead');
+    if (pf.endereco_confirmado) answeredFields.push('- Endereço: confirmado pelo lead');
     if (pf.responsavel) answeredFields.push(`- Nome do responsável: ${pf.responsavel}`);
     if (pf.cpf) answeredFields.push(`- CPF do responsável: ${pf.cpf}`);
     if (pf.seguro_vigente !== undefined) answeredFields.push(`- Já tem seguro vigente: ${pf.seguro_vigente ? 'sim' : 'não'}`);
