@@ -12,6 +12,7 @@ import { TagSelector } from '../TagSelector';
 import { CallHistoryPanel } from '../CallHistoryPanel';
 import WhatsAppCallHistoryPanel from '../WhatsAppCallHistoryPanel';
 import { HandoffSummaryCard, ConversationSummaryNotes } from './index';
+import { ProposalProgressCard } from './ProposalProgressCard';
 import { PhoneInput } from '../ui/phone-input';
 import { UIConversation, TagDefinition } from '../../types';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
