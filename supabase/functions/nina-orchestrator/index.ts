@@ -1628,6 +1628,153 @@ function extractQualificationFromMessages(userMessages: string[]): { [key: strin
   return extracted;
 }
 
+// ===== FORMULÁRIO DA PROPOSTA (site oficial) =====
+// Campos exigidos pelo formulário de contratação: CNPJ, responsável, CPF,
+// e-mail, telefone e se já possui seguro vigente. A Iris coleta no chat e o
+// lead só confere / aceita / transmite no site.
+export type ProposalFormData = {
+  responsavel?: string;
+  cpf?: string;
+  seguro_vigente?: boolean;
+};
+
+const PROPOSAL_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
+
+function onlyDigits(s: string): string {
+  return (s || '').replace(/\D/g, '');
+}
+
+/**
+ * Extrai campos do formulário a partir da última mensagem do lead, usando a
+ * última pergunta da Iris como contexto (nome do responsável e seguro vigente
+ * são respostas livres, então dependem do que foi perguntado).
+ */
+export function extractProposalFormFields(
+  userText: string,
+  lastAssistantText: string,
+  current: ProposalFormData,
+): ProposalFormData {
+  const out: ProposalFormData = {};
+  const text = (userText || '').trim();
+  if (!text) return out;
+  const lastQ = (lastAssistantText || '').toLowerCase();
+
+  // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
+  if (!current.cpf) {
+    const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
+    if (cpfMatch) {
+      const digits = onlyDigits(cpfMatch[1]);
+      if (digits.length === 11) out.cpf = digits;
+    }
+  }
+
+  // Nome do responsável: resposta livre logo após a pergunta pelo nome
+  if (!current.responsavel) {
+    const askedName = /(nome (completo )?do respons|nome do titular|quem (é|e) o respons|seu nome completo)/i.test(lastQ);
+    const cleaned = text.replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '').trim();
+    const looksLikeName =
+      askedName &&
+      !/\d/.test(cleaned) &&
+      cleaned.length >= 5 &&
+      cleaned.length <= 80 &&
+      cleaned.split(/\s+/).length >= 2;
+    if (looksLikeName) out.responsavel = cleaned;
+  }
+
+  // Seguro vigente: sim/não após a pergunta correspondente
+  if (current.seguro_vigente === undefined) {
+    const askedSeguro = /(seguro (j[áa] )?vigente|j[áa] (tem|possui) (algum )?seguro|seguro ativo|seguro em vigor)/i.test(lastQ);
+    if (askedSeguro) {
+      if (/\b(sim|tenho|possuo|tenho sim|j[áa] tenho|positivo)\b/i.test(text)) out.seguro_vigente = true;
+      else if (/\b(n[ãa]o|nao tenho|n[ãa]o tenho|negativo|nenhum)\b/i.test(text)) out.seguro_vigente = false;
+    }
+  }
+
+  return out;
+}
+
+/** Todos os campos do formulário estão coletados? */
+export function isProposalFormComplete(contact: any, form: ProposalFormData): boolean {
+  return !!(
+    contact?.cnpj &&
+    contact?.email &&
+    (contact?.phone_number || contact?.whatsapp_id) &&
+    form?.responsavel &&
+    form?.cpf &&
+    form?.seguro_vigente !== undefined
+  );
+}
+
+/** Consulta razão social e endereço na BrasilAPI (best-effort). */
+async function lookupCompanyData(cnpj: string): Promise<{ razao_social?: string; endereco: Record<string, string | null> }> {
+  const empty = { endereco: {} as Record<string, string | null> };
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${onlyDigits(cnpj)}`);
+    if (!resp.ok) return empty;
+    const d = await resp.json();
+    return {
+      razao_social: d.razao_social || d.nome_fantasia || undefined,
+      endereco: {
+        logradouro: d.logradouro ?? null,
+        numero: d.numero ?? null,
+        complemento: d.complemento ?? null,
+        bairro: d.bairro ?? null,
+        municipio: d.municipio ?? null,
+        uf: d.uf ?? null,
+        cep: d.cep ? onlyDigits(String(d.cep)) : null,
+      },
+    };
+  } catch (_) {
+    return empty;
+  }
+}
+
+/**
+ * Cria o rascunho da proposta e devolve o link pessoal que abre o formulário
+ * do site já preenchido (o lead só confere, aceita e transmite).
+ */
+export async function createProposalDraft(
+  supabase: any,
+  params: { contactId: string; conversationId: string; contact: any; form: ProposalFormData },
+): Promise<{ url: string; token: string } | null> {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    let token = '';
+    for (const b of bytes) token += b.toString(16).padStart(2, '0');
+
+    const company = await lookupCompanyData(params.contact?.cnpj || '');
+
+    const { error } = await supabase.from('proposal_drafts').insert({
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      cnpj: onlyDigits(params.contact?.cnpj || ''),
+      razao_social: company.razao_social || params.contact?.company || null,
+      rntrc: params.contact?.rntrc || null,
+      endereco: company.endereco,
+      responsavel: params.form.responsavel || null,
+      cpf: params.form.cpf || null,
+      email: params.contact?.email || null,
+      telefone: params.contact?.phone_number || params.contact?.whatsapp_id || null,
+      seguro_vigente: params.form.seguro_vigente ?? null,
+      token,
+      status: 'awaiting_acceptance',
+    });
+
+    if (error) {
+      console.error('[Nina] ❌ Erro ao criar proposal_draft:', error);
+      return null;
+    }
+
+    return { url: `${PROPOSAL_SITE_URL}/?proposta=${token}`, token };
+  } catch (err) {
+    console.error('[Nina] ❌ Falha ao gerar rascunho da proposta:', err);
+    return null;
+  }
+}
+
+
+
 
 // Sanitize text for TTS - simplify URLs for natural speech
 function sanitizeTextForAudio(text: string): string {
