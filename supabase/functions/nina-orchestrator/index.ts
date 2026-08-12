@@ -4237,7 +4237,7 @@ PASSO 1 — EMPRESA
 
 PASSO 2 — CONTATO
 4. Peça o NOME COMPLETO DO RESPONSÁVEL pela contratação (é o sócio/responsável legal — não existe campo separado de sócio).
-5. Peça o CPF do responsável.
+5. Peça o CPF do responsável. O sistema valida os dígitos automaticamente: NUNCA aceite um CPF inválido, nunca complete ou invente dígitos e, se o sistema recusar, apenas peça o número correto de novo (11 dígitos).
 6. Peça o E-MAIL para envio da cotação e da apólice.
 7. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
 
