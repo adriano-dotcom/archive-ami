@@ -2594,6 +2594,104 @@ export type Database = {
         }
         Relationships: []
       }
+      proposal_drafts: {
+        Row: {
+          cnpj: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          endereco: Json
+          expires_at: string
+          id: string
+          opened_at: string | null
+          razao_social: string | null
+          responsavel: string | null
+          rntrc: string | null
+          rntrc_situacao: string | null
+          seguro_vigente: boolean | null
+          status: string
+          telefone: string | null
+          token: string
+          transmitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: Json
+          expires_at?: string
+          id?: string
+          opened_at?: string | null
+          razao_social?: string | null
+          responsavel?: string | null
+          rntrc?: string | null
+          rntrc_situacao?: string | null
+          seguro_vigente?: boolean | null
+          status?: string
+          telefone?: string | null
+          token: string
+          transmitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: Json
+          expires_at?: string
+          id?: string
+          opened_at?: string | null
+          razao_social?: string | null
+          responsavel?: string | null
+          rntrc?: string | null
+          rntrc_situacao?: string | null
+          seguro_vigente?: boolean | null
+          status?: string
+          telefone?: string | null
+          token?: string
+          transmitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_drafts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_drafts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "orbe_support_tickets_v"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quick_replies: {
         Row: {
           category: string | null
