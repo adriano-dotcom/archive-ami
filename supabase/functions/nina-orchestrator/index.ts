@@ -1656,6 +1656,9 @@ export type ProposalFormData = {
 
 const PROPOSAL_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
 
+const AFFIRMATIVE_RE =
+  /\b(sim|isso|isso mesmo|confirmo|confere|correto|corretos|est[áa] certo|certinho|ok|okay|perfeito|exato|positivo|pode ser|tudo certo)\b/i;
+
 function onlyDigits(s: string): string {
   return (s || '').replace(/\D/g, '');
 }
