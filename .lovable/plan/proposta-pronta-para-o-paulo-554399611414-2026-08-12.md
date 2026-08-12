@@ -4,7 +4,13 @@ Sobre a dúvida do link: não é só neste caso — é em todos. O site oficial 
 
 ## O que faço agora para o Paulo
 
-Dados já confirmados no CRM: LSLOG, CNPJ 35.235.302/0001-23, RNTRC 52850644 (regular), e-mail paulo.landucci3@gmail.com, telefone 554399611414, Londrina/PR. Falta o CPF do responsável — você vai me informar.
+Dados já confirmados no CRM: LSLOG, CNPJ 35.235.302/0001-23, RNTRC 52850644 (regular), e-mail [paulo.landucci3@gmail.com](mailto:paulo.landucci3@gmail.com), telefone 554399611414, Londrina/PR. Falta o CPF do responsável — você vai me informar. 
+
+
+|        |        |
+| ------ | ------ |
+| &nbsp; | &nbsp; |
+
 
 1. Crio o rascunho da proposta dele com todos esses dados + CPF, endereço completo buscado pelo CNPJ, seguro vigente marcado como "não" e prêmio de R$ 911,66/ano.
 2. Marco o rascunho como "aguardando aceite", com validade de 7 dias e token pessoal.
@@ -20,4 +26,9 @@ Para o link realmente abrir tudo preenchido, é preciso pedir no projeto do site
 - Envio da mensagem via `send_queue` (mesmo caminho do `whatsapp-sender`, com `stripEmojis` aplicado) e registro em `messages` para aparecer no chat.
 - Nenhuma alteração de código ou de schema; o `nina-orchestrator` segue como está.
 
-Me passe o CPF do Paulo para eu executar.
+Me passe o CPF do Paulo para eu executar. 
+
+
+|                |                       |
+| -------------- | --------------------- |
+| 040.234.729-30 | PAULO RENATO LANDUCCI |
