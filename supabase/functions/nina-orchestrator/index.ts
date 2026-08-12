@@ -1632,10 +1632,26 @@ function extractQualificationFromMessages(userMessages: string[]): { [key: strin
 // Campos exigidos pelo formulário de contratação: CNPJ, responsável, CPF,
 // e-mail, telefone e se já possui seguro vigente. A Iris coleta no chat e o
 // lead só confere / aceita / transmite no site.
+export type ProposalEndereco = {
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  municipio?: string | null;
+  uf?: string | null;
+  cep?: string | null;
+};
+
 export type ProposalFormData = {
+  razao_social?: string;
+  empresa_confirmada?: boolean;
+  endereco?: ProposalEndereco;
+  endereco_confirmado?: boolean;
   responsavel?: string;
   cpf?: string;
   seguro_vigente?: boolean;
+  draft_id?: string;
+  token?: string;
 };
 
 const PROPOSAL_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
