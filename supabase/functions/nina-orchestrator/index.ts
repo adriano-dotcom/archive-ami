@@ -5752,8 +5752,11 @@ Antes de fazer QUALQUER pergunta:
 - CNPJ - já está no contexto do cliente?
 - Empresa/RNTRC (ANTT) - já foi confirmado?
 - Tipo de transportador (contratado/subcontratado) - já informou?
+- Nome completo do responsável - já informou?
+- CPF do responsável - já informou?
 - E-mail - já forneceu?
 - Celular (WhatsApp) - já confirmou o número atual?
+- Já tem seguro vigente (sim/não) - já respondeu?
 
 ### REGRA DE FINALIZAÇÃO (IMPORTANTE):
 - Ao coletar todas as informações de qualificação, SEMPRE solicite o email antes de encerrar
