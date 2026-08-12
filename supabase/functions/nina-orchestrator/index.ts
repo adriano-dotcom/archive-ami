@@ -1663,6 +1663,20 @@ function onlyDigits(s: string): string {
   return (s || '').replace(/\D/g, '');
 }
 
+/** Valida CPF: 11 dígitos, não repetidos, com os dois dígitos verificadores corretos. */
+export function isValidCpf(value: string): boolean {
+  const cpf = onlyDigits(value);
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = (len: number): number => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
+}
+
 /**
  * Extrai campos do formulário a partir da última mensagem do lead, usando a
  * última pergunta da Iris como contexto (nome do responsável e seguro vigente
@@ -1680,12 +1694,23 @@ export function extractProposalFormFields(
 
   // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
   if (!current.cpf) {
+    const askedCpf = /\bcpf\b/i.test(lastQ) || /\bcpf\b/i.test(text);
     const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
     if (cpfMatch) {
       const digits = onlyDigits(cpfMatch[1]);
-      if (digits.length === 11) out.cpf = digits;
+      if (digits.length === 11) {
+        if (isValidCpf(digits)) out.cpf = digits;
+        else if (askedCpf) out.cpf_invalido = true;
+      }
+    } else if (askedCpf) {
+      // Respondeu à pergunta do CPF com algo que tem dígitos, mas não é um CPF
+      const digits = onlyDigits(text);
+      if (digits.length > 0 && digits.length !== 14 && !/\d{14,}/.test(digits)) {
+        if (digits.length !== 11) out.cpf_invalido = true;
+      }
     }
   }
+
 
   // Nome do responsável: resposta livre logo após a pergunta pelo nome
   if (!current.responsavel) {
