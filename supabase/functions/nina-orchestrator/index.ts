@@ -1717,9 +1717,13 @@ export function extractProposalFormFields(
 
 
   // Nome do responsável: resposta livre logo após a pergunta pelo nome
+  // (sócio / administrador / proprietário / titular = mesmo campo "Responsável")
   if (!current.responsavel) {
-    const askedName = /(nome (completo )?do respons|nome do titular|quem (é|e) o respons|seu nome completo)/i.test(lastQ);
-    const cleaned = text.replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '').trim();
+    const askedName = /(nome (completo )?do respons|nome do titular|nome do s[óo]cio|nome do administrador|quem (é|e) o respons|quem (é|e) o s[óo]cio|quem (é|e) o administrador|seu nome completo)/i.test(lastQ);
+    const cleaned = text
+      .replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '')
+      .replace(/^(o|a)?\s*(s[óo]cio|s[óo]cia|administrador|administradora|propriet[áa]rio|propriet[áa]ria|dono|dona|titular|respons[áa]vel( legal)?|representante( legal)?)\s*(é|e|:|-)?\s*/i, '')
+      .trim();
     const looksLikeName =
       askedName &&
       !/\d/.test(cleaned) &&
@@ -1728,6 +1732,7 @@ export function extractProposalFormFields(
       cleaned.split(/\s+/).length >= 2;
     if (looksLikeName) out.responsavel = cleaned;
   }
+
 
   // PASSO 1 (Empresa) — confirmação da razão social / RNTRC
   if (!current.empresa_confirmada) {
