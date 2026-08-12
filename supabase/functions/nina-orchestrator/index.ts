@@ -1649,6 +1649,10 @@ export type ProposalFormData = {
   endereco_confirmado?: boolean;
   responsavel?: string;
   cpf?: string;
+  /** Sinalizador transitório: última resposta trouxe um CPF inválido. */
+  cpf_invalido?: boolean;
+  /** Quantidade de tentativas de CPF inválido nesta conversa. */
+  cpf_tentativas?: number;
   seguro_vigente?: boolean;
   draft_id?: string;
   token?: string;
