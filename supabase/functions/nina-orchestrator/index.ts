@@ -1628,6 +1628,153 @@ function extractQualificationFromMessages(userMessages: string[]): { [key: strin
   return extracted;
 }
 
+// ===== FORMULÁRIO DA PROPOSTA (site oficial) =====
+// Campos exigidos pelo formulário de contratação: CNPJ, responsável, CPF,
+// e-mail, telefone e se já possui seguro vigente. A Iris coleta no chat e o
+// lead só confere / aceita / transmite no site.
+export type ProposalFormData = {
+  responsavel?: string;
+  cpf?: string;
+  seguro_vigente?: boolean;
+};
+
+const PROPOSAL_SITE_URL = 'https://rctr-c.rc-dc.rc-v.jacometo.com.br';
+
+function onlyDigits(s: string): string {
+  return (s || '').replace(/\D/g, '');
+}
+
+/**
+ * Extrai campos do formulário a partir da última mensagem do lead, usando a
+ * última pergunta da Iris como contexto (nome do responsável e seguro vigente
+ * são respostas livres, então dependem do que foi perguntado).
+ */
+export function extractProposalFormFields(
+  userText: string,
+  lastAssistantText: string,
+  current: ProposalFormData,
+): ProposalFormData {
+  const out: ProposalFormData = {};
+  const text = (userText || '').trim();
+  if (!text) return out;
+  const lastQ = (lastAssistantText || '').toLowerCase();
+
+  // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
+  if (!current.cpf) {
+    const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
+    if (cpfMatch) {
+      const digits = onlyDigits(cpfMatch[1]);
+      if (digits.length === 11) out.cpf = digits;
+    }
+  }
+
+  // Nome do responsável: resposta livre logo após a pergunta pelo nome
+  if (!current.responsavel) {
+    const askedName = /(nome (completo )?do respons|nome do titular|quem (é|e) o respons|seu nome completo)/i.test(lastQ);
+    const cleaned = text.replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '').trim();
+    const looksLikeName =
+      askedName &&
+      !/\d/.test(cleaned) &&
+      cleaned.length >= 5 &&
+      cleaned.length <= 80 &&
+      cleaned.split(/\s+/).length >= 2;
+    if (looksLikeName) out.responsavel = cleaned;
+  }
+
+  // Seguro vigente: sim/não após a pergunta correspondente
+  if (current.seguro_vigente === undefined) {
+    const askedSeguro = /(seguro (j[áa] )?vigente|j[áa] (tem|possui) (algum )?seguro|seguro ativo|seguro em vigor)/i.test(lastQ);
+    if (askedSeguro) {
+      if (/\b(sim|tenho|possuo|tenho sim|j[áa] tenho|positivo)\b/i.test(text)) out.seguro_vigente = true;
+      else if (/\b(n[ãa]o|nao tenho|n[ãa]o tenho|negativo|nenhum)\b/i.test(text)) out.seguro_vigente = false;
+    }
+  }
+
+  return out;
+}
+
+/** Todos os campos do formulário estão coletados? */
+export function isProposalFormComplete(contact: any, form: ProposalFormData): boolean {
+  return !!(
+    contact?.cnpj &&
+    contact?.email &&
+    (contact?.phone_number || contact?.whatsapp_id) &&
+    form?.responsavel &&
+    form?.cpf &&
+    form?.seguro_vigente !== undefined
+  );
+}
+
+/** Consulta razão social e endereço na BrasilAPI (best-effort). */
+async function lookupCompanyData(cnpj: string): Promise<{ razao_social?: string; endereco: Record<string, string | null> }> {
+  const empty = { endereco: {} as Record<string, string | null> };
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${onlyDigits(cnpj)}`);
+    if (!resp.ok) return empty;
+    const d = await resp.json();
+    return {
+      razao_social: d.razao_social || d.nome_fantasia || undefined,
+      endereco: {
+        logradouro: d.logradouro ?? null,
+        numero: d.numero ?? null,
+        complemento: d.complemento ?? null,
+        bairro: d.bairro ?? null,
+        municipio: d.municipio ?? null,
+        uf: d.uf ?? null,
+        cep: d.cep ? onlyDigits(String(d.cep)) : null,
+      },
+    };
+  } catch (_) {
+    return empty;
+  }
+}
+
+/**
+ * Cria o rascunho da proposta e devolve o link pessoal que abre o formulário
+ * do site já preenchido (o lead só confere, aceita e transmite).
+ */
+export async function createProposalDraft(
+  supabase: any,
+  params: { contactId: string; conversationId: string; contact: any; form: ProposalFormData },
+): Promise<{ url: string; token: string } | null> {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    let token = '';
+    for (const b of bytes) token += b.toString(16).padStart(2, '0');
+
+    const company = await lookupCompanyData(params.contact?.cnpj || '');
+
+    const { error } = await supabase.from('proposal_drafts').insert({
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      cnpj: onlyDigits(params.contact?.cnpj || ''),
+      razao_social: company.razao_social || params.contact?.company || null,
+      rntrc: params.contact?.rntrc || null,
+      endereco: company.endereco,
+      responsavel: params.form.responsavel || null,
+      cpf: params.form.cpf || null,
+      email: params.contact?.email || null,
+      telefone: params.contact?.phone_number || params.contact?.whatsapp_id || null,
+      seguro_vigente: params.form.seguro_vigente ?? null,
+      token,
+      status: 'awaiting_acceptance',
+    });
+
+    if (error) {
+      console.error('[Nina] ❌ Erro ao criar proposal_draft:', error);
+      return null;
+    }
+
+    return { url: `${PROPOSAL_SITE_URL}/?proposta=${token}`, token };
+  } catch (err) {
+    console.error('[Nina] ❌ Falha ao gerar rascunho da proposta:', err);
+    return null;
+  }
+}
+
+
+
 
 // Sanitize text for TTS - simplify URLs for natural speech
 function sanitizeTextForAudio(text: string): string {
@@ -3571,15 +3718,38 @@ Agradeço pela compreensão!`;
       .eq('id', conversation.id);
   }
 
+  // ===== EXTRAÇÃO DOS CAMPOS DO FORMULÁRIO DA PROPOSTA =====
+  // (responsável, CPF e "já tem seguro vigente" — o resto vem do contato)
+  const existingForm: ProposalFormData = conversation.nina_context?.proposta_form || {};
+  const lastAssistantText = [...(conversationHistory as any[])]
+    .reverse()
+    .find((m: any) => m.role === 'assistant' && m.content)?.content || '';
+  const extractedForm = extractProposalFormFields(
+    String(message.content || ''),
+    String(lastAssistantText),
+    existingForm,
+  );
+  const mergedForm: ProposalFormData = { ...existingForm, ...extractedForm };
+  if (Object.keys(extractedForm).length > 0) {
+    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', '));
+    const newContext = { ...(conversation.nina_context || {}), proposta_form: mergedForm };
+    conversation.nina_context = newContext;
+    await supabase
+      .from('conversations')
+      .update({ nina_context: newContext })
+      .eq('id', conversation.id);
+  }
+
   // ===== AÇÃO DE CONCLUSÃO DA QUALIFICAÇÃO =====
   // Recarrega o contato para ter cnpj/email/telefone mais recentes (podem ter sido
   // atualizados acima na detecção de CNPJ/e-mail).
   const { data: freshContact } = await supabase
     .from('contacts')
-    .select('id, cnpj, email, phone_number, whatsapp_id')
+    .select('id, cnpj, email, phone_number, whatsapp_id, company, rntrc')
     .eq('id', conversation.contact_id)
     .maybeSingle();
   const contactForCheck = freshContact || conversation.contact;
+
 
   const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
   const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
@@ -3626,13 +3796,28 @@ Agradeço pela compreensão!`;
     console.log('[Nina] ⏳ Contratado sem dados completos — continuando coleta antes do handoff.');
   }
 
-  // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
-  if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
-    console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+  // SUBCONTRATADO qualificado + formulário completo -> cria o rascunho da proposta,
+  // envia o LINK PESSOAL já preenchido (o lead só confere, aceita e transmite).
+  if (
+    !linkAlreadySent &&
+    isQualificationComplete(contactForCheck, mergedQA) &&
+    isProposalFormComplete(contactForCheck, mergedForm)
+  ) {
+    console.log('[Nina] ✅ Formulário completo (subcontratado) — gerando proposta pré-preenchida.');
+    const draft = await createProposalDraft(supabase, {
+      contactId: conversation.contact_id,
+      conversationId: conversation.id,
+      contact: contactForCheck,
+      form: mergedForm,
+    });
+
+    const linkMsg = draft
+      ? `Prontinho! Já deixei sua proposta preenchida com os dados que você me passou.\n\nÉ só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
+      : 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
+
 
     // Registra/avisa o corretor: lead_status='proposal' dispara notify_lead_proposal -> replicate-lead-to-crm
     await supabase
@@ -3847,9 +4032,15 @@ Só depois de saber o tipo é que você segue o caminho certo. NÃO explique a a
 ➡️ SE SUBCONTRATADO (agregado): apresente a apólice de compliance (com os avisos obrigatórios: sem averbação por viagem, carga averbada na apólice do contratante, e embarques como contratado direto NÃO cobertos), deixe claro que a contratação é 100% ONLINE no site oficial https://rctr-c.rc-dc.rc-v.jacometo.com.br e conduza a qualificação:
 1. CNPJ da transportadora. (Ao receber, o sistema consulta Receita + ANTT automaticamente e já mostra a confirmação — não peça de novo.)
 2. Confirme a empresa e o RNTRC/situação na ANTT que o sistema encontrou.
-3. Peça o E-MAIL para envio da cotação.
-4. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
-5. Reforce o link oficial https://rctr-c.rc-dc.rc-v.jacometo.com.br sempre que o lead perguntar como contratar, e novamente ao final com tudo confirmado (CNPJ + e-mail + celular).
+3. Peça o NOME COMPLETO DO RESPONSÁVEL pela contratação.
+4. Peça o CPF do responsável.
+5. Peça o E-MAIL para envio da cotação e da apólice.
+6. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
+7. Pergunte se ele JÁ TEM SEGURO VIGENTE hoje (sim ou não).
+8. Reforce o link oficial https://rctr-c.rc-dc.rc-v.jacometo.com.br sempre que o lead perguntar como contratar. Com TODOS os itens acima coletados, o sistema gera automaticamente o link pessoal com a proposta JÁ PREENCHIDA — não invente esse link, apenas siga coletando na ordem.
+
+REGRA DO FORMULÁRIO: esses são exatamente os campos do formulário do site. Faça UMA pergunta por vez, na ordem, e nunca peça um dado que o lead já informou. Você NÃO marca aceites nem transmite a proposta — quem confere, aceita e transmite é sempre o próprio lead, no site.
+
 
 ➡️ SE CONTRATADO (responsável pela carga): este pacote de compliance NÃO serve — ele precisa do produto COM cobertura efetiva/averbação da carga. NÃO envie o link do site. Explique isso em 1 frase e COLETE os dados para o corretor humano montar a proposta certa, uma pergunta por vez:
 1. CNPJ da transportadora. (O sistema consulta Receita + ANTT automaticamente — não peça de novo.)
@@ -5441,10 +5632,17 @@ ${contact.notes}
       }
     }
     
+    // Campos do formulário da proposta já coletados no chat
+    const pf = ninaContext?.proposta_form || {};
+    if (pf.responsavel) answeredFields.push(`- Nome do responsável: ${pf.responsavel}`);
+    if (pf.cpf) answeredFields.push(`- CPF do responsável: ${pf.cpf}`);
+    if (pf.seguro_vigente !== undefined) answeredFields.push(`- Já tem seguro vigente: ${pf.seguro_vigente ? 'sim' : 'não'}`);
+
     if (answeredFields.length > 0) {
       contextInfo += `\n\n## INFORMAÇÕES JÁ COLETADAS (NÃO PERGUNTE NOVAMENTE, NÃO REPITA):\n${answeredFields.join('\n')}`;
     }
   }
+
 
   if (memory && Object.keys(memory).length > 0) {
     contextInfo += `\n\nMEMÓRIA DO CLIENTE:`;
@@ -5561,8 +5759,11 @@ Antes de fazer QUALQUER pergunta:
 - CNPJ - já está no contexto do cliente?
 - Empresa/RNTRC (ANTT) - já foi confirmado?
 - Tipo de transportador (contratado/subcontratado) - já informou?
+- Nome completo do responsável - já informou?
+- CPF do responsável - já informou?
 - E-mail - já forneceu?
 - Celular (WhatsApp) - já confirmou o número atual?
+- Já tem seguro vigente (sim/não) - já respondeu?
 
 ### REGRA DE FINALIZAÇÃO (IMPORTANTE):
 - Ao coletar todas as informações de qualificação, SEMPRE solicite o email antes de encerrar
