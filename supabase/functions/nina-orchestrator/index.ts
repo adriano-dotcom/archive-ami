@@ -1697,7 +1697,28 @@ export function extractProposalFormFields(
     if (looksLikeName) out.responsavel = cleaned;
   }
 
-  // Seguro vigente: sim/não após a pergunta correspondente
+  // PASSO 1 (Empresa) — confirmação da razão social / RNTRC
+  if (!current.empresa_confirmada) {
+    const askedEmpresa = /(confirma|est[áa] correto|é essa|e essa).{0,80}(raz[ãa]o social|empresa|rntrc)|(raz[ãa]o social|rntrc).{0,80}(confere|est[áa] correto|confirma)/i.test(lastQ);
+    if (askedEmpresa && AFFIRMATIVE_RE.test(text)) out.empresa_confirmada = true;
+  }
+
+  // PASSO 1 (Empresa) — confirmação do endereço
+  if (!current.endereco_confirmado) {
+    const askedEndereco = /(endere[çc]o|logradouro|cep)/i.test(lastQ);
+    if (askedEndereco) {
+      if (AFFIRMATIVE_RE.test(text)) {
+        out.endereco_confirmado = true;
+      } else if (text.length >= 8 && /\d/.test(text) && !/^\s*(n[ãa]o)\s*$/i.test(text)) {
+        // Lead corrigiu/informou o endereço em texto livre
+        out.endereco = { ...(current.endereco || {}), logradouro: text.slice(0, 150) };
+        out.endereco_confirmado = true;
+      }
+    }
+  }
+
+  // Seguro vigente: sim/não após a pergunta correspondente (pergunta opcional —
+  // no formulário esse campo já vai marcado como "não" por padrão)
   if (current.seguro_vigente === undefined) {
     const askedSeguro = /(seguro (j[áa] )?vigente|j[áa] (tem|possui) (algum )?seguro|seguro ativo|seguro em vigor)/i.test(lastQ);
     if (askedSeguro) {
@@ -1709,15 +1730,19 @@ export function extractProposalFormFields(
   return out;
 }
 
-/** Todos os campos do formulário estão coletados? */
+/**
+ * Todos os campos do formulário estão coletados?
+ * Passo 3 (seguro vigente) NÃO é perguntado — o site recebe o valor padrão.
+ */
 export function isProposalFormComplete(contact: any, form: ProposalFormData): boolean {
   return !!(
     contact?.cnpj &&
     contact?.email &&
     (contact?.phone_number || contact?.whatsapp_id) &&
+    form?.empresa_confirmada &&
+    form?.endereco_confirmado &&
     form?.responsavel &&
-    form?.cpf &&
-    form?.seguro_vigente !== undefined
+    form?.cpf
   );
 }
 
