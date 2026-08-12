@@ -1773,48 +1773,115 @@ async function lookupCompanyData(cnpj: string): Promise<{ razao_social?: string;
   }
 }
 
+function newToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let token = '';
+  for (const b of bytes) token += b.toString(16).padStart(2, '0');
+  return token;
+}
+
+function buildDraftPayload(contact: any, form: ProposalFormData, company: { razao_social?: string; endereco: Record<string, string | null> }) {
+  return {
+    cnpj: onlyDigits(contact?.cnpj || '') || null,
+    razao_social: form.razao_social || company.razao_social || contact?.company || null,
+    rntrc: contact?.rntrc || null,
+    endereco: { ...(company.endereco || {}), ...(form.endereco || {}) },
+    responsavel: form.responsavel || null,
+    cpf: form.cpf || null,
+    email: contact?.email || null,
+    telefone: contact?.phone_number || contact?.whatsapp_id || null,
+    // Passo 3 do site fica pré-marcado: sem seguro vigente, salvo se o lead disser o contrário
+    seguro_vigente: form.seguro_vigente ?? false,
+  };
+}
+
 /**
- * Cria o rascunho da proposta e devolve o link pessoal que abre o formulário
+ * Salva/atualiza o rascunho a cada campo confirmado (status "collecting"),
+ * para o operador acompanhar o progresso no painel do lead.
+ */
+export async function saveProposalProgress(
+  supabase: any,
+  params: { contactId: string; conversationId: string; contact: any; form: ProposalFormData },
+): Promise<{ id: string; token: string } | null> {
+  try {
+    const company = await lookupCompanyData(params.contact?.cnpj || '');
+    const payload = buildDraftPayload(params.contact, params.form, company);
+
+    const { data: existing } = await supabase
+      .from('proposal_drafts')
+      .select('id, token, status')
+      .eq('conversation_id', params.conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) {
+      if (existing.status === 'transmitted') return { id: existing.id, token: existing.token };
+      const { error } = await supabase
+        .from('proposal_drafts')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+      if (error) {
+        console.error('[Nina] ❌ Erro ao atualizar proposal_draft:', error);
+        return null;
+      }
+      return { id: existing.id, token: existing.token };
+    }
+
+    const token = newToken();
+    const { data, error } = await supabase
+      .from('proposal_drafts')
+      .insert({
+        contact_id: params.contactId,
+        conversation_id: params.conversationId,
+        ...payload,
+        token,
+        status: 'collecting',
+      })
+      .select('id, token')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Nina] ❌ Erro ao criar proposal_draft:', error);
+      return null;
+    }
+    return { id: data.id, token: data.token };
+  } catch (err) {
+    console.error('[Nina] ❌ Falha ao salvar rascunho da proposta:', err);
+    return null;
+  }
+}
+
+/**
+ * Finaliza o rascunho da proposta e devolve o link pessoal que abre o formulário
  * do site já preenchido (o lead só confere, aceita e transmite).
  */
 export async function createProposalDraft(
   supabase: any,
   params: { contactId: string; conversationId: string; contact: any; form: ProposalFormData },
 ): Promise<{ url: string; token: string } | null> {
-  try {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    let token = '';
-    for (const b of bytes) token += b.toString(16).padStart(2, '0');
+  const saved = await saveProposalProgress(supabase, params);
+  if (!saved) return null;
+  await supabase
+    .from('proposal_drafts')
+    .update({ status: 'awaiting_acceptance', expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() })
+    .eq('id', saved.id);
+  return { url: `${PROPOSAL_SITE_URL}/?proposta=${saved.token}`, token: saved.token };
+}
 
-    const company = await lookupCompanyData(params.contact?.cnpj || '');
-
-    const { error } = await supabase.from('proposal_drafts').insert({
-      contact_id: params.contactId,
-      conversation_id: params.conversationId,
-      cnpj: onlyDigits(params.contact?.cnpj || ''),
-      razao_social: company.razao_social || params.contact?.company || null,
-      rntrc: params.contact?.rntrc || null,
-      endereco: company.endereco,
-      responsavel: params.form.responsavel || null,
-      cpf: params.form.cpf || null,
-      email: params.contact?.email || null,
-      telefone: params.contact?.phone_number || params.contact?.whatsapp_id || null,
-      seguro_vigente: params.form.seguro_vigente ?? null,
-      token,
-      status: 'awaiting_acceptance',
-    });
-
-    if (error) {
-      console.error('[Nina] ❌ Erro ao criar proposal_draft:', error);
-      return null;
-    }
-
-    return { url: `${PROPOSAL_SITE_URL}/?proposta=${token}`, token };
-  } catch (err) {
-    console.error('[Nina] ❌ Falha ao gerar rascunho da proposta:', err);
-    return null;
-  }
+/** Resumo dos dados coletados (passo 4 — Conferência). */
+export function buildProposalSummary(contact: any, form: ProposalFormData): string {
+  const lines: string[] = [];
+  if (form.razao_social || contact?.company) lines.push(`Razão social: ${form.razao_social || contact.company}`);
+  if (contact?.cnpj) lines.push(`CNPJ: ${contact.cnpj}`);
+  if (contact?.rntrc) lines.push(`RNTRC: ${contact.rntrc}`);
+  if (form.responsavel) lines.push(`Responsável: ${form.responsavel}`);
+  if (form.cpf) lines.push(`CPF: ${form.cpf}`);
+  if (contact?.email) lines.push(`E-mail: ${contact.email}`);
+  const tel = contact?.phone_number || contact?.whatsapp_id;
+  if (tel) lines.push(`Telefone: ${tel}`);
+  return lines.join('\n');
 }
 
 
