@@ -3796,13 +3796,28 @@ Agradeço pela compreensão!`;
     console.log('[Nina] ⏳ Contratado sem dados completos — continuando coleta antes do handoff.');
   }
 
-  // SUBCONTRATADO qualificado (CNPJ + e-mail + celular + tipo) -> envia link + registra lead
-  if (!linkAlreadySent && isQualificationComplete(contactForCheck, mergedQA)) {
-    console.log('[Nina] ✅ Qualificação completa (subcontratado) — enviando link e registrando lead.');
-    const linkMsg = 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
+  // SUBCONTRATADO qualificado + formulário completo -> cria o rascunho da proposta,
+  // envia o LINK PESSOAL já preenchido (o lead só confere, aceita e transmite).
+  if (
+    !linkAlreadySent &&
+    isQualificationComplete(contactForCheck, mergedQA) &&
+    isProposalFormComplete(contactForCheck, mergedForm)
+  ) {
+    console.log('[Nina] ✅ Formulário completo (subcontratado) — gerando proposta pré-preenchida.');
+    const draft = await createProposalDraft(supabase, {
+      contactId: conversation.contact_id,
+      conversationId: conversation.id,
+      contact: contactForCheck,
+      form: mergedForm,
+    });
+
+    const linkMsg = draft
+      ? `Prontinho! Já deixei sua proposta preenchida com os dados que você me passou.\n\nÉ só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
+      : 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
     await queueTextResponse(supabase, conversation, message, linkMsg, settings, aiSettings, delay, agent);
+
 
     // Registra/avisa o corretor: lead_status='proposal' dispara notify_lead_proposal -> replicate-lead-to-crm
     await supabase
