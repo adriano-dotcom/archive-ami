@@ -1649,6 +1649,10 @@ export type ProposalFormData = {
   endereco_confirmado?: boolean;
   responsavel?: string;
   cpf?: string;
+  /** Sinalizador transitório: última resposta trouxe um CPF inválido. */
+  cpf_invalido?: boolean;
+  /** Quantidade de tentativas de CPF inválido nesta conversa. */
+  cpf_tentativas?: number;
   seguro_vigente?: boolean;
   draft_id?: string;
   token?: string;
@@ -1661,6 +1665,20 @@ const AFFIRMATIVE_RE =
 
 function onlyDigits(s: string): string {
   return (s || '').replace(/\D/g, '');
+}
+
+/** Valida CPF: 11 dígitos, não repetidos, com os dois dígitos verificadores corretos. */
+export function isValidCpf(value: string): boolean {
+  const cpf = onlyDigits(value);
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = (len: number): number => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
 }
 
 /**
@@ -1680,12 +1698,23 @@ export function extractProposalFormFields(
 
   // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
   if (!current.cpf) {
+    const askedCpf = /\bcpf\b/i.test(lastQ) || /\bcpf\b/i.test(text);
     const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
     if (cpfMatch) {
       const digits = onlyDigits(cpfMatch[1]);
-      if (digits.length === 11) out.cpf = digits;
+      if (digits.length === 11) {
+        if (isValidCpf(digits)) out.cpf = digits;
+        else if (askedCpf) out.cpf_invalido = true;
+      }
+    } else if (askedCpf) {
+      // Respondeu à pergunta do CPF com algo que tem dígitos, mas não é um CPF
+      const digits = onlyDigits(text);
+      if (digits.length > 0 && digits.length !== 14 && !/\d{14,}/.test(digits)) {
+        if (digits.length !== 11) out.cpf_invalido = true;
+      }
     }
   }
+
 
   // Nome do responsável: resposta livre logo após a pergunta pelo nome
   if (!current.responsavel) {
@@ -3840,9 +3869,14 @@ Agradeço pela compreensão!`;
     String(lastAssistantText),
     existingForm,
   );
+  const cpfInvalido = extractedForm.cpf_invalido === true;
+  delete extractedForm.cpf_invalido;
   const mergedForm: ProposalFormData = { ...existingForm, ...extractedForm };
-  if (Object.keys(extractedForm).length > 0) {
-    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', '));
+  if (cpfInvalido) {
+    mergedForm.cpf_tentativas = (existingForm.cpf_tentativas || 0) + 1;
+  }
+  if (Object.keys(extractedForm).length > 0 || cpfInvalido) {
+    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', ') || '(nenhum)');
     const newContext = { ...(conversation.nina_context || {}), proposta_form: mergedForm };
     conversation.nina_context = newContext;
     await supabase
@@ -3850,6 +3884,47 @@ Agradeço pela compreensão!`;
       .update({ nina_context: newContext })
       .eq('id', conversation.id);
   }
+
+  // ===== CPF INVÁLIDO: pede correção na hora, sem chamar a IA =====
+  if (cpfInvalido) {
+    const tentativas = mergedForm.cpf_tentativas || 1;
+    console.log(`[Nina] ⚠️ CPF inválido informado (tentativa ${tentativas})`);
+    const cpfMsg =
+      tentativas >= 3
+        ? 'O CPF ainda não passou na verificação. Para não te travar, vou pedir para um dos nossos corretores conferir esse dado com você e seguir com a proposta. Pode deixar que a gente resolve.'
+        : 'Esse CPF não passou na verificação. Pode conferir e me mandar de novo, com os 11 dígitos? Pode ser só os números.';
+
+    const aiSettingsCpf = getModelSettings(settings, conversationHistory, message, conversation.contact, clientMemory);
+    const delayCpf =
+      Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) +
+      (settings?.response_delay_min || 1000);
+    await queueTextResponse(supabase, conversation, message, cpfMsg, settings, aiSettingsCpf, delayCpf, agent);
+
+    if (tentativas >= 3) {
+      await supabase
+        .from('contacts')
+        .update({ lead_status: 'proposal', updated_at: new Date().toISOString() })
+        .eq('id', conversation.contact_id);
+    }
+
+    await supabase
+      .from('messages')
+      .update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() })
+      .eq('id', message.id);
+
+    try {
+      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({ triggered_by: 'nina-orchestrator-cpf-invalid' }),
+      }).catch((e) => console.error('[Nina] sender trigger error:', e));
+    } catch (_) { /* noop */ }
+
+    return new Response(JSON.stringify({ success: true, action: 'cpf_invalid_retry' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
 
   // ===== AÇÃO DE CONCLUSÃO DA QUALIFICAÇÃO =====
   // Recarrega o contato para ter cnpj/email/telefone mais recentes (podem ter sido
@@ -4162,7 +4237,7 @@ PASSO 1 — EMPRESA
 
 PASSO 2 — CONTATO
 4. Peça o NOME COMPLETO DO RESPONSÁVEL pela contratação (é o sócio/responsável legal — não existe campo separado de sócio).
-5. Peça o CPF do responsável.
+5. Peça o CPF do responsável. O sistema valida os dígitos automaticamente: NUNCA aceite um CPF inválido, nunca complete ou invente dígitos e, se o sistema recusar, apenas peça o número correto de novo (11 dígitos).
 6. Peça o E-MAIL para envio da cotação e da apólice.
 7. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
 
