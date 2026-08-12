@@ -5632,10 +5632,17 @@ ${contact.notes}
       }
     }
     
+    // Campos do formulário da proposta já coletados no chat
+    const pf = ninaContext?.proposta_form || {};
+    if (pf.responsavel) answeredFields.push(`- Nome do responsável: ${pf.responsavel}`);
+    if (pf.cpf) answeredFields.push(`- CPF do responsável: ${pf.cpf}`);
+    if (pf.seguro_vigente !== undefined) answeredFields.push(`- Já tem seguro vigente: ${pf.seguro_vigente ? 'sim' : 'não'}`);
+
     if (answeredFields.length > 0) {
       contextInfo += `\n\n## INFORMAÇÕES JÁ COLETADAS (NÃO PERGUNTE NOVAMENTE, NÃO REPITA):\n${answeredFields.join('\n')}`;
     }
   }
+
 
   if (memory && Object.keys(memory).length > 0) {
     contextInfo += `\n\nMEMÓRIA DO CLIENTE:`;
