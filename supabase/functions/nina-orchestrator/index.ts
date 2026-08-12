@@ -3861,6 +3861,18 @@ Agradeço pela compreensão!`;
     .maybeSingle();
   const contactForCheck = freshContact || conversation.contact;
 
+  // Salva o progresso do formulário a cada campo novo (painel do operador)
+  if (Object.keys(extractedForm).length > 0 && contactForCheck?.cnpj) {
+    await saveProposalProgress(supabase, {
+      contactId: conversation.contact_id,
+      conversationId: conversation.id,
+      contact: contactForCheck,
+      form: mergedForm,
+    });
+  }
+
+
+
 
   const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
   const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
