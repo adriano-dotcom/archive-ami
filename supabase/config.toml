@@ -70,3 +70,6 @@ verify_jwt = false
 [functions.replicate-lead-to-crm]
 verify_jwt = false
 
+[functions.proposal-prefill]
+verify_jwt = false
+
