@@ -3718,15 +3718,38 @@ Agradeço pela compreensão!`;
       .eq('id', conversation.id);
   }
 
+  // ===== EXTRAÇÃO DOS CAMPOS DO FORMULÁRIO DA PROPOSTA =====
+  // (responsável, CPF e "já tem seguro vigente" — o resto vem do contato)
+  const existingForm: ProposalFormData = conversation.nina_context?.proposta_form || {};
+  const lastAssistantText = [...(conversationHistory as any[])]
+    .reverse()
+    .find((m: any) => m.role === 'assistant' && m.content)?.content || '';
+  const extractedForm = extractProposalFormFields(
+    String(message.content || ''),
+    String(lastAssistantText),
+    existingForm,
+  );
+  const mergedForm: ProposalFormData = { ...existingForm, ...extractedForm };
+  if (Object.keys(extractedForm).length > 0) {
+    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', '));
+    const newContext = { ...(conversation.nina_context || {}), proposta_form: mergedForm };
+    conversation.nina_context = newContext;
+    await supabase
+      .from('conversations')
+      .update({ nina_context: newContext })
+      .eq('id', conversation.id);
+  }
+
   // ===== AÇÃO DE CONCLUSÃO DA QUALIFICAÇÃO =====
   // Recarrega o contato para ter cnpj/email/telefone mais recentes (podem ter sido
   // atualizados acima na detecção de CNPJ/e-mail).
   const { data: freshContact } = await supabase
     .from('contacts')
-    .select('id, cnpj, email, phone_number, whatsapp_id')
+    .select('id, cnpj, email, phone_number, whatsapp_id, company, rntrc')
     .eq('id', conversation.contact_id)
     .maybeSingle();
   const contactForCheck = freshContact || conversation.contact;
+
 
   const tipoTransportador = (mergedQA.tipo_transportador || '').toLowerCase();
   const linkAlreadySent = !!conversation.nina_context?.qualification_link_sent;
