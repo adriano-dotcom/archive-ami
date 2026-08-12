@@ -1717,9 +1717,13 @@ export function extractProposalFormFields(
 
 
   // Nome do responsável: resposta livre logo após a pergunta pelo nome
+  // (sócio / administrador / proprietário / titular = mesmo campo "Responsável")
   if (!current.responsavel) {
-    const askedName = /(nome (completo )?do respons|nome do titular|quem (é|e) o respons|seu nome completo)/i.test(lastQ);
-    const cleaned = text.replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '').trim();
+    const askedName = /(nome (completo )?do respons|nome do titular|nome do s[óo]cio|nome do administrador|quem (é|e) o respons|quem (é|e) o s[óo]cio|quem (é|e) o administrador|seu nome completo)/i.test(lastQ);
+    const cleaned = text
+      .replace(/^(meu nome (é|e)|nome:|sou o|sou a|é o|é a)\s*/i, '')
+      .replace(/^(o|a)?\s*(s[óo]cio|s[óo]cia|administrador|administradora|propriet[áa]rio|propriet[áa]ria|dono|dona|titular|respons[áa]vel( legal)?|representante( legal)?)\s*(é|e|:|-)?\s*/i, '')
+      .trim();
     const looksLikeName =
       askedName &&
       !/\d/.test(cleaned) &&
@@ -1728,6 +1732,7 @@ export function extractProposalFormFields(
       cleaned.split(/\s+/).length >= 2;
     if (looksLikeName) out.responsavel = cleaned;
   }
+
 
   // PASSO 1 (Empresa) — confirmação da razão social / RNTRC
   if (!current.empresa_confirmada) {
@@ -4237,6 +4242,13 @@ PASSO 1 — EMPRESA
 
 PASSO 2 — CONTATO
 4. Peça o NOME COMPLETO DO RESPONSÁVEL pela contratação (é o sócio/responsável legal — não existe campo separado de sócio).
+
+🔁 REGRA DE SINÔNIMOS — SÓCIO / ADMINISTRADOR = CAMPO "RESPONSÁVEL":
+- Se o lead falar em "sócio", "administrador", "proprietário", "dono", "titular", "responsável legal" ou "representante", trate TUDO como o mesmo campo do formulário: RESPONSÁVEL (nome completo + CPF dele).
+- Explique em uma frase curta: no formulário do site existe apenas o campo "Responsável", que é justamente o sócio/administrador que assina a proposta. NÃO existe campo separado de sócio.
+- NUNCA prometa coletar dados de outros sócios, quadro societário ou segundo administrador — o formulário não tem esses campos.
+- Se o lead citar mais de uma pessoa (ex.: "o administrador é o Pedro, mas quem fala é a Ana"), pergunte qual nome deve ir no campo Responsável antes de registrar.
+
 5. Peça o CPF do responsável. O sistema valida os dígitos automaticamente: NUNCA aceite um CPF inválido, nunca complete ou invente dígitos e, se o sistema recusar, apenas peça o número correto de novo (11 dígitos).
 6. Peça o E-MAIL para envio da cotação e da apólice.
 7. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
