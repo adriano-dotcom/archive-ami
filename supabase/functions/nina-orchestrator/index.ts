@@ -3869,9 +3869,14 @@ Agradeço pela compreensão!`;
     String(lastAssistantText),
     existingForm,
   );
+  const cpfInvalido = extractedForm.cpf_invalido === true;
+  delete extractedForm.cpf_invalido;
   const mergedForm: ProposalFormData = { ...existingForm, ...extractedForm };
-  if (Object.keys(extractedForm).length > 0) {
-    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', '));
+  if (cpfInvalido) {
+    mergedForm.cpf_tentativas = (existingForm.cpf_tentativas || 0) + 1;
+  }
+  if (Object.keys(extractedForm).length > 0 || cpfInvalido) {
+    console.log('[Nina] 📝 Campos do formulário extraídos:', Object.keys(extractedForm).join(', ') || '(nenhum)');
     const newContext = { ...(conversation.nina_context || {}), proposta_form: mergedForm };
     conversation.nina_context = newContext;
     await supabase
@@ -3879,6 +3884,47 @@ Agradeço pela compreensão!`;
       .update({ nina_context: newContext })
       .eq('id', conversation.id);
   }
+
+  // ===== CPF INVÁLIDO: pede correção na hora, sem chamar a IA =====
+  if (cpfInvalido) {
+    const tentativas = mergedForm.cpf_tentativas || 1;
+    console.log(`[Nina] ⚠️ CPF inválido informado (tentativa ${tentativas})`);
+    const cpfMsg =
+      tentativas >= 3
+        ? 'O CPF ainda não passou na verificação. Para não te travar, vou pedir para um dos nossos corretores conferir esse dado com você e seguir com a proposta. Pode deixar que a gente resolve.'
+        : 'Esse CPF não passou na verificação. Pode conferir e me mandar de novo, com os 11 dígitos? Pode ser só os números.';
+
+    const aiSettingsCpf = getModelSettings(settings, conversationHistory, message, conversation.contact, clientMemory);
+    const delayCpf =
+      Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) +
+      (settings?.response_delay_min || 1000);
+    await queueTextResponse(supabase, conversation, message, cpfMsg, settings, aiSettingsCpf, delayCpf, agent);
+
+    if (tentativas >= 3) {
+      await supabase
+        .from('contacts')
+        .update({ lead_status: 'proposal', updated_at: new Date().toISOString() })
+        .eq('id', conversation.contact_id);
+    }
+
+    await supabase
+      .from('messages')
+      .update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() })
+      .eq('id', message.id);
+
+    try {
+      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({ triggered_by: 'nina-orchestrator-cpf-invalid' }),
+      }).catch((e) => console.error('[Nina] sender trigger error:', e));
+    } catch (_) { /* noop */ }
+
+    return new Response(JSON.stringify({ success: true, action: 'cpf_invalid_retry' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
 
   // ===== AÇÃO DE CONCLUSÃO DA QUALIFICAÇÃO =====
   // Recarrega o contato para ter cnpj/email/telefone mais recentes (podem ter sido
