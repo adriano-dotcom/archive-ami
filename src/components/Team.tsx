@@ -23,6 +23,8 @@ const Team: React.FC = () => {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSellerForm, setShowSellerForm] = useState(false);
   const [editingSeller, setEditingSeller] = useState<Seller | null>(null);
