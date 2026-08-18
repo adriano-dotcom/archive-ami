@@ -23,6 +23,8 @@ const Team: React.FC = () => {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSellerForm, setShowSellerForm] = useState(false);
   const [editingSeller, setEditingSeller] = useState<Seller | null>(null);
@@ -85,9 +87,11 @@ const Team: React.FC = () => {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (submitting) return;
+    setSubmitting(true);
+
     try {
-      // 1. Criar team_member
+      // 1. Criar (ou atualizar) team_member
       const member = await api.createTeamMember({
         name: formData.name,
         email: formData.email,
@@ -97,7 +101,17 @@ const Team: React.FC = () => {
         weight: formData.weight
       });
 
-      // 2. Criar pending_invite com app_role
+      const jaAtivo = member.alreadyExisted && member.status === 'active';
+
+      if (jaAtivo) {
+        toast.info('Este e-mail já faz parte da equipe. Dados atualizados.');
+        setShowModal(false);
+        setFormData({ name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1 });
+        await loadAllData();
+        return;
+      }
+
+      // 2. Criar/renovar pending_invite com app_role
       const appRole = formData.role === 'admin' ? 'admin' : 'operator';
       await api.createPendingInvite({
         email: formData.email,
@@ -122,7 +136,7 @@ const Team: React.FC = () => {
         console.warn('Erro ao enviar email de convite:', emailError);
         toast.success('Membro convidado! (Email não enviado - configure RESEND_API_KEY)');
       } else {
-        toast.success('Convite enviado por email!');
+        toast.success(member.alreadyExisted ? 'Convite reenviado por email!' : 'Convite enviado por email!');
       }
 
       setShowModal(false);
@@ -130,9 +144,12 @@ const Team: React.FC = () => {
       await loadAllData();
     } catch (error) {
       console.error('Erro ao convidar membro:', error);
-      toast.error('Erro ao convidar membro. Verifique se o email já não está cadastrado.');
+      toast.error('Erro ao convidar membro. Tente novamente.');
+    } finally {
+      setSubmitting(false);
     }
   };
+
 
   const handleUpdateMember = async (id: string, field: string, value: any) => {
     try {
@@ -718,8 +735,9 @@ const Team: React.FC = () => {
                     </div>
 
                     <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
-                        <Button type="submit" className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">Enviar Convite</Button>
+                        <Button type="button" variant="ghost" disabled={submitting} onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
+                        <Button type="submit" disabled={submitting} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{submitting ? 'Enviando...' : 'Enviar Convite'}</Button>
+
                     </div>
                 </form>
             </div>

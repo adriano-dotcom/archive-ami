@@ -569,7 +569,7 @@ export const api = {
   },
 
   /**
-   * Create team member
+   * Create team member (idempotente por email: atualiza se já existir)
    */
   createTeamMember: async (member: {
     name: string;
@@ -578,25 +578,58 @@ export const api = {
     team_id?: string;
     function_id?: string;
     weight?: number;
-  }): Promise<TeamMember> => {
-    const { data, error } = await supabase
-      .from('team_members')
-      .insert({
-        name: member.name,
-        email: member.email,
-        role: member.role,
-        team_id: member.team_id,
-        function_id: member.function_id,
-        weight: member.weight || 1,
-        status: 'invited'
-      })
-      .select()
-      .single();
+  }): Promise<TeamMember & { alreadyExisted?: boolean }> => {
+    const email = member.email.trim().toLowerCase();
 
-    if (error) {
-      console.error('[API] Error creating team member:', error);
-      throw error;
+    const { data: existing } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    let data: any;
+
+    if (existing) {
+      const { data: updated, error: updateError } = await supabase
+        .from('team_members')
+        .update({
+          name: member.name,
+          role: member.role,
+          team_id: member.team_id ?? null,
+          function_id: member.function_id ?? null,
+          weight: member.weight || 1,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('[API] Error updating existing team member:', updateError);
+        throw updateError;
+      }
+      data = { ...updated, alreadyExisted: true, previousStatus: existing.status };
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('team_members')
+        .insert({
+          name: member.name,
+          email,
+          role: member.role,
+          team_id: member.team_id,
+          function_id: member.function_id,
+          weight: member.weight || 1,
+          status: 'invited'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[API] Error creating team member:', error);
+        throw error;
+      }
+      data = inserted;
     }
+
 
     return {
       id: data.id,
@@ -607,8 +640,10 @@ export const api = {
       avatar: data.avatar || `https://ui-avatars.com/api/?name=${data.name.replace(' ', '+')}&background=random`,
       team_id: data.team_id,
       function_id: data.function_id,
-      weight: data.weight ?? undefined
+      weight: data.weight ?? undefined,
+      alreadyExisted: Boolean(data.alreadyExisted)
     };
+
   },
 
   /**
