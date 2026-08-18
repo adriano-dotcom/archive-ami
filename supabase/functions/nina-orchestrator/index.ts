@@ -4016,7 +4016,7 @@ Agradeço pela compreensão!`;
 
     const resumo = buildProposalSummary(contactForCheck, mergedForm);
     const linkMsg = draft
-      ? `Conferência dos dados que você me passou:\n\n${resumo}\n\nEstá tudo certo? Já deixei sua proposta preenchida. É só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
+      ? `Conferência dos dados que você me passou:\n\n${resumo}\n\nSeu cadastro está sendo feito na modalidade *subcontratado (agregado)*: essa apólice vale para a sua atuação como subcontratado. Frete fechado direto com o dono da carga não é coberto por ela.\n\nEstá tudo certo? Já deixei sua proposta preenchida. É só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
       : 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
@@ -5628,6 +5628,8 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 MODELO (base para adaptar):
 """
 É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — RCTR-C, RC-DC e RC-V em *uma única apólice* da seguradora parceira (SUSEP) por *R$ 911,66/ano* (Pix).
+
+*Importante desde já:* essa apólice vale para a sua atuação como *subcontratado (agregado)*. Frete fechado *direto com o dono da carga* não é coberto por ela.
 
 *O que ela resolve:*
 - Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
