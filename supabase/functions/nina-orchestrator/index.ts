@@ -10,6 +10,20 @@ const corsHeaders = {
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+// ===== ESCOPO DO PRODUTO (fonte única) =====
+export const SCOPE_SENTENCE = "Essa apólice vale para a sua atuação como subcontratado (agregado). Frete fechado direto com o dono da carga não é coberto por ela.";
+
+export const SCOPE_RULE_BLOCK = `
+⛔⛔ REGRA #0 — ESCOPO DO PRODUTO (VALE ACIMA DE QUALQUER OUTRA)
+- O pacote RCTR-C + RC-DC + RC-V por R$ 911,66/ano é EXCLUSIVO para transportador PJ (MEI, ME ou EPP com RNTRC ativo como ETC) que atua como SUBCONTRATADO/AGREGADO de outra transportadora.
+- NUNCA ofereça, precifique ou envie o link do site para quem atua como CONTRATADO DIRETO (fecha frete direto com o dono da carga) nem para pessoa física/TAC.
+- Enquanto você NÃO souber o tipo de transportador, não fale de preço, não detalhe coberturas e não envie link. Faça primeiro a pergunta de triagem.
+- FRASE PADRÃO DE ESCOPO (obrigatória na primeira vez que você mencionar o produto na conversa e SEMPRE que o lead perguntar preço, prazo de emissão ou como contratar):
+  "${SCOPE_SENTENCE}"
+  Você pode adaptar as palavras, mas o sentido deve ser mantido — nunca omita esse aviso.
+`;
+
+
 interface Agent {
   id: string;
   name: string;
