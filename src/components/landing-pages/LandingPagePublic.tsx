@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -150,8 +151,37 @@ export const LandingPagePublic: React.FC = () => {
   const heroBg = page.hero_bg_color || '#FFFFFF';
   const sectionBg = page.section_bg_color || '#F9FAFB';
 
+  const pageUrl = `https://archive-ami.lovable.app/lp/${page.slug}`;
+  const pageDescription = (page.subtitle || page.lead_magnet_title || page.title).slice(0, 155);
+
   return (
     <div className="min-h-screen bg-white text-gray-800">
+      <Helmet>
+        <title>{page.title.slice(0, 60)}</title>
+        <meta name="description" content={pageDescription} />
+        <link rel="canonical" href={pageUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={page.title} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:url" content={pageUrl} />
+        {page.hero_image_url && <meta property="og:image" content={page.hero_image_url} />}
+        <meta name="twitter:title" content={page.title} />
+        <meta name="twitter:description" content={pageDescription} />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Service',
+            name: page.title,
+            description: pageDescription,
+            url: pageUrl,
+            provider: {
+              '@type': 'Organization',
+              name: 'Jacometo Corretora de Seguros',
+              url: 'https://archive-ami.lovable.app/',
+            },
+          })}
+        </script>
+      </Helmet>
       {/* Header */}
       <header className="bg-white border-b border-gray-100 px-4 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
