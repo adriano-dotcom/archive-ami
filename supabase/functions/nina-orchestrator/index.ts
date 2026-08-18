@@ -4129,6 +4129,12 @@ Agradeço pela compreensão!`;
     systemPrompt = settings?.system_prompt_override || getDefaultSystemPrompt();
   }
 
+  // Reforço à prova de sobrescrita: qualquer prompt vindo do banco recebe a REGRA #0 de escopo
+  if (!systemPrompt.includes('Frete fechado direto com o dono da carga')) {
+    systemPrompt = `${SCOPE_RULE_BLOCK}\n${systemPrompt}`;
+  }
+
+
   // Build enhanced system prompt with context (including qualification answers from nina_context)
   // Also pass recent user messages for history verification
   const recentUserMsgs = (recentMessages || [])
