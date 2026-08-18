@@ -245,12 +245,12 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-2 sm:p-3 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={orbepetLogo} alt="Jacometo Corretora" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
+              <img src={orbepetLogo} alt="Logo da Jacometo Corretora de Seguros" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
             </div>
           </div>
           
           {/* Title */}
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Jacometo Corretora</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Jacometo Corretora &mdash; CRM de Seguros de Carga</h1>
           
           {/* SDR Badge */}
           <div className="mt-2 sm:mt-3 flex items-center justify-center gap-2 sm:gap-3">

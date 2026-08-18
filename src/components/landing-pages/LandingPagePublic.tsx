@@ -134,7 +134,7 @@ export const LandingPagePublic: React.FC = () => {
   if (notFound || !page) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white text-gray-800 p-6">
-        <img src={orbepetLogo} alt="OrbePet" className="w-16 h-16 mb-4" />
+        <img src={orbepetLogo} alt="Logo da OrbePet" className="w-16 h-16 mb-4" />
         <h1 className="text-2xl font-bold mb-2">Página não encontrada</h1>
         <p className="text-gray-500">Esta landing page não existe ou não está ativa.</p>
       </div>
@@ -156,7 +156,7 @@ export const LandingPagePublic: React.FC = () => {
       <header className="bg-white border-b border-gray-100 px-4 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={orbepetLogo} alt="OrbePet" className="w-10 h-10" />
+            <img src={orbepetLogo} alt="Logo da OrbePet" className="w-10 h-10" />
             <span className="font-bold text-lg" style={{ color: pc }}>OrbePet</span>
           </div>
           <a href="https://orbepet.com.br" target="_blank" rel="noopener noreferrer"
@@ -315,7 +315,7 @@ export const LandingPagePublic: React.FC = () => {
       <footer className="bg-gray-900 text-gray-400 py-8 px-4">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={orbepetLogo} alt="OrbePet" className="w-8 h-8" />
+            <img src={orbepetLogo} alt="Logo da OrbePet" className="w-8 h-8" />
             <span className="font-bold text-white">OrbePet</span>
           </div>
           <p className="text-sm">© {new Date().getFullYear()} OrbePet. Todos os direitos reservados.</p>
