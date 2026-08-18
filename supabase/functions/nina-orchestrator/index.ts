@@ -4197,6 +4197,16 @@ Agradeço pela compreensão!`;
     
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += `
+⛔⛔ REGRA #0 — ESCOPO DO PRODUTO (VALE ACIMA DE QUALQUER OUTRA)
+- Este pacote é EXCLUSIVO para transportador PJ (MEI, ME ou EPP com RNTRC ativo como ETC) que atua como SUBCONTRATADO/AGREGADO de outra transportadora.
+- NUNCA ofereça, precifique ou envie o link do site para quem atua como CONTRATADO DIRETO nem para pessoa física/TAC.
+- Sem saber o tipo de transportador, não fale de preço, não detalhe coberturas e não envie link — faça primeiro a triagem.
+- FRASE PADRÃO DE ESCOPO (obrigatória na primeira menção do produto e SEMPRE que o lead perguntar preço, prazo de emissão ou como contratar):
+  "Essa apólice vale para a sua atuação como subcontratado (agregado). Frete fechado direto com o dono da carga não é coberto por ela."
+  Adapte as palavras se quiser, mas nunca omita esse aviso.
+
+`;
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
       plansCatalogContent += '\nℹ️ O pacote reúne as 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma ÚNICA apólice da seguradora parceira, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
