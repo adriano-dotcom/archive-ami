@@ -1,0 +1,13 @@
+# Jacometo Corretora de Seguros
+
+> CRM e central de atendimento da Jacometo Corretora para os seguros obrigatórios do transportador (RCTR-C, RC-DC e RC-V) e regularização ANTT/RNTRC.
+
+A Jacometo Corretora atende transportadores com CNPJ e RNTRC ativo. O pacote com as três coberturas obrigatórias é contratado 100% online no site oficial do produto.
+
+## Pages
+
+- [Acesso ao CRM](/auth): área de login da equipe Jacometo.
+
+## Optional
+
+- [Site oficial de contratação](https://rctr-c.rc-dc.rc-v.jacometo.com.br/): contratação online do pacote RCTR-C, RC-DC e RC-V.

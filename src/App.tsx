@@ -8,6 +8,7 @@ import { UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from 'sonner';
+import { HelmetProvider } from 'react-helmet-async';
 import { usePrefetchSeguradosData } from './hooks/useSeguradosData';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IncomingCallModal } from './components/IncomingCallModal';
@@ -97,6 +98,7 @@ const AppLayout: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
+      <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
         <CompanySettingsProvider>
@@ -152,6 +154,7 @@ const App: React.FC = () => {
         </CompanySettingsProvider>
         </AuthProvider>
       </QueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };
