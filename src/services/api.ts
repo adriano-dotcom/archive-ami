@@ -640,8 +640,10 @@ export const api = {
       avatar: data.avatar || `https://ui-avatars.com/api/?name=${data.name.replace(' ', '+')}&background=random`,
       team_id: data.team_id,
       function_id: data.function_id,
-      weight: data.weight ?? undefined
+      weight: data.weight ?? undefined,
+      alreadyExisted: Boolean(data.alreadyExisted)
     };
+
   },
 
   /**
