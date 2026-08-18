@@ -1,0 +1,1 @@
+UPDATE public.quick_replies SET content = content || E'\n\nEssa apólice vale para a sua atuação como subcontratado (agregado). Frete fechado direto com o dono da carga não é coberto por ela.' WHERE shortcut IN ('/pacote','/preco','/prazo','/comofunciona','/elegibilidade') AND content NOT LIKE '%não é coberto por ela%';

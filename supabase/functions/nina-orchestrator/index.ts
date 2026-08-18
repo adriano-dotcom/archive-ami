@@ -4016,7 +4016,7 @@ Agradeço pela compreensão!`;
 
     const resumo = buildProposalSummary(contactForCheck, mergedForm);
     const linkMsg = draft
-      ? `Conferência dos dados que você me passou:\n\n${resumo}\n\nEstá tudo certo? Já deixei sua proposta preenchida. É só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
+      ? `Conferência dos dados que você me passou:\n\n${resumo}\n\nSeu cadastro está sendo feito na modalidade *subcontratado (agregado)*: essa apólice vale para a sua atuação como subcontratado. Frete fechado direto com o dono da carga não é coberto por ela.\n\nEstá tudo certo? Já deixei sua proposta preenchida. É só abrir o link, conferir, marcar os aceites e clicar em transmitir:\n${draft.url}\n\nO link é pessoal e vale por 7 dias. Qualquer dúvida no preenchimento, é só me chamar aqui.`
       : 'Perfeito! Você está 100% dentro do perfil.\n\nÉ só preencher a proposta neste link oficial para eu emitir sua cotação e a apólice com as 3 coberturas (RCTR-C, RC-DC e RC-V):\nhttps://rctr-c.rc-dc.rc-v.jacometo.com.br\n\nQualquer dúvida no preenchimento, é só me chamar aqui. Já deixei seu atendimento com um corretor também.';
     const aiSettings = getModelSettings(settings, conversationHistory, message, contactForCheck, clientMemory);
     const delay = Math.random() * ((settings?.response_delay_max || 3000) - (settings?.response_delay_min || 1000)) + (settings?.response_delay_min || 1000);
@@ -4197,6 +4197,16 @@ Agradeço pela compreensão!`;
     
     if (plans && plans.length > 0) {
       plansCatalogContent = '\n\n## 📋 CATÁLOGO OFICIAL DE SEGUROS (FONTE ÚNICA DE VERDADE)\n';
+      plansCatalogContent += `
+⛔⛔ REGRA #0 — ESCOPO DO PRODUTO (VALE ACIMA DE QUALQUER OUTRA)
+- Este pacote é EXCLUSIVO para transportador PJ (MEI, ME ou EPP com RNTRC ativo como ETC) que atua como SUBCONTRATADO/AGREGADO de outra transportadora.
+- NUNCA ofereça, precifique ou envie o link do site para quem atua como CONTRATADO DIRETO nem para pessoa física/TAC.
+- Sem saber o tipo de transportador, não fale de preço, não detalhe coberturas e não envie link — faça primeiro a triagem.
+- FRASE PADRÃO DE ESCOPO (obrigatória na primeira menção do produto e SEMPRE que o lead perguntar preço, prazo de emissão ou como contratar):
+  "Essa apólice vale para a sua atuação como subcontratado (agregado). Frete fechado direto com o dono da carga não é coberto por ela."
+  Adapte as palavras se quiser, mas nunca omita esse aviso.
+
+`;
       plansCatalogContent += '\n⛔ NUNCA invente preços, coberturas ou percentuais. Use APENAS os dados abaixo.\n';
       plansCatalogContent += '\nℹ️ O pacote reúne as 3 coberturas obrigatórias (RCTR-C, RC-DC e RC-V) em uma ÚNICA apólice da seguradora parceira, com um único pagamento anual. NÃO há averbação por embarque para o subcontratado.\n';
       plansCatalogContent += `
@@ -4257,8 +4267,9 @@ PASSO 3 — PAGAMENTO
 8. NÃO faça perguntas neste passo. O prêmio anual de R$ 911,66 (Pix) e a resposta sobre seguro vigente já vão pré-preenchidos no formulário. Só fale de preço se o lead perguntar.
 
 PASSO 4 — CONFERÊNCIA
-9. Com todos os dados dos passos 1 e 2 confirmados, o sistema envia automaticamente o RESUMO dos dados coletados junto com o link pessoal da proposta já preenchida. Não invente esse link nem escreva o resumo por conta própria — apenas siga coletando na ordem.
-10. Os três aceites (LGPD, declaração e autorização de emissão automatizada) e o "transmitir" são feitos SEMPRE pelo próprio lead, no site.
+9. Com todos os dados dos passos 1 e 2 confirmados, o sistema envia automaticamente o RESUMO dos dados coletados junto com o link pessoal da proposta já preenchida (o resumo já traz a frase de escopo do subcontratado). Não invente esse link nem escreva o resumo por conta própria — apenas siga coletando na ordem.
+10. Antes/junto do envio, confirme em UMA linha que o cadastro está sendo feito na modalidade SUBCONTRATADO (agregado) e que frete direto com o dono da carga não é coberto.
+11. Os três aceites (LGPD, declaração e autorização de emissão automatizada) e o "transmitir" são feitos SEMPRE pelo próprio lead, no site.
 
 REGRA DO FORMULÁRIO: esses são exatamente os campos do formulário do site. Faça UMA pergunta por vez, na ordem, e nunca peça um dado que o lead já informou.
 
@@ -5452,7 +5463,17 @@ async function queueTextResponse(
 }
 
 function getDefaultSystemPrompt(): string {
-  return `Você é Iris, assistente virtual da Jacometo Corretora de Seguros, especialista em seguros obrigatórios de transporte rodoviário de carga (RCTR-C, RC-DC e RC-V) para pequenos transportadores (MEI, ME e EPP). Seu papel é:
+  return `Você é Iris, assistente virtual da Jacometo Corretora de Seguros, especialista em seguros obrigatórios de transporte rodoviário de carga (RCTR-C, RC-DC e RC-V) para pequenos transportadores (MEI, ME e EPP).
+
+⛔⛔ REGRA #0 — ESCOPO DO PRODUTO (VALE ACIMA DE QUALQUER OUTRA)
+- O pacote RCTR-C + RC-DC + RC-V por R$ 911,66/ano é EXCLUSIVO para transportador PJ (MEI, ME ou EPP com RNTRC ativo como ETC) que atua como SUBCONTRATADO/AGREGADO de outra transportadora.
+- NUNCA ofereça, precifique ou envie o link do site para quem atua como CONTRATADO DIRETO (fecha frete direto com o dono da carga) nem para pessoa física/TAC.
+- Enquanto você NÃO souber o tipo de transportador, não fale de preço, não detalhe coberturas e não envie link. Faça primeiro a pergunta de triagem.
+- FRASE PADRÃO DE ESCOPO (obrigatória na primeira vez que você mencionar o produto na conversa e SEMPRE que o lead perguntar preço, prazo de emissão ou como contratar):
+  "Essa apólice vale para a sua atuação como subcontratado (agregado). Frete fechado direto com o dono da carga não é coberto por ela."
+  Você pode adaptar as palavras, mas o sentido deve ser mantido literalmente — nunca omita esse aviso.
+
+Seu papel é:
 
 1. ATENDIMENTO: Responder de forma profissional, direta e sem burocracia (estilo WhatsApp)
 2. TIRAR DÚVIDAS: Esclarecer coberturas, preços, averbação, carências, regularização ANTT e como funciona atuar como SUBCONTRATADO de transportadoras maiores
@@ -5628,6 +5649,8 @@ O lead se identificou como SUBCONTRATADO (agregado). Se você ainda não apresen
 MODELO (base para adaptar):
 """
 É a nossa *solução de compliance* para o transportador *subcontratado (agregado)* — RCTR-C, RC-DC e RC-V em *uma única apólice* da seguradora parceira (SUSEP) por *R$ 911,66/ano* (Pix).
+
+*Importante desde já:* essa apólice vale para a sua atuação como *subcontratado (agregado)*. Frete fechado *direto com o dono da carga* não é coberto por ela.
 
 *O que ela resolve:*
 - Comprova que você tem o *seguro obrigatório* exigido para operar com o RNTRC (ANTT)
