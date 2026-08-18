@@ -154,6 +154,7 @@ const App: React.FC = () => {
         </CompanySettingsProvider>
         </AuthProvider>
       </QueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };
