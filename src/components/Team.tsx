@@ -735,8 +735,9 @@ const Team: React.FC = () => {
                     </div>
 
                     <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
-                        <Button type="submit" className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">Enviar Convite</Button>
+                        <Button type="button" variant="ghost" disabled={submitting} onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
+                        <Button type="submit" disabled={submitting} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{submitting ? 'Enviando...' : 'Enviar Convite'}</Button>
+
                     </div>
                 </form>
             </div>
