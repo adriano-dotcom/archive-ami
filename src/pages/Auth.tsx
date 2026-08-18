@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import orbepetLogo from "@/assets/jacometo-logo.png";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -221,6 +222,20 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-3 sm:p-4">
+      <Helmet>
+        <title>Acesso | Jacometo Corretora — CRM de Seguros de Carga</title>
+        <meta
+          name="description"
+          content="Área de acesso da Jacometo Corretora: CRM e central de atendimento para os seguros obrigatórios do transportador (RCTR-C, RC-DC e RC-V)."
+        />
+        <link rel="canonical" href="https://archive-ami.lovable.app/auth" />
+        <meta property="og:title" content="Acesso | Jacometo Corretora — CRM de Seguros de Carga" />
+        <meta
+          property="og:description"
+          content="Entre no CRM da Jacometo Corretora para atender transportadores e emitir os seguros obrigatórios."
+        />
+        <meta property="og:url" content="https://archive-ami.lovable.app/auth" />
+      </Helmet>
       {/* Background Image - Truck Fleet - Using img tag for better LCP */}
       <img 
         src="https://images.unsplash.com/photo-1492168732976-2676c584c675?auto=format&fit=crop&w=1920&q=60"
