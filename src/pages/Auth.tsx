@@ -9,8 +9,23 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Loader2, LogIn, UserPlus, Check, X, KeyRound, ArrowLeft } from "lucide-react";
 // Logo removed — using text-based branding
+
+const emailSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Informe seu e-mail" })
+  .max(255, { message: "O e-mail deve ter no máximo 255 caracteres" })
+  .email({ message: "Informe um e-mail válido, ex.: nome@empresa.com.br" });
+
+const getEmailError = (value: string) => {
+  const result = emailSchema.safeParse(value);
+  return result.success ? "" : result.error.issues[0].message;
+};
+
+const isEmailValid = (value: string) => emailSchema.safeParse(value).success;
 
 const validatePassword = (password: string) => {
   return {
@@ -35,6 +50,8 @@ export default function Auth() {
   const [resetEmail, setResetEmail] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [resetEmailError, setResetEmailError] = useState("");
 
   useEffect(() => {
     // Check if this is a password reset callback
@@ -99,8 +116,15 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Por favor, preencha todos os campos");
+    const emailIssue = getEmailError(email);
+    if (emailIssue) {
+      setEmailError(emailIssue);
+      toast.error(emailIssue);
+      return;
+    }
+    setEmailError("");
+    if (!password) {
+      toast.error("Por favor, informe sua senha");
       return;
     }
     setIsLoading(true);
@@ -131,8 +155,15 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Por favor, preencha todos os campos");
+    const signupEmailIssue = getEmailError(email);
+    if (signupEmailIssue) {
+      setEmailError(signupEmailIssue);
+      toast.error(signupEmailIssue);
+      return;
+    }
+    setEmailError("");
+    if (!password) {
+      toast.error("Por favor, informe sua senha");
       return;
     }
     if (!isPasswordValid(password)) {
@@ -173,10 +204,13 @@ export default function Auth() {
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail) {
-      toast.error("Por favor, informe seu email");
+    const resetIssue = getEmailError(resetEmail);
+    if (resetIssue) {
+      setResetEmailError(resetIssue);
+      toast.error(resetIssue);
       return;
     }
+    setResetEmailError("");
     
     setIsLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
@@ -186,13 +220,22 @@ export default function Auth() {
     setIsLoading(false);
     
     if (error) {
-      toast.error(error.message);
+      const msg = error.message.toLowerCase();
+      if (msg.includes("rate limit") || msg.includes("too many") || msg.includes("security purposes")) {
+        toast.error("Muitas tentativas. Aguarde alguns minutos antes de pedir outro link.");
+      } else if (msg.includes("invalid") && msg.includes("email")) {
+        setResetEmailError("Informe um e-mail válido, ex.: nome@empresa.com.br");
+        toast.error("Informe um e-mail válido, ex.: nome@empresa.com.br");
+      } else {
+        toast.error(error.message);
+      }
       return;
     }
     
-    toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
+    toast.success("Se este e-mail estiver cadastrado, o link de recuperação foi enviado. Verifique também a caixa de spam.");
     setShowResetPassword(false);
     setResetEmail("");
+    setResetEmailError("");
   };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -370,7 +413,10 @@ export default function Auth() {
                     <Label htmlFor="login-email" className="text-white/90 text-xs sm:text-sm font-medium">
                       Email
                     </Label>
-                    <Input id="login-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-cyan-400/50 focus:ring-cyan-400/20 transition-all h-10 sm:h-11 text-sm sm:text-base" />
+                    <Input id="login-email" type="email" inputMode="email" autoComplete="email" placeholder="seu@email.com" value={email} onChange={e => { setEmail(e.target.value); if (emailError) setEmailError(""); }} onBlur={e => setEmailError(e.target.value ? getEmailError(e.target.value) : "")} disabled={isLoading} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? "login-email-error" : undefined} className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-cyan-400/50 focus:ring-cyan-400/20 transition-all h-10 sm:h-11 text-sm sm:text-base" />
+                    {emailError && (
+                      <p id="login-email-error" className="text-xs text-red-400">{emailError}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5 sm:space-y-2">
                     <Label htmlFor="login-password" className="text-white/90 text-xs sm:text-sm font-medium">
@@ -408,7 +454,10 @@ export default function Auth() {
                     <Label htmlFor="signup-email" className="text-white/90 text-xs sm:text-sm font-medium">
                       Email
                     </Label>
-                    <Input id="signup-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-cyan-400/50 focus:ring-cyan-400/20 transition-all h-10 sm:h-11 text-sm sm:text-base" />
+                    <Input id="signup-email" type="email" inputMode="email" autoComplete="email" placeholder="seu@email.com" value={email} onChange={e => { setEmail(e.target.value); if (emailError) setEmailError(""); }} onBlur={e => setEmailError(e.target.value ? getEmailError(e.target.value) : "")} disabled={isLoading} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? "signup-email-error" : undefined} className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-cyan-400/50 focus:ring-cyan-400/20 transition-all h-10 sm:h-11 text-sm sm:text-base" />
+                    {emailError && (
+                      <p id="signup-email-error" className="text-xs text-red-400">{emailError}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5 sm:space-y-2">
                     <Label htmlFor="signup-password" className="text-white/90 text-xs sm:text-sm font-medium">
@@ -471,7 +520,7 @@ export default function Auth() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowResetPassword(false)}
+                  onClick={() => { setShowResetPassword(false); setResetEmailError(""); }}
                   className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4 text-white/70" />
@@ -484,26 +533,40 @@ export default function Auth() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handlePasswordReset} className="space-y-4">
-                <Input
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                  autoFocus
-                />
+                <div className="space-y-1.5">
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="seu@email.com"
+                    value={resetEmail}
+                    onChange={(e) => {
+                      setResetEmail(e.target.value);
+                      if (resetEmailError) setResetEmailError("");
+                    }}
+                    onBlur={(e) => setResetEmailError(e.target.value ? getEmailError(e.target.value) : "")}
+                    aria-invalid={Boolean(resetEmailError)}
+                    aria-describedby={resetEmailError ? "reset-email-error" : undefined}
+                    className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                    autoFocus
+                  />
+                  {resetEmailError && (
+                    <p id="reset-email-error" className="text-xs text-red-400">{resetEmailError}</p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowResetPassword(false)}
+                    onClick={() => { setShowResetPassword(false); setResetEmailError(""); }}
                     className="flex-1 border-slate-700 text-white hover:bg-slate-800"
                   >
                     Cancelar
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={isLoading || !resetEmail}
+                    disabled={isLoading || !isEmailValid(resetEmail)}
                     className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500"
                   >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar"}
