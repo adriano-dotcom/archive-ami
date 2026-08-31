@@ -4827,21 +4827,23 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
     console.log(`[Nina] 🎵 Agent voice ID: ${agent?.elevenlabs_voice_id || 'usando global'}`);
     console.log(`[Nina] 🎵 Global voice ID: ${settings?.elevenlabs_voice_id || 'não configurado'}`);
     
-    // Logic: respond with audio IF:
-    // 1. Global audio_response_enabled is ON, OR
-    // 2. Incoming was audio AND agent allows audio response
-    // AND always: ElevenLabs configurado (conector/env, Vault ou tabela)
+    // REGRA PADRÃO (espelho de formato): áudio responde áudio, texto responde texto.
+    // Só responde em áudio se: a mensagem recebida foi ÁUDIO
+    // E o recurso de voz está ligado (global) E o agente permite (quando há agente)
+    // E há ElevenLabs configurado e o texto cabe no TTS.
     const elevenLabsKey = await getElevenLabsKey(supabase, settings);
     const sanitizedText = sanitizeTextForAudio(aiContent);
     const tooLongForTTS = sanitizedText.length > TTS_MAX_CHARS;
 
-    const shouldSendAudio = (
-      settings?.audio_response_enabled || 
-      (incomingWasAudio && agentAudioEnabled)
-    ) && !!elevenLabsKey && !tooLongForTTS;
+    const voiceFeatureEnabled = (settings?.audio_response_enabled ?? false) && (agent ? agentAudioEnabled : true);
 
-    console.log(`[Nina] 🎵 → Condition 1 (Global enabled): ${settings?.audio_response_enabled}`);
-    console.log(`[Nina] 🎵 → Condition 2 (Incoming audio + Agent enabled): ${incomingWasAudio && agentAudioEnabled}`);
+    const shouldSendAudio = incomingWasAudio
+      && voiceFeatureEnabled
+      && !!elevenLabsKey
+      && !tooLongForTTS;
+
+    console.log(`[Nina] 🎵 → Regra espelho: mensagem recebida foi áudio? ${incomingWasAudio}`);
+    console.log(`[Nina] 🎵 → Recurso de voz habilitado (global + agente): ${voiceFeatureEnabled}`);
     console.log(`[Nina] 🎵 → Has ElevenLabs key (env/vault/table): ${!!elevenLabsKey}`);
     console.log(`[Nina] 🎵 → Texto longo demais para TTS (${sanitizedText.length}/${TTS_MAX_CHARS}): ${tooLongForTTS}`);
     console.log(`[Nina] 🎵 → FINAL DECISION - Should send audio: ${shouldSendAudio}`);
