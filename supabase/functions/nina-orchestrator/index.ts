@@ -969,14 +969,6 @@ const AGENT_CLOSURE_PATTERNS = [
   /estamos.*à.*disposição/i,
   /conte.*conosco/i,
   /até.*próxima/i,
-  // Handoff patterns - quando transfere para equipe humana
-  /vou\s*(passar|encaminhar).*dados.*equipe/i,
-  /breve.*entrar.*(em)?\s*contato/i,
-  /encaminh.*(para|pra).*(corretor|equipe|especialista)/i,
-  /passando.*informações.*para/i,
-  /nosso.*especialista.*entrar.*contato/i,
-  /equipe.*comercial.*entrar.*contato/i,
-  /aguarde.*retorno/i,
 ];
 
 // Patterns for minimalist client responses confirming closure
