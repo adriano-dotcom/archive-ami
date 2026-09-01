@@ -2270,17 +2270,20 @@ async function processQueueItem(
     return;
   }
 
-  // 🆕 GUARD 2: Check if a Nina response already exists in messages table
+  // GUARD 2: Skip only when a Nina response explicitly belongs to this
+  // inbound message. A response to the previous lead message can be delivered
+  // milliseconds after the next lead message arrives; comparing timestamps
+  // alone incorrectly treated that previous response as the new reply.
   const { data: subsequentNinaMessages } = await supabase
     .from('messages')
-    .select('id')
+    .select('id, metadata')
     .eq('conversation_id', conversation.id)
     .eq('from_type', 'nina')
-    .gt('sent_at', message.sent_at)
+    .filter('metadata->>response_to_message_id', 'eq', message.id)
     .limit(1);
 
   if (subsequentNinaMessages && subsequentNinaMessages.length > 0) {
-    console.log('[Nina] ⏭️ Message already has Nina response after it, skipping duplicate processing');
+    console.log('[Nina] ⏭️ Message already has an explicitly linked Nina response, skipping duplicate processing');
     console.log(`[Nina] ⏭️ Message ID: ${message.id}, Subsequent Nina message: ${subsequentNinaMessages[0].id}`);
     return;
   }
@@ -4906,17 +4909,22 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
     }
   }
 
-  // Trigger whatsapp-sender
+  // Trigger whatsapp-sender and wait for it to accept/process the queue.
+  // Fire-and-forget fetches may be cancelled when the edge invocation returns,
+  // leaving valid responses pending indefinitely.
   try {
     const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-    fetch(senderUrl, {
+    const senderResponse = await fetch(senderUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`
       },
       body: JSON.stringify({ triggered_by: 'nina-orchestrator' })
-    }).catch(err => console.error('[Nina] Error triggering whatsapp-sender:', err));
+    });
+    if (!senderResponse.ok) {
+      console.error('[Nina] whatsapp-sender returned:', senderResponse.status, await senderResponse.text());
+    }
   } catch (err) {
     console.error('[Nina] Failed to trigger whatsapp-sender:', err);
   }
