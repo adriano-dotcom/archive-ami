@@ -2500,7 +2500,7 @@ async function processQueueItem(
     // Trigger whatsapp-sender
     try {
       const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
+      await fetch(senderUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2692,7 +2692,7 @@ async function processQueueItem(
     // Trigger whatsapp-sender
     try {
       const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
+      await fetch(senderUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2828,7 +2828,7 @@ async function processQueueItem(
     // Trigger whatsapp-sender
     try {
       const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
+      await fetch(senderUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2890,7 +2890,7 @@ async function processQueueItem(
     // Trigger whatsapp-sender
     try {
       const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
+      await fetch(senderUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3034,7 +3034,7 @@ async function processQueueItem(
         // Trigger whatsapp-sender
         try {
           const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-          fetch(senderUrl, {
+          await fetch(senderUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3084,7 +3084,7 @@ async function processQueueItem(
         
         try {
           const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-          fetch(senderUrl, {
+          await fetch(senderUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3299,7 +3299,7 @@ Agradeço pela compreensão!`;
       // Trigger whatsapp-sender
       try {
         const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-        fetch(senderUrl, {
+        await fetch(senderUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -3404,7 +3404,7 @@ Agradeço pela compreensão!`;
           // Trigger whatsapp-sender
           try {
             const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-            fetch(senderUrl, {
+            await fetch(senderUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -3644,7 +3644,7 @@ Agradeço pela compreensão!`;
         // Trigger whatsapp-sender
         try {
           const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-          fetch(senderUrl, {
+          await fetch(senderUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3761,7 +3761,7 @@ Agradeço pela compreensão!`;
                 // Trigger whatsapp-sender
                 try {
                   const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-                  fetch(senderUrl, {
+                  await fetch(senderUrl, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -3927,7 +3927,7 @@ Agradeço pela compreensão!`;
       .eq('id', message.id);
 
     try {
-      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+      await fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
         body: JSON.stringify({ triggered_by: 'nina-orchestrator-cpf-invalid' }),
@@ -3994,7 +3994,7 @@ Agradeço pela compreensão!`;
         .eq('id', conversation.id);
       await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
       try {
-        fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+        await fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
           body: JSON.stringify({ triggered_by: 'nina-orchestrator-contratado-handoff' }),
@@ -4045,7 +4045,7 @@ Agradeço pela compreensão!`;
 
     await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
     try {
-      fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
+      await fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
         body: JSON.stringify({ triggered_by: 'nina-orchestrator-qualification-complete' }),
@@ -4100,7 +4100,7 @@ Agradeço pela compreensão!`;
     // Trigger whatsapp-sender
     try {
       const senderUrl = `${supabaseUrl}/functions/v1/whatsapp-sender`;
-      fetch(senderUrl, {
+      await fetch(senderUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
