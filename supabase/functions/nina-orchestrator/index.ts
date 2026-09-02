@@ -2394,36 +2394,10 @@ async function processQueueItem(
         })
         .eq('id', conversation.id);
       
-      // Find deal and move to "Perdido" stage
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id')
-        .eq('contact_id', conversation.contact_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (deal) {
-        const { data: lostStage } = await supabase
-          .from('pipeline_stages')
-          .select('id')
-          .eq('pipeline_id', deal.pipeline_id)
-          .eq('title', 'Perdido')
-          .maybeSingle();
-        
-        if (lostStage) {
-          await supabase
-            .from('deals')
-            .update({
-              stage_id: lostStage.id,
-              lost_at: new Date().toISOString(),
-              lost_reason: closureDetected.reason
-            })
-            .eq('id', deal.id);
-          
-          console.log(`[Nina] 📉 Deal moved to Perdido stage automatically`);
-        }
-      }
+      // Do NOT move the deal to "Perdido" here: a polite goodbye is not a
+      // lost sale. The conversation is only paused; the deal stage stays as is
+      // so the commercial team can follow up.
+
       
       console.log(`[Nina] ✅ Conversation auto-closed, no response needed`);
       return;
