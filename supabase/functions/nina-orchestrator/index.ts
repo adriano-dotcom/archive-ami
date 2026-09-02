@@ -5899,6 +5899,17 @@ ${contact.notes}
     if (answeredFields.length > 0) {
       contextInfo += `\n\n## INFORMAÇÕES JÁ COLETADAS (NÃO PERGUNTE NOVAMENTE, NÃO REPITA):\n${answeredFields.join('\n')}`;
     }
+
+    // Fechamento: quando TUDO menos o CPF já está coletado, a próxima (e única)
+    // pergunta é o CPF do responsável. Antes disso, CPF é proibido.
+    const allButCpfDone =
+      qa?.cnpj && qa?.email && (qa?.celular || contact?.phone_number || contact?.whatsapp_id) &&
+      pf.empresa_confirmada && pf.endereco_confirmado && pf.responsavel;
+    if (allButCpfDone && !pf.cpf) {
+      contextInfo += `\n\n## PRÓXIMA PERGUNTA (FECHAMENTO):\nTodos os dados já foram coletados. Pergunte AGORA apenas o CPF do responsável para gerar o link da proposta (ex.: "Para gerar seu link da proposta, só falta o CPF do responsável"). Não faça nenhuma outra pergunta.`;
+    } else if (!pf.cpf) {
+      contextInfo += `\n\n## REGRA DO CPF: NÃO peça o CPF agora. O CPF só será pedido no fechamento, quando todos os outros dados estiverem coletados.`;
+    }
   }
 
 
