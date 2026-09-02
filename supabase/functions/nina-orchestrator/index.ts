@@ -956,19 +956,16 @@ function isSoftRejection(messageContent: string): boolean {
   return softRejectionPhrases.some(phrase => content.includes(phrase));
 }
 
-// Patterns that indicate the AGENT closed the conversation (farewell messages)
+// Patterns that indicate the AGENT explicitly ENDED the conversation.
+// Generic courtesy phrases ("fico à disposição", "qualquer dúvida estamos aqui",
+// "obrigado pelo contato") are NOT closures — they appear in the middle of
+// healthy qualifications and were auto-killing active leads.
 const AGENT_CLOSURE_PATTERNS = [
-  /tenha.*(um|ótimo|bom).*(dia|tarde|noite)/i,
-  /qualquer.*(dúvida|pergunta|coisa).*(procure|contate|fale|estamos|aqui)/i,
-  /se.*(precisar|quiser).*(voltar|retornar|falar)/i,
-  /obrigad.*pelo.*(contato|interesse|retorno)/i,
-  /boa.*sorte/i,
-  /desculpe.*contato/i,
-  /agradeço.*atenção/i,
-  /fico.*à.*disposição/i,
-  /estamos.*à.*disposição/i,
-  /conte.*conosco/i,
-  /até.*próxima/i,
+  /boa.*sorte.*(com|na|no).*(busca|corretor|seguro)/i,
+  /desculpe.*(o|pelo).*contato/i,
+  /encerr\w+.*(atendimento|conversa)/i,
+  /vou.*encerrar.*(por|aqui)/i,
+  /até.*(a)?.*próxima/i,
 ];
 
 // Patterns for minimalist client responses confirming closure
@@ -995,18 +992,19 @@ function detectConversationClosure(
     return { isClosed: false, reason: '' };
   }
   
-  // Check if agent sent a closure message
+  // Check if agent sent an explicit closure/farewell message
   const agentClosed = AGENT_CLOSURE_PATTERNS.some(p => p.test(agentLastMessage));
   
   // Check if client confirmed with a short acknowledgment
   const clientConfirmed = CLIENT_CLOSURE_PATTERNS.some(p => p.test(clientMessage.trim()));
   
   if (agentClosed && clientConfirmed) {
-    return { isClosed: true, reason: 'Lead desqualificado/encerrado pelo agente' };
+    return { isClosed: true, reason: 'Conversa encerrada pelo agente e confirmada pelo lead' };
   }
   
   return { isClosed: false, reason: '' };
 }
+
 
 // ===== CALLBACK DETECTION PATTERNS =====
 interface CallbackIntent {
@@ -1019,33 +1017,48 @@ interface CallbackIntent {
 function detectCallbackIntent(messageContent: string): CallbackIntent {
   const content = messageContent.toLowerCase().trim();
   
-  // Patterns that indicate the lead wants to be called back later
-  const callbackPhrases = [
-    // Time-based
+  // STRONG signals: the lead explicitly asks to talk/be contacted later.
+  const explicitCallbackPhrases = [
     'falar depois', 'fala depois', 'ligar depois', 'liga depois',
+    'me liga depois', 'me ligue depois',
     'retornar depois', 'retorna depois', 'me liga mais tarde',
-    'outra hora', 'outro horário', 'outro horario', 'outro momento',
-    // Day-based
+    'me ligar mais tarde', 'conversamos depois', 'falamos depois',
+    'pode me ligar', 'podem me ligar', 'liga pra mim', 'ligue pra mim',
+    'me retorna', 'me retorne', 'retorne minha ligação', 'retorne minha ligacao',
+    'me chama depois', 'me chame depois',
+    'agora não posso falar', 'agora nao posso falar',
+    'agora não posso', 'agora nao posso', 'agora não dá', 'agora nao da',
+    'em outro horário', 'em outro horario', 'em outro momento',
+    'outra hora'
+  ];
+  
+  // WEAK signals (days, busy states). Alone they are ordinary conversation
+  // ("te mando os documentos segunda"). They only mean a callback request when
+  // combined with a contact verb.
+  const weakSignals = [
     'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado', 'domingo',
     'amanhã', 'amanha', 'depois de amanhã', 'depois de amanha',
     'semana que vem', 'próxima semana', 'proxima semana',
-    // Busy signals
-    'agora não posso', 'agora nao posso', 'agora não dá', 'agora nao da',
     'ocupado', 'ocupada', 'em reunião', 'em reuniao', 'dirigindo',
     'trabalhando', 'no trabalho', 'no serviço', 'no servico',
     'estou na rua', 'estou no carro', 'estou no caminhão', 'estou no caminhao',
     'estou viajando', 'to na estrada', 'na estrada',
-    // Commercial hours
     'horário comercial', 'horario comercial', 'no comercial',
-    'das 8', 'das 9', 'das 10', 'depois das', 'antes das',
-    'após o almoço', 'apos o almoco', 'depois do almoço', 'depois do almoco',
-    // Explicit requests
-    'pode me ligar', 'podem me ligar', 'liga pra mim',
-    'me retorna', 'me retorne', 'retorne minha ligação', 'retorne minha ligacao',
-    'vamos conversar', 'podemos conversar', 'quer conversar'
+    'depois das', 'antes das',
+    'após o almoço', 'apos o almoco', 'depois do almoço', 'depois do almoco'
   ];
   
-  const hasIntent = callbackPhrases.some(phrase => content.includes(phrase));
+  const contactVerbs = [
+    'ligar', 'liga', 'ligue', 'ligação', 'ligacao', 'chamada',
+    'retorn', 'me chama', 'me chame', 'falar', 'conversar', 'conversamos', 'falamos'
+  ];
+  
+  const hasExplicit = explicitCallbackPhrases.some(phrase => content.includes(phrase));
+  const hasWeak = weakSignals.some(phrase => content.includes(phrase));
+  const hasContactVerb = contactVerbs.some(v => content.includes(v));
+  
+  const hasIntent = hasExplicit || (hasWeak && hasContactVerb);
+
   
   if (!hasIntent) {
     return { hasIntent: false };
@@ -2396,36 +2409,10 @@ async function processQueueItem(
         })
         .eq('id', conversation.id);
       
-      // Find deal and move to "Perdido" stage
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id')
-        .eq('contact_id', conversation.contact_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (deal) {
-        const { data: lostStage } = await supabase
-          .from('pipeline_stages')
-          .select('id')
-          .eq('pipeline_id', deal.pipeline_id)
-          .eq('title', 'Perdido')
-          .maybeSingle();
-        
-        if (lostStage) {
-          await supabase
-            .from('deals')
-            .update({
-              stage_id: lostStage.id,
-              lost_at: new Date().toISOString(),
-              lost_reason: closureDetected.reason
-            })
-            .eq('id', deal.id);
-          
-          console.log(`[Nina] 📉 Deal moved to Perdido stage automatically`);
-        }
-      }
+      // Do NOT move the deal to "Perdido" here: a polite goodbye is not a
+      // lost sale. The conversation is only paused; the deal stage stays as is
+      // so the commercial team can follow up.
+
       
       console.log(`[Nina] ✅ Conversation auto-closed, no response needed`);
       return;
