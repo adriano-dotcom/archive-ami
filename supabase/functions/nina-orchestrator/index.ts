@@ -956,19 +956,16 @@ function isSoftRejection(messageContent: string): boolean {
   return softRejectionPhrases.some(phrase => content.includes(phrase));
 }
 
-// Patterns that indicate the AGENT closed the conversation (farewell messages)
+// Patterns that indicate the AGENT explicitly ENDED the conversation.
+// Generic courtesy phrases ("fico à disposição", "qualquer dúvida estamos aqui",
+// "obrigado pelo contato") are NOT closures — they appear in the middle of
+// healthy qualifications and were auto-killing active leads.
 const AGENT_CLOSURE_PATTERNS = [
-  /tenha.*(um|ótimo|bom).*(dia|tarde|noite)/i,
-  /qualquer.*(dúvida|pergunta|coisa).*(procure|contate|fale|estamos|aqui)/i,
-  /se.*(precisar|quiser).*(voltar|retornar|falar)/i,
-  /obrigad.*pelo.*(contato|interesse|retorno)/i,
-  /boa.*sorte/i,
-  /desculpe.*contato/i,
-  /agradeço.*atenção/i,
-  /fico.*à.*disposição/i,
-  /estamos.*à.*disposição/i,
-  /conte.*conosco/i,
-  /até.*próxima/i,
+  /boa.*sorte.*(com|na|no).*(busca|corretor|seguro)/i,
+  /desculpe.*(o|pelo).*contato/i,
+  /encerr\w+.*(atendimento|conversa)/i,
+  /vou.*encerrar.*(por|aqui)/i,
+  /até.*(a)?.*próxima/i,
 ];
 
 // Patterns for minimalist client responses confirming closure
@@ -995,18 +992,19 @@ function detectConversationClosure(
     return { isClosed: false, reason: '' };
   }
   
-  // Check if agent sent a closure message
+  // Check if agent sent an explicit closure/farewell message
   const agentClosed = AGENT_CLOSURE_PATTERNS.some(p => p.test(agentLastMessage));
   
   // Check if client confirmed with a short acknowledgment
   const clientConfirmed = CLIENT_CLOSURE_PATTERNS.some(p => p.test(clientMessage.trim()));
   
   if (agentClosed && clientConfirmed) {
-    return { isClosed: true, reason: 'Lead desqualificado/encerrado pelo agente' };
+    return { isClosed: true, reason: 'Conversa encerrada pelo agente e confirmada pelo lead' };
   }
   
   return { isClosed: false, reason: '' };
 }
+
 
 // ===== CALLBACK DETECTION PATTERNS =====
 interface CallbackIntent {
