@@ -1017,33 +1017,48 @@ interface CallbackIntent {
 function detectCallbackIntent(messageContent: string): CallbackIntent {
   const content = messageContent.toLowerCase().trim();
   
-  // Patterns that indicate the lead wants to be called back later
-  const callbackPhrases = [
-    // Time-based
+  // STRONG signals: the lead explicitly asks to talk/be contacted later.
+  const explicitCallbackPhrases = [
     'falar depois', 'fala depois', 'ligar depois', 'liga depois',
+    'me liga depois', 'me ligue depois',
     'retornar depois', 'retorna depois', 'me liga mais tarde',
-    'outra hora', 'outro horário', 'outro horario', 'outro momento',
-    // Day-based
+    'me ligar mais tarde', 'conversamos depois', 'falamos depois',
+    'pode me ligar', 'podem me ligar', 'liga pra mim', 'ligue pra mim',
+    'me retorna', 'me retorne', 'retorne minha ligação', 'retorne minha ligacao',
+    'me chama depois', 'me chame depois',
+    'agora não posso falar', 'agora nao posso falar',
+    'agora não posso', 'agora nao posso', 'agora não dá', 'agora nao da',
+    'em outro horário', 'em outro horario', 'em outro momento',
+    'outra hora'
+  ];
+  
+  // WEAK signals (days, busy states). Alone they are ordinary conversation
+  // ("te mando os documentos segunda"). They only mean a callback request when
+  // combined with a contact verb.
+  const weakSignals = [
     'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado', 'domingo',
     'amanhã', 'amanha', 'depois de amanhã', 'depois de amanha',
     'semana que vem', 'próxima semana', 'proxima semana',
-    // Busy signals
-    'agora não posso', 'agora nao posso', 'agora não dá', 'agora nao da',
     'ocupado', 'ocupada', 'em reunião', 'em reuniao', 'dirigindo',
     'trabalhando', 'no trabalho', 'no serviço', 'no servico',
     'estou na rua', 'estou no carro', 'estou no caminhão', 'estou no caminhao',
     'estou viajando', 'to na estrada', 'na estrada',
-    // Commercial hours
     'horário comercial', 'horario comercial', 'no comercial',
-    'das 8', 'das 9', 'das 10', 'depois das', 'antes das',
-    'após o almoço', 'apos o almoco', 'depois do almoço', 'depois do almoco',
-    // Explicit requests
-    'pode me ligar', 'podem me ligar', 'liga pra mim',
-    'me retorna', 'me retorne', 'retorne minha ligação', 'retorne minha ligacao',
-    'vamos conversar', 'podemos conversar', 'quer conversar'
+    'depois das', 'antes das',
+    'após o almoço', 'apos o almoco', 'depois do almoço', 'depois do almoco'
   ];
   
-  const hasIntent = callbackPhrases.some(phrase => content.includes(phrase));
+  const contactVerbs = [
+    'ligar', 'liga', 'ligue', 'ligação', 'ligacao', 'chamada',
+    'retorn', 'me chama', 'me chame', 'falar', 'conversar', 'conversamos', 'falamos'
+  ];
+  
+  const hasExplicit = explicitCallbackPhrases.some(phrase => content.includes(phrase));
+  const hasWeak = weakSignals.some(phrase => content.includes(phrase));
+  const hasContactVerb = contactVerbs.some(v => content.includes(v));
+  
+  const hasIntent = hasExplicit || (hasWeak && hasContactVerb);
+
   
   if (!hasIntent) {
     return { hasIntent: false };
