@@ -4261,15 +4261,18 @@ PASSO 2 — CONTATO
 - NUNCA prometa coletar dados de outros sócios, quadro societário ou segundo administrador — o formulário não tem esses campos.
 - Se o lead citar mais de uma pessoa (ex.: "o administrador é o Pedro, mas quem fala é a Ana"), pergunte qual nome deve ir no campo Responsável antes de registrar.
 
-5. Peça o CPF do responsável. O sistema valida os dígitos automaticamente: NUNCA aceite um CPF inválido, nunca complete ou invente dígitos e, se o sistema recusar, apenas peça o número correto de novo (11 dígitos).
-6. Peça o E-MAIL para envio da cotação e da apólice.
-7. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
+5. Peça o E-MAIL para envio da cotação e da apólice.
+6. Confirme o CELULAR (WhatsApp): como a conversa já é no WhatsApp, pergunte "Posso usar este mesmo número para o atendimento?" — NÃO peça o número do zero.
+
+⛔ REGRA DO CPF — SÓ NO FECHAMENTO:
+- NUNCA peça o CPF durante a qualificação. O CPF do responsável é pedido APENAS no PASSO 4, quando o lead já está fechando (todos os outros dados coletados e confirmados).
 
 PASSO 3 — PAGAMENTO
-8. NÃO faça perguntas neste passo. O prêmio anual de R$ 911,66 (Pix) e a resposta sobre seguro vigente já vão pré-preenchidos no formulário. Só fale de preço se o lead perguntar.
+7. NÃO faça perguntas neste passo. O prêmio anual de R$ 911,66 (Pix) e a resposta sobre seguro vigente já vão pré-preenchidos no formulário. Só fale de preço se o lead perguntar.
 
-PASSO 4 — CONFERÊNCIA
-9. Com todos os dados dos passos 1 e 2 confirmados, o sistema envia automaticamente o RESUMO dos dados coletados junto com o link pessoal da proposta já preenchida (o resumo já traz a frase de escopo do subcontratado). Não invente esse link nem escreva o resumo por conta própria — apenas siga coletando na ordem.
+PASSO 4 — FECHAMENTO / CONFERÊNCIA
+8. Com todos os dados dos passos 1 e 2 confirmados, peça o CPF do responsável como ÚLTIMO dado, explicando que é só para gerar a proposta (ex.: "Para gerar seu link da proposta, só falta o CPF do responsável"). O sistema valida os dígitos automaticamente: NUNCA aceite um CPF inválido, nunca complete ou invente dígitos e, se o sistema recusar, apenas peça o número correto de novo (11 dígitos).
+9. Com o CPF validado, o sistema envia automaticamente o RESUMO dos dados coletados junto com o link pessoal da proposta já preenchida (o resumo já traz a frase de escopo do subcontratado). Não invente esse link nem escreva o resumo por conta própria — apenas siga coletando na ordem.
 10. Antes/junto do envio, confirme em UMA linha que o cadastro está sendo feito na modalidade SUBCONTRATADO (agregado) e que frete direto com o dono da carga não é coberto.
 11. Os três aceites (LGPD, declaração e autorização de emissão automatizada) e o "transmitir" são feitos SEMPRE pelo próprio lead, no site.
 
@@ -5896,6 +5899,17 @@ ${contact.notes}
     if (answeredFields.length > 0) {
       contextInfo += `\n\n## INFORMAÇÕES JÁ COLETADAS (NÃO PERGUNTE NOVAMENTE, NÃO REPITA):\n${answeredFields.join('\n')}`;
     }
+
+    // Fechamento: quando TUDO menos o CPF já está coletado, a próxima (e única)
+    // pergunta é o CPF do responsável. Antes disso, CPF é proibido.
+    const allButCpfDone =
+      qa?.cnpj && qa?.email && (qa?.celular || contact?.phone_number || contact?.whatsapp_id) &&
+      pf.empresa_confirmada && pf.endereco_confirmado && pf.responsavel;
+    if (allButCpfDone && !pf.cpf) {
+      contextInfo += `\n\n## PRÓXIMA PERGUNTA (FECHAMENTO):\nTodos os dados já foram coletados. Pergunte AGORA apenas o CPF do responsável para gerar o link da proposta (ex.: "Para gerar seu link da proposta, só falta o CPF do responsável"). Não faça nenhuma outra pergunta.`;
+    } else if (!pf.cpf) {
+      contextInfo += `\n\n## REGRA DO CPF: NÃO peça o CPF agora. O CPF só será pedido no fechamento, quando todos os outros dados estiverem coletados.`;
+    }
   }
 
 
@@ -6010,15 +6024,14 @@ Antes de fazer QUALQUER pergunta:
 - Responda: "Vi aqui. Sobre [próxima pergunta pendente]?"
 - Continue para o próximo item pendente
 
-### Lista de verificação antes de perguntar (sequência de qualificação Mitsui):
+### Lista de verificação antes de perguntar (sequência de qualificação):
 - CNPJ - já está no contexto do cliente?
 - Empresa/RNTRC (ANTT) - já foi confirmado?
 - Tipo de transportador (contratado/subcontratado) - já informou?
 - Nome completo do responsável - já informou?
-- CPF do responsável - já informou?
 - E-mail - já forneceu?
 - Celular (WhatsApp) - já confirmou o número atual?
-- Já tem seguro vigente (sim/não) - já respondeu?
+- CPF do responsável - SÓ perguntar no fechamento, como último dado, quando todo o resto já estiver coletado. Nunca peça CPF no meio da conversa.
 
 ### REGRA DE FINALIZAÇÃO (IMPORTANTE):
 - Ao coletar todas as informações de qualificação, SEMPRE solicite o email antes de encerrar
