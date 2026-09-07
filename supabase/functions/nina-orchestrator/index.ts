@@ -5903,7 +5903,8 @@ ${contact.notes}
     // Fechamento: quando TUDO menos o CPF já está coletado, a próxima (e única)
     // pergunta é o CPF do responsável. Antes disso, CPF é proibido.
     const allButCpfDone =
-      qa?.cnpj && qa?.email && (qa?.celular || contact?.phone_number || contact?.whatsapp_id) &&
+      (contact?.cnpj || qa?.cnpj) && (contact?.email || qa?.email) &&
+      (contact?.phone_number || contact?.whatsapp_id || qa?.celular) &&
       pf.empresa_confirmada && pf.endereco_confirmado && pf.responsavel;
     if (allButCpfDone && !pf.cpf) {
       contextInfo += `\n\n## PRÓXIMA PERGUNTA (FECHAMENTO):\nTodos os dados já foram coletados. Pergunte AGORA apenas o CPF do responsável para gerar o link da proposta (ex.: "Para gerar seu link da proposta, só falta o CPF do responsável"). Não faça nenhuma outra pergunta.`;
