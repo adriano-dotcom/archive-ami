@@ -25,29 +25,51 @@ function notifyJarvis(event: string, data: Record<string, any>) {
   }
 }
 
+// Normaliza telefone BR: só dígitos, garante prefixo 55.
+function normalizePhone(raw: string): string {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+// Normaliza CNPJ: só dígitos.
+function normalizeCNPJ(raw?: string | null): string | null {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  return digits || null;
+}
+
+function formatBRL(v: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // --- Rate limit: 60/min per IP (public webhook, defense in depth) ---
+  // Rate limit: 60/min por IP (webhook público, defesa em profundidade)
   {
-    const _rlIp = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-    const _rlClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const { data: _rlAllowed } = await _rlClient.rpc('check_rate_limit', {
-      _key: `ecommerce-webhook:${_rlIp}`, _max: 60, _window_seconds: 60,
+    const _rlIp = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+    const _rlClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: _rlAllowed } = await _rlClient.rpc("check_rate_limit", {
+      _key: `ecommerce-webhook:${_rlIp}`,
+      _max: 60,
+      _window_seconds: 60,
     });
     if (_rlAllowed === false) {
-      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
       });
     }
   }
 
-
   try {
-    // Authenticate via multiple methods: x-ecommerce-secret, x-api-key, Authorization: Bearer, or query string ?token=
+    // Autenticação: x-ecommerce-secret | x-api-key | Authorization: Bearer | ?token=
     const expectedSecret = Deno.env.get("ECOMMERCE_WEBHOOK_SECRET");
     const url = new URL(req.url);
     const secret =
@@ -57,7 +79,10 @@ Deno.serve(async (req) => {
       url.searchParams.get("token");
 
     if (!expectedSecret || secret !== expectedSecret) {
-      console.error("[ecommerce-webhook] Auth failed. Received secret:", secret ? `${secret.substring(0, 4)}...` : "none");
+      console.error(
+        "[ecommerce-webhook] Auth failed. Received secret:",
+        secret ? `${secret.substring(0, 4)}...` : "none",
+      );
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -66,76 +91,83 @@ Deno.serve(async (req) => {
 
     const raw = await req.json();
 
-    // Map Orbe Plano Pet format (tipo/telefone/nome) to internal format
-    const tipoMap: Record<string, string> = { compra: "purchase_paid", reembolso: "refund_request" };
-    const body = {
-      ...raw,
-      event: raw.event || tipoMap[raw.tipo] || raw.tipo,
-      phone: raw.phone || raw.telefone,
-      name: raw.name || raw.nome,
-    };
+    // ===== PAYLOAD ESPERADO DO CHECKOUT 3-SEGUROS =====
+    // Aceita nomes canônicos + aliases (retro-compat / flexibilidade do checkout externo).
+    const event: string =
+      raw.event || raw.status || (raw.tipo === "compra" ? "purchase_paid" : raw.tipo) || "";
 
-    const { event, phone, name, email, pet_name, order_id, reason, claim_type } = body;
+    const phone: string = raw.phone || raw.telefone || raw.whatsapp || "";
+    const name: string | null = raw.responsavel || raw.name || raw.nome || null;
+    const email: string | null = raw.email || null;
+    const cnpj = normalizeCNPJ(raw.cnpj || raw.CNPJ || null);
+    const razaoSocial: string | null = raw.razao_social || raw.razaoSocial || raw.company || null;
+    const protocolo: string | null = raw.protocolo || raw.protocol || raw.order_id || null;
 
-    // Monthly subscription value (multi-name compatibility)
-    const rawMonthly =
-      raw.valor_mensalidade ?? raw.monthly_amount ?? raw.valor ?? raw.amount ?? body.amount;
-    const monthlyAmount =
-      rawMonthly === null || rawMonthly === undefined || rawMonthly === ""
+    const rawPremio =
+      raw.premio ??
+      raw.premium ??
+      raw.valor ??
+      raw.amount ??
+      raw.valor_total ??
+      raw.monthly_amount ??
+      null;
+    const premio =
+      rawPremio === null || rawPremio === undefined || rawPremio === ""
         ? null
-        : Number(rawMonthly);
-    const planName: string | null = raw.plano ?? raw.plan ?? raw.plan_name ?? null;
-    const paymentMethod: string | null = raw.forma_pagamento ?? raw.payment_method ?? null;
-    // Legacy `amount` kept for refund_request (claim amount)
-    const amount = body.amount ?? rawMonthly ?? 0;
+        : Number(rawPremio);
 
-    if (!event || !phone) {
+    // UTM / rastreio (opcionais, vindos do checkout)
+    const utm_source: string | null = raw.utm_source || null;
+    const utm_campaign: string | null = raw.utm_campaign || null;
+    const utm_content: string | null = raw.utm_content || null;
+    const utm_term: string | null = raw.utm_term || null;
+
+    // Validação mínima
+    if (!event) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: event, phone" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Missing required field: event/status/tipo" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    // For purchases, monthly value is required and must be > 0
-    if (event === "purchase_paid") {
-      if (monthlyAmount === null || Number.isNaN(monthlyAmount) || monthlyAmount <= 0) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Missing or invalid monthly value. Send `valor_mensalidade` (or `monthly_amount`/`valor`/`amount`) as a positive number.",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    if (!phone) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: phone/telefone" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-
-    const formatBRL = (v: number) =>
-      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    if (event === "purchase_paid" && (premio === null || Number.isNaN(premio) || premio <= 0)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Missing or invalid premium. Send `premio` (or `premium`/`valor`/`amount`) as a positive number.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // Normalize phone number (ensure has 55 prefix)
-    const normalizedPhone = phone.replace(/\D/g, "").replace(/^(?!55)/, "55");
+    const normalizedPhone = normalizePhone(phone);
 
     if (event === "purchase_paid") {
-      // 1. Upsert contact (preserving and merging client_memory.subscription)
+      // 1) Upsert contact (não sobrescreve CTWA/UTM já gravados)
       const { data: existingContacts } = await supabase
         .from("contacts")
-        .select("id, client_memory")
+        .select("id, client_memory, utm_source, utm_campaign, utm_content, utm_term")
         .eq("phone_number", normalizedPhone)
         .limit(1);
 
       let contactId: string;
 
-      const subscriptionPatch = {
-        plan_name: planName,
-        monthly_amount: monthlyAmount,
-        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
-        payment_method: paymentMethod,
-        started_at: new Date().toISOString(),
-        order_id: order_id || null,
+      const purchasePatch = {
+        product: "3_seguros_obrigatorios",
+        protocolo,
+        premio,
+        premio_formatted: premio ? formatBRL(premio) : null,
+        razao_social: razaoSocial,
+        cnpj,
+        paid_at: new Date().toISOString(),
       };
 
       if (existingContacts && existingContacts.length > 0) {
@@ -143,16 +175,23 @@ Deno.serve(async (req) => {
         const prevMemory = (existingContacts[0].client_memory as Record<string, any>) || {};
         const mergedMemory = {
           ...prevMemory,
-          subscription: subscriptionPatch,
+          purchase: purchasePatch,
         };
         await supabase
           .from("contacts")
           .update({
             name: name || undefined,
             email: email || undefined,
-            pet_name: pet_name || undefined,
+            company: razaoSocial || undefined,
+            cnpj: cnpj || undefined,
             lead_status: "customer",
-            lead_source: "ecommerce",
+            lead_source: "checkout_3seguros",
+            vertical: "transporte",
+            // Só atualiza UTM se vier no payload E o contato ainda não tiver (não sobrescreve rastreio original)
+            utm_source: existingContacts[0].utm_source ? undefined : (utm_source || undefined),
+            utm_campaign: existingContacts[0].utm_campaign ? undefined : (utm_campaign || undefined),
+            utm_content: existingContacts[0].utm_content ? undefined : (utm_content || undefined),
+            utm_term: existingContacts[0].utm_term ? undefined : (utm_term || undefined),
             last_activity: new Date().toISOString(),
             client_memory: mergedMemory,
           })
@@ -164,10 +203,16 @@ Deno.serve(async (req) => {
             phone_number: normalizedPhone,
             name: name || null,
             email: email || null,
-            pet_name: pet_name || null,
+            company: razaoSocial || null,
+            cnpj: cnpj || null,
             lead_status: "customer",
-            lead_source: "ecommerce",
-            client_memory: { subscription: subscriptionPatch },
+            lead_source: "checkout_3seguros",
+            vertical: "transporte",
+            utm_source: utm_source || null,
+            utm_campaign: utm_campaign || null,
+            utm_content: utm_content || null,
+            utm_term: utm_term || null,
+            client_memory: { purchase: purchasePatch },
           })
           .select("id")
           .single();
@@ -176,25 +221,31 @@ Deno.serve(async (req) => {
         contactId = newContact.id;
       }
 
-      // 2. Log ecommerce order (amount = monthly value)
+      // 2) Log da ordem
       await supabase.from("ecommerce_orders").insert({
         contact_id: contactId,
-        order_id: order_id || `auto_${Date.now()}`,
+        order_id: protocolo || `auto_${Date.now()}`,
         event_type: "purchase_paid",
-        amount: monthlyAmount || 0,
+        amount: premio || 0,
+        status: "paid",
         metadata: {
+          product: "3_seguros_obrigatorios",
+          protocolo,
           name,
           email,
-          pet_name,
+          cnpj,
+          razao_social: razaoSocial,
           phone: normalizedPhone,
-          monthly_amount: monthlyAmount,
-          monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
-          plan_name: planName,
-          payment_method: paymentMethod,
+          premio,
+          premio_formatted: premio ? formatBRL(premio) : null,
+          utm_source,
+          utm_campaign,
+          utm_content,
+          utm_term,
         },
       });
 
-      // 3. Create/find conversation
+      // 3) Cria/reaproveita conversa e loga uma mensagem interna (system) com o resumo da compra
       const { data: existingConvs } = await supabase
         .from("conversations")
         .select("id")
@@ -205,13 +256,29 @@ Deno.serve(async (req) => {
       let conversationId: string;
       if (existingConvs && existingConvs.length > 0) {
         conversationId = existingConvs[0].id;
+        await supabase
+          .from("conversations")
+          .update({
+            status: "human",
+            last_message_at: new Date().toISOString(),
+            metadata: {
+              product: "3_seguros_obrigatorios",
+              last_purchase_protocolo: protocolo,
+            },
+          })
+          .eq("id", conversationId);
       } else {
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
           .insert({
             contact_id: contactId,
-            status: "nina",
+            status: "human",
             is_active: true,
+            last_message_at: new Date().toISOString(),
+            metadata: {
+              product: "3_seguros_obrigatorios",
+              first_purchase_protocolo: protocolo,
+            },
           })
           .select("id")
           .single();
@@ -219,143 +286,80 @@ Deno.serve(async (req) => {
         conversationId = newConv.id;
       }
 
-      // 4. Send welcome template via WhatsApp
-      // Template _bemvindo__famlia_orbe_pet requires 1 BODY var: customer first name
-      const firstName = (name || "").trim().split(/\s+/)[0] || "tutor";
+      // 4) Mensagem interna (system) para a equipe ver o novo pagamento
+      const resumo = [
+        `Nova compra confirmada — 3 seguros obrigatórios`,
+        protocolo ? `Protocolo: ${protocolo}` : null,
+        razaoSocial ? `Empresa: ${razaoSocial}` : null,
+        cnpj ? `CNPJ: ${cnpj}` : null,
+        name ? `Responsável: ${name}` : null,
+        `Prêmio: ${premio ? formatBRL(premio) : "-"}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
       try {
-        const templateResponse = await fetch(
-          `${supabaseUrl}/functions/v1/send-whatsapp-template`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${serviceRoleKey}`,
-            },
-            body: JSON.stringify({
-              template_name: "_bemvindo__famlia_orbe_pet",
-              language: "en",
-              contact_id: contactId,
-              conversation_id: conversationId,
-              variables: [firstName],
-            }),
-          }
-        );
-        const templateResult = await templateResponse.text();
-        console.log("[ecommerce-webhook] Template sent:", templateResult);
-        if (!templateResponse.ok) {
-          console.error("[ecommerce-webhook] Template send failed:", templateResponse.status, templateResult);
-        }
-      } catch (templateErr) {
-        console.error("[ecommerce-webhook] Template send error:", templateErr);
+        await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          contact_id: contactId,
+          direction: "outbound",
+          from_role: "system",
+          content: resumo,
+          message_type: "text",
+          status: "internal_note",
+          metadata: {
+            source: "ecommerce_webhook",
+            event: "purchase_paid",
+            product: "3_seguros_obrigatorios",
+          },
+        });
+      } catch (msgErr) {
+        // Se a tabela messages não aceitar esses campos, apenas loga — não quebra o webhook.
+        console.warn("[ecommerce-webhook] Nota interna não gravada:", msgErr);
       }
 
-      // Fire-and-forget: notify Jarvis
-      notifyJarvis("nova_venda", {
+      // 5) Notifica Jarvis (fire-and-forget)
+      notifyJarvis("nova_venda_3seguros", {
         contact_id: contactId,
         contact_name: name || null,
+        company: razaoSocial || null,
+        cnpj,
         phone: normalizedPhone,
-        amount: monthlyAmount || 0,
-        monthly_amount: monthlyAmount,
-        monthly_amount_formatted: monthlyAmount ? formatBRL(monthlyAmount) : null,
-        plan_name: planName,
-        payment_method: paymentMethod,
-        order_id: order_id || null,
+        premio,
+        premio_formatted: premio ? formatBRL(premio) : null,
+        protocolo,
         conversation_id: conversationId,
+        product: "3_seguros_obrigatorios",
       });
+
+      // Nenhum envio de WhatsApp aqui. A conta hoje só tem o template `_bemvindo__famlia_orbe_pet`
+      // (OrbePet), que NÃO se aplica a este produto. Boas-vindas ficam para decisão futura,
+      // depois de aprovar um template adequado ao contexto Jacometo/transporte.
 
       return new Response(
         JSON.stringify({
           success: true,
           event: "purchase_paid",
+          product: "3_seguros_obrigatorios",
           contact_id: contactId,
           conversation_id: conversationId,
-          monthly_amount: monthlyAmount,
-          plan_name: planName,
+          protocolo,
+          premio,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } else if (event === "refund_request") {
-      // Find existing contact
-      const { data: contacts } = await supabase
-        .from("contacts")
-        .select("id, name, pet_name")
-        .eq("phone_number", normalizedPhone)
-        .limit(1);
-
-      if (!contacts || contacts.length === 0) {
-        return new Response(
-          JSON.stringify({ error: "Contact not found for this phone number" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const contact = contacts[0];
-
-      // Log ecommerce order
-      await supabase.from("ecommerce_orders").insert({
-        contact_id: contact.id,
-        order_id: order_id || `refund_${Date.now()}`,
-        event_type: "refund_request",
-        amount: amount || 0,
-        metadata: { reason, phone: normalizedPhone },
-      });
-
-      // Create reimbursement claim
-      const validTypes = ['consulta', 'exame', 'cirurgia', 'internacao', 'outro'];
-      const resolvedType = validTypes.includes(claim_type) ? claim_type : 'consulta';
-      const typeLabels: Record<string, string> = {
-        consulta: 'consulta veterinária',
-        exame: 'exame veterinário',
-        cirurgia: 'cirurgia veterinária',
-        internacao: 'internação veterinária',
-        outro: 'procedimento veterinário',
-      };
-      const { data: claim, error: claimError } = await supabase
-        .from("reimbursement_claims")
-        .insert({
-          contact_id: contact.id,
-          status: "submitted",
-          amount_requested: amount || 0,
-          pet_name: contact.pet_name || pet_name || null,
-          claim_type: resolvedType,
-          description: reason || `Solicitação de reembolso de ${typeLabels[resolvedType]}`,
-          metadata: { order_id, source: "ecommerce_webhook" },
-        })
-        .select("id")
-        .single();
-
-      if (claimError) throw claimError;
-
-      // Fire-and-forget: notify Jarvis
-      notifyJarvis("novo_reembolso", {
-        contact_id: contact.id,
-        contact_name: contact.name || null,
-        phone: normalizedPhone,
-        amount: amount || 0,
-        claim_id: claim.id,
-        reason: reason || null,
-      });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          event: "refund_request",
-          contact_id: contact.id,
-          claim_id: claim.id,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } else {
-      return new Response(
-        JSON.stringify({ error: `Unknown event type: ${event}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Qualquer outro evento — 400 explícito (não temos mais refund_request neste produto)
+    return new Response(
+      JSON.stringify({ error: `Unsupported event type for this product: ${event}` }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
     console.error("[ecommerce-webhook] Error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
