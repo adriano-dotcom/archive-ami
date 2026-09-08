@@ -646,6 +646,7 @@ export type Database = {
           complement: string | null
           cpf: string | null
           created_at: string
+          ctwa_clid: string | null
           email: string | null
           first_contact_date: string
           fleet_size: number | null
@@ -663,6 +664,8 @@ export type Database = {
           pet_name: string | null
           phone_number: string
           profile_picture_url: string | null
+          referral_headline: string | null
+          referral_source_url: string | null
           rntrc: string | null
           role: string | null
           seller_id: string | null
@@ -697,6 +700,7 @@ export type Database = {
           complement?: string | null
           cpf?: string | null
           created_at?: string
+          ctwa_clid?: string | null
           email?: string | null
           first_contact_date?: string
           fleet_size?: number | null
@@ -714,6 +718,8 @@ export type Database = {
           pet_name?: string | null
           phone_number: string
           profile_picture_url?: string | null
+          referral_headline?: string | null
+          referral_source_url?: string | null
           rntrc?: string | null
           role?: string | null
           seller_id?: string | null
@@ -748,6 +754,7 @@ export type Database = {
           complement?: string | null
           cpf?: string | null
           created_at?: string
+          ctwa_clid?: string | null
           email?: string | null
           first_contact_date?: string
           fleet_size?: number | null
@@ -765,6 +772,8 @@ export type Database = {
           pet_name?: string | null
           phone_number?: string
           profile_picture_url?: string | null
+          referral_headline?: string | null
+          referral_source_url?: string | null
           rntrc?: string | null
           role?: string | null
           seller_id?: string | null
