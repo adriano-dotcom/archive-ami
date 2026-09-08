@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
 
   try {
-    const { name, email, phone, pet_name, pet_species, landing_page_slug, utm_source, utm_campaign, utm_content, utm_term } = await req.json();
+    const { name, email, phone, landing_page_slug, utm_source, utm_campaign, utm_content, utm_term } = await req.json();
 
     if (!email && !phone) {
       return new Response(
@@ -98,7 +98,6 @@ Deno.serve(async (req) => {
           .update({
             name: name || undefined,
             email: email || undefined,
-            pet_name: pet_name || undefined,
             lead_source: "landing_page",
             utm_source: utm_source || undefined,
             utm_campaign: utm_campaign || undefined,
@@ -113,7 +112,6 @@ Deno.serve(async (req) => {
             phone_number: formattedPhone,
             name: name || null,
             email: email || null,
-            pet_name: pet_name || null,
             lead_source: "landing_page",
             lead_status: "new",
             utm_source: utm_source || null,
@@ -134,8 +132,6 @@ Deno.serve(async (req) => {
       name,
       email,
       phone: formattedPhone,
-      pet_name,
-      pet_species,
       lead_magnet_downloaded: !!leadMagnetFileUrl,
       utm_source,
       utm_campaign,
