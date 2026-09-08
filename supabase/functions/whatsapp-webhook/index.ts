@@ -995,19 +995,43 @@ async function processIncomingMessage(
   if (!contact) {
     // Extrair cidade/estado do DDD
     const region = getRegionFromDDD(normalizedPhone);
-    
+
+    // Capturar referral de ad Click-to-WhatsApp (CTWA) enviado pelo Meta no
+    // primeiro messages[] da conversa. Formato:
+    // { source_url, source_id, source_type, headline, body, ctwa_clid }
+    const referral = message.referral;
+    const isCtwa = !!referral;
+    if (isCtwa) {
+      console.log('[Webhook] CTWA referral detected:', {
+        ctwa_clid: referral.ctwa_clid ?? null,
+        source_id: referral.source_id ?? null,
+        headline: referral.headline ?? null,
+      });
+    }
+
     // Create new contact with normalized phone number
+    const insertData: Record<string, any> = {
+      phone_number: normalizedPhone,
+      whatsapp_id: whatsappId,
+      name: contactName,
+      call_name: contactName?.split(' ')[0] || null,
+      lead_source: isCtwa ? 'meta_ctwa' : 'inbound', // CTWA sobrescreve 'inbound'
+      city: region?.city || null,
+      state: region?.state || null,
+    };
+
+    if (isCtwa) {
+      insertData.utm_source = 'meta_ctwa';
+      insertData.utm_campaign = referral.source_id ?? null; // ad_id do Meta
+      insertData.utm_content = referral.headline ?? null;
+      insertData.ctwa_clid = referral.ctwa_clid ?? null;
+      insertData.referral_source_url = referral.source_url ?? null;
+      insertData.referral_headline = referral.headline ?? null;
+    }
+
     const { data: newContact, error: contactError } = await supabase
       .from('contacts')
-      .insert({
-        phone_number: normalizedPhone,
-        whatsapp_id: whatsappId,
-        name: contactName,
-        call_name: contactName?.split(' ')[0] || null,
-        lead_source: 'inbound', // Contatos via WhatsApp são inbound
-        city: region?.city || null,
-        state: region?.state || null
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -1016,27 +1040,46 @@ async function processIncomingMessage(
       throw contactError;
     }
     contact = newContact;
-    console.log('[Webhook] Created new contact:', contact.id, 'with phone:', normalizedPhone, region ? `(${region.city} - ${region.state})` : '');
+    console.log('[Webhook] Created new contact:', contact.id, 'with phone:', normalizedPhone, region ? `(${region.city} - ${region.state})` : '', isCtwa ? '(CTWA referral)' : '');
   } else {
     // Update contact info if needed
     const updates: any = { last_activity: new Date().toISOString() };
-    
+
     // Update name if we have a new one
     if (contactName && !contact.name) {
       updates.name = contactName;
       updates.call_name = contactName.split(' ')[0];
     }
-    
+
     // Update whatsapp_id if not set
     if (!contact.whatsapp_id) {
       updates.whatsapp_id = whatsappId;
     }
-    
+
+    // Capturar referral de ad Click-to-WhatsApp (CTWA) para contatos pré-existentes
+    // (ex: contato que já existia por outro canal e agora entrou via ad CTWA).
+    // Só preenche se o contato ainda não tiver ctwa_clid/utm_source registrados.
+    const referral = message.referral;
+    if (referral && !contact.ctwa_clid && !contact.utm_source) {
+      console.log('[Webhook] CTWA referral detected for existing contact:', {
+        ctwa_clid: referral.ctwa_clid ?? null,
+        source_id: referral.source_id ?? null,
+        headline: referral.headline ?? null,
+      });
+      updates.lead_source = 'meta_ctwa';
+      updates.utm_source = 'meta_ctwa';
+      updates.utm_campaign = referral.source_id ?? null; // ad_id do Meta
+      updates.utm_content = referral.headline ?? null;
+      updates.ctwa_clid = referral.ctwa_clid ?? null;
+      updates.referral_source_url = referral.source_url ?? null;
+      updates.referral_headline = referral.headline ?? null;
+    }
+
     await supabase
       .from('contacts')
       .update(updates)
       .eq('id', contact.id);
-      
+
     console.log('[Webhook] Using existing contact:', contact.id, 'found by phone variant');
   }
 
