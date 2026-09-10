@@ -38,7 +38,9 @@ Deno.serve(async (req) => {
     // Auth guard: internal service-role calls only (triggered by DB automation)
     const _svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const _token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-    if (!_token || _token !== _svcKey) {
+    const _cronSecret = Deno.env.get('INTERNAL_CRON_SECRET') || '';
+    const _isInternalCron = !!_cronSecret && req.headers.get('x-internal-secret') === _cronSecret;
+    if (!_isInternalCron && (!_token || _token !== _svcKey)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
