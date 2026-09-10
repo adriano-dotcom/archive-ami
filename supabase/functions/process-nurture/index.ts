@@ -20,7 +20,9 @@ Deno.serve(async (req) => {
     // --- Authorization: internal cron (service role) or authenticated user only ---
     const authHeader = req.headers.get("Authorization") || "";
     const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
-    if (!isServiceRole) {
+    const cronSecret = Deno.env.get("INTERNAL_CRON_SECRET") || "";
+    const isInternalCron = !!cronSecret && req.headers.get("x-internal-secret") === cronSecret;
+    if (!isServiceRole && !isInternalCron) {
       const token = authHeader.replace("Bearer ", "");
       const authClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
