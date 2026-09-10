@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       // 3) Cria/reaproveita conversa e loga uma mensagem interna (system) com o resumo da compra
       const { data: existingConvs } = await supabase
         .from("conversations")
-        .select("id")
+        .select("id, metadata")
         .eq("contact_id", contactId)
         .eq("is_active", true)
         .limit(1);
@@ -256,12 +256,14 @@ Deno.serve(async (req) => {
       let conversationId: string;
       if (existingConvs && existingConvs.length > 0) {
         conversationId = existingConvs[0].id;
+        const prevConvMeta = (existingConvs[0].metadata as Record<string, any>) || {};
         await supabase
           .from("conversations")
           .update({
             status: "human",
             last_message_at: new Date().toISOString(),
             metadata: {
+              ...prevConvMeta,
               product: "3_seguros_obrigatorios",
               last_purchase_protocolo: protocolo,
             },
@@ -298,24 +300,26 @@ Deno.serve(async (req) => {
         .filter(Boolean)
         .join("\n");
 
-      try {
-        await supabase.from("messages").insert({
+      {
+        const { error: msgError } = await supabase.from("messages").insert({
           conversation_id: conversationId,
-          contact_id: contactId,
-          direction: "outbound",
-          from_role: "system",
+          from_type: "human",
+          type: "text",
           content: resumo,
-          message_type: "text",
-          status: "internal_note",
+          status: "sent",
+          processed_by_nina: true,
+          sent_at: new Date().toISOString(),
           metadata: {
             source: "ecommerce_webhook",
             event: "purchase_paid",
+            internal_note: true,
+            contact_id: contactId,
             product: "3_seguros_obrigatorios",
           },
         });
-      } catch (msgErr) {
-        // Se a tabela messages não aceitar esses campos, apenas loga — não quebra o webhook.
-        console.warn("[ecommerce-webhook] Nota interna não gravada:", msgErr);
+        if (msgError) {
+          console.error("[ecommerce-webhook] Nota interna não gravada:", msgError);
+        }
       }
 
       // 5) Notifica Jarvis (fire-and-forget)
