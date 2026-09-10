@@ -259,21 +259,31 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
         ai_model_mode: aiModelMode,
       };
 
-      if (existing) {
-        await supabase
-          .from('nina_settings')
-          .update(settings)
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('nina_settings')
-          .insert(settings);
-      }
+      const { error: saveError } = existing
+        ? await supabase
+            .from('nina_settings')
+            .update(settings)
+            .eq('id', existing.id)
+        : await supabase
+            .from('nina_settings')
+            .insert(settings);
+
+      if (saveError) throw saveError;
 
       await refetch();
-    } catch (error) {
+      return true;
+    } catch (error: any) {
       console.error('Error saving settings:', error);
-      toast.error('Erro ao salvar configurações');
+      const isPermission =
+        error?.code === '42501' ||
+        String(error?.message || '').toLowerCase().includes('row-level security') ||
+        String(error?.message || '').toLowerCase().includes('permission denied');
+      toast.error(
+        isPermission
+          ? 'Sem permissão para salvar as configurações. Peça a um administrador para concluir esta etapa.'
+          : 'Erro ao salvar configurações',
+      );
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -349,7 +359,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   }, [accessToken, phoneNumberId, testPhoneNumber, saveSettings]);
 
   const handleNext = async () => {
-    await saveSettings();
+    const saved = await saveSettings();
+    if (!saved) return;
     
     // If leaving WhatsApp step (step 1), try to register WABA
     if (activeStep === 1 && wabaId && accessToken) {
@@ -397,7 +408,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   };
 
   const handleComplete = async () => {
-    await saveSettings();
+    const saved = await saveSettings();
+    if (!saved) return;
     markWizardSeen();
     fireConfetti();
     toast.success('Configuração concluída! Bem-vindo ao sistema.');
