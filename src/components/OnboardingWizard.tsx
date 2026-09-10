@@ -359,7 +359,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   }, [accessToken, phoneNumberId, testPhoneNumber, saveSettings]);
 
   const handleNext = async () => {
-    await saveSettings();
+    const saved = await saveSettings();
+    if (!saved) return;
     
     // If leaving WhatsApp step (step 1), try to register WABA
     if (activeStep === 1 && wabaId && accessToken) {
@@ -407,7 +408,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   };
 
   const handleComplete = async () => {
-    await saveSettings();
+    const saved = await saveSettings();
+    if (!saved) return;
     markWizardSeen();
     fireConfetti();
     toast.success('Configuração concluída! Bem-vindo ao sistema.');
