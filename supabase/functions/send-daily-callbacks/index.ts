@@ -118,8 +118,16 @@ serve(async (req) => {
       .eq('is_completed', false);
 
     if (activitiesError) {
+      // The deals/activities module is not present in this project — skip silently instead of failing the cron.
+      const code = (activitiesError as any).code;
+      if (code === '42P01' || code === 'PGRST200' || code === 'PGRST205') {
+        console.log('[DailyCallbacks] Activities module not available, skipping run:', activitiesError.message);
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'activities module unavailable', count: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       console.error('[DailyCallbacks] Error fetching activities:', activitiesError);
-      throw activitiesError;
+      throw new Error(activitiesError.message || 'Failed to fetch activities');
     }
 
     if (!rawActivities || rawActivities.length === 0) {
