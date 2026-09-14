@@ -62,17 +62,13 @@ serve(async (req) => {
     // Fetch pending emails scheduled for today or earlier
     const { data: dueEmails, error: fetchError } = await supabase
       .from('scheduled_emails')
-      .select(`
-        *,
-        contact:contacts(name, phone_number),
-        deal:deals(title)
-      `)
+      .select('*')
       .eq('status', 'pending')
       .lte('scheduled_for', today);
 
     if (fetchError) {
       console.error('[ScheduledEmails] Error fetching emails:', fetchError);
-      throw fetchError;
+      throw new Error(fetchError.message || 'Failed to fetch scheduled emails');
     }
 
     if (!dueEmails || dueEmails.length === 0) {
