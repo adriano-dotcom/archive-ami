@@ -268,7 +268,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      totalCallbacks: activities.length,
+      totalCallbacks: appointments.length,
       assignees: byAssignee.size,
       emailsSent 
     }), {
