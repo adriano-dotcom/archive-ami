@@ -2479,7 +2479,7 @@ async function processQueueItem(
     const renewalDate = ninaContext.renewal_date;
     let responseText: string;
     
-    if (finalEmail && renewalDate && prospectingPipeline) {
+    if (finalEmail && renewalDate) {
       // Generate personalized email using AI
       const emailContent = await generateRenewalEmail(
         lovableApiKey,
@@ -2487,15 +2487,7 @@ async function processQueueItem(
         renewalDate
       );
       
-      // Get deal for scheduled email
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, title')
-        .eq('contact_id', conversation.contact_id)
-        .eq('pipeline_id', prospectingPipeline.id)
-        .maybeSingle();
-      
-      if (deal && emailContent) {
+      if (emailContent) {
         // Calculate scheduled date (60 days before renewal)
         const renewalDateObj = new Date(renewalDate);
         const scheduledDate = new Date(renewalDateObj);
@@ -2511,7 +2503,6 @@ async function processQueueItem(
         await supabase
           .from('scheduled_emails')
           .insert({
-            deal_id: deal.id,
             contact_id: conversation.contact_id,
             to_email: finalEmail,
             subject: emailContent.subject,
@@ -2523,19 +2514,25 @@ async function processQueueItem(
         
         console.log(`[Nina] 📧 Renewal email scheduled for ${scheduledDate.toISOString().split('T')[0]}`);
         
-        // Create follow-up task for operator
-        await supabase
-          .from('deal_activities')
+        // Create follow-up appointment for operator
+        const brtFollowup = new Date(scheduledDate.getTime() - 3 * 60 * 60 * 1000);
+        const { error: followupError } = await supabase
+          .from('appointments')
           .insert({
-            deal_id: deal.id,
-            type: 'task',
+            contact_id: conversation.contact_id,
+            type: 'followup',
             title: 'Follow-up Renovação',
             description: `Lead rejeitou por já ter corretor.\nData de renovação: ${new Date(renewalDate).toLocaleDateString('pt-BR')}\nEmail agendado para 60 dias antes: ${finalEmail}\n\nAgendar recontato próximo da data de vencimento.`,
-            scheduled_at: scheduledDate.toISOString(),
-            is_completed: false
+            date: brtFollowup.toISOString().split('T')[0],
+            time: '09:00:00',
+            status: 'scheduled'
           });
         
-        console.log(`[Nina] 📋 Follow-up task created for operator`);
+        if (followupError) {
+          console.error('[Nina] Error creating follow-up appointment:', followupError);
+        } else {
+          console.log(`[Nina] 📋 Follow-up appointment created for operator`);
+        }
       }
       
       responseText = 'Tudo certo! Vou enviar um lembrete próximo da renovação. Bom trabalho!';
