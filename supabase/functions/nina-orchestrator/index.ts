@@ -3242,31 +3242,22 @@ Agradeço pela compreensão!`;
     if (callbackIntent.hasIntent) {
       console.log(`[Nina] 📞 Callback intent detected: "${message.content}"`);
       
-      // Get the pipeline for this conversation's deal
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id')
-        .eq('contact_id', conversation.contact_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (deal) {
+      {
         // Calculate the scheduled callback time
         const scheduledAt = calculateNextBusinessHour(callbackIntent.suggestedDate, callbackIntent.suggestedTime);
         
         // Get next assignee using round-robin
-        const assignee = await getNextAssignee(supabase, deal.pipeline_id);
+        const assignee = await getNextAssignee(supabase);
         
-        // Create the callback activity
+        // Create the callback appointment
         const created = await createCallbackActivity(
           supabase,
           conversation.contact_id,
-          deal.pipeline_id,
           scheduledAt,
           message.content,
           assignee
         );
+
         
         if (created) {
           // Generate response with scheduled date and period (not exact time)
