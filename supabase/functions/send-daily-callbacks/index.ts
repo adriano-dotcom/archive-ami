@@ -7,27 +7,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface DealActivity {
+interface CallbackAppointment {
   id: string;
   title: string;
   description: string | null;
-  scheduled_at: string;
+  date: string;
+  time: string;
   type: string;
-  is_completed: boolean;
-  created_by: string | null;
-  deal: {
+  status: string | null;
+  attendees: string[] | null;
+  contact: {
     id: string;
-    title: string;
-    contact_id: string;
-    pipeline_id: string;
-    owner_id: string | null;
-    contact: {
-      id: string;
-      name: string | null;
-      call_name: string | null;
-      phone_number: string;
-      company: string | null;
-    } | null;
+    name: string | null;
+    call_name: string | null;
+    phone_number: string;
+    company: string | null;
   } | null;
 }
 
