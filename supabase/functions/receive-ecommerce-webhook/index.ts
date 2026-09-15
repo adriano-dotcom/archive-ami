@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis } from "../_shared/text-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -322,7 +323,111 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 5) Notifica Jarvis (fire-and-forget)
+      // 5) Boas-vindas automáticas ao cliente (texto livre dentro da janela de 24h)
+      let welcomeSent = false;
+      let welcomeSkippedReason: string | null = null;
+      const welcomeProtocolo = protocolo || `auto_${contactId}`;
+
+      try {
+        // 5.1) Idempotência por protocolo
+        const { data: alreadySent } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", conversationId)
+          .eq("metadata->>welcome_protocolo", welcomeProtocolo)
+          .limit(1);
+
+        const { data: alreadyQueued } = await supabase
+          .from("send_queue")
+          .select("id")
+          .eq("conversation_id", conversationId)
+          .eq("metadata->>welcome_protocolo", welcomeProtocolo)
+          .limit(1);
+
+        if ((alreadySent && alreadySent.length > 0) || (alreadyQueued && alreadyQueued.length > 0)) {
+          welcomeSkippedReason = "already_sent";
+        } else {
+          // 5.2) Janela de 24h do WhatsApp
+          const { data: windowOpen } = await supabase.rpc("is_whatsapp_window_open", {
+            p_conversation_id: conversationId,
+          });
+
+          const firstName = (name || "").trim().split(/\s+/)[0] || null;
+          const empresaLinha = razaoSocial
+            ? `Empresa: ${razaoSocial}${cnpj ? ` - CNPJ ${cnpj}` : ""}`
+            : cnpj
+              ? `CNPJ: ${cnpj}`
+              : null;
+
+          const welcomeText = stripEmojis(
+            [
+              firstName
+                ? `Olá, ${firstName}! Recebemos a confirmação do seu pagamento.`
+                : "Olá! Recebemos a confirmação do seu pagamento.",
+              "",
+              protocolo ? `Protocolo: ${protocolo}` : null,
+              empresaLinha,
+              premio ? `Valor pago: ${formatBRL(premio)}` : null,
+              "",
+              "Seu pacote com as 3 apólices obrigatórias do transportador (RCTR-C, RC-DC e RC-V) já está em emissão. O prazo é de até 2 horas úteis e você recebe os documentos por aqui e por e-mail.",
+              "",
+              "As apólices atendem à exigência de quem contrata você como transportador subcontratado. Qualquer dúvida, é só responder nesta conversa.",
+            ]
+              .filter((l) => l !== null)
+              .join("\n"),
+          );
+
+          if (windowOpen === true) {
+            const { error: queueError } = await supabase.from("send_queue").insert({
+              conversation_id: conversationId,
+              contact_id: contactId,
+              message_type: "text",
+              from_type: "nina",
+              content: welcomeText,
+              status: "pending",
+              priority: 8,
+              metadata: {
+                source: "ecommerce_welcome",
+                welcome_protocolo: welcomeProtocolo,
+                product: "3_seguros_obrigatorios",
+              },
+            });
+
+            if (queueError) {
+              console.error("[ecommerce-webhook] Falha ao enfileirar boas-vindas:", queueError);
+              welcomeSkippedReason = "queue_error";
+            } else {
+              welcomeSent = true;
+            }
+          } else {
+            welcomeSkippedReason = "whatsapp_window_closed";
+            const { error: noteError } = await supabase.from("messages").insert({
+              conversation_id: conversationId,
+              from_type: "human",
+              type: "text",
+              content:
+                "Boas-vindas da compra NÃO enviadas: a janela de 24h do WhatsApp está fechada. Entre em contato manualmente com o cliente.",
+              status: "sent",
+              processed_by_nina: true,
+              sent_at: new Date().toISOString(),
+              metadata: {
+                source: "ecommerce_webhook",
+                internal_note: true,
+                welcome_protocolo: welcomeProtocolo,
+                welcome_skipped_reason: "whatsapp_window_closed",
+              },
+            });
+            if (noteError) {
+              console.error("[ecommerce-webhook] Aviso interno não gravado:", noteError);
+            }
+          }
+        }
+      } catch (welcomeErr) {
+        console.error("[ecommerce-webhook] Erro nas boas-vindas:", welcomeErr);
+        welcomeSkippedReason = "error";
+      }
+
+      // 6) Notifica Jarvis (fire-and-forget)
       notifyJarvis("nova_venda_3seguros", {
         contact_id: contactId,
         contact_name: name || null,
@@ -336,10 +441,6 @@ Deno.serve(async (req) => {
         product: "3_seguros_obrigatorios",
       });
 
-      // Nenhum envio de WhatsApp aqui. A conta hoje só tem o template `_bemvindo__famlia_orbe_pet`
-      // (OrbePet), que NÃO se aplica a este produto. Boas-vindas ficam para decisão futura,
-      // depois de aprovar um template adequado ao contexto Jacometo/transporte.
-
       return new Response(
         JSON.stringify({
           success: true,
@@ -349,6 +450,8 @@ Deno.serve(async (req) => {
           conversation_id: conversationId,
           protocolo,
           premio,
+          welcome_sent: welcomeSent,
+          welcome_skipped_reason: welcomeSkippedReason,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
