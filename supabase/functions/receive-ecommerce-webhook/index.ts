@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis } from "../_shared/text-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
