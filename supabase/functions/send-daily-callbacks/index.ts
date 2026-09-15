@@ -7,27 +7,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface DealActivity {
+interface CallbackAppointment {
   id: string;
   title: string;
   description: string | null;
-  scheduled_at: string;
+  date: string;
+  time: string;
   type: string;
-  is_completed: boolean;
-  created_by: string | null;
-  deal: {
+  status: string | null;
+  attendees: string[] | null;
+  contact: {
     id: string;
-    title: string;
-    contact_id: string;
-    pipeline_id: string;
-    owner_id: string | null;
-    contact: {
-      id: string;
-      name: string | null;
-      call_name: string | null;
-      phone_number: string;
-      company: string | null;
-    } | null;
+    name: string | null;
+    call_name: string | null;
+    phone_number: string;
+    company: string | null;
   } | null;
 }
 
@@ -69,68 +63,43 @@ serve(async (req) => {
   try {
     console.log('[DailyCallbacks] Starting daily callback reminders...');
 
-    // Get today's date range in BRT
+    // Today's date in BRT (UTC-3)
     const now = new Date();
-    // BRT is UTC-3
-    const brtOffset = -3 * 60 * 60 * 1000;
-    const brtNow = new Date(now.getTime() + brtOffset);
-    
-    const todayStart = new Date(brtNow);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(brtNow);
-    todayEnd.setHours(23, 59, 59, 999);
+    const brtNow = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const todayStr = brtNow.toISOString().split('T')[0];
 
-    // Convert back to UTC for database query
-    const utcStart = new Date(todayStart.getTime() - brtOffset);
-    const utcEnd = new Date(todayEnd.getTime() - brtOffset);
+    console.log(`[DailyCallbacks] Looking for callbacks scheduled on ${todayStr}`);
 
-    console.log(`[DailyCallbacks] Looking for callbacks between ${utcStart.toISOString()} and ${utcEnd.toISOString()}`);
-
-    // Fetch all callback activities scheduled for today
-    const { data: rawActivities, error: activitiesError } = await supabase
-      .from('deal_activities')
+    // Fetch all callback appointments scheduled for today
+    const { data: rawAppointments, error: appointmentsError } = await supabase
+      .from('appointments')
       .select(`
-        id, 
-        title, 
-        description, 
-        scheduled_at,
+        id,
+        title,
+        description,
+        date,
+        time,
         type,
-        is_completed,
-        created_by,
-        deal:deals(
-          id, 
-          title,
-          contact_id,
-          pipeline_id,
-          owner_id,
-          contact:contacts(
-            id,
-            name, 
-            call_name,
-            phone_number,
-            company
-          )
+        status,
+        attendees,
+        contact:contacts(
+          id,
+          name,
+          call_name,
+          phone_number,
+          company
         )
       `)
-      .gte('scheduled_at', utcStart.toISOString())
-      .lte('scheduled_at', utcEnd.toISOString())
-      .eq('type', 'call')
-      .eq('is_completed', false);
+      .eq('date', todayStr)
+      .eq('type', 'followup')
+      .neq('status', 'cancelled');
 
-    if (activitiesError) {
-      // The deals/activities module is not present in this project — skip silently instead of failing the cron.
-      const code = (activitiesError as any).code;
-      if (code === '42P01' || code === 'PGRST200' || code === 'PGRST205') {
-        console.log('[DailyCallbacks] Activities module not available, skipping run:', activitiesError.message);
-        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'activities module unavailable', count: 0 }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      console.error('[DailyCallbacks] Error fetching activities:', activitiesError);
-      throw new Error(activitiesError.message || 'Failed to fetch activities');
+    if (appointmentsError) {
+      console.error('[DailyCallbacks] Error fetching appointments:', appointmentsError);
+      throw new Error(appointmentsError.message || 'Failed to fetch appointments');
     }
 
-    if (!rawActivities || rawActivities.length === 0) {
+    if (!rawAppointments || rawAppointments.length === 0) {
       console.log('[DailyCallbacks] No callbacks scheduled for today');
       return new Response(JSON.stringify({ 
         success: true, 
@@ -141,42 +110,45 @@ serve(async (req) => {
       });
     }
 
-    // Normalize activities to handle array results from Supabase
-    const activities: DealActivity[] = rawActivities.map((a: any) => ({
+    const appointments: CallbackAppointment[] = rawAppointments.map((a: any) => ({
       ...a,
-      deal: Array.isArray(a.deal) ? a.deal[0] : a.deal,
-    })).map((a: any) => ({
-      ...a,
-      deal: a.deal ? {
-        ...a.deal,
-        contact: Array.isArray(a.deal.contact) ? a.deal.contact[0] : a.deal.contact
-      } : null
+      contact: Array.isArray(a.contact) ? a.contact[0] : a.contact,
     }));
 
-    console.log(`[DailyCallbacks] Found ${activities.length} callbacks for today`);
+    console.log(`[DailyCallbacks] Found ${appointments.length} callbacks for today`);
 
-    // Get team members for lookup
-    const memberIds = [...new Set(activities.map(a => a.deal?.owner_id || a.created_by).filter(Boolean))];
-    
+    // Active team members are the possible recipients
     const { data: teamMembers } = await supabase
       .from('team_members')
       .select('id, name, email')
-      .in('id', memberIds);
+      .eq('status', 'active');
 
-    const memberMap = new Map((teamMembers || []).map((m: any) => [m.id, m]));
-
-    // Group activities by assignee (owner or created_by)
-    const byAssignee = new Map<string, DealActivity[]>();
-    
-    for (const activity of activities) {
-      const assigneeId = activity.deal?.owner_id || activity.created_by;
-      if (!assigneeId) continue;
-      
-      if (!byAssignee.has(assigneeId)) {
-        byAssignee.set(assigneeId, []);
-      }
-      byAssignee.get(assigneeId)!.push(activity);
+    const members = (teamMembers || []).filter((m: any) => m.email);
+    if (members.length === 0) {
+      console.log('[DailyCallbacks] No active team members with email');
+      return new Response(JSON.stringify({ success: true, count: appointments.length, emailsSent: 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
+
+    // Group appointments by recipient: named attendee, or everyone when unassigned
+    const byAssignee = new Map<string, CallbackAppointment[]>();
+    const push = (id: string, appt: CallbackAppointment) => {
+      if (!byAssignee.has(id)) byAssignee.set(id, []);
+      byAssignee.get(id)!.push(appt);
+    };
+
+    for (const appt of appointments) {
+      const names = (appt.attendees || []).map((n) => String(n).toLowerCase());
+      const matched = members.filter((m: any) => names.includes(String(m.name || '').toLowerCase()));
+      if (matched.length > 0) {
+        matched.forEach((m: any) => push(m.id, appt));
+      } else {
+        members.forEach((m: any) => push(m.id, appt));
+      }
+    }
+
+    const memberMap = new Map(members.map((m: any) => [m.id, m]));
 
     console.log(`[DailyCallbacks] Grouped into ${byAssignee.size} assignees`);
 
@@ -192,18 +164,14 @@ serve(async (req) => {
       }
 
       // Sort tasks by scheduled time
-      tasks.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+      tasks.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
       // Generate HTML table of callbacks
       const tasksHtml = tasks.map(t => {
-        const scheduledTime = new Date(t.scheduled_at).toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'America/Sao_Paulo'
-        });
-        const contactName = t.deal?.contact?.name || t.deal?.contact?.call_name || 'N/A';
-        const phone = t.deal?.contact?.phone_number || 'N/A';
-        const company = t.deal?.contact?.company || '';
+        const scheduledTime = (t.time || '').slice(0, 5);
+        const contactName = t.contact?.name || t.contact?.call_name || 'N/A';
+        const phone = t.contact?.phone_number || 'N/A';
+        const company = t.contact?.company || '';
         
         return `
           <tr style="border-bottom: 1px solid #eee;">
@@ -300,7 +268,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      totalCallbacks: activities.length,
+      totalCallbacks: appointments.length,
       assignees: byAssignee.size,
       emailsSent 
     }), {

@@ -1164,73 +1164,33 @@ function calculateNextBusinessHour(suggestedDate?: Date, suggestedTime?: string)
   return targetDate;
 }
 
-// Get next assignee using weighted round-robin
+// Get next assignee using weighted round-robin over active team members
 async function getNextAssignee(
-  supabase: any, 
-  pipelineId: string
+  supabase: any
 ): Promise<{ id: string; name: string; email: string } | null> {
   try {
-    // 1. Find team for this pipeline
-    const { data: team } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('pipeline_id', pipelineId)
-      .eq('is_active', true)
-      .maybeSingle();
-    
-    if (!team) {
-      console.log('[Callback] No team found for pipeline, will not assign');
-      return null;
-    }
-    
-    // 2. Get active team members with weight
     const { data: members } = await supabase
       .from('team_members')
       .select('id, name, email, weight')
-      .eq('team_id', team.id)
       .eq('status', 'active')
-      .order('weight', { ascending: false });
-    
+      .order('weight', { ascending: false })
+      .order('id', { ascending: true });
+
     if (!members || members.length === 0) {
       console.log('[Callback] No active team members found');
       return null;
     }
-    
-    // 3. Get last assignment for this pipeline
-    const { data: lastAssignment } = await supabase
-      .from('callback_assignments')
-      .select('last_assigned_member_id, assignment_count')
-      .eq('pipeline_id', pipelineId)
-      .maybeSingle();
-    
-    // 4. Round-robin: find next member
-    let nextMember: typeof members[0];
-    
-    if (!lastAssignment?.last_assigned_member_id) {
-      // First assignment - pick first (highest weight)
-      nextMember = members[0];
-    } else {
-      // Find current member's index and go to next
-      const lastIndex = members.findIndex((m: any) => m.id === lastAssignment.last_assigned_member_id);
-      const nextIndex = (lastIndex + 1) % members.length;
-      nextMember = members[nextIndex];
-    }
-    
-    // 5. Update assignment tracking
-    await supabase
-      .from('callback_assignments')
-      .upsert({
-        pipeline_id: pipelineId,
-        team_id: team.id,
-        last_assigned_member_id: nextMember.id,
-        assignment_count: (lastAssignment?.assignment_count || 0) + 1,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'team_id,pipeline_id'
-      });
-    
+
+    // Rotate based on how many callbacks already exist (simple round-robin)
+    const { count } = await supabase
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', 'followup');
+
+    const nextMember = members[(count || 0) % members.length];
+
     console.log(`[Callback] 🔄 Assigned to: ${nextMember.name} (round-robin)`);
-    
+
     return {
       id: nextMember.id,
       name: nextMember.name,
@@ -1242,73 +1202,41 @@ async function getNextAssignee(
   }
 }
 
-// Create callback activity in deal
+// Create callback appointment for the contact
 async function createCallbackActivity(
   supabase: any,
   contactId: string,
-  pipelineId: string,
   scheduledAt: Date,
   messageContent: string,
   assignee: { id: string; name: string } | null
 ): Promise<boolean> {
   try {
-    // Get deal for this contact
-    const { data: deal } = await supabase
-      .from('deals')
-      .select('id, title, pipeline_id')
-      .eq('contact_id', contactId)
-      .eq('pipeline_id', pipelineId)
-      .maybeSingle();
-    
-    if (!deal) {
-      // Try any deal for this contact
-      const { data: anyDeal } = await supabase
-        .from('deals')
-        .select('id, title, pipeline_id')
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (!anyDeal) {
-        console.log('[Callback] No deal found for contact');
-        return false;
-      }
-    }
-    
-    const targetDeal = deal || null;
-    if (!targetDeal) return false;
-    
-    // Create the callback activity
+    const brt = new Date(scheduledAt.getTime() - 3 * 60 * 60 * 1000);
+    const dateStr = brt.toISOString().split('T')[0];
+    const timeStr = brt.toISOString().split('T')[1].slice(0, 8);
+
     const { error } = await supabase
-      .from('deal_activities')
+      .from('appointments')
       .insert({
-        deal_id: targetDeal.id,
-        type: 'call',
+        contact_id: contactId,
+        type: 'followup',
         title: 'Retornar ligação (solicitado pelo lead)',
-        description: `Lead pediu para retornar.\nMensagem: "${messageContent}"\nAgendado para: ${scheduledAt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
-        scheduled_at: scheduledAt.toISOString(),
-        created_by: assignee?.id || null,
-        is_completed: false
+        description: `Lead pediu para retornar.\nMensagem: "${messageContent}"${assignee ? `\nResponsável: ${assignee.name}` : ''}`,
+        date: dateStr,
+        time: timeStr,
+        status: 'scheduled',
+        attendees: assignee?.name ? [assignee.name] : []
       });
-    
+
     if (error) {
-      console.error('[Callback] Error creating activity:', error);
+      console.error('[Callback] Error creating appointment:', error);
       return false;
     }
-    
-    // Update deal owner if we have an assignee
-    if (assignee) {
-      await supabase
-        .from('deals')
-        .update({ owner_id: assignee.id })
-        .eq('id', targetDeal.id);
-    }
-    
-    console.log(`[Callback] ✅ Callback activity created for ${scheduledAt.toISOString()}`);
+
+    console.log(`[Callback] ✅ Callback appointment created for ${dateStr} ${timeStr}`);
     return true;
   } catch (error) {
-    console.error('[Callback] Error creating callback activity:', error);
+    console.error('[Callback] Error creating callback appointment:', error);
     return false;
   }
 }
@@ -2551,7 +2479,7 @@ async function processQueueItem(
     const renewalDate = ninaContext.renewal_date;
     let responseText: string;
     
-    if (finalEmail && renewalDate && prospectingPipeline) {
+    if (finalEmail && renewalDate) {
       // Generate personalized email using AI
       const emailContent = await generateRenewalEmail(
         lovableApiKey,
@@ -2559,15 +2487,7 @@ async function processQueueItem(
         renewalDate
       );
       
-      // Get deal for scheduled email
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, title')
-        .eq('contact_id', conversation.contact_id)
-        .eq('pipeline_id', prospectingPipeline.id)
-        .maybeSingle();
-      
-      if (deal && emailContent) {
+      if (emailContent) {
         // Calculate scheduled date (60 days before renewal)
         const renewalDateObj = new Date(renewalDate);
         const scheduledDate = new Date(renewalDateObj);
@@ -2583,7 +2503,6 @@ async function processQueueItem(
         await supabase
           .from('scheduled_emails')
           .insert({
-            deal_id: deal.id,
             contact_id: conversation.contact_id,
             to_email: finalEmail,
             subject: emailContent.subject,
@@ -2595,19 +2514,25 @@ async function processQueueItem(
         
         console.log(`[Nina] 📧 Renewal email scheduled for ${scheduledDate.toISOString().split('T')[0]}`);
         
-        // Create follow-up task for operator
-        await supabase
-          .from('deal_activities')
+        // Create follow-up appointment for operator
+        const brtFollowup = new Date(scheduledDate.getTime() - 3 * 60 * 60 * 1000);
+        const { error: followupError } = await supabase
+          .from('appointments')
           .insert({
-            deal_id: deal.id,
-            type: 'task',
+            contact_id: conversation.contact_id,
+            type: 'followup',
             title: 'Follow-up Renovação',
             description: `Lead rejeitou por já ter corretor.\nData de renovação: ${new Date(renewalDate).toLocaleDateString('pt-BR')}\nEmail agendado para 60 dias antes: ${finalEmail}\n\nAgendar recontato próximo da data de vencimento.`,
-            scheduled_at: scheduledDate.toISOString(),
-            is_completed: false
+            date: brtFollowup.toISOString().split('T')[0],
+            time: '09:00:00',
+            status: 'scheduled'
           });
         
-        console.log(`[Nina] 📋 Follow-up task created for operator`);
+        if (followupError) {
+          console.error('[Nina] Error creating follow-up appointment:', followupError);
+        } else {
+          console.log(`[Nina] 📋 Follow-up appointment created for operator`);
+        }
       }
       
       responseText = 'Tudo certo! Vou enviar um lembrete próximo da renovação. Bom trabalho!';
@@ -3314,31 +3239,22 @@ Agradeço pela compreensão!`;
     if (callbackIntent.hasIntent) {
       console.log(`[Nina] 📞 Callback intent detected: "${message.content}"`);
       
-      // Get the pipeline for this conversation's deal
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id')
-        .eq('contact_id', conversation.contact_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (deal) {
+      {
         // Calculate the scheduled callback time
         const scheduledAt = calculateNextBusinessHour(callbackIntent.suggestedDate, callbackIntent.suggestedTime);
         
         // Get next assignee using round-robin
-        const assignee = await getNextAssignee(supabase, deal.pipeline_id);
+        const assignee = await getNextAssignee(supabase);
         
-        // Create the callback activity
+        // Create the callback appointment
         const created = await createCallbackActivity(
           supabase,
           conversation.contact_id,
-          deal.pipeline_id,
           scheduledAt,
           message.content,
           assignee
         );
+
         
         if (created) {
           // Generate response with scheduled date and period (not exact time)
