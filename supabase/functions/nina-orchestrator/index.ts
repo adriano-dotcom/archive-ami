@@ -2514,7 +2514,8 @@ async function processQueueItem(
         
         console.log(`[Nina] 📧 Renewal email scheduled for ${scheduledDate.toISOString().split('T')[0]}`);
         
-        // Create follow-up appointment for operator
+        // Create follow-up appointment for operator (with an explicit owner)
+        const renewalAssignee = await getNextAssignee(supabase);
         const brtFollowup = new Date(scheduledDate.getTime() - 3 * 60 * 60 * 1000);
         const { error: followupError } = await supabase
           .from('appointments')
@@ -2522,10 +2523,11 @@ async function processQueueItem(
             contact_id: conversation.contact_id,
             type: 'followup',
             title: 'Follow-up Renovação',
-            description: `Lead rejeitou por já ter corretor.\nData de renovação: ${new Date(renewalDate).toLocaleDateString('pt-BR')}\nEmail agendado para 60 dias antes: ${finalEmail}\n\nAgendar recontato próximo da data de vencimento.`,
+            description: `Lead rejeitou por já ter corretor.${renewalAssignee ? `\nResponsável: ${renewalAssignee.name}` : ''}\nData de renovação: ${new Date(renewalDate).toLocaleDateString('pt-BR')}\nEmail agendado para 60 dias antes: ${finalEmail}\n\nAgendar recontato próximo da data de vencimento.`,
             date: brtFollowup.toISOString().split('T')[0],
             time: '09:00:00',
-            status: 'scheduled'
+            status: 'scheduled',
+            attendees: renewalAssignee?.name ? [renewalAssignee.name] : []
           });
         
         if (followupError) {
