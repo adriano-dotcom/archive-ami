@@ -120,7 +120,7 @@ serve(async (req) => {
     // Active team members are the possible recipients
     const { data: teamMembers } = await supabase
       .from('team_members')
-      .select('id, name, email')
+      .select('id, name, email, role')
       .eq('status', 'active');
 
     const members = (teamMembers || []).filter((m: any) => m.email);
