@@ -120,7 +120,7 @@ serve(async (req) => {
     // Active team members are the possible recipients
     const { data: teamMembers } = await supabase
       .from('team_members')
-      .select('id, name, email')
+      .select('id, name, email, role')
       .eq('status', 'active');
 
     const members = (teamMembers || []).filter((m: any) => m.email);
@@ -131,21 +131,32 @@ serve(async (req) => {
       });
     }
 
-    // Group appointments by recipient: named attendee, or everyone when unassigned
+    // Group appointments by recipient: named attendee only.
+    // Unassigned / unrecognised follow-ups go to supervisors (admin/manager),
+    // never broadcast to the whole team.
+    const supervisors = members.filter((m: any) => m.role === 'admin' || m.role === 'manager');
+    const fallbackRecipients = supervisors.length > 0 ? supervisors : [];
+
     const byAssignee = new Map<string, CallbackAppointment[]>();
     const push = (id: string, appt: CallbackAppointment) => {
       if (!byAssignee.has(id)) byAssignee.set(id, []);
       byAssignee.get(id)!.push(appt);
     };
 
+    let unassignedCount = 0;
     for (const appt of appointments) {
-      const names = (appt.attendees || []).map((n) => String(n).toLowerCase());
-      const matched = members.filter((m: any) => names.includes(String(m.name || '').toLowerCase()));
+      const names = (appt.attendees || []).map((n) => String(n).trim().toLowerCase()).filter(Boolean);
+      const matched = members.filter((m: any) => names.includes(String(m.name || '').trim().toLowerCase()));
       if (matched.length > 0) {
         matched.forEach((m: any) => push(m.id, appt));
       } else {
-        members.forEach((m: any) => push(m.id, appt));
+        unassignedCount++;
+        fallbackRecipients.forEach((m: any) => push(m.id, appt));
       }
+    }
+
+    if (unassignedCount > 0) {
+      console.log(`[DailyCallbacks] ${unassignedCount} follow-up(s) without a recognised owner sent to ${fallbackRecipients.length} supervisor(s)`);
     }
 
     const memberMap = new Map(members.map((m: any) => [m.id, m]));
