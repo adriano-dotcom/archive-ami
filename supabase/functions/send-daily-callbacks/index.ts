@@ -167,6 +167,8 @@ serve(async (req) => {
 
     // Send email to each assignee
     let emailsSent = 0;
+    let emailsFailed = 0;
+    let lastError: string | null = null;
     const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
     for (const [assigneeId, tasks] of byAssignee.entries()) {
