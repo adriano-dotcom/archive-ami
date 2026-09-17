@@ -58,6 +58,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  // Sender must be on a verified domain; resend.dev only delivers to the account owner.
+  const FROM_ADDRESS = Deno.env.get('RESEND_FROM_EMAIL') || 'Jacometo Corretora <notificacoes@resend.dev>';
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
@@ -255,7 +257,7 @@ serve(async (req) => {
       if (resend) {
         try {
           const { error: emailError } = await resend.emails.send({
-            from: 'OrbePet CRM <notificacoes@resend.dev>',
+            from: FROM_ADDRESS,
             to: [assignee.email],
             subject: `📞 ${tasks.length} callback${tasks.length > 1 ? 's' : ''} agendado${tasks.length > 1 ? 's' : ''} para hoje`,
             html: emailHtml
