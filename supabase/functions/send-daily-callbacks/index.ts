@@ -264,12 +264,16 @@ serve(async (req) => {
           });
 
           if (emailError) {
+            emailsFailed++;
+            lastError = (emailError as any)?.message || String(emailError);
             console.error(`[DailyCallbacks] Error sending email to ${assignee.email}:`, emailError);
           } else {
             console.log(`[DailyCallbacks] ✅ Email sent to ${assignee.email} with ${tasks.length} callbacks`);
             emailsSent++;
           }
         } catch (e) {
+          emailsFailed++;
+          lastError = e instanceof Error ? e.message : String(e);
           console.error(`[DailyCallbacks] Exception sending email to ${assignee.email}:`, e);
         }
       } else {
