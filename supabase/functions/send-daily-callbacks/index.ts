@@ -286,10 +286,12 @@ serve(async (req) => {
     console.log(`[DailyCallbacks] ✅ Completed. Sent ${emailsSent} reminder emails.`);
 
     return new Response(JSON.stringify({ 
-      success: true, 
+      success: emailsFailed === 0, 
       totalCallbacks: appointments.length,
       assignees: byAssignee.size,
-      emailsSent 
+      emailsSent,
+      emailsFailed,
+      lastError
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
