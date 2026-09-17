@@ -58,6 +58,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  // Sender must be on a verified domain; resend.dev only delivers to the account owner.
+  const FROM_ADDRESS = Deno.env.get('RESEND_FROM_EMAIL') || 'Jacometo Corretora <notificacoes@resend.dev>';
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
@@ -165,6 +167,8 @@ serve(async (req) => {
 
     // Send email to each assignee
     let emailsSent = 0;
+    let emailsFailed = 0;
+    let lastError: string | null = null;
     const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
     for (const [assigneeId, tasks] of byAssignee.entries()) {
@@ -255,19 +259,23 @@ serve(async (req) => {
       if (resend) {
         try {
           const { error: emailError } = await resend.emails.send({
-            from: 'OrbePet CRM <notificacoes@resend.dev>',
+            from: FROM_ADDRESS,
             to: [assignee.email],
             subject: `📞 ${tasks.length} callback${tasks.length > 1 ? 's' : ''} agendado${tasks.length > 1 ? 's' : ''} para hoje`,
             html: emailHtml
           });
 
           if (emailError) {
+            emailsFailed++;
+            lastError = (emailError as any)?.message || String(emailError);
             console.error(`[DailyCallbacks] Error sending email to ${assignee.email}:`, emailError);
           } else {
             console.log(`[DailyCallbacks] ✅ Email sent to ${assignee.email} with ${tasks.length} callbacks`);
             emailsSent++;
           }
         } catch (e) {
+          emailsFailed++;
+          lastError = e instanceof Error ? e.message : String(e);
           console.error(`[DailyCallbacks] Exception sending email to ${assignee.email}:`, e);
         }
       } else {
@@ -278,10 +286,12 @@ serve(async (req) => {
     console.log(`[DailyCallbacks] ✅ Completed. Sent ${emailsSent} reminder emails.`);
 
     return new Response(JSON.stringify({ 
-      success: true, 
+      success: emailsFailed === 0, 
       totalCallbacks: appointments.length,
       assignees: byAssignee.size,
-      emailsSent 
+      emailsSent,
+      emailsFailed,
+      lastError
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

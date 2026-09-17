@@ -60,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Sending invite email to: ${email}, role: ${role}, inviter: ${inviter_name}, authUrl: ${authUrl}`);
 
     const emailResponse = await resend.emails.send({
-      from: "OrbePet CRM <onboarding@resend.dev>",
+      from: Deno.env.get("RESEND_FROM_EMAIL") || "Jacometo Corretora <onboarding@resend.dev>",
       to: [email],
       subject: `${inviter_name} convidou você para o OrbePet CRM`,
       html: `
