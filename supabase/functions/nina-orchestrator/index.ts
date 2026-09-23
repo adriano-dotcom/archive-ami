@@ -1564,11 +1564,21 @@ function isContratadoDataComplete(contact: any): boolean {
 // Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
   const extracted: { [key: string]: string | null } = {};
-  const allText = userMessages.join(' ').toLowerCase();
+  const allText = userMessages
+    .join(' ')
+    .toLowerCase()
+    // BLINDAGEM: texto vindo de OCR de imagem (CRLV, documentos) não classifica o lead
+    .replace(/\[texto extra[íi]do da imagem:[\s\S]*?\]/g, ' ')
+    // BLINDAGEM: seguro do veículo/casco (Porto Seguro etc.) não é seguro de carga
+    // e não pode ser lido como indício de que o lead é contratado direto.
+    .replace(/(porto seguro|seguro d[oa] (caminh[ãa]o|ve[íi]culo|carreta|frota|casco)|seguro auto)/g, ' ');
+
+  // Negativa explícita de emissão de CT-e/MDF-e => subcontratado, sempre.
+  const negaCte = /\bn[ãa]o\b[^.!?]{0,40}\b(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
 
   // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
   // termo que o lead usa para se descrever como agregado de outra transportadora.
-  if (/\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+  if (negaCte || /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
     extracted.tipo_transportador = 'subcontratado';
   } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal|emito o cte|emito o ct-e)\w*/i.test(allText)) {
     extracted.tipo_transportador = 'contratado';
@@ -1645,9 +1655,18 @@ export function extractProposalFormFields(
   if (!text) return out;
   const lastQ = (lastAssistantText || '').toLowerCase();
 
+  // BLINDAGEM: mensagens que são (ou contêm) texto extraído de imagem/documento
+  // (CRLV, cartão CNPJ, comprovantes) NUNCA podem ser lidas como resposta de CPF.
+  const isImageDerived = /\[texto extra[íi]do da imagem:/i.test(text) || /\[(imagem|documento|arquivo|[áa]udio)/i.test(text);
+
   // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
-  if (!current.cpf) {
-    const askedCpf = /\bcpf\b/i.test(lastQ) || /\bcpf\b/i.test(text);
+  if (!current.cpf && !isImageDerived) {
+    // Só consideramos resposta de CPF quando a Iris REALMENTE acabou de pedir o CPF,
+    // ou quando o próprio lead diz explicitamente que está mandando o CPF dele.
+    const askedCpf =
+      /\bcpf\b/i.test(lastQ) ||
+      /\b(meu|o)\s+cpf\b/i.test(text) ||
+      /\bcpf\s*[:é=-]/i.test(text);
     const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
     if (cpfMatch) {
       const digits = onlyDigits(cpfMatch[1]);
@@ -1655,7 +1674,7 @@ export function extractProposalFormFields(
         if (isValidCpf(digits)) out.cpf = digits;
         else if (askedCpf) out.cpf_invalido = true;
       }
-    } else if (askedCpf) {
+    } else if (/\bcpf\b/i.test(lastQ)) {
       // Respondeu à pergunta do CPF com algo que tem dígitos, mas não é um CPF
       const digits = onlyDigits(text);
       if (digits.length > 0 && digits.length !== 14 && !/\d{14,}/.test(digits)) {
@@ -3765,8 +3784,17 @@ Agradeço pela compreensão!`;
   if (message.content) userMsgTexts.push(String(message.content));
 
   const extractedQA = extractQualificationFromMessages(userMsgTexts);
+  const tipoJaTravado = String(existingQA?.tipo_transportador || '').toLowerCase();
+  const jaEhSubcontratado = tipoJaTravado.includes('subcontrat') || tipoJaTravado.includes('agregad');
   for (const [k, v] of Object.entries(extractedQA)) {
-    if (v) mergedQA[k] = v as string;
+    if (!v) continue;
+    // BLINDAGEM: uma vez classificado como SUBCONTRATADO, o perfil não é
+    // revertido para "contratado" por menções soltas (ex.: seguro do caminhão).
+    if (k === 'tipo_transportador' && jaEhSubcontratado && String(v).toLowerCase().includes('contratad') && !String(v).toLowerCase().includes('subcontrat')) {
+      console.log('[Nina] 🛡️ Reclassificação para contratado bloqueada — lead já identificado como subcontratado.');
+      continue;
+    }
+    mergedQA[k] = v as string;
   }
 
   // Persiste as respostas de qualificação no nina_context (usado no prompt anti-repetição)
@@ -5509,6 +5537,14 @@ function buildEnhancedPrompt(
 - Sempre consulte essas fontes antes de responder sobre coberturas, preço e prazos.
 - NUNCA invente coberturas, percentuais, descontos ou produtos que não estejam documentados. NÃO existe averbação por embarque nesta modalidade.
 - Base legal: Lei 14.599/2023 (obrigatório desde 09/01/2026); base histórica no Art. 13 da Lei 11.442/2007.
+
+### 🛡️ BLINDAGENS OBRIGATÓRIAS (ERROS JÁ COMETIDOS — NUNCA REPETIR):
+1. NUNCA prometa enviar PDF, cotação em arquivo, proposta em anexo ou documento pelo chat. Você NÃO envia arquivos. A proposta é sempre acessada pelo LINK oficial (o sistema gera e envia o link sozinho). Se o lead pedir o PDF, explique que a proposta abre pelo link e que a apólice chega por e-mail após o pagamento.
+2. NUNCA oriente um transportador SUBCONTRATADO a averbar embarques, integrar sistema, usar plataforma de averbação eletrônica ou informar viagens. Nesta modalidade NÃO existe averbação pelo subcontratado — quem averba é a transportadora contratante. O lead não precisa de sistema nenhum.
+3. SEGURO DO CAMINHÃO ≠ SEGURO DE CARGA. Se o lead disser que já tem seguro na Porto Seguro, Azul, Tokio ou qualquer seguradora para o veículo/casco/frota, isso é seguro do VEÍCULO e NÃO muda o perfil dele nem substitui o seguro obrigatório de carga. Jamais use essa informação para reclassificá-lo como contratado.
+4. TRAVA DE PERFIL: se o lead já afirmou que atua como subcontratado/agregado ou que NÃO emite CT-e, MDF-e ou CIOT, ele é SUBCONTRATADO pelo resto da conversa. Só mude isso se ele disser com todas as letras que passou a emitir CT-e próprio como transportador principal. Se ele te corrigir, peça desculpa em uma linha e volte imediatamente ao fluxo de subcontratado.
+5. IMAGEM/DOCUMENTO NÃO É RESPOSTA DE DADO. Se o lead enviar foto (CRLV, cartão CNPJ, documento), leia o conteúdo como informação de apoio, agradeça e diga o que você identificou. NUNCA trate números da imagem como CPF nem diga que "o CPF não passou na verificação" por causa de uma foto.
+6. Linguagem simples: muitos transportadores não têm sistema nem rotina digital. Nunca exija processo técnico; o caminho é sempre CNPJ, confirmação dos dados e link para pagar.
 
 ### ORIENTAÇÕES DE ATENDIMENTO:
 - Qualifique o transportador: CNPJ, RNTRC ativo, porte (MEI/ME/EPP) e se atua como subcontratado (agregado).
