@@ -1574,13 +1574,27 @@ function extractQualificationFromMessages(userMessages: string[]): { [key: strin
     .replace(/(porto seguro|seguro d[oa] (caminh[ãa]o|ve[íi]culo|carreta|frota|casco)|seguro auto)/g, ' ');
 
   // Negativa explícita de emissão de CT-e/MDF-e => subcontratado, sempre.
-  const negaCte = /\bn[ãa]o\b[^.!?]{0,40}\b(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
+  // O "não" precisa vir COLADO no verbo (só espaços entre eles): assim
+  // "não, emito o CT-e" e "não tenho sistema, mas emito meu CT-e" — que são
+  // CONFIRMAÇÕES de emissão — não caem aqui.
+  const negaCte = /\bn[ãa]o\s+(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
 
-  // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
-  // termo que o lead usa para se descrever como agregado de outra transportadora.
-  if (negaCte || /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+  // Afirmação explícita de que o lead EMITE o próprio CT-e/MDF-e => contratado.
+  const afirmaCte =
+    /\b(emito|emitimos|tiro|fa[çc]o)\b[^.!?]{0,25}\b(ct-?e|cte|mdf-?e|manifesto)\b/.test(allText) ||
+    /\b(ct-?e|cte|mdf-?e)\s+(pr[óo]prio|meu|da minha)\b/.test(allText) ||
+    /\b(agora|passei a|comecei a|voltei a)\s+emitir\b/.test(allText);
+  if (afirmaCte) extracted._emissao_explicita = '1';
+
+  // Afirmação explícita de emissão vence tudo — inclusive o rótulo de
+  // subcontratado dado antes (o lead pode ter mudado de operação).
+  if (afirmaCte && !negaCte) {
+    extracted.tipo_transportador = 'contratado';
+  } else if (negaCte || /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+    // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
+    // termo que o lead usa para se descrever como agregado de outra transportadora.
     extracted.tipo_transportador = 'subcontratado';
-  } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal|emito o cte|emito o ct-e)\w*/i.test(allText)) {
+  } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal)\w*/i.test(allText)) {
     extracted.tipo_transportador = 'contratado';
   }
 
