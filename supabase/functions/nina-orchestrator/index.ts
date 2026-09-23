@@ -1655,9 +1655,18 @@ export function extractProposalFormFields(
   if (!text) return out;
   const lastQ = (lastAssistantText || '').toLowerCase();
 
+  // BLINDAGEM: mensagens que são (ou contêm) texto extraído de imagem/documento
+  // (CRLV, cartão CNPJ, comprovantes) NUNCA podem ser lidas como resposta de CPF.
+  const isImageDerived = /\[texto extra[íi]do da imagem:/i.test(text) || /\[(imagem|documento|arquivo|[áa]udio)/i.test(text);
+
   // CPF: 11 dígitos isolados (não pode ser parte de um CNPJ de 14 dígitos)
-  if (!current.cpf) {
-    const askedCpf = /\bcpf\b/i.test(lastQ) || /\bcpf\b/i.test(text);
+  if (!current.cpf && !isImageDerived) {
+    // Só consideramos resposta de CPF quando a Iris REALMENTE acabou de pedir o CPF,
+    // ou quando o próprio lead diz explicitamente que está mandando o CPF dele.
+    const askedCpf =
+      /\bcpf\b/i.test(lastQ) ||
+      /\b(meu|o)\s+cpf\b/i.test(text) ||
+      /\bcpf\s*[:é=-]/i.test(text);
     const cpfMatch = text.match(/(?<!\d)(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2})(?!\d)/);
     if (cpfMatch) {
       const digits = onlyDigits(cpfMatch[1]);
@@ -1665,7 +1674,7 @@ export function extractProposalFormFields(
         if (isValidCpf(digits)) out.cpf = digits;
         else if (askedCpf) out.cpf_invalido = true;
       }
-    } else if (askedCpf) {
+    } else if (/\bcpf\b/i.test(lastQ)) {
       // Respondeu à pergunta do CPF com algo que tem dígitos, mas não é um CPF
       const digits = onlyDigits(text);
       if (digits.length > 0 && digits.length !== 14 && !/\d{14,}/.test(digits)) {
