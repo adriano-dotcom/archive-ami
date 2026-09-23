@@ -1564,11 +1564,21 @@ function isContratadoDataComplete(contact: any): boolean {
 // Extract the tipo de transportador (contratado/subcontratado) from user messages.
 function extractQualificationFromMessages(userMessages: string[]): { [key: string]: string | null } {
   const extracted: { [key: string]: string | null } = {};
-  const allText = userMessages.join(' ').toLowerCase();
+  const allText = userMessages
+    .join(' ')
+    .toLowerCase()
+    // BLINDAGEM: texto vindo de OCR de imagem (CRLV, documentos) não classifica o lead
+    .replace(/\[texto extra[íi]do da imagem:[\s\S]*?\]/g, ' ')
+    // BLINDAGEM: seguro do veículo/casco (Porto Seguro etc.) não é seguro de carga
+    // e não pode ser lido como indício de que o lead é contratado direto.
+    .replace(/(porto seguro|seguro d[oa] (caminh[ãa]o|ve[íi]culo|carreta|frota|casco)|seguro auto)/g, ' ');
+
+  // Negativa explícita de emissão de CT-e/MDF-e => subcontratado, sempre.
+  const negaCte = /\bn[ãa]o\b[^.!?]{0,40}\b(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
 
   // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
   // termo que o lead usa para se descrever como agregado de outra transportadora.
-  if (/\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+  if (negaCte || /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
     extracted.tipo_transportador = 'subcontratado';
   } else if (/\b(contratad|responsável pela carga|responsavel pela carga|transportador principal|emito o cte|emito o ct-e)\w*/i.test(allText)) {
     extracted.tipo_transportador = 'contratado';
@@ -3765,8 +3775,17 @@ Agradeço pela compreensão!`;
   if (message.content) userMsgTexts.push(String(message.content));
 
   const extractedQA = extractQualificationFromMessages(userMsgTexts);
+  const tipoJaTravado = String(existingQA?.tipo_transportador || '').toLowerCase();
+  const jaEhSubcontratado = tipoJaTravado.includes('subcontrat') || tipoJaTravado.includes('agregad');
   for (const [k, v] of Object.entries(extractedQA)) {
-    if (v) mergedQA[k] = v as string;
+    if (!v) continue;
+    // BLINDAGEM: uma vez classificado como SUBCONTRATADO, o perfil não é
+    // revertido para "contratado" por menções soltas (ex.: seguro do caminhão).
+    if (k === 'tipo_transportador' && jaEhSubcontratado && String(v).toLowerCase().includes('contratad') && !String(v).toLowerCase().includes('subcontrat')) {
+      console.log('[Nina] 🛡️ Reclassificação para contratado bloqueada — lead já identificado como subcontratado.');
+      continue;
+    }
+    mergedQA[k] = v as string;
   }
 
   // Persiste as respostas de qualificação no nina_context (usado no prompt anti-repetição)
