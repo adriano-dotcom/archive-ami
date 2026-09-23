@@ -3820,7 +3820,6 @@ Agradeço pela compreensão!`;
 
   // ===== REAL-TIME QUALIFICATION EXTRACTION (modelo Mitsui) =====
   const existingQA = conversation.nina_context?.qualification_answers || {};
-  const mergedQA: { [key: string]: string } = { ...existingQA };
 
   // Extrai o tipo de transportador (contratado/subcontratado) das mensagens do lead
   const userMsgTexts = (conversationHistory as any[])
@@ -3828,27 +3827,10 @@ Agradeço pela compreensão!`;
     .map((m: any) => String(m.content));
   if (message.content) userMsgTexts.push(String(message.content));
 
-  const extractedQA = extractQualificationFromMessages(userMsgTexts);
-  const emissaoExplicita = extractedQA._emissao_explicita === '1';
-  delete extractedQA._emissao_explicita;
-  const tipoJaTravado = String(existingQA?.tipo_transportador || '').toLowerCase();
-  const jaEhSubcontratado = tipoJaTravado.includes('subcontrat') || tipoJaTravado.includes('agregad');
-  for (const [k, v] of Object.entries(extractedQA)) {
-    if (!v) continue;
-    // BLINDAGEM: uma vez classificado como SUBCONTRATADO, o perfil não é
-    // revertido para "contratado" por menções soltas (ex.: seguro do caminhão).
-    // EXCEÇÃO: se o lead afirmou EXPLICITAMENTE que emite o próprio CT-e/MDF-e
-    // ("agora eu emito", "passei a emitir"), a correção é honrada — a regra
-    // de blindagem não pode prender o lead no perfil errado para sempre.
-    if (k === 'tipo_transportador' && jaEhSubcontratado && String(v).toLowerCase().includes('contratad') && !String(v).toLowerCase().includes('subcontrat') && !emissaoExplicita) {
-      console.log('[Nina] 🛡️ Reclassificação para contratado bloqueada — lead já identificado como subcontratado.');
-      continue;
-    }
-    if (k === 'tipo_transportador' && jaEhSubcontratado && emissaoExplicita) {
-      console.log('[Nina] 🔓 Reclassificação permitida: lead afirmou explicitamente que emite CT-e/MDF-e.');
-    }
-    mergedQA[k] = v as string;
-  }
+  const { mergedQA, extractedQA } = mergeQualificationAnswers(
+    existingQA,
+    extractQualificationFromMessages(userMsgTexts),
+  );
 
   // Persiste as respostas de qualificação no nina_context (usado no prompt anti-repetição)
   if (Object.keys(extractedQA).length > 0) {
