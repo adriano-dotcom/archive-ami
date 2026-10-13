@@ -657,6 +657,7 @@ export type Database = {
           last_activity: string
           lead_source: string | null
           lead_status: string | null
+          meta_ad_id: string | null
           name: string | null
           neighborhood: string | null
           notes: string | null
@@ -711,6 +712,7 @@ export type Database = {
           last_activity?: string
           lead_source?: string | null
           lead_status?: string | null
+          meta_ad_id?: string | null
           name?: string | null
           neighborhood?: string | null
           notes?: string | null
@@ -765,6 +767,7 @@ export type Database = {
           last_activity?: string
           lead_source?: string | null
           lead_status?: string | null
+          meta_ad_id?: string | null
           name?: string | null
           neighborhood?: string | null
           notes?: string | null
