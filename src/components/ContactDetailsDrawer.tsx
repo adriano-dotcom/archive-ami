@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { User, Building2, MapPin, Phone, Mail, FileText, Calendar, Edit, MessageSquare, Target, Pencil, Check, X, Loader2 } from 'lucide-react';
+import { User, Building2, MapPin, Phone, Mail, FileText, Calendar, Edit, MessageSquare, Target, Pencil, Check, X, Loader2, Send } from 'lucide-react';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { CallHistoryPanel } from './CallHistoryPanel';
 import { useContactCallHistory } from '@/hooks/useContactCallHistory';
 import { api } from '@/services/api';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ContactData {
   id: string;
