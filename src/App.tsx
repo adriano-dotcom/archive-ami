@@ -30,6 +30,7 @@ const CallsPage = lazy(() => import('./components/CallsPage'));
 const SalesFunnel = lazy(() => import('./components/SalesFunnel'));
 const BotFlows = lazy(() => import('./components/BotFlows'));
 const Reports = lazy(() => import('./components/Reports'));
+const OrigemLeads = lazy(() => import('./components/OrigemLeads'));
 
 const Auth = lazy(() => import('./pages/Auth'));
 const LandingPagePublic = lazy(() => import('./components/landing-pages/LandingPagePublic'));
@@ -134,6 +135,7 @@ const App: React.FC = () => {
                   <Route path="/templates" element={<Settings />} />
                   <Route path="/fluxos" element={<BotFlows />} />
                   <Route path="/relatorios" element={<Reports />} />
+                  <Route path="/origem-leads" element={<OrigemLeads />} />
                   <Route path="/scheduling" element={<Scheduling />} />
                   <Route path="/team" element={<AdminRoute><Team /></AdminRoute>} />
                   <Route path="/collections" element={<CollectionsDashboard />} />
