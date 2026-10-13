@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
 
     async function findOrCreateOrg(): Promise<{ id: number; created: boolean } | null> {
       if (!hasCompany) return null
-      var fmt = cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+      const fmt = cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
       for (const term of [fmt, cnpjDigits]) {
         const r = await pipedrive(`/organizations/search?term=${encodeURIComponent(term)}&fields=custom_fields&exact_match=true&limit=1`, 'GET')
         const id = r?.data?.items?.[0]?.item?.id
