@@ -8,6 +8,13 @@
       "when": 1791850597007,
       "tag": "0000_add_meta_ad_id_to_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791853191638,
+      "tag": "0001_meta_ads_origem_funil",
+      "breakpoints": true
     }
   ]
 }

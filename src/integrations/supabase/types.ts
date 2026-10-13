@@ -2047,6 +2047,33 @@ export type Database = {
           },
         ]
       }
+      meta_ads: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          campanha_id: string | null
+          campanha_nome: string | null
+          id: string
+          nome: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          campanha_id?: string | null
+          campanha_nome?: string | null
+          id: string
+          nome?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          campanha_id?: string | null
+          campanha_nome?: string | null
+          id?: string
+          nome?: string | null
+        }
+        Relationships: []
+      }
       nina_processing_queue: {
         Row: {
           contact_id: string
@@ -3682,6 +3709,23 @@ export type Database = {
           tickets_pending_now: number | null
           tickets_sla_over_24h: number | null
           tickets_waiting_customer: number | null
+        }
+        Relationships: []
+      }
+      origem_funil: {
+        Row: {
+          anuncio_id: string | null
+          anuncio_nome: string | null
+          campanha_id: string | null
+          campanha_nome: string | null
+          canal: string | null
+          clientes: number | null
+          com_cnpj: number | null
+          contatos: number | null
+          em_proposta: number | null
+          enviados_pipedrive: number | null
+          erro_pipedrive: number | null
+          semana: string | null
         }
         Relationships: []
       }
