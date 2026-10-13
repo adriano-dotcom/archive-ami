@@ -53,15 +53,37 @@ Deno.serve(async (req) => {
     const cronSecret = Deno.env.get('INTERNAL_CRON_SECRET') ?? ''
     const isServiceRole = serviceRoleKey && auth === `Bearer ${serviceRoleKey}`
     const isInternal = cronSecret && internalSecret === cronSecret
-    if (!isServiceRole && !isInternal) {
-      return json({ error: 'unauthorized' }, 401)
-    }
 
     const body = await req.json().catch(() => ({}))
     const contactId = body?.contact_id
     const dryRun = body?.dry_run === true
     if (!contactId || typeof contactId !== 'string') {
       return json({ error: 'contact_id é obrigatório' }, 400)
+    }
+
+    if (!isServiceRole && !isInternal) {
+      // Exceção: dry_run é liberado para admin autenticado (não envia nada ao Pipedrive)
+      if (!dryRun) return json({ error: 'unauthorized' }, 401)
+      const token = auth.replace(/^Bearer\s+/i, '')
+      if (!token) return json({ error: 'unauthorized' }, 401)
+      const authClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+      )
+      const { data: userData } = await authClient.auth.getUser(token)
+      const userId = userData?.user?.id
+      if (!userId) return json({ error: 'unauthorized' }, 401)
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      )
+      const { data: roleRow } = await adminClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle()
+      if (!roleRow) return json({ error: 'dry_run restrito a administradores' }, 403)
     }
 
     const supabase = createClient(
