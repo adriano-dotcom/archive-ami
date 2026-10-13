@@ -142,21 +142,40 @@ async function summarize(supabase: SupabaseClient, contactId: string) {
   const key = Deno.env.get('LOVABLE_API_KEY')
   if (!key) return empty
   try {
-    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/responses', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { 'Lovable-API-Key': key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Lovable-AIG-SDK': 'fetch' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'Você resume conversas de venda de seguro de cargas (Combo 3 seguros obrigatórios para subcontratados). Responda SOMENTE JSON {"situacao":"...","necessidades":"...","proximos_passos":"..."}, frases curtas em português, sem inventar, sem CPF, sem emoji.' },
-          { role: 'user', content: scrubCpf(transcript) },
-        ],
+        model: 'openai/gpt-6-astra',
+        stream: true,
+        store: false,
+        reasoning: { effort: 'low' },
+        instructions: 'Você resume conversas de venda de seguro de cargas (Combo 3 seguros obrigatórios para subcontratados). Responda em json com situacao, necessidades e proximos_passos: frases curtas em português, sem inventar, sem CPF, sem emoji.',
+        input: scrubCpf(transcript),
+        text: { format: { type: 'json_schema', name: 'resumo', strict: true, schema: {
+          type: 'object', additionalProperties: false, required: ['situacao', 'necessidades', 'proximos_passos'],
+          properties: { situacao: { type: 'string' }, necessidades: { type: 'string' }, proximos_passos: { type: 'string' } },
+        } } },
       }),
     })
-    if (!res.ok) { console.error('[push-lead-pipedrive] AI', res.status, await res.text()); return empty }
-    const out = await res.json()
-    const parsed = JSON.parse(out.choices?.[0]?.message?.content ?? '{}')
+    if (!res.ok || !res.body) { console.error('[push-lead-pipedrive] AI', res.status, await res.text()); return empty }
+    let out = ''
+    let buf = ''
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += value
+      const lines = buf.split('\n'); buf = lines.pop() ?? ''
+      for (const l of lines) {
+        if (!l.startsWith('data:')) continue
+        try {
+          const ev = JSON.parse(l.slice(5).trim())
+          if (ev.type === 'response.output_text.delta') out += ev.delta ?? ''
+        } catch { /* ignora */ }
+      }
+    }
+    const parsed = JSON.parse(out || '{}')
     return { situacao: String(parsed.situacao ?? ''), necessidades: String(parsed.necessidades ?? ''), proximos_passos: String(parsed.proximos_passos ?? '') }
   } catch (e) {
     console.error('[push-lead-pipedrive] AI failed', e)
