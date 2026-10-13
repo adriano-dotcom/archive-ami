@@ -63,6 +63,54 @@ interface AgentQuestion {
   question: string;
 }
 
+// Motivos de encerramento — seguro de cargas (Combo 3 seguros / RCTR-C, RC-DC, RC-V) e ANTT/RNTRC
+type CloseReason = { value: string; label?: string; success?: boolean };
+const CLOSE_REASON_GROUPS: { label: string; category: 'vendas' | 'pos_venda' | 'cobranca' | 'outros'; reasons: CloseReason[] }[] = [
+  {
+    label: 'Vendas (Transportadores em prospecção)', category: 'vendas', reasons: [
+      { value: 'Apólice contratada', success: true },
+      { value: 'Proposta enviada — aguardando aceite' },
+      { value: 'Aguardando pagamento', label: 'Aguardando pagamento (Pix pendente)' },
+      { value: 'Encaminhado ao especialista', label: 'Encaminhado ao especialista (contratado / outros seguros)' },
+      { value: 'Sem interesse no momento' },
+      { value: 'Preço acima do orçamento' },
+      { value: 'Já tem seguro com outra corretora' },
+      { value: 'Fora do perfil', label: 'Fora do perfil (não é subcontratado / sem CNPJ / sem RNTRC)' },
+      { value: 'Apenas dúvida / pesquisa' },
+      { value: 'Sem resposta (3+ tentativas)' },
+      { value: 'Número inválido / não é o responsável' },
+    ],
+  },
+  {
+    label: 'Pós-venda / Suporte', category: 'pos_venda', reasons: [
+      { value: 'Dúvida resolvida', success: true },
+      { value: 'Apólice / documentos enviados', success: true },
+      { value: 'Regularização ANTT/RNTRC encaminhada' },
+      { value: 'Sinistro encaminhado' },
+      { value: 'Endosso / alteração solicitada' },
+      { value: 'Reclamação registrada' },
+      { value: 'Cancelamento solicitado' },
+    ],
+  },
+  {
+    label: 'Cobrança / Renovação', category: 'cobranca', reasons: [
+      { value: 'Pagamento confirmado', success: true },
+      { value: 'Renovação confirmada', success: true },
+      { value: 'Renegociação de prazo' },
+      { value: 'Inadimplente — sem retorno' },
+      { value: 'Não renovou' },
+    ],
+  },
+  {
+    label: 'Outros', category: 'outros', reasons: [
+      { value: 'Procura emprego / vaga' },
+      { value: 'Fornecedor / seguradora / parceiro' },
+      { value: 'Spam / engano' },
+      { value: 'Outro', label: 'Outro (especificar)' },
+    ],
+  },
+];
+
 const ChatInterface: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
