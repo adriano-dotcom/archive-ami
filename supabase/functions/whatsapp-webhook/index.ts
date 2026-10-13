@@ -1222,6 +1222,7 @@ async function processIncomingMessage(
   // 3b. Extrair tag de origem da landing ([M:...] / [G:...]) anexada ao texto pré-preenchido.
   // A tag NUNCA chega à Nina: o content salvo já vai limpo.
   let sourceTag: ReturnType<typeof parseSourceTag> | null = null;
+  let sourceTagRawText: string | null = null;
   if (message.type === 'text' && content) {
     const tag = parseSourceTag(content);
     if (tag.kind) {
