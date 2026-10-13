@@ -117,6 +117,55 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
   emailsSentCount,
   onOpenEmailModal,
 }) => {
+  const [pipedriveSentAt, setPipedriveSentAt] = useState<string | null>(null);
+  const [pipedriveError, setPipedriveError] = useState<string | null>(null);
+  const [isSendingPipedrive, setIsSendingPipedrive] = useState(false);
+
+  useEffect(() => {
+    if (!activeChat.contactId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('sent_to_pipedrive_at, pipedrive_sync_error')
+        .eq('id', activeChat.contactId)
+        .maybeSingle();
+      if (cancelled) return;
+      setPipedriveSentAt(data?.sent_to_pipedrive_at ?? null);
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [activeChat.contactId]);
+
+  const handleSendToPipedrive = async () => {
+    if (!activeChat.contactId || isSendingPipedrive || pipedriveSentAt) return;
+    setIsSendingPipedrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-lead-pipedrive', {
+        body: { contact_id: activeChat.contactId },
+      });
+      if (error) {
+        const details = error instanceof FunctionsHttpError ? await error.context.text() : error.message;
+        throw new Error(details);
+      }
+      if (!data?.success) throw new Error(data?.error || 'Falha ao enviar');
+      setPipedriveSentAt(new Date().toISOString());
+      setPipedriveError(null);
+      toast.success('Contato enviado ao Pipedrive como Pessoa + Lead!');
+    } catch (e) {
+      console.error('Erro ao enviar ao Pipedrive:', e);
+      toast.error('Erro ao enviar ao Pipedrive. Tente novamente.');
+      const { data } = await supabase
+        .from('contacts')
+        .select('pipedrive_sync_error')
+        .eq('id', activeChat.contactId)
+        .maybeSingle();
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    } finally {
+      setIsSendingPipedrive(false);
+    }
+  };
+
   return (
     <div className="w-80 border-l border-border bg-card/50 backdrop-blur-md flex flex-col flex-shrink-0 overflow-hidden">
       {/* Header */}
