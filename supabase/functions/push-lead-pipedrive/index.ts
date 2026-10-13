@@ -2,6 +2,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const OWNER_ID = 13379041
+const CNPJ_FIELD = 'dc094ce47e758abfd2732eac5bfd5f32fea3e3d6'
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/pipedrive'
 
 function json(data: unknown, status = 200) {
@@ -109,12 +110,13 @@ Deno.serve(async (req) => {
 
     async function findOrCreateOrg(): Promise<{ id: number; created: boolean } | null> {
       if (!hasCompany) return null
-      for (const term of [cnpjDigits, companyName]) {
-        const r = await pipedrive(`/organizations/search?term=${encodeURIComponent(term)}&limit=1`, 'GET')
+      var fmt = cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+      for (const term of [fmt, cnpjDigits]) {
+        const r = await pipedrive(`/organizations/search?term=${encodeURIComponent(term)}&fields=custom_fields&exact_match=true&limit=1`, 'GET')
         const id = r?.data?.items?.[0]?.item?.id
         if (id) return { id, created: false }
       }
-      const created = await pipedrive('/organizations', 'POST', { name: companyName, owner_id: OWNER_ID })
+      const created = await pipedrive('/organizations', 'POST', { name: companyName, owner_id: OWNER_ID, [CNPJ_FIELD]: fmt })
       const id = created?.data?.id
       if (!id) throw new Error('Pipedrive não retornou id da organização')
       try {
@@ -140,6 +142,7 @@ Deno.serve(async (req) => {
 
     const personPayload: Record<string, unknown> = {
       name,
+      owner_id: OWNER_ID,
       phone: contact.phone_number ? [{ value: contact.phone_number, primary: true }] : undefined,
       email: contact.email ? [{ value: contact.email, primary: true }] : undefined,
     }
@@ -149,6 +152,7 @@ Deno.serve(async (req) => {
 
     const leadPayload: Record<string, unknown> = {
       title: `${name} — ${origin}`,
+      owner_id: OWNER_ID,
     }
 
     if (dryRun) {
