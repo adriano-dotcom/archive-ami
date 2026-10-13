@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Phone, Mail, MapPin, User, Brain, Plus, FileText, Save, Pencil,
   Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare,
@@ -16,6 +16,11 @@ import { ProposalProgressCard } from './ProposalProgressCard';
 import { PhoneInput } from '../ui/phone-input';
 import { UIConversation, TagDefinition } from '../../types';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
+import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ContactProfilePanelProps {
   activeChat: UIConversation;
