@@ -65,6 +65,9 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [pipedriveSentAt, setPipedriveSentAt] = useState<string | null>(null);
+  const [pipedriveError, setPipedriveError] = useState<string | null>(null);
+  const [isSendingPipedrive, setIsSendingPipedrive] = useState(false);
 
   // Reset editing state when contact changes or drawer closes
   useEffect(() => {
@@ -73,6 +76,53 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
       setEditedName('');
     }
   }, [open, contact?.id]);
+
+  // Carrega o status de sincronização com o Pipedrive
+  useEffect(() => {
+    if (!open || !contact?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('sent_to_pipedrive_at, pipedrive_sync_error')
+        .eq('id', contact.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setPipedriveSentAt(data?.sent_to_pipedrive_at ?? null);
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [open, contact?.id]);
+
+  const handleSendToPipedrive = async () => {
+    if (!contact?.id || isSendingPipedrive || pipedriveSentAt) return;
+    setIsSendingPipedrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-lead-pipedrive', {
+        body: { contact_id: contact.id },
+      });
+      if (error) {
+        const details = error instanceof FunctionsHttpError ? await error.context.text() : error.message;
+        throw new Error(details);
+      }
+      if (!data?.success) throw new Error(data?.error || 'Falha ao enviar');
+      setPipedriveSentAt(new Date().toISOString());
+      setPipedriveError(null);
+      toast.success('Contato enviado ao Pipedrive como Pessoa + Lead!');
+    } catch (e) {
+      console.error('Erro ao enviar ao Pipedrive:', e);
+      toast.error('Erro ao enviar ao Pipedrive. Tente novamente.');
+      // Recarrega o erro gravado no banco, se houver
+      const { data } = await supabase
+        .from('contacts')
+        .select('pipedrive_sync_error')
+        .eq('id', contact.id)
+        .maybeSingle();
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    } finally {
+      setIsSendingPipedrive(false);
+    }
+  };
 
   const handleStartEditing = () => {
     setEditedName(contact?.name || '');
