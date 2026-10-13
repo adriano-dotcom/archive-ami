@@ -72,10 +72,33 @@ function getWindowMinutesRemaining(windowStart: string | null): number {
   return minutesRemaining;
 }
 
+function normalizeFirstName(name: string | null | undefined, callName: string | null | undefined): string {
+  const firstName = (callName?.trim() || name?.trim() || '').split(/\s+/)[0];
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ]{2,}$/.test(firstName) ||
+      /^(cliente|deus|familia|família|amor|lead|transportes|transportadora)$/i.test(firstName)) {
+    return 'Cliente';
+  }
+  return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+}
+
+if (typeof Deno.test === 'function') {
+  Deno.test('follow-up normaliza primeiro nome e rejeita nomes genéricos ou inválidos', () => {
+    const cases = [
+      ['joÃO Silva', null, 'João'],
+      ['Adriano Jacometo', 'léO Santos', 'Léo'],
+      ...['cliente', 'deus', 'familia', 'família', 'amor', 'lead', 'transportes', 'transportadora', 'A', '123', 'João!']
+        .map(name => [name, null, 'Cliente']),
+    ];
+    for (const [name, callName, expected] of cases) {
+      if (normalizeFirstName(name, callName) !== expected) throw new Error(`Nome inválido: ${name}`);
+    }
+  });
+}
+
 // Replace variables in message template
 function replaceVariables(message: string, conv: EligibleConversation): string {
-  const name = conv.contact_name || conv.contact_call_name || 'Cliente';
-  const callName = conv.contact_call_name || conv.contact_name || 'Cliente';
+  const name = normalizeFirstName(conv.contact_name, conv.contact_call_name);
+  const callName = name;
   const company = conv.contact_company || '';
   
   return message
@@ -88,31 +111,18 @@ function replaceVariables(message: string, conv: EligibleConversation): string {
 
 // Varied fallback messages to never repeat the same one
 const FALLBACK_MESSAGES = [
-  "Oi {nome}! Ficou alguma dúvida? Estou por aqui pra ajudar.",
-  "{nome}, posso te ajudar com algo mais?",
-  "E aí {nome}, precisa de mais alguma informação?",
-  "Oi {nome}! Qualquer dúvida, me chama aqui.",
-  "{nome}, me avisa se tiver qualquer dúvida!",
-  "Oi {nome}! Quer que eu te explique algo melhor?",
-  "E aí {nome}! Conseguiu pensar sobre o que conversamos?",
-  "{nome}, estou disponível se quiser continuar!",
-  "Oi {nome}! Se precisar, é só me chamar.",
-  "{nome}, posso esclarecer algo?",
+  "Ficou alguma dúvida? Posso te ajudar por aqui.",
+  "Se ainda precisar regularizar o RNTRC, me chama aqui.",
+  "Quer que eu retome de onde paramos?",
+  "Se travou em alguma etapa, me fala que eu ajudo.",
 ];
 
 // Get a varied fallback that's different from the last message
 function getVariedFallback(contactName: string, lastMessage?: string): string {
-  const name = contactName || 'Cliente';
-  let attempts = 0;
-  let fallback: string;
-  
-  do {
-    const randomIndex = Math.floor(Math.random() * FALLBACK_MESSAGES.length);
-    fallback = FALLBACK_MESSAGES[randomIndex].replace('{nome}', name);
-    attempts++;
-  } while (lastMessage && fallback === lastMessage && attempts < 10);
-  
-  return fallback;
+  const name = normalizeFirstName(contactName, null);
+  const candidates = FALLBACK_MESSAGES.map(message => message.replace('{nome}', name))
+    .filter(message => message !== lastMessage);
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // Generate AI message using edge function
@@ -137,6 +147,22 @@ async function generateAIMessage(
     }
     
     console.log(`[process-followups] Generating AI message, last_message_sent: ${lastMessageSent ? lastMessageSent.substring(0, 30) + '...' : 'none'}`);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const [historyResult, lastNinaResult] = await Promise.all([
+      supabase.from('messages').select('from_type, content')
+        .eq('conversation_id', conv.id).order('sent_at', { ascending: false }).limit(6),
+      supabase.from('messages').select('content')
+        .eq('conversation_id', conv.id).eq('from_type', 'nina')
+        .order('sent_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (historyResult.error || lastNinaResult.error) {
+      throw historyResult.error || lastNinaResult.error;
+    }
+    const lastNinaContent = lastNinaResult.data?.content?.trim() || '';
+    const pendingQuestion = lastNinaContent.endsWith('?') ? lastNinaContent : null;
+    const conversationContext = (historyResult.data || []).slice().reverse()
+      .map(message => `${message.from_type === 'user' ? 'L' : 'IA'}: ${(message.content || '').slice(0, 200)}`)
+      .join('\n');
     
     const response = await fetch(`${supabaseUrl}/functions/v1/generate-followup-message`, {
       method: 'POST',
@@ -145,7 +171,7 @@ async function generateAIMessage(
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({
-        contact_name: conv.contact_name || conv.contact_call_name || 'Cliente',
+        contact_name: normalizeFirstName(conv.contact_name, conv.contact_call_name),
         contact_company: conv.contact_company,
         agent_name: agentName,
         agent_specialty: agentSpecialty,
@@ -154,6 +180,8 @@ async function generateAIMessage(
         hours_waiting: hoursWaiting,
         attempt_number: attemptNumber,
         last_message_sent: lastMessageSent, // Pass last message for anti-repetition
+        pending_question: pendingQuestion,
+        conversation_context: conversationContext,
       }),
     });
 
@@ -381,7 +409,8 @@ serve(async (req) => {
             name,
             call_name,
             company,
-            phone_number
+            phone_number,
+            is_blocked
           )
         `)
         .eq('is_active', true)
@@ -422,6 +451,10 @@ serve(async (req) => {
       let failed = 0;
 
       for (const convRaw of conversationsRaw) {
+        if ((convRaw.contacts as any)?.is_blocked === true) {
+          skipped++;
+          continue;
+        }
         const conv: EligibleConversation = {
           id: convRaw.id,
           contact_id: convRaw.contact_id,
@@ -786,7 +819,8 @@ async function processWindowExpiringAutomation(
         name,
         call_name,
         company,
-        phone_number
+        phone_number,
+        is_blocked
       )
     `)
     .eq('is_active', true)
@@ -819,6 +853,10 @@ async function processWindowExpiringAutomation(
   }
 
   for (const convRaw of conversationsRaw) {
+    if ((convRaw.contacts as any)?.is_blocked === true) {
+      skipped++;
+      continue;
+    }
     // Try to get agent from conversation or via pipeline through deal
     let agentId = convRaw.current_agent_id;
     let pipelineIdFromDeal: string | null = null;

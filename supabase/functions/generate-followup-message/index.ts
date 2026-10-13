@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stripEmojis } from '../_shared/text-sanitize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,14 +13,16 @@ interface GenerateMessageRequest {
   agent_name?: string;
   agent_specialty?: string;
   agent_slug?: string;
-  prompt_type: 'qualification' | 'urgency' | 'budget' | 'decision' | 'soft_reengagement' | 'last_chance' | 'schedule_call' | 'schedule_call_transportador';
+  prompt_type: 'qualification' | 'urgency' | 'budget' | 'decision' | 'soft_reengagement' | 'last_chance' | 'schedule_call' | 'schedule_call_transportador' | 'unanswered_question';
   hours_waiting?: number;
   attempt_number: number;
   conversation_context?: string;
+  pending_question?: string | null;
   last_message_sent?: string; // NEW: Anti-repetition
 }
 
 const PROMPT_TEMPLATES: Record<string, string> = {
+  unanswered_question: `Retome EXATAMENTE a pergunta pendente, de forma mais simples ou com opções prontas — NÃO troque por outra pergunta.`,
   qualification: `Você precisa descobrir mais sobre as necessidades do cliente. 
 Faça UMA pergunta aberta e natural para entender melhor:
 - Qual problema/dor ele está tentando resolver
@@ -51,12 +54,8 @@ Envie uma mensagem leve e amigável para retomar:
 - Deixando a porta aberta
 VARIE a abordagem: pergunte sobre dúvidas, ofereça ajuda específica, ou mencione disponibilidade.`,
 
-  last_chance: `Esta é provavelmente a última tentativa de contato.
-Envie uma mensagem de encerramento amigável que:
-- Não seja agressiva ou culpabilizadora
-- Deixe claro que você está disponível
-- Ofereça uma alternativa (ligação, outro momento)
-- SEMPRE termine a mensagem com: "Estamos à disposição!"`,
+  last_chance: `Encerre o contato sem pressionar e sem fazer nova pergunta.
+Use um fechamento como: "Vou deixar por aqui pra não te incomodar. Se precisar, é só chamar neste número."`,
 
   schedule_call: `O cliente não respondeu à primeira mensagem.
 Sua missão é perguntar qual o melhor horário para uma conversa.
@@ -65,41 +64,45 @@ Seja direto e natural, ofereça opções flexíveis:
 - Ou deixe ele escolher o melhor momento
 - Seja breve e objetivo`,
 
-  schedule_call_transportador: `O cliente é um TRANSPORTADOR que não respondeu.
-Transportadores são pessoas MUITO ocupadas e práticas que preferem resolver por TELEFONE.
-Ofereça uma ligação rápida de forma DIRETA e PROATIVA:
-- Destaque que é uma ligação RÁPIDA (5-10 min no máximo)
-- Ofereça ligar AGORA ou pergunte o melhor horário
-- Use linguagem objetiva, sem enrolação
-- Mostre que você respeita o tempo dele
-- NUNCA peça e-mail (transportadores não usam)`,
+  schedule_call_transportador: `O cliente é um transportador ocupado. Ofereça telefone sem prometer prazo nem ligação imediata.
+Exemplo: "Se for mais fácil por telefone, o corretor te liga. Qual o melhor horário?"
+Seja direto, respeite o tempo dele e nunca peça e-mail.`,
 };
 
 // Varied fallback messages to never repeat the same one
 const FALLBACK_MESSAGES = [
-  "Oi {nome}! Ficou alguma dúvida? Estou por aqui pra ajudar.",
-  "{nome}, posso te ajudar com algo mais?",
-  "E aí {nome}, precisa de mais alguma informação?",
-  "Oi {nome}! Qualquer dúvida, me chama aqui.",
-  "{nome}, me avisa se tiver qualquer dúvida!",
-  "Oi {nome}! Quer que eu te explique algo melhor?",
-  "E aí {nome}! Conseguiu pensar sobre o que conversamos?",
-  "{nome}, estou disponível se quiser continuar!",
+  "Ficou alguma dúvida? Posso te ajudar por aqui.",
+  "Se ainda precisar regularizar o RNTRC, me chama aqui.",
+  "Quer que eu retome de onde paramos?",
+  "Se travou em alguma etapa, me fala que eu ajudo.",
 ];
 
 // Get a fallback message that's different from the last one
 function getVariedFallback(contactName: string, lastMessage?: string): string {
   const name = contactName || 'Cliente';
-  let attempts = 0;
-  let fallback: string;
-  
-  do {
-    const randomIndex = Math.floor(Math.random() * FALLBACK_MESSAGES.length);
-    fallback = FALLBACK_MESSAGES[randomIndex].replace('{nome}', name);
-    attempts++;
-  } while (lastMessage && fallback === lastMessage && attempts < 10);
-  
-  return fallback;
+  const candidates = FALLBACK_MESSAGES.map(message => message.replace('{nome}', name))
+    .filter(message => message !== lastMessage);
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function resolvePromptType(promptType: GenerateMessageRequest['prompt_type'], pendingQuestion?: string | null): GenerateMessageRequest['prompt_type'] {
+  return pendingQuestion?.trim() && promptType !== 'last_chance' ? 'unanswered_question' : promptType;
+}
+
+if (typeof Deno.test === 'function') {
+  Deno.test('pergunta pendente prevalece em todos os tipos exceto last_chance', () => {
+    const types: GenerateMessageRequest['prompt_type'][] = ['qualification', 'urgency', 'budget', 'decision', 'soft_reengagement', 'schedule_call', 'schedule_call_transportador', 'unanswered_question'];
+    for (const type of types) {
+      if (resolvePromptType(type, 'Você emite CT-e?') !== 'unanswered_question') throw new Error(type);
+    }
+    if (resolvePromptType('last_chance', 'Você emite CT-e?') !== 'last_chance') throw new Error('last_chance');
+    if (resolvePromptType('budget', null) !== 'budget') throw new Error('sem pergunta');
+  });
+  Deno.test('fallback não repete a última mensagem', () => {
+    for (const lastMessage of FALLBACK_MESSAGES) {
+      if (getVariedFallback('Cliente', lastMessage) === lastMessage) throw new Error('Fallback repetido');
+    }
+  });
 }
 
 // Check if two messages are too similar
@@ -161,6 +164,7 @@ serve(async (req) => {
       hours_waiting,
       attempt_number,
       conversation_context,
+      pending_question,
       last_message_sent
     } = body;
 
@@ -169,7 +173,8 @@ serve(async (req) => {
       console.log(`[generate-followup-message] Last message to avoid: "${last_message_sent.substring(0, 50)}..."`);
     }
 
-    const promptInstruction = PROMPT_TEMPLATES[prompt_type] || PROMPT_TEMPLATES.soft_reengagement;
+    const effectivePromptType = resolvePromptType(prompt_type, pending_question);
+    const promptInstruction = PROMPT_TEMPLATES[effectivePromptType] || PROMPT_TEMPLATES.soft_reengagement;
 
     // Build anti-repetition instruction
     const antiRepetitionRule = last_message_sent 
@@ -186,16 +191,14 @@ Você DEVE criar uma mensagem COMPLETAMENTE DIFERENTE:
 Sua missão é gerar UMA mensagem de follow-up curta e natural para WhatsApp.
 
 REGRAS OBRIGATÓRIAS:
-1. Máximo 2-3 frases curtas
-2. Tom amigável e consultivo, NUNCA robótico
-3. Use linguagem informal brasileira (oi, tudo bem, etc)
-4. NUNCA use palavras como "automático", "sistema", "mensagem automática"
-5. NUNCA comece com "Olá!" - prefira "Oi" ou "E aí"
-6. Use o nome do cliente de forma natural
-7. A mensagem deve parecer escrita por um humano
-8. NUNCA use emojis (regra da empresa, sem exceções)
-9. Faça apenas UMA pergunta ou solicitação
-10. CADA MENSAGEM DEVE SER ÚNICA - nunca repita estrutura ou conteúdo
+1. No máximo 2 linhas curtas, uma única pergunta ou pedido.
+2. ZERO emoji.
+3. Proibido: "tudo bem?", "tudo certo?", "E aí", "Olá!", "Ótimo", "Perfeito", "Passando pra", "Pelo visto".
+4. Se o nome for "Cliente", não use nome; se for real, no máximo 1 vez, sem "Oi Nome!" no começo.
+5. Nunca prometa ligar em X minutos nem "agora"; pode oferecer "se preferir, o corretor te liga — qual o melhor horário?".
+6. Nunca peça e-mail, nunca cite preço diferente de R$ 911,66, nunca cite seguradora, nunca diga que o seguro "indeniza".
+7. Pareça escrito por uma pessoa do comercial.
+8. Cada mensagem diferente da anterior.
 ${antiRepetitionRule}
 
 ${promptInstruction}`;
@@ -206,6 +209,7 @@ ${contact_company ? `- Empresa: ${contact_company}` : ''}
 ${hours_waiting ? `- Horas sem resposta: ${Math.round(hours_waiting)}h` : ''}
 - Tentativa número: ${attempt_number}
 ${conversation_context ? `- Contexto da conversa: ${conversation_context}` : ''}
+${pending_question && effectivePromptType === 'unanswered_question' ? `- Pergunta pendente que deve ser retomada: ${pending_question}` : ''}
 ${last_message_sent ? `\n❌ NÃO repita nem pareça com: "${last_message_sent}"` : ''}
 
 Responda APENAS com a mensagem, sem explicações ou aspas.`;
@@ -223,7 +227,7 @@ Responda APENAS com a mensagem, sem explicações ou aspas.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 200,
+        max_tokens: 350,
         temperature: 0.95, // Higher temperature for more variation
       }),
     });
@@ -255,7 +259,7 @@ Responda APENAS com a mensagem, sem explicações ou aspas.`;
     }
 
     // Clean up the message (remove quotes if present)
-    generatedMessage = generatedMessage.replace(/^["']|["']$/g, '').trim();
+    generatedMessage = stripEmojis(generatedMessage.replace(/^["']|["']$/g, '').trim());
 
     // Check if message is too similar to last one - regenerate if needed
     if (last_message_sent && messagesTooSimilar(generatedMessage, last_message_sent)) {
@@ -267,7 +271,7 @@ Responda APENAS com a mensagem, sem explicações ou aspas.`;
 
     return new Response(JSON.stringify({ 
       message: generatedMessage,
-      prompt_type,
+      prompt_type: effectivePromptType,
       attempt_number 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
