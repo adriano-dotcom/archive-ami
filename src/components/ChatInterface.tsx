@@ -63,6 +63,54 @@ interface AgentQuestion {
   question: string;
 }
 
+// Motivos de encerramento — seguro de cargas (Combo 3 seguros / RCTR-C, RC-DC, RC-V) e ANTT/RNTRC
+type CloseReason = { value: string; label?: string; success?: boolean };
+const CLOSE_REASON_GROUPS: { label: string; category: 'vendas' | 'pos_venda' | 'cobranca' | 'outros'; reasons: CloseReason[] }[] = [
+  {
+    label: 'Vendas (Transportadores em prospecção)', category: 'vendas', reasons: [
+      { value: 'Apólice contratada', success: true },
+      { value: 'Proposta enviada — aguardando aceite' },
+      { value: 'Aguardando pagamento', label: 'Aguardando pagamento (Pix pendente)' },
+      { value: 'Encaminhado ao especialista', label: 'Encaminhado ao especialista (contratado / outros seguros)' },
+      { value: 'Sem interesse no momento' },
+      { value: 'Preço acima do orçamento' },
+      { value: 'Já tem seguro com outra corretora' },
+      { value: 'Fora do perfil', label: 'Fora do perfil (não é subcontratado / sem CNPJ / sem RNTRC)' },
+      { value: 'Apenas dúvida / pesquisa' },
+      { value: 'Sem resposta (3+ tentativas)' },
+      { value: 'Número inválido / não é o responsável' },
+    ],
+  },
+  {
+    label: 'Pós-venda / Suporte', category: 'pos_venda', reasons: [
+      { value: 'Dúvida resolvida', success: true },
+      { value: 'Apólice / documentos enviados', success: true },
+      { value: 'Regularização ANTT/RNTRC encaminhada' },
+      { value: 'Sinistro encaminhado' },
+      { value: 'Endosso / alteração solicitada' },
+      { value: 'Reclamação registrada' },
+      { value: 'Cancelamento solicitado' },
+    ],
+  },
+  {
+    label: 'Cobrança / Renovação', category: 'cobranca', reasons: [
+      { value: 'Pagamento confirmado', success: true },
+      { value: 'Renovação confirmada', success: true },
+      { value: 'Renegociação de prazo' },
+      { value: 'Inadimplente — sem retorno' },
+      { value: 'Não renovou' },
+    ],
+  },
+  {
+    label: 'Outros', category: 'outros', reasons: [
+      { value: 'Procura emprego / vaga' },
+      { value: 'Fornecedor / seguradora / parceiro' },
+      { value: 'Spam / engano' },
+      { value: 'Outro', label: 'Outro (especificar)' },
+    ],
+  },
+];
+
 const ChatInterface: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -558,27 +606,8 @@ const ChatInterface: React.FC = () => {
   };
 
   // Categorize close reason for analytics/reporting
-  const getCloseCategory = (reason: string): 'vendas' | 'pos_venda' | 'cobranca' | 'outros' => {
-    const vendas = [
-      'Plano contratado', 'Aguardando pagamento', 'Sem interesse no momento',
-      'Preço acima do orçamento', 'Já tem plano em outra empresa',
-      'Pet fora do perfil', 'Apenas dúvida / pesquisa', 'Sem resposta (3+ tentativas)',
-      'Número inválido / não é o tutor'
-    ];
-    const posVenda = [
-      'Dúvida resolvida', 'Reembolso encaminhado', 'Atendimento veterinário direcionado',
-      'Reclamação registrada', 'Cancelamento solicitado'
-    ];
-    const cobranca = [
-      'Pagamento confirmado', 'Acordo de regularização firmado', 'Renegociação de prazo',
-      'Inadimplente — sem retorno', 'Inadimplente — recusa de pagamento',
-      'Cancelamento por inadimplência'
-    ];
-    if (vendas.includes(reason)) return 'vendas';
-    if (posVenda.includes(reason)) return 'pos_venda';
-    if (cobranca.includes(reason)) return 'cobranca';
-    return 'outros';
-  };
+  const getCloseCategory = (reason: string): 'vendas' | 'pos_venda' | 'cobranca' | 'outros' =>
+    CLOSE_REASON_GROUPS.find(g => g.reasons.some(r => r.value === reason))?.category ?? 'outros';
 
   // Handle close conversation
   const handleCloseConversation = async () => {
@@ -2815,7 +2844,7 @@ const ChatInterface: React.FC = () => {
 
       {/* Close Conversation Modal */}
       {showCloseModal && (() => {
-        const successReasons = ['Plano contratado', 'Pagamento confirmado', 'Dúvida resolvida'];
+        const successReasons = CLOSE_REASON_GROUPS.flatMap(g => g.reasons.filter(r => r.success).map(r => r.value));
         const isSuccess = successReasons.includes(closeReason);
         return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2846,40 +2875,13 @@ const ChatInterface: React.FC = () => {
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none"
                 >
                   <option value="">Selecione um motivo...</option>
-
-                  <optgroup label="Vendas (Tutores em prospecção)">
-                    <option value="Plano contratado">Plano contratado ✅</option>
-                    <option value="Aguardando pagamento">Aguardando pagamento (PIX/cartão pendente)</option>
-                    <option value="Sem interesse no momento">Sem interesse no momento</option>
-                    <option value="Preço acima do orçamento">Preço acima do orçamento</option>
-                    <option value="Já tem plano em outra empresa">Já tem plano em outra empresa</option>
-                    <option value="Pet fora do perfil">Pet fora do perfil (idade {'>'} 10 anos / pré-existência)</option>
-                    <option value="Apenas dúvida / pesquisa">Apenas dúvida / pesquisa</option>
-                    <option value="Sem resposta (3+ tentativas)">Sem resposta (3+ tentativas)</option>
-                    <option value="Número inválido / não é o tutor">Número inválido / não é o tutor</option>
-                  </optgroup>
-
-                  <optgroup label="Pós-venda / Suporte">
-                    <option value="Dúvida resolvida">Dúvida resolvida ✅</option>
-                    <option value="Reembolso encaminhado">Reembolso encaminhado</option>
-                    <option value="Atendimento veterinário direcionado">Atendimento veterinário direcionado (orbepet.com.br)</option>
-                    <option value="Reclamação registrada">Reclamação registrada</option>
-                    <option value="Cancelamento solicitado">Cancelamento solicitado</option>
-                  </optgroup>
-
-                  <optgroup label="Cobrança (mensalidade em atraso)">
-                    <option value="Pagamento confirmado">Pagamento confirmado ✅</option>
-                    <option value="Acordo de regularização firmado">Acordo de regularização firmado</option>
-                    <option value="Renegociação de prazo">Renegociação de prazo</option>
-                    <option value="Inadimplente — sem retorno">Inadimplente — sem retorno</option>
-                    <option value="Inadimplente — recusa de pagamento">Inadimplente — recusa de pagamento</option>
-                    <option value="Cancelamento por inadimplência">Cancelamento por inadimplência</option>
-                  </optgroup>
-
-                  <optgroup label="Outros">
-                    <option value="Spam / engano">Spam / engano</option>
-                    <option value="Outro">Outro (especificar)</option>
-                  </optgroup>
+                  {CLOSE_REASON_GROUPS.map(g => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.reasons.map(r => (
+                        <option key={r.value} value={r.value}>{r.label ?? r.value}{r.success ? ' ✅' : ''}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
               {closeReason === 'Outro' && (
