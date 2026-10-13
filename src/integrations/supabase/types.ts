@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      _bkp_agents_20261013: {
+        Row: {
+          audio_response_enabled: boolean | null
+          cargo_focused_greeting: string | null
+          created_at: string | null
+          default_owner_id: string | null
+          description: string | null
+          detection_keywords: string[] | null
+          elevenlabs_model: string | null
+          elevenlabs_similarity_boost: number | null
+          elevenlabs_speaker_boost: boolean | null
+          elevenlabs_speed: number | null
+          elevenlabs_stability: number | null
+          elevenlabs_style: number | null
+          elevenlabs_voice_id: string | null
+          greeting_message: string | null
+          handoff_message: string | null
+          id: string | null
+          is_active: boolean | null
+          is_default: boolean | null
+          last_assigned_owner_id: string | null
+          name: string | null
+          owner_distribution_type: string | null
+          owner_rotation_ids: string[] | null
+          qualification_questions: Json | null
+          slug: string | null
+          specialty: string | null
+          system_prompt: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          audio_response_enabled?: boolean | null
+          cargo_focused_greeting?: string | null
+          created_at?: string | null
+          default_owner_id?: string | null
+          description?: string | null
+          detection_keywords?: string[] | null
+          elevenlabs_model?: string | null
+          elevenlabs_similarity_boost?: number | null
+          elevenlabs_speaker_boost?: boolean | null
+          elevenlabs_speed?: number | null
+          elevenlabs_stability?: number | null
+          elevenlabs_style?: number | null
+          elevenlabs_voice_id?: string | null
+          greeting_message?: string | null
+          handoff_message?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_assigned_owner_id?: string | null
+          name?: string | null
+          owner_distribution_type?: string | null
+          owner_rotation_ids?: string[] | null
+          qualification_questions?: Json | null
+          slug?: string | null
+          specialty?: string | null
+          system_prompt?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          audio_response_enabled?: boolean | null
+          cargo_focused_greeting?: string | null
+          created_at?: string | null
+          default_owner_id?: string | null
+          description?: string | null
+          detection_keywords?: string[] | null
+          elevenlabs_model?: string | null
+          elevenlabs_similarity_boost?: number | null
+          elevenlabs_speaker_boost?: boolean | null
+          elevenlabs_speed?: number | null
+          elevenlabs_stability?: number | null
+          elevenlabs_style?: number | null
+          elevenlabs_voice_id?: string | null
+          greeting_message?: string | null
+          handoff_message?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_assigned_owner_id?: string | null
+          name?: string | null
+          owner_distribution_type?: string | null
+          owner_rotation_ids?: string[] | null
+          qualification_questions?: Json | null
+          slug?: string | null
+          specialty?: string | null
+          system_prompt?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           audio_response_enabled: boolean | null
