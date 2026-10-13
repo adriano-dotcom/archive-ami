@@ -326,13 +326,23 @@ Deno.serve(async (req) => {
     const labels = hot ? [LABEL_COMBO, LABEL_HOT] : [LABEL_COMBO]
     let leadId: string | null = null
     let reusedLead = false
-    if (personId) {
+    let dealId: number | null = null
+    const dealLists: any[] = []
+    if (personId) dealLists.push(await pipedrive(`/persons/${personId}/deals?status=open&limit=5`))
+    if (orgId) dealLists.push(await pipedrive(`/organizations/${orgId}/deals?status=open&limit=5`))
+    for (const r of dealLists) {
+      const d = (r?.data ?? []).find((x: any) => x?.status === 'open' || !x?.status)
+      if (d?.id) { dealId = d.id; break }
+    }
+    if (!dealId && personId) {
       const open = await pipedrive(`/leads?person_id=${personId}&archived_status=not_archived&limit=1`)
       leadId = open?.data?.[0]?.id ?? null
       reusedLead = !!leadId
     }
     const title = `${name} · ${companyName || (cnpjValid ? cnpj : 'sem empresa')} · Combo 3 seguros`
-    if (reusedLead) {
+    if (dealId) {
+      plan.lead = { action: `já existe negócio aberto — só adiciona nota no deal ${dealId}`, deal_id: dealId }
+    } else if (reusedLead) {
       plan.lead = { action: 'já existe lead aberto — só adiciona nota', id: leadId }
     } else {
       const leadPayload: Record<string, unknown> = { title, person_id: personId ?? '(nova pessoa)', owner_id: OWNER_ID, label_ids: labels }
@@ -351,19 +361,21 @@ Deno.serve(async (req) => {
       adName = ad?.nome ?? null
     }
     let skipNote = false
-    if (leadId && reusedLead) {
-      const notes = await pipedrive(`/notes?lead_id=${leadId}&sort=add_time%20DESC&limit=1`)
+    const noteTarget = dealId ? `deal_id=${dealId}` : `lead_id=${leadId}`
+    if (dealId || (leadId && reusedLead)) {
+      const notes = await pipedrive(`/notes?${noteTarget}&sort=add_time%20DESC&limit=1`)
       const last = notes?.data?.[0]?.add_time
       if (last && Date.now() - Date.parse(String(last).replace(' ', 'T') + 'Z') < 3600_000) skipNote = true
     }
     if (skipNote) {
-      plan.note = { action: 'pular (já há nota nesse lead na última 1h)' }
+      plan.note = { action: `pular (já há nota nesse ${dealId ? 'negócio' : 'lead'} na última 1h)` }
       if (dryRun) plan.note_preview = buildNote(contact, await summarize(supabase, contactId), adName, cnpjValid)
     } else {
       const summary = await summarize(supabase, contactId)
       const content = buildNote(contact, summary, adName, cnpjValid)
-      plan.note = { action: 'criar (fixada no lead)', content }
-      if (!dryRun && leadId) await pipedrive('/notes', 'POST', { content, lead_id: leadId, pinned_to_lead_flag: 1 })
+      plan.note = { action: dealId ? `criar (fixada no negócio ${dealId})` : 'criar (fixada no lead)', content }
+      if (!dryRun && dealId) await pipedrive('/notes', 'POST', { content, deal_id: dealId, pinned_to_deal_flag: 1 })
+      else if (!dryRun && leadId) await pipedrive('/notes', 'POST', { content, lead_id: leadId, pinned_to_lead_flag: 1 })
     }
 
     if (dryRun) return json(plan)
@@ -372,13 +384,14 @@ Deno.serve(async (req) => {
       pipedrive_person_id: personId ? String(personId) : null,
       pipedrive_org_id: orgId ? String(orgId) : null,
       pipedrive_lead_id: leadId,
+      pipedrive_deal_id: dealId ? String(dealId) : null,
       sent_to_pipedrive_at: new Date().toISOString(),
       pipedrive_sync_status: 'sent',
       pipedrive_sync_error: null,
     }).eq('id', contactId)
     if (uErr) console.error('[push-lead-pipedrive] update contact failed:', uErr.message)
 
-    return json({ success: true, person_id: personId, org_id: orgId, lead_id: leadId, reused_lead: reusedLead })
+    return json({ success: true, person_id: personId, org_id: orgId, lead_id: leadId, deal_id: dealId, reused_lead: reusedLead })
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e)
     const msg = raw.replace(/(api_token|token|key)=[^&\s"]+/gi, '$1=***').slice(0, 500)
