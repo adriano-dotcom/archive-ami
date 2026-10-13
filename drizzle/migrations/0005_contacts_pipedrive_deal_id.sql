@@ -1,0 +1,1 @@
+ALTER TABLE public.contacts ADD COLUMN IF NOT EXISTS pipedrive_deal_id text;

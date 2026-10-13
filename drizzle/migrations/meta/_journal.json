@@ -36,6 +36,13 @@
       "when": 1791855319561,
       "tag": "0004_pipedrive_sync_qualification",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791855566505,
+      "tag": "0005_contacts_pipedrive_deal_id",
+      "breakpoints": true
     }
   ]
 }

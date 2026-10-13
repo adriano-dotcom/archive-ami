@@ -664,6 +664,7 @@ export type Database = {
           number: string | null
           pet_name: string | null
           phone_number: string
+          pipedrive_deal_id: string | null
           pipedrive_lead_id: string | null
           pipedrive_org_id: string | null
           pipedrive_person_id: string | null
@@ -725,6 +726,7 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number: string
+          pipedrive_deal_id?: string | null
           pipedrive_lead_id?: string | null
           pipedrive_org_id?: string | null
           pipedrive_person_id?: string | null
@@ -786,6 +788,7 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number?: string
+          pipedrive_deal_id?: string | null
           pipedrive_lead_id?: string | null
           pipedrive_org_id?: string | null
           pipedrive_person_id?: string | null
