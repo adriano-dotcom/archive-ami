@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { parseSourceTag } from "../_shared/source-tag.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1027,6 +1028,7 @@ async function processIncomingMessage(
       insertData.ctwa_clid = referral.ctwa_clid ?? null;
       insertData.referral_source_url = referral.source_url ?? null;
       insertData.referral_headline = referral.headline ?? null;
+      insertData.meta_ad_id = referral.source_id ?? null;
     }
 
     const { data: newContact, error: contactError } = await supabase
@@ -1073,6 +1075,7 @@ async function processIncomingMessage(
       updates.ctwa_clid = referral.ctwa_clid ?? null;
       updates.referral_source_url = referral.source_url ?? null;
       updates.referral_headline = referral.headline ?? null;
+      updates.meta_ad_id = referral.source_id ?? null;
     }
 
     await supabase
