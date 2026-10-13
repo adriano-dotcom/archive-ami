@@ -43,6 +43,13 @@
       "when": 1791855566505,
       "tag": "0005_contacts_pipedrive_deal_id",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791855839661,
+      "tag": "0006_lead_attribution_and_funnel_events",
+      "breakpoints": true
     }
   ]
 }

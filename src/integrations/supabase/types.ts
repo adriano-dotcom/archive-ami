@@ -1569,6 +1569,111 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_attribution: {
+        Row: {
+          contact_id: string
+          created_at: string
+          first_at: string | null
+          first_campaign: string | null
+          first_canal: string | null
+          first_ctwa_clid: string | null
+          first_gclid: string | null
+          first_meta_ad_id: string | null
+          first_referral_headline: string | null
+          first_utm_campaign: string | null
+          first_utm_content: string | null
+          first_utm_source: string | null
+          first_utm_term: string | null
+          id: string
+          last_at: string | null
+          last_campaign: string | null
+          last_canal: string | null
+          last_ctwa_clid: string | null
+          last_gclid: string | null
+          last_meta_ad_id: string | null
+          last_referral_headline: string | null
+          last_utm_campaign: string | null
+          last_utm_content: string | null
+          last_utm_source: string | null
+          last_utm_term: string | null
+          touches: number
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          first_at?: string | null
+          first_campaign?: string | null
+          first_canal?: string | null
+          first_ctwa_clid?: string | null
+          first_gclid?: string | null
+          first_meta_ad_id?: string | null
+          first_referral_headline?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          id?: string
+          last_at?: string | null
+          last_campaign?: string | null
+          last_canal?: string | null
+          last_ctwa_clid?: string | null
+          last_gclid?: string | null
+          last_meta_ad_id?: string | null
+          last_referral_headline?: string | null
+          last_utm_campaign?: string | null
+          last_utm_content?: string | null
+          last_utm_source?: string | null
+          last_utm_term?: string | null
+          touches?: number
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          first_at?: string | null
+          first_campaign?: string | null
+          first_canal?: string | null
+          first_ctwa_clid?: string | null
+          first_gclid?: string | null
+          first_meta_ad_id?: string | null
+          first_referral_headline?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          id?: string
+          last_at?: string | null
+          last_campaign?: string | null
+          last_canal?: string | null
+          last_ctwa_clid?: string | null
+          last_gclid?: string | null
+          last_meta_ad_id?: string | null
+          last_referral_headline?: string | null
+          last_utm_campaign?: string | null
+          last_utm_content?: string | null
+          last_utm_source?: string | null
+          last_utm_term?: string | null
+          touches?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_attribution_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_attribution_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_captures: {
         Row: {
           contact_id: string | null
@@ -1638,6 +1743,81 @@ export type Database = {
             columns: ["landing_page_id"]
             isOneToOne: false
             referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_funnel_events: {
+        Row: {
+          campaign: string | null
+          canal: string | null
+          contact_id: string
+          created_at: string
+          deal_pipeline_id: number | null
+          deal_value: number | null
+          event_type: string
+          fingerprint: string
+          id: string
+          meta_ad_id: string | null
+          metadata: Json
+          occurred_at: string
+          pipedrive_deal_id: string | null
+          pipedrive_lead_id: string | null
+          pipedrive_person_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+        }
+        Insert: {
+          campaign?: string | null
+          canal?: string | null
+          contact_id: string
+          created_at?: string
+          deal_pipeline_id?: number | null
+          deal_value?: number | null
+          event_type: string
+          fingerprint: string
+          id?: string
+          meta_ad_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          pipedrive_deal_id?: string | null
+          pipedrive_lead_id?: string | null
+          pipedrive_person_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+        }
+        Update: {
+          campaign?: string | null
+          canal?: string | null
+          contact_id?: string
+          created_at?: string
+          deal_pipeline_id?: number | null
+          deal_value?: number | null
+          event_type?: string
+          fingerprint?: string
+          id?: string
+          meta_ad_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          pipedrive_deal_id?: string | null
+          pipedrive_lead_id?: string | null
+          pipedrive_person_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_funnel_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_funnel_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
             referencedColumns: ["id"]
           },
         ]
@@ -3746,7 +3926,12 @@ export type Database = {
           em_proposta: number | null
           enviados_pipedrive: number | null
           erro_pipedrive: number | null
+          ganhos: number | null
+          modo: string | null
+          negocios: number | null
           semana: string | null
+          taxa_ganho: number | null
+          valor_ganho: number | null
         }
         Relationships: []
       }
@@ -3908,6 +4093,23 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: boolean
       }
+      lead_channel: {
+        Args: {
+          p_ctwa_clid: string
+          p_meta_ad_id: string
+          p_utm_source: string
+        }
+        Returns: string
+      }
+      record_funnel_event: {
+        Args: {
+          p_contact_id: string
+          p_event_type: string
+          p_extra?: Json
+          p_occurred_at: string
+        }
+        Returns: boolean
+      }
       set_vault_secret: {
         Args: { secret_name: string; secret_value: string }
         Returns: string
@@ -3939,6 +4141,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      upsert_lead_attribution: {
+        Args: { p_contact_id: string; p_payload: Json }
+        Returns: undefined
       }
     }
     Enums: {
