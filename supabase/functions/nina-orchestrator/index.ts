@@ -4537,10 +4537,25 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       }
     }
     
-    // 🆕 Enhanced fallback message for handoff
+    // Se todos os modelos devolverem vazio (handoff): NÃO enviar mensagem de erro ao lead.
+    // Registra diagnóstico, passa a conversa para atendimento humano e encerra o item sem resposta.
     if (!aiContent) {
-      console.error('[Nina] All 3 models returned empty response in handoff, using enhanced fallback message');
-      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
+      console.error('[Nina] ❌ empty_response_all_models (handoff) — diagnostics:', JSON.stringify(emptyDiag));
+      await supabase
+        .from('conversations')
+        .update({
+          status: 'human',
+          metadata: {
+            ...(conversation.metadata || {}),
+            ai_failure: { at: new Date().toISOString(), reason: 'empty_response_all_models' }
+          }
+        })
+        .eq('id', conversation.id);
+      await supabase
+        .from('messages')
+        .update({ processed_by_nina: true })
+        .eq('id', message.id);
+      return;
     }
 
     // Sanitize handoff response (also runs enforceOrbe360Link automatically)
@@ -4718,24 +4733,41 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       }
     }
     
-    // 🆕 Enhanced fallback message with transfer option
+    // Se todos os modelos devolverem vazio: NÃO enviar mensagem de erro ao lead.
+    // Registra diagnóstico, passa a conversa para atendimento humano e encerra o item sem resposta.
     if (!aiContent) {
-      console.error('[Nina] ❌ All 3 models returned empty response, using enhanced fallback message');
+      console.error('[Nina] ❌ empty_response_all_models — diagnostics:', JSON.stringify(emptyDiag));
       console.error('[Nina] Message that caused empty response:', JSON.stringify({
         content: message.content?.substring(0, 100),
         from: message.from_type,
         conversationId: conversation.id
       }));
-      
+
       // Log to queue for traceability
       await supabase
         .from('nina_processing_queue')
-        .update({ 
-          error_message: 'All AI models (primary + gemini + gpt-5-mini) returned empty response - fallback used'
+        .update({
+          error_message: 'All AI models (primary + gemini + gpt-5-mini) returned empty response - handed to human'
         })
         .eq('id', item.id);
-      
-      aiContent = 'Tive uma pequena dificuldade técnica para processar sua mensagem. Posso te transferir para um atendente humano se preferir. Deseja continuar conversando comigo ou falar com alguém da equipe?';
+
+      await supabase
+        .from('conversations')
+        .update({
+          status: 'human',
+          metadata: {
+            ...(conversation.metadata || {}),
+            ai_failure: { at: new Date().toISOString(), reason: 'empty_response_all_models' }
+          }
+        })
+        .eq('id', conversation.id);
+
+      await supabase
+        .from('messages')
+        .update({ processed_by_nina: true })
+        .eq('id', message.id);
+
+      return;
     }
 
     // ===== SANITIZE AI RESPONSE: Remove prompt leaks and internal markers =====
