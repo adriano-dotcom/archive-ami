@@ -4624,6 +4624,11 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
     const aiData = await aiResponse.json();
     aiContent = aiData.choices?.[0]?.message?.content;
 
+    // Diagnóstico de respostas vazias (usado se todos os modelos falharem)
+    const emptyDiag: any = {
+      primary: { model: aiSettings.model, status: aiResponse.status, finishReason: aiData.choices?.[0]?.finish_reason }
+    };
+
     // Log AI response details for debugging
     console.log('[Nina] AI Response Debug:', JSON.stringify({
       status: aiResponse.status,
@@ -4694,8 +4699,10 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
         aiContent = fallbackData.choices?.[0]?.message?.content;
+        emptyDiag.gemini = { status: fallbackResponse.status, finishReason: fallbackData.choices?.[0]?.finish_reason };
         console.log('[Nina] Fallback model (gemini-2.5-flash) response:', aiContent ? 'success' : 'also empty');
       } else {
+        emptyDiag.gemini = { status: fallbackResponse.status };
         console.error('[Nina] Fallback model (gemini-2.5-flash) also failed:', fallbackResponse.status);
       }
     }
