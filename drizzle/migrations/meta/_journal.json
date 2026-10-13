@@ -22,6 +22,13 @@
       "when": 1791853290726,
       "tag": "0002_notify_lead_proposal_vault",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791853465853,
+      "tag": "0003_push_lead_pipedrive_trigger",
+      "breakpoints": true
     }
   ]
 }
