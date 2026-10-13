@@ -15,6 +15,13 @@
       "when": 1791853191638,
       "tag": "0001_meta_ads_origem_funil",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791853290726,
+      "tag": "0002_notify_lead_proposal_vault",
+      "breakpoints": true
     }
   ]
 }
