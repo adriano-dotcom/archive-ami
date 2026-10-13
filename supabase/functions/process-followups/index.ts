@@ -81,6 +81,20 @@ function normalizeFirstName(name: string | null | undefined, callName: string | 
   return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 }
 
+if (typeof Deno.test === 'function') {
+  Deno.test('follow-up normaliza primeiro nome e rejeita nomes genéricos ou inválidos', () => {
+    const cases = [
+      ['joÃO Silva', null, 'João'],
+      ['Adriano Jacometo', 'léO Santos', 'Léo'],
+      ...['cliente', 'deus', 'familia', 'família', 'amor', 'lead', 'transportes', 'transportadora', 'A', '123', 'João!']
+        .map(name => [name, null, 'Cliente']),
+    ];
+    for (const [name, callName, expected] of cases) {
+      if (normalizeFirstName(name, callName) !== expected) throw new Error(`Nome inválido: ${name}`);
+    }
+  });
+}
+
 // Replace variables in message template
 function replaceVariables(message: string, conv: EligibleConversation): string {
   const name = normalizeFirstName(conv.contact_name, conv.contact_call_name);

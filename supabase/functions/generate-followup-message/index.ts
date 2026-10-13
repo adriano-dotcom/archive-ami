@@ -89,6 +89,22 @@ function resolvePromptType(promptType: GenerateMessageRequest['prompt_type'], pe
   return pendingQuestion?.trim() && promptType !== 'last_chance' ? 'unanswered_question' : promptType;
 }
 
+if (typeof Deno.test === 'function') {
+  Deno.test('pergunta pendente prevalece em todos os tipos exceto last_chance', () => {
+    const types: GenerateMessageRequest['prompt_type'][] = ['qualification', 'urgency', 'budget', 'decision', 'soft_reengagement', 'schedule_call', 'schedule_call_transportador', 'unanswered_question'];
+    for (const type of types) {
+      if (resolvePromptType(type, 'Você emite CT-e?') !== 'unanswered_question') throw new Error(type);
+    }
+    if (resolvePromptType('last_chance', 'Você emite CT-e?') !== 'last_chance') throw new Error('last_chance');
+    if (resolvePromptType('budget', null) !== 'budget') throw new Error('sem pergunta');
+  });
+  Deno.test('fallback não repete a última mensagem', () => {
+    for (const lastMessage of FALLBACK_MESSAGES) {
+      if (getVariedFallback('Cliente', lastMessage) === lastMessage) throw new Error('Fallback repetido');
+    }
+  });
+}
+
 // Check if two messages are too similar
 function messagesTooSimilar(msg1: string, msg2: string): boolean {
   if (!msg1 || !msg2) return false;
