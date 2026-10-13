@@ -8,6 +8,7 @@ import { CallHistoryPanel } from './CallHistoryPanel';
 import { useContactCallHistory } from '@/hooks/useContactCallHistory';
 import { api } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
