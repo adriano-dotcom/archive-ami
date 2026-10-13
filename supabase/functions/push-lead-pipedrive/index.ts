@@ -1,6 +1,8 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+const OWNER_ID = 13379041
+const CNPJ_FIELD = 'dc094ce47e758abfd2732eac5bfd5f32fea3e3d6'
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/pipedrive'
 
 function json(data: unknown, status = 200) {
@@ -102,7 +104,36 @@ Deno.serve(async (req) => {
     if (cErr) throw new Error(`contacts select failed: ${cErr.message}`)
     if (!contact) return json({ error: 'contato não encontrado' }, 404)
 
+    const cnpjDigits = String(contact.cnpj ?? '').replace(/\D/g, '')
+    const hasCompany = cnpjDigits.length === 14 && !!String(contact.company ?? '').trim()
+    const companyName = String(contact.company ?? '').trim()
+
+    async function findOrCreateOrg(): Promise<{ id: number; created: boolean } | null> {
+      if (!hasCompany) return null
+      const fmt = cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+      for (const term of [fmt, cnpjDigits]) {
+        const r = await pipedrive(`/organizations/search?term=${encodeURIComponent(term)}&fields=custom_fields&exact_match=true&limit=1`, 'GET')
+        const id = r?.data?.items?.[0]?.item?.id
+        if (id) return { id, created: false }
+      }
+      const created = await pipedrive('/organizations', 'POST', { name: companyName, owner_id: OWNER_ID, [CNPJ_FIELD]: fmt })
+      const id = created?.data?.id
+      if (!id) throw new Error('Pipedrive não retornou id da organização')
+      try {
+        await pipedrive('/notes', 'POST', { content: `CNPJ: ${cnpjDigits}`, org_id: id })
+      } catch (e) { console.error('[push-lead-pipedrive] org note failed:', e) }
+      return { id, created: true }
+    }
+
     if (contact.sent_to_pipedrive_at && !dryRun) {
+      if (body?.link_org === true && hasCompany) {
+        const org = await findOrCreateOrg()
+        const last8 = String(contact.phone_number ?? '').replace(/\D/g, '').slice(-8)
+        const ps = await pipedrive(`/persons/search?term=${last8}&fields=phone&limit=1`, 'GET')
+        const pid = ps?.data?.items?.[0]?.item?.id
+        if (pid && org) await pipedrive(`/persons/${pid}`, 'PUT', { org_id: org.id })
+        return json({ success: true, linked_org: org, person_id: pid ?? null })
+      }
       return json({ success: true, skipped: true, reason: 'já enviado ao Pipedrive' })
     }
 
@@ -111,6 +142,7 @@ Deno.serve(async (req) => {
 
     const personPayload: Record<string, unknown> = {
       name,
+      owner_id: OWNER_ID,
       phone: contact.phone_number ? [{ value: contact.phone_number, primary: true }] : undefined,
       email: contact.email ? [{ value: contact.email, primary: true }] : undefined,
     }
@@ -120,6 +152,7 @@ Deno.serve(async (req) => {
 
     const leadPayload: Record<string, unknown> = {
       title: `${name} — ${origin}`,
+      owner_id: OWNER_ID,
     }
 
     if (dryRun) {
@@ -130,8 +163,21 @@ Deno.serve(async (req) => {
         lead: leadPayload,
         note: noteParts.join(' | ') || null,
         origin,
+        organization: hasCompany ? { name: companyName, cnpj: cnpjDigits } : null,
       })
     }
+
+    // 0) Organização (empresa + CNPJ) — falha não bloqueia Pessoa/Lead
+    let orgId: number | null = null
+    let orgError: string | null = null
+    try {
+      const org = await findOrCreateOrg()
+      orgId = org?.id ?? null
+    } catch (e) {
+      orgError = e instanceof Error ? e.message : String(e)
+      console.error('[push-lead-pipedrive] org failed:', orgError)
+    }
+    if (orgId) personPayload.org_id = orgId
 
     // 1) Cria a Pessoa
     const personRes = await pipedrive('/persons', 'POST', personPayload)
@@ -140,6 +186,7 @@ Deno.serve(async (req) => {
 
     // 2) Cria o Lead vinculado
     leadPayload.person_id = personId
+    if (orgId) leadPayload.organization_id = orgId
     const leadRes = await pipedrive('/leads', 'POST', leadPayload)
     const leadId = leadRes?.data?.id
 
@@ -150,6 +197,7 @@ Deno.serve(async (req) => {
           content: noteParts.join(' | '),
           person_id: personId,
           lead_id: leadId,
+          org_id: orgId ?? undefined,
         })
       } catch (e) {
         console.error('[push-lead-pipedrive] note failed:', e)
@@ -158,11 +206,11 @@ Deno.serve(async (req) => {
 
     const { error: uErr } = await supabase
       .from('contacts')
-      .update({ sent_to_pipedrive_at: new Date().toISOString(), pipedrive_sync_error: null })
+      .update({ sent_to_pipedrive_at: new Date().toISOString(), pipedrive_sync_error: orgError ? `organização: ${orgError}`.slice(0, 500) : null })
       .eq('id', contactId)
     if (uErr) console.error('[push-lead-pipedrive] update contact failed:', uErr.message)
 
-    return json({ success: true, person_id: personId, lead_id: leadId })
+    return json({ success: true, person_id: personId, lead_id: leadId, org_id: orgId, org_error: orgError })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[push-lead-pipedrive] error:', msg)
