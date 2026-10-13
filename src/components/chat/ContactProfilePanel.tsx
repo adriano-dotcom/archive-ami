@@ -474,6 +474,37 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
 
         <div className="h-px bg-slate-800/50 w-full"></div>
 
+        {/* Pipedrive */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <Send className="w-4 h-4" />
+            Pipedrive
+          </h4>
+          {pipedriveSentAt ? (
+            <p className="text-sm text-emerald-400">
+              Enviado em {format(parseISO(pipedriveSentAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </p>
+          ) : (
+            <Button
+              onClick={handleSendToPipedrive}
+              disabled={isSendingPipedrive}
+              className="w-full"
+            >
+              {isSendingPipedrive ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              {isSendingPipedrive ? 'Enviando...' : 'Enviar para o Pipedrive'}
+            </Button>
+          )}
+          {pipedriveError && !pipedriveSentAt && (
+            <p className="text-xs text-red-400 break-words">Erro na última tentativa: {pipedriveError}</p>
+          )}
+        </div>
+
+        <div className="h-px bg-slate-800/50 w-full"></div>
+
         {/* Handoff Summary */}
         <HandoffSummaryCard 
           ninaContext={activeChat.ninaContext} 
