@@ -1580,17 +1580,31 @@ export function extractQualificationFromMessages(userMessages: string[]): { [key
   const negaCte = /\bn[ãa]o\s+(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
 
   // Afirmação explícita de que o lead EMITE o próprio CT-e/MDF-e => contratado.
+  // Só verbos de EMISSÃO em 1ª pessoa ("emito", "emitimos", "eu emito",
+  // "nós emitimos"). "tiro" e "faço" saíram: "faço frete como agregado, o CT-e
+  // é da empresa" não é afirmação de emissão — é o lead dizendo que é agregado.
   const afirmaCte =
-    /\b(emito|emitimos|tiro|fa[çc]o)\b[^.!?]{0,25}\b(ct-?e|cte|mdf-?e|manifesto)\b/.test(allText) ||
+    /\b(eu\s+|n[óo]s\s+)?(emito|emitimos)\b[^.!?]{0,25}\b(ct-?e|cte|mdf-?e|manifesto)\b/.test(allText) ||
     /\b(ct-?e|cte|mdf-?e)\s+(pr[óo]prio|meu|da minha)\b/.test(allText) ||
     /\b(agora|passei a|comecei a|voltei a)\s+emitir\b/.test(allText);
-  if (afirmaCte) extracted._emissao_explicita = '1';
+
+  // BLINDAGEM: quem se diz agregado/subcontratado E diz que o CT-e "é da
+  // empresa" (ou que "não emito") está descrevendo a operação de terceiro —
+  // nunca uma afirmação de emissão própria, então não marca o perfil.
+  const perfilTerceiro = /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText);
+  const ctDeTerceiro =
+    perfilTerceiro &&
+    (/\bct-?e\s+(é|eh|e)\s+d(a|o)\b/i.test(allText) ||
+      /\bquem emite\s+(o\s+)?ct-?e\s+(é|eh)\s+a\s+(empresa|transportadora)\b/i.test(allText) ||
+      /\bn[ãa]o\s+emito\b/i.test(allText));
+
+  if (afirmaCte && !ctDeTerceiro) extracted._emissao_explicita = '1';
 
   // Afirmação explícita de emissão vence tudo — inclusive o rótulo de
   // subcontratado dado antes (o lead pode ter mudado de operação).
-  if (afirmaCte && !negaCte) {
+  if (afirmaCte && !negaCte && !ctDeTerceiro) {
     extracted.tipo_transportador = 'contratado';
-  } else if (negaCte || /\b(subcontratad|sub-contratad|agregad)\w*/i.test(allText)) {
+  } else if (negaCte || perfilTerceiro) {
     // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
     // termo que o lead usa para se descrever como agregado de outra transportadora.
     extracted.tipo_transportador = 'subcontratado';
