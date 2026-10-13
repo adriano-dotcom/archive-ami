@@ -1261,6 +1261,7 @@ async function processIncomingMessage(
       }
     }
   }
+  if (sourceTag || message.referral) { try { const r = message.referral; const { error: laErr } = await supabase.rpc('upsert_lead_attribution', { p_contact_id: contact.id, p_payload: sourceTag ? { utm_source: sourceTag.utmSource, utm_campaign: sourceTag.utmCampaign, utm_content: sourceTag.utmContent, utm_term: sourceTag.utmTerm, campaign: sourceTag.utmCampaign, gclid: sourceTag.kind === 'G' ? sourceTag.clid : null } : { utm_source: 'meta_ctwa', utm_campaign: r.source_id ?? null, utm_content: r.headline ?? null, meta_ad_id: r.source_id ?? null, ctwa_clid: r.ctwa_clid ?? null, referral_headline: r.headline ?? null } }); if (laErr) console.error('[Webhook] upsert_lead_attribution (non-fatal):', laErr); } catch (laErr) { console.error('[Webhook] upsert_lead_attribution (non-fatal):', laErr); } }
 
   // 4. Create message record
   const { data: dbMessage, error: msgError } = await supabase
