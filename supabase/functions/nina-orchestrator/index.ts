@@ -4518,15 +4518,18 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
               { role: 'system', content: processedPrompt },
               ...conversationHistory
             ],
-            max_completion_tokens: 1000
+            max_completion_tokens: 3000,
+            reasoning_effort: 'low'
           })
         });
 
         if (gptFallbackResponse.ok) {
           const gptData = await gptFallbackResponse.json();
           aiContent = gptData.choices?.[0]?.message?.content;
+          emptyDiag.gptMini = { status: gptFallbackResponse.status, finishReason: gptData.choices?.[0]?.finish_reason };
           console.log('[Nina] GPT-5-mini fallback response in handoff:', aiContent ? 'success' : 'also empty');
         } else {
+          emptyDiag.gptMini = { status: gptFallbackResponse.status };
           console.error('[Nina] GPT-5-mini fallback also failed in handoff:', gptFallbackResponse.status);
         }
       } catch (gptError) {
