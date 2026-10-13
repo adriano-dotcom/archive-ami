@@ -1219,6 +1219,47 @@ async function processIncomingMessage(
       content = `[${message.type}]`;
   }
 
+  // 3b. Extrair tag de origem da landing ([M:...] / [G:...]) anexada ao texto pré-preenchido.
+  // A tag NUNCA chega à Nina: o content salvo já vai limpo.
+  let sourceTag: ReturnType<typeof parseSourceTag> | null = null;
+  if (message.type === 'text' && content) {
+    const tag = parseSourceTag(content);
+    if (tag.kind) {
+      sourceTag = tag;
+      console.log('[Webhook] Source tag detected:', { kind: tag.kind, campaign: tag.utmCampaign, clid: tag.clid });
+      content = tag.cleanText || content;
+      if (message.text?.body) {
+        message.text.body = tag.cleanText || message.text.body;
+      }
+
+      // First-touch: grava atribuição no contato somente se ele ainda não tem utm_source.
+      // Erro aqui só loga — nunca derruba o webhook.
+      try {
+        const { data: freshContact } = await supabase
+          .from('contacts')
+          .select('utm_source')
+          .eq('id', contact.id)
+          .single();
+        if (freshContact && !freshContact.utm_source) {
+          await supabase
+            .from('contacts')
+            .update({
+              utm_source: tag.utmSource,
+              utm_campaign: tag.utmCampaign,
+              utm_content: tag.utmContent,
+              utm_term: tag.utmTerm,
+              campaign: tag.utmCampaign,
+              lead_source: 'landing_combo',
+            })
+            .eq('id', contact.id);
+          console.log('[Webhook] Contact attribution set from source tag:', contact.id);
+        }
+      } catch (attrErr) {
+        console.error('[Webhook] Error saving source tag attribution (non-fatal):', attrErr);
+      }
+    }
+  }
+
   // 4. Create message record
   const { data: dbMessage, error: msgError } = await supabase
     .from('messages')
@@ -1232,7 +1273,15 @@ async function processIncomingMessage(
       media_url: mediaUrl,
       media_type: mediaType,
       sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-      metadata: { raw: message, original_type: message.type }
+      metadata: {
+        raw: message,
+        original_type: message.type,
+        ...(sourceTag ? {
+          source_tag: sourceTag.kind,
+          source_clid: sourceTag.clid,
+          raw_text: message.text?.body ? undefined : undefined,
+        } : {}),
+      }
     })
     .select()
     .single();
