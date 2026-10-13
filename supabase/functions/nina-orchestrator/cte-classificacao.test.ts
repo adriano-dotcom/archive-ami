@@ -84,3 +84,13 @@ Deno.test("conversa real (g magela327): quem não emite CT-e continua subcontrat
     { msg: "Agora cê tá confundindo aí. Eu não tenho-- eu, eu não emito CT-e, eu não emito manifesto. Pelo contrário, meu seguro com a Porto é de veículo, tá?", espera: "subcontratado" },
   ]);
 });
+
+// Conversa real (4 ocorrências): agregado que diz que o CT-e é da empresa não
+// pode ser lido como "emito" só porque "faço" aparece perto de "CT-e".
+Deno.test("agregado que diz 'o CT-e é da empresa' continua subcontratado", () => {
+  percorrer("Agregado — o CT-e é da empresa", {}, [
+    { msg: "Olá! Vim pelo site e tenho dúvidas sobre os 3 seguros obrigatórios do transportador.", espera: null },
+    { msg: "faço frete como agregado, o CT-e é da empresa", espera: "subcontratado" },
+    { msg: "Sou agregado, quem emite o CT-e é a transportadora", espera: "subcontratado" },
+  ]);
+});
