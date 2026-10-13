@@ -318,6 +318,37 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
           {/* Gradient divider */}
           <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
+          {/* Pipedrive */}
+          <section>
+            <SectionHeader icon={Send} title="Pipedrive" />
+            <div className="bg-card/[0.02] rounded-xl border border-border/30 p-4 space-y-3">
+              {pipedriveSentAt ? (
+                <p className="text-sm text-emerald-300">
+                  Enviado em {format(parseISO(pipedriveSentAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              ) : (
+                <Button
+                  onClick={handleSendToPipedrive}
+                  disabled={isSendingPipedrive}
+                  className="w-full bg-gradient-to-r from-primary to-teal-500 hover:from-primary/90 hover:to-teal-400 text-primary-foreground shadow-lg shadow-primary/30 border-0"
+                >
+                  {isSendingPipedrive ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  {isSendingPipedrive ? 'Enviando...' : 'Enviar para o Pipedrive'}
+                </Button>
+              )}
+              {pipedriveError && !pipedriveSentAt && (
+                <p className="text-xs text-red-400 break-words">Erro na última tentativa: {pipedriveError}</p>
+              )}
+            </div>
+          </section>
+
+          {/* Gradient divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
           {/* Histórico de Chamadas */}
           <section>
             <SectionHeader icon={Phone} title="Histórico de Ligações" />
