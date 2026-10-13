@@ -358,6 +358,7 @@ Deno.serve(async (req) => {
     }
     if (skipNote) {
       plan.note = { action: 'pular (já há nota nesse lead na última 1h)' }
+      if (dryRun) plan.note_preview = buildNote(contact, await summarize(supabase, contactId), adName, cnpjValid)
     } else {
       const summary = await summarize(supabase, contactId)
       const content = buildNote(contact, summary, adName, cnpjValid)
