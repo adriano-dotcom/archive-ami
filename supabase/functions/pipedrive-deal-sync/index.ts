@@ -5,6 +5,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/pipedrive'
 const DAY = 86_400_000
+// Funis considerados: 22 = Site Seguro obrigatório / Combo, 15 = seguro de carga normal
+const ALLOWED_PIPELINES = [22, 15]
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -170,6 +172,7 @@ Deno.serve(async (req) => {
         let latest: any = null
 
         for (const d of deals.values()) {
+          if (!ALLOWED_PIPELINES.includes(Number(d.pipeline_id))) continue
           const added = pdTime(d.add_time)
           if (!(added >= windowStart && added <= windowEnd)) continue
           stats.negocios_vistos++
@@ -208,13 +211,16 @@ Deno.serve(async (req) => {
     }
 
     // Total ganho registrado (todos os tempos, deals distintos)
-    const { data: wonRows } = await supabase.from('lead_funnel_events').select('pipedrive_deal_id,deal_value').eq('event_type', 'deal_won')
+    const { data: wonRows } = await supabase.from('lead_funnel_events').select('pipedrive_deal_id,deal_value,deal_pipeline_id').eq('event_type', 'deal_won').eq('excluded', false)
     const seen = new Set<string>()
     let totalWon = 0
     for (const w of wonRows ?? []) { if (!seen.has(w.pipedrive_deal_id)) { seen.add(w.pipedrive_deal_id); totalWon += Number(w.deal_value ?? 0) } }
 
+    const porFunil: Record<string, { ganhos: number; valor: number }> = {}
+    const seen2 = new Set<string>()
+    for (const w of wonRows ?? []) { if (seen2.has(w.pipedrive_deal_id)) continue; seen2.add(w.pipedrive_deal_id); const k = String(w.deal_pipeline_id); porFunil[k] ??= { ganhos: 0, valor: 0 }; porFunil[k].ganhos++; porFunil[k].valor = Math.round((porFunil[k].valor + Number(w.deal_value ?? 0)) * 100) / 100 }
     stats.chamadas_pipedrive = calls
-    const result = { success: true, ...stats, ganhos_registrados_total: seen.size, valor_ganho_total: Math.round(totalWon * 100) / 100, duracao_ms: Date.now() - started, erros_detalhe: errors.slice(0, 10) }
+    const result = { success: true, ...stats, ganhos_registrados_total: seen.size, valor_ganho_total: Math.round(totalWon * 100) / 100, ganhos_por_funil: porFunil, duracao_ms: Date.now() - started, erros_detalhe: errors.slice(0, 10) }
     console.log('[deal-sync]', JSON.stringify(result))
     return json(result)
   } catch (e) {

@@ -1756,6 +1756,7 @@ export type Database = {
           deal_pipeline_id: number | null
           deal_value: number | null
           event_type: string
+          excluded: boolean
           fingerprint: string
           id: string
           meta_ad_id: string | null
@@ -1775,6 +1776,7 @@ export type Database = {
           deal_pipeline_id?: number | null
           deal_value?: number | null
           event_type: string
+          excluded?: boolean
           fingerprint: string
           id?: string
           meta_ad_id?: string | null
@@ -1794,6 +1796,7 @@ export type Database = {
           deal_pipeline_id?: number | null
           deal_value?: number | null
           event_type?: string
+          excluded?: boolean
           fingerprint?: string
           id?: string
           meta_ad_id?: string | null

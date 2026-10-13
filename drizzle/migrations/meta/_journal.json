@@ -50,6 +50,13 @@
       "when": 1791855839661,
       "tag": "0006_lead_attribution_and_funnel_events",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791856578705,
+      "tag": "0007_funnel_events_excluded",
+      "breakpoints": true
     }
   ]
 }
