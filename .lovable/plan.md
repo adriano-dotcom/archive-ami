@@ -1,40 +1,36 @@
-# Atribuição de origem no webhook do WhatsApp (tag [M:...]/[G:...])
+# Integração Pipedrive: contatos do WhatsApp → Pessoa + Lead
 
-Escopo fechado: 1 migration, 1 arquivo novo, 1 função editada. Nada de nina-orchestrator, prompts, templates, checkout ou receive-ecommerce-webhook.
+## Abordagem
 
-## 1. Migration aditiva (necessária — coluna não existe)
+Em vez de secret manual + Vault, usamos o **conector Pipedrive** da plataforma: você conecta a conta uma vez (cartão seguro na conversa, o token nunca passa pelo chat nem fica escrito em código) e o backend passa a ter a variável `PIPEDRIVE_API_KEY` disponível automaticamente para as funções. Isso elimina a necessidade de gravar o token no Vault — a função lê a credencial do ambiente, como já faz com RESEND e ElevenLabs.
 
-Verificado no banco: `contacts` tem `utm_source`, `campaign`, `lead_source`, mas **não** tem `meta_ad_id`.
+## Passos
 
-```sql
-ALTER TABLE public.contacts ADD COLUMN meta_ad_id text;
-```
+1. **Conectar o Pipedrive** — abro o cartão de conexão; você cola o token da sua conta Pipedrive (Configurações → Preferências pessoais → API) no formulário seguro.
 
-Nullable, sem default, sem mexer em RLS.
+2. **Migration** (uma só):
+   - Colunas em `contacts`: `sent_to_pipedrive_at timestamptz`, `pipedrive_sync_error text` (nullable, sem DEFAULT obrigatório).
+   - Trigger `trg_push_lead_pipedrive` AFTER INSERT OR UPDATE OF lead_status, cnpj ON contacts: só dispara quando `lead_status` ou `cnpj` mudou E `sent_to_pipedrive_at IS NULL`, chamando a edge function via `net.http_post` no mesmo padrão fire-and-forget da `notify_lead_proposal` (EXCEPTION WHEN OTHERS → só WARNING). O segredo da chamada interna é lido do Vault (`internal_cron_secret`), nunca em texto no SQL.
 
-## 2. Arquivo novo: `supabase/functions/_shared/source-tag.ts`
+3. **Edge function `push-lead-pipedrive`** (nova):
+   - Guard: aceita só chamada interna (header `x-internal-secret` = INTERNAL_CRON_SECRET ou Bearer service-role).
+   - Busca o contato pelo `contact_id` recebido; ignora se já tem `sent_to_pipedrive_at`.
+   - Cria **Pessoa** no Pipedrive (nome, telefone, e-mail, CNPJ no campo de observação) e depois **Lead** vinculado, com a origem da campanha (utm_source/campaign/meta_ad_id do contato) no título/campo de origem.
+   - Chamadas via gateway do conector (`PIPEDRIVE_API_KEY` + `LOVABLE_API_KEY` do ambiente) — nenhum token em código.
+   - Sucesso → grava `sent_to_pipedrive_at = now()`; falha → grava `pipedrive_sync_error` com o erro e não derruba nada.
+   - Suporta `dry_run: true`: monta o payload de um contato real e devolve o JSON **sem enviar** ao Pipedrive.
 
-Parser exatamente como fornecido (`parseSourceTag`): detecta `[M:utm_campaign|utm_content|utm_term|clid]` ou `[G:...]`, retorna `cleanText` (sem a tag), `kind`, utms e `clid` sanitizado. `-` = vazio.
+4. **Deploy** só da função `push-lead-pipedrive`.
 
-## 3. `supabase/functions/whatsapp-webhook/index.ts` — função `processIncomingMessage` (linha 976)
+5. **Teste**: rodo `dry_run` com um contato real que tenha CNPJ e te mostro o JSON. Nenhum envio real nem lead de teste — você valida o envio real depois.
 
-**a) Parse da tag** — logo depois do `switch (message.type)` (linha 1110-1217), antes do insert em `messages` (linha 1220):
-- Só se `message.type === 'text'` e `content` preenchido: `const tag = parseSourceTag(content)`.
-- Se `tag.kind`: `content = tag.cleanText || content` (a Iris nunca vê a tag), e no `metadata.raw` (objeto da Meta) substituir `text.body` pelo texto limpo.
-- No metadata do insert de `messages` acrescentar: `source_tag: tag.kind, source_clid: tag.clid, raw_text: <texto original>`.
+## Fora de escopo (não toco)
 
-**b) Gravação no contato (first-touch)** — somente se o contato ainda não tem `utm_source` (relido do banco com `select utm_source`):
-- `utm_source` = facebook/google, `utm_campaign`, `utm_content`, `utm_term`, `campaign` = utm_campaign, `lead_source = 'landing_combo'`.
-- Envolver em try/catch: erro só loga, nunca derruba o webhook.
+- `notify_lead_proposal`, `replicate-lead-to-crm`, Nina/orchestrator, webhook do WhatsApp, checkout.
+- Nenhum contato antigo é enviado.
 
-**c) CTWA (blocos existentes, linhas 1002-1030 e 1062-1076)** — acrescentar apenas:
-- `meta_ad_id = referral.source_id ?? null` no INSERT de contato novo e no UPDATE de contato existente. O resto do bloco CTWA fica como está.
+## Detalhes técnicos
 
-## 4. Deploy
-
-Somente `whatsapp-webhook`. Nenhuma outra função muda.
-
-## Verificação
-
-- Build OK após deploy.
-- Simulação local do parser com o texto de exemplo (`[M:combo_meta|ad13|-|IwAR2xYzAbCdEfGhIjKl]`) confirmando `cleanText` sem a tag e campos corretos.
+- API Pipedrive v1 via gateway do conector (base já inclui `/v1`): `POST /persons` depois `POST /leads`.
+- Trigger em SQL com `pg_net`; função em Deno (TypeScript).
+- Se preferir o caminho com secret manual `PIPEDRIVE_API_TOKEN` + Vault em vez do conector, me avise antes de aprovar.
