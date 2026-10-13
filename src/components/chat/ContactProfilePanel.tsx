@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Phone, Mail, MapPin, User, Brain, Plus, FileText, Save, Pencil,
   Briefcase, PhoneCall, Loader2, X, Send, CheckCircle2, MessageSquare,
@@ -16,6 +16,11 @@ import { ProposalProgressCard } from './ProposalProgressCard';
 import { PhoneInput } from '../ui/phone-input';
 import { UIConversation, TagDefinition } from '../../types';
 import { formatRegionFromPhone } from '@/utils/dddRegionMapper';
+import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ContactProfilePanelProps {
   activeChat: UIConversation;
@@ -112,6 +117,55 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
   emailsSentCount,
   onOpenEmailModal,
 }) => {
+  const [pipedriveSentAt, setPipedriveSentAt] = useState<string | null>(null);
+  const [pipedriveError, setPipedriveError] = useState<string | null>(null);
+  const [isSendingPipedrive, setIsSendingPipedrive] = useState(false);
+
+  useEffect(() => {
+    if (!activeChat.contactId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('sent_to_pipedrive_at, pipedrive_sync_error')
+        .eq('id', activeChat.contactId)
+        .maybeSingle();
+      if (cancelled) return;
+      setPipedriveSentAt(data?.sent_to_pipedrive_at ?? null);
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [activeChat.contactId]);
+
+  const handleSendToPipedrive = async () => {
+    if (!activeChat.contactId || isSendingPipedrive || pipedriveSentAt) return;
+    setIsSendingPipedrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-lead-pipedrive', {
+        body: { contact_id: activeChat.contactId },
+      });
+      if (error) {
+        const details = error instanceof FunctionsHttpError ? await error.context.text() : error.message;
+        throw new Error(details);
+      }
+      if (!data?.success) throw new Error(data?.error || 'Falha ao enviar');
+      setPipedriveSentAt(new Date().toISOString());
+      setPipedriveError(null);
+      toast.success('Contato enviado ao Pipedrive como Pessoa + Lead!');
+    } catch (e) {
+      console.error('Erro ao enviar ao Pipedrive:', e);
+      toast.error('Erro ao enviar ao Pipedrive. Tente novamente.');
+      const { data } = await supabase
+        .from('contacts')
+        .select('pipedrive_sync_error')
+        .eq('id', activeChat.contactId)
+        .maybeSingle();
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    } finally {
+      setIsSendingPipedrive(false);
+    }
+  };
+
   return (
     <div className="w-80 border-l border-border bg-card/50 backdrop-blur-md flex flex-col flex-shrink-0 overflow-hidden">
       {/* Header */}
@@ -416,6 +470,37 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
             calls={whatsappCallHistory} 
             loading={whatsappCallsLoading}
           />
+        </div>
+
+        <div className="h-px bg-slate-800/50 w-full"></div>
+
+        {/* Pipedrive */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <Send className="w-4 h-4" />
+            Pipedrive
+          </h4>
+          {pipedriveSentAt ? (
+            <p className="text-sm text-emerald-400">
+              Enviado em {format(parseISO(pipedriveSentAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </p>
+          ) : (
+            <Button
+              onClick={handleSendToPipedrive}
+              disabled={isSendingPipedrive}
+              className="w-full"
+            >
+              {isSendingPipedrive ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              {isSendingPipedrive ? 'Enviando...' : 'Enviar para o Pipedrive'}
+            </Button>
+          )}
+          {pipedriveError && !pipedriveSentAt && (
+            <p className="text-xs text-red-400 break-words">Erro na última tentativa: {pipedriveError}</p>
+          )}
         </div>
 
         <div className="h-px bg-slate-800/50 w-full"></div>

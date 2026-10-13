@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { User, Building2, MapPin, Phone, Mail, FileText, Calendar, Edit, MessageSquare, Target, Pencil, Check, X, Loader2 } from 'lucide-react';
+import { User, Building2, MapPin, Phone, Mail, FileText, Calendar, Edit, MessageSquare, Target, Pencil, Check, X, Loader2, Send } from 'lucide-react';
 import { displayPhoneInternational } from '@/utils/phoneFormatter';
 import { CallHistoryPanel } from './CallHistoryPanel';
 import { useContactCallHistory } from '@/hooks/useContactCallHistory';
 import { api } from '@/services/api';
+import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ContactData {
   id: string;
@@ -62,6 +66,9 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [pipedriveSentAt, setPipedriveSentAt] = useState<string | null>(null);
+  const [pipedriveError, setPipedriveError] = useState<string | null>(null);
+  const [isSendingPipedrive, setIsSendingPipedrive] = useState(false);
 
   // Reset editing state when contact changes or drawer closes
   useEffect(() => {
@@ -70,6 +77,53 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
       setEditedName('');
     }
   }, [open, contact?.id]);
+
+  // Carrega o status de sincronização com o Pipedrive
+  useEffect(() => {
+    if (!open || !contact?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('sent_to_pipedrive_at, pipedrive_sync_error')
+        .eq('id', contact.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setPipedriveSentAt(data?.sent_to_pipedrive_at ?? null);
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [open, contact?.id]);
+
+  const handleSendToPipedrive = async () => {
+    if (!contact?.id || isSendingPipedrive || pipedriveSentAt) return;
+    setIsSendingPipedrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-lead-pipedrive', {
+        body: { contact_id: contact.id },
+      });
+      if (error) {
+        const details = error instanceof FunctionsHttpError ? await error.context.text() : error.message;
+        throw new Error(details);
+      }
+      if (!data?.success) throw new Error(data?.error || 'Falha ao enviar');
+      setPipedriveSentAt(new Date().toISOString());
+      setPipedriveError(null);
+      toast.success('Contato enviado ao Pipedrive como Pessoa + Lead!');
+    } catch (e) {
+      console.error('Erro ao enviar ao Pipedrive:', e);
+      toast.error('Erro ao enviar ao Pipedrive. Tente novamente.');
+      // Recarrega o erro gravado no banco, se houver
+      const { data } = await supabase
+        .from('contacts')
+        .select('pipedrive_sync_error')
+        .eq('id', contact.id)
+        .maybeSingle();
+      setPipedriveError(data?.pipedrive_sync_error ?? null);
+    } finally {
+      setIsSendingPipedrive(false);
+    }
+  };
 
   const handleStartEditing = () => {
     setEditedName(contact?.name || '');
@@ -257,6 +311,37 @@ const ContactDetailsDrawer: React.FC<ContactDetailsDrawerProps> = ({ open, onOpe
               )}
               {contact.pet_name && (
                 <InfoRow icon={User} label="Tipo de Carga" value={contact.pet_name} />
+              )}
+            </div>
+          </section>
+
+          {/* Gradient divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          {/* Pipedrive */}
+          <section>
+            <SectionHeader icon={Send} title="Pipedrive" />
+            <div className="bg-card/[0.02] rounded-xl border border-border/30 p-4 space-y-3">
+              {pipedriveSentAt ? (
+                <p className="text-sm text-emerald-300">
+                  Enviado em {format(parseISO(pipedriveSentAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              ) : (
+                <Button
+                  onClick={handleSendToPipedrive}
+                  disabled={isSendingPipedrive}
+                  className="w-full bg-gradient-to-r from-primary to-teal-500 hover:from-primary/90 hover:to-teal-400 text-primary-foreground shadow-lg shadow-primary/30 border-0"
+                >
+                  {isSendingPipedrive ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  {isSendingPipedrive ? 'Enviando...' : 'Enviar para o Pipedrive'}
+                </Button>
+              )}
+              {pipedriveError && !pipedriveSentAt && (
+                <p className="text-xs text-red-400 break-words">Erro na última tentativa: {pipedriveError}</p>
               )}
             </div>
           </section>
