@@ -1227,6 +1227,7 @@ async function processIncomingMessage(
     const tag = parseSourceTag(content);
     if (tag.kind) {
       sourceTag = tag;
+      sourceTagRawText = content;
       console.log('[Webhook] Source tag detected:', { kind: tag.kind, campaign: tag.utmCampaign, clid: tag.clid });
       content = tag.cleanText || content;
       if (message.text?.body) {
@@ -1280,7 +1281,7 @@ async function processIncomingMessage(
         ...(sourceTag ? {
           source_tag: sourceTag.kind,
           source_clid: sourceTag.clid,
-          raw_text: message.text?.body ? undefined : undefined,
+          raw_text: sourceTagRawText,
         } : {}),
       }
     })
