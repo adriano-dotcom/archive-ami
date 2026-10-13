@@ -664,12 +664,14 @@ export type Database = {
           number: string | null
           pet_name: string | null
           phone_number: string
+          pipedrive_sync_error: string | null
           profile_picture_url: string | null
           referral_headline: string | null
           referral_source_url: string | null
           rntrc: string | null
           role: string | null
           seller_id: string | null
+          sent_to_pipedrive_at: string | null
           state: string | null
           street: string | null
           tags: string[] | null
@@ -719,12 +721,14 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number: string
+          pipedrive_sync_error?: string | null
           profile_picture_url?: string | null
           referral_headline?: string | null
           referral_source_url?: string | null
           rntrc?: string | null
           role?: string | null
           seller_id?: string | null
+          sent_to_pipedrive_at?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
@@ -774,12 +778,14 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number?: string
+          pipedrive_sync_error?: string | null
           profile_picture_url?: string | null
           referral_headline?: string | null
           referral_source_url?: string | null
           rntrc?: string | null
           role?: string | null
           seller_id?: string | null
+          sent_to_pipedrive_at?: string | null
           state?: string | null
           street?: string | null
           tags?: string[] | null
