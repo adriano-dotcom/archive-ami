@@ -48,14 +48,14 @@ async function pdGet(path: string): Promise<any> {
   throw new Error(`Pipedrive GET ${path.split('?')[0]}: limite de tentativas (429)`)
 }
 
-async function findPersonByPhone(phone: string): Promise<number | null> {
+async function findPersonsByPhone(phone: string): Promise<number[]> {
   let d = phone.replace(/\D/g, '')
   if (d.startsWith('55') && d.length >= 12) d = d.slice(2)
-  if (d.length < 10) return null
+  if (d.length < 10) return []
   const ddd = d.slice(0, 2)
   const last8 = d.slice(-8)
   const r = await pdGet(`/persons/search?fields=phone&term=${last8}&limit=20`)
-  let best: { id: number; t: string } | null = null
+  const found: { id: number; t: string }[] = []
   for (const it of r?.data?.items ?? []) {
     const phones: string[] = (it.item?.phones ?? []).map((p: any) => String(typeof p === 'string' ? p : p?.value ?? ''))
     const ok = phones.some((p) => {
@@ -65,11 +65,20 @@ async function findPersonByPhone(phone: string): Promise<number | null> {
       return pd.endsWith(last8) && pd.startsWith(ddd)
     })
     if (ok) {
-      const t = String(it.item?.update_time ?? '')
-      if (!best || t > best.t) best = { id: it.item.id, t }
+      found.push({ id: it.item.id, t: String(it.item?.update_time ?? '') })
     }
   }
-  return best?.id ?? null
+  return found.sort((a, b) => (a.t < b.t ? 1 : -1)).map((f) => f.id)
+}
+
+async function findOrgsByCnpj(cnpj: string): Promise<number[]> {
+  const fmt = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  const ids = new Set<number>()
+  for (const term of [fmt, cnpj]) {
+    const r = await pdGet(`/organizations/search?term=${encodeURIComponent(term)}&fields=custom_fields&exact_match=true&limit=5`)
+    for (const it of r?.data?.items ?? []) if (it.item?.id) ids.add(it.item.id)
+  }
+  return [...ids]
 }
 
 const pdTime = (s: unknown) => (s ? Date.parse(String(s).replace(' ', 'T') + (String(s).includes('Z') ? '' : 'Z')) : NaN)
@@ -131,23 +140,29 @@ Deno.serve(async (req) => {
     for (const c of contacts) {
       stats.contatos_varridos++
       try {
-        let personId = c.pipedrive_person_id ? Number(c.pipedrive_person_id) : null
-        if (!personId && c.phone_number) {
-          personId = await findPersonByPhone(c.phone_number)
-          if (personId) {
-            stats.pessoas_achadas_por_telefone++
-            await supabase.from('contacts').update({ pipedrive_person_id: String(personId) }).eq('id', c.id)
-          }
+        const personIds = new Set<number>()
+        if (c.pipedrive_person_id) personIds.add(Number(c.pipedrive_person_id))
+        const byPhone = c.phone_number ? await findPersonsByPhone(c.phone_number) : []
+        byPhone.forEach((id) => personIds.add(id))
+        if (!c.pipedrive_person_id && byPhone.length) {
+          stats.pessoas_achadas_por_telefone++
+          await supabase.from('contacts').update({ pipedrive_person_id: String(byPhone[0]) }).eq('id', c.id)
         }
-        if (!personId) continue
-
-        if (!personCache.has(personId)) personCache.set(personId, (await pdGet(`/persons/${personId}`))?.data ?? {})
-        const person = personCache.get(personId)
-        const orgId = person?.org_id?.value ?? person?.org_id ?? null
+        const orgIds = new Set<number>()
+        const cnpjDigits = String(c.cnpj ?? '').replace(/\D/g, '')
+        if (isValidCnpj(cnpjDigits)) (await findOrgsByCnpj(cnpjDigits)).forEach((id) => orgIds.add(id))
+        if (!personIds.size && !orgIds.size) continue
+        const personId = c.pipedrive_person_id ? Number(c.pipedrive_person_id) : byPhone[0] ?? null
 
         const deals = new Map<number, any>()
-        for (const d of await dealsOf(`p:${personId}`, `/persons/${personId}/deals`)) deals.set(d.id, d)
-        if (orgId && typeof orgId === 'number') for (const d of await dealsOf(`o:${orgId}`, `/organizations/${orgId}/deals`)) deals.set(d.id, d)
+        for (const pid of personIds) {
+          if (!personCache.has(pid)) personCache.set(pid, (await pdGet(`/persons/${pid}`))?.data ?? {})
+          const person = personCache.get(pid)
+          const o = person?.org_id?.value ?? person?.org_id ?? null
+          if (typeof o === 'number') orgIds.add(o)
+          for (const d of await dealsOf(`p:${pid}`, `/persons/${pid}/deals`)) deals.set(d.id, d)
+        }
+        for (const oid of orgIds) for (const d of await dealsOf(`o:${oid}`, `/organizations/${oid}/deals`)) deals.set(d.id, d)
 
         const firstAt = Date.parse(c.first_contact_date ?? c.created_at)
         const windowStart = firstAt - DAY // tolerância de 1 dia
@@ -160,7 +175,7 @@ Deno.serve(async (req) => {
           stats.negocios_vistos++
           if (!latest || added > pdTime(latest.add_time)) latest = d
           const base = {
-            pipedrive_person_id: String(personId),
+            pipedrive_person_id: String(d.person_id?.value ?? d.person_id ?? personId ?? ''),
             pipedrive_deal_id: String(d.id),
             deal_pipeline_id: d.pipeline_id ?? null,
           }
