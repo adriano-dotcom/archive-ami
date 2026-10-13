@@ -62,8 +62,7 @@ Deno.serve(async (req) => {
     }
 
     if (!isServiceRole && !isInternal) {
-      // Exceção: dry_run é liberado para admin autenticado (não envia nada ao Pipedrive)
-      if (!dryRun) return json({ error: 'unauthorized' }, 401)
+      // Usuário autenticado da equipe: envio real para admin/operator; dry_run só admin
       const token = auth.replace(/^Bearer\s+/i, '')
       if (!token) return json({ error: 'unauthorized' }, 401)
       const authClient = createClient(
@@ -77,13 +76,16 @@ Deno.serve(async (req) => {
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       )
-      const { data: roleRow } = await adminClient
+      const { data: roleRows } = await adminClient
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle()
-      if (!roleRow) return json({ error: 'dry_run restrito a administradores' }, 403)
+      const roles = (roleRows ?? []).map((r: { role: string }) => r.role)
+      if (dryRun) {
+        if (!roles.includes('admin')) return json({ error: 'dry_run restrito a administradores' }, 403)
+      } else if (!roles.includes('admin') && !roles.includes('operator')) {
+        return json({ error: 'envio restrito à equipe' }, 403)
+      }
     }
 
     const supabase = createClient(
