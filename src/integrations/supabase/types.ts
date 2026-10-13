@@ -664,7 +664,11 @@ export type Database = {
           number: string | null
           pet_name: string | null
           phone_number: string
+          pipedrive_lead_id: string | null
+          pipedrive_org_id: string | null
+          pipedrive_person_id: string | null
           pipedrive_sync_error: string | null
+          pipedrive_sync_status: string | null
           profile_picture_url: string | null
           referral_headline: string | null
           referral_source_url: string | null
@@ -721,7 +725,11 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number: string
+          pipedrive_lead_id?: string | null
+          pipedrive_org_id?: string | null
+          pipedrive_person_id?: string | null
           pipedrive_sync_error?: string | null
+          pipedrive_sync_status?: string | null
           profile_picture_url?: string | null
           referral_headline?: string | null
           referral_source_url?: string | null
@@ -778,7 +786,11 @@ export type Database = {
           number?: string | null
           pet_name?: string | null
           phone_number?: string
+          pipedrive_lead_id?: string | null
+          pipedrive_org_id?: string | null
+          pipedrive_person_id?: string | null
           pipedrive_sync_error?: string | null
+          pipedrive_sync_status?: string | null
           profile_picture_url?: string | null
           referral_headline?: string | null
           referral_source_url?: string | null
@@ -3888,6 +3900,7 @@ export type Database = {
       has_vault_secret: { Args: { secret_name: string }; Returns: boolean }
       is_authenticated_team_member: { Args: never; Returns: boolean }
       is_authenticated_user: { Args: never; Returns: boolean }
+      is_valid_cnpj: { Args: { p: string }; Returns: boolean }
       is_whatsapp_window_open: {
         Args: { p_conversation_id: string }
         Returns: boolean
