@@ -822,9 +822,9 @@ serve(async (req) => {
     };
 
     const pickModel = (opts: { isVision: boolean; isLargeText: boolean; isCSV: boolean }) => {
-      if (opts.isVision) return 'google/gemini-2.5-flash';
-      if (opts.isLargeText || opts.isCSV) return 'google/gemini-2.5-flash-lite';
-      return 'google/gemini-2.5-flash';
+      if (opts.isVision) return 'google/gemini-3-flash-preview';
+      if (opts.isLargeText || opts.isCSV) return 'google/gemini-3-flash-preview';
+      return 'google/gemini-3-flash-preview';
     };
 
     // Process each file

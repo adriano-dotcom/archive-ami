@@ -1355,7 +1355,7 @@ Responda APENAS no formato JSON (sem markdown code blocks):
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         max_tokens: 1000
@@ -4502,7 +4502,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-3-flash-preview',
           messages: [
             { role: 'system', content: processedPrompt },
             ...conversationHistory
@@ -4708,7 +4708,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-3-flash-preview',
           messages: [
             { role: 'system', content: processedPrompt },
             ...conversationHistory
@@ -6409,7 +6409,7 @@ function getModelSettings(
     case 'flash':
       return { model: 'google/gemini-3-flash-preview', temperature: 0.7 };
     case 'pro':
-      return { model: 'google/gemini-2.5-pro', temperature: 0.7 };
+      return { model: 'google/gemini-3.1-pro-preview', temperature: 0.7 };
     case 'pro3':
       // Modo "pro3" agora usa roteamento adaptativo h\u00edbrido (Flash r\u00e1pido + Pro para casos complexos)
       return getAdaptiveSettings(conversationHistory, message, contact, clientMemory);
@@ -6483,7 +6483,7 @@ function getAdaptiveSettings(
   if (hasClosing || (hasObjection && qualificationScore > 30)) {
     console.log('[Nina][Adaptive] \ud83d\udd25 Momento cr\u00edtico detectado (fechamento/obje\u00e7\u00e3o), usando Pro + reasoning medium');
     return { 
-      model: 'google/gemini-2.5-pro', 
+      model: 'google/gemini-3.1-pro-preview', 
       temperature: 0.4,
       reasoning: { effort: 'medium' }
     };
@@ -6493,7 +6493,7 @@ function getAdaptiveSettings(
   if (hasComparison) {
     console.log('[Nina][Adaptive] \ud83d\udcca Compara\u00e7\u00e3o de planos detectada, usando Pro + reasoning low');
     return { 
-      model: 'google/gemini-2.5-pro', 
+      model: 'google/gemini-3.1-pro-preview', 
       temperature: 0.5,
       reasoning: { effort: 'low' }
     };
@@ -6503,7 +6503,7 @@ function getAdaptiveSettings(
   if (hasComplaint) {
     console.log('[Nina][Adaptive] \ud83d\udea8 Reclama\u00e7\u00e3o detectada, usando Pro temp=0.3');
     return { 
-      model: 'google/gemini-2.5-pro', 
+      model: 'google/gemini-3.1-pro-preview', 
       temperature: 0.3,
       reasoning: { effort: 'low' }
     };
