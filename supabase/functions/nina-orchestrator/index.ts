@@ -1577,15 +1577,23 @@ export function extractQualificationFromMessages(userMessages: string[]): { [key
   // O "não" precisa vir COLADO no verbo (só espaços entre eles): assim
   // "não, emito o CT-e" e "não tenho sistema, mas emito meu CT-e" — que são
   // CONFIRMAÇÕES de emissão — não caem aqui.
-  const negaCte = /\bn[ãa]o\s+(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText);
+  // Também cobre posse negada ("não tenho CT-e próprio") e emissão por
+  // terceiro ("quem emite o CT-e é a transportadora").
+  const negaPosseCte = /\bn[ãa]o\s+(tenho|temos|possuo|possu[íi]mos)\s+(um\s+|o\s+|meu\s+)?(ct-?e|cte|mdf-?e)\b/.test(allText);
+  const terceiroEmite = /\bquem\s+(emite|tira|faz)\s+(o\s+)?(ct-?e|cte|mdf-?e)\s+(é|eh|e)\s+(a|o)\s+/.test(allText);
+  const negaCte =
+    /\bn[ãa]o\s+(emito|emite|emitimos|tiro|fa[çc]o)\b[^.!?]{0,40}\b(ct-?e|cte|mdf-?e|manifesto|ciot)\b/.test(allText) ||
+    negaPosseCte || terceiroEmite;
 
   // Afirmação explícita de que o lead EMITE o próprio CT-e/MDF-e => contratado.
   // Só verbos de EMISSÃO em 1ª pessoa ("emito", "emitimos", "eu emito",
   // "nós emitimos"). "tiro" e "faço" saíram: "faço frete como agregado, o CT-e
   // é da empresa" não é afirmação de emissão — é o lead dizendo que é agregado.
+  // "CT-e próprio/meu" só conta se não for precedido de negação de posse.
+  const ctePossessivo = /\b(ct-?e|cte|mdf-?e)\s+(pr[óo]prio|meu|da minha)\b/.test(allText) && !negaPosseCte;
   const afirmaCte =
     /\b(eu\s+|n[óo]s\s+)?(emito|emitimos)\b[^.!?]{0,25}\b(ct-?e|cte|mdf-?e|manifesto)\b/.test(allText) ||
-    /\b(ct-?e|cte|mdf-?e)\s+(pr[óo]prio|meu|da minha)\b/.test(allText) ||
+    ctePossessivo ||
     /\b(agora|passei a|comecei a|voltei a)\s+emitir\b/.test(allText);
 
   // BLINDAGEM: quem se diz agregado/subcontratado E diz que o CT-e "é da
@@ -1598,7 +1606,7 @@ export function extractQualificationFromMessages(userMessages: string[]): { [key
       /\bquem emite\s+(o\s+)?ct-?e\s+(é|eh)\s+a\s+(empresa|transportadora)\b/i.test(allText) ||
       /\bn[ãa]o\s+emito\b/i.test(allText));
 
-  if (afirmaCte && !ctDeTerceiro) extracted._emissao_explicita = '1';
+  if (afirmaCte && !negaCte && !ctDeTerceiro) extracted._emissao_explicita = '1';
 
   // Afirmação explícita de emissão vence tudo — inclusive o rótulo de
   // subcontratado dado antes (o lead pode ter mudado de operação).
