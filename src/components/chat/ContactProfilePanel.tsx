@@ -149,6 +149,10 @@ const ContactProfilePanel: React.FC<ContactProfilePanelProps> = ({
         throw new Error(details);
       }
       if (!data?.success) throw new Error(data?.error || 'Falha ao enviar');
+      if (data?.skipped) {
+        toast.warning(`Não enviado ao Pipedrive: ${data.reason || 'contato não elegível'}`);
+        return;
+      }
       setPipedriveSentAt(new Date().toISOString());
       setPipedriveError(null);
       toast.success('Contato enviado ao Pipedrive como Pessoa + Lead!');
