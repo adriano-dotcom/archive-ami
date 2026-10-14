@@ -4535,7 +4535,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'openai/gpt-5-mini',
+            model: 'openai/gpt-6-astra',
             messages: [
               { role: 'system', content: processedPrompt },
               ...conversationHistory
@@ -4741,7 +4741,7 @@ MIGRAÇÃO PARA CONTRATADO (responsável pela carga):
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'openai/gpt-5-mini',
+            model: 'openai/gpt-6-astra',
             messages: [
               { role: 'system', content: processedPrompt },
               ...conversationHistory
