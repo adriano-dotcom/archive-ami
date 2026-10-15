@@ -2,7 +2,8 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const OWNER_ID = 13379041 // Leonardo Sanches
-const PERSON_CNPJ_FIELD = 'dc094ce47e758abfd2732eac5bfd5f32fea3e3d6'
+// Campo de pessoa "Qual o CNPJ da sua Transportadora?" (personFields id 9112)
+const PERSON_CNPJ_FIELD = '053b6685e7059741cd2d03fdfd2d347c323677ec'
 const LABEL_COMBO = 'ab7ffe00-220c-11f1-974e-192630ddf6a5'
 const LABEL_HOT = '08ab1f0f-f701-4832-80af-6a29373a1c00'
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/pipedrive'
@@ -301,7 +302,15 @@ Deno.serve(async (req) => {
         if (cnpjValid) payload[PERSON_CNPJ_FIELD] = cnpj
         plan.person = { action: 'criar', payload }
         if (!dryRun) {
-          personId = (await pipedrive('/persons', 'POST', payload))?.data?.id
+          try {
+            personId = (await pipedrive('/persons', 'POST', payload))?.data?.id
+          } catch (e) {
+            // Se o campo de CNPJ for rejeitado (renomeado/apagado no Pipedrive), cria sem ele — o CNPJ segue na nota
+            if (!(PERSON_CNPJ_FIELD in payload) || !/\[400\]/.test(String((e as Error)?.message))) throw e
+            console.warn('[push-lead-pipedrive] campo CNPJ rejeitado, recriando pessoa sem ele:', (e as Error).message)
+            delete payload[PERSON_CNPJ_FIELD]
+            personId = (await pipedrive('/persons', 'POST', payload))?.data?.id
+          }
           if (!personId) throw new Error('Pipedrive não retornou id da pessoa')
         }
       }
