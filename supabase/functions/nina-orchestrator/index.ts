@@ -1606,11 +1606,16 @@ export function extractQualificationFromMessages(userMessages: string[]): { [key
       /\bquem emite\s+(o\s+)?ct-?e\s+(é|eh)\s+a\s+(empresa|transportadora)\b/i.test(allText) ||
       /\bn[ãa]o\s+emito\b/i.test(allText));
 
-  if (afirmaCte && !negaCte && !ctDeTerceiro) extracted._emissao_explicita = '1';
+  // Emissão eventual ("só emito quando vou pro RS", "às vezes emito") NÃO classifica:
+  // a Iris precisa confirmar quem emite na maioria dos fretes.
+  const emissaoCondicional = /\b(s[óo]|somente|apenas|[àa]s vezes|raramente)\s+(eu\s+)?emito\b|\bemito\b[^.!?]{0,30}\b(s[óo]|somente|apenas)\s+(quando|pra|para)\b|\bemito[^.!?]{0,20}\b[àa]s vezes\b/i.test(allText);
+  if (afirmaCte && !negaCte && !ctDeTerceiro && !emissaoCondicional) extracted._emissao_explicita = '1';
 
   // Afirmação explícita de emissão vence tudo — inclusive o rótulo de
   // subcontratado dado antes (o lead pode ter mudado de operação).
-  if (afirmaCte && !negaCte && !ctDeTerceiro) {
+  if (emissaoCondicional && !ctDeTerceiro && !perfilTerceiro) {
+    // indefinido: deixa a IA perguntar quem emite o CT-e na maioria dos fretes
+  } else if (afirmaCte && !negaCte && !ctDeTerceiro) {
     extracted.tipo_transportador = 'contratado';
   } else if (negaCte || perfilTerceiro) {
     // Subcontratado / agregado tem prioridade quando ambos aparecem, pois é o
@@ -3979,11 +3984,13 @@ Agradeço pela compreensão!`;
       await supabase
         .from('conversations')
         .update({
-          status: 'open',
-          is_active: false,
+          // 'open' não existe no enum conversation_status — a gravação falhava em silêncio
+          // e a Iris seguia respondendo (caso Jorge Pimentel, 16/10/2026).
+          status: 'human',
           nina_context: { ...(conversation.nina_context || {}), contratado_handoff_done: true },
         })
-        .eq('id', conversation.id);
+        .eq('id', conversation.id)
+        .then(({ error }: any) => { if (error) console.error('[Nina] ❌ Falha ao gravar handoff do contratado:', error); });
       await supabase.from('messages').update({ processed_by_nina: true, nina_response_time: Date.now() - new Date(message.sent_at).getTime() }).eq('id', message.id);
       try {
         await fetch(`${supabaseUrl}/functions/v1/whatsapp-sender`, {
@@ -5379,6 +5386,14 @@ async function bumpConsecutiveLoops(supabase: any, conversationId: string, incre
 // ============================================================================
 
 // Helper function to queue text response with chunking and anti-loop check
+// A Iris NÃO envia e-mail, PDF, arquivo nem cotação. Remove frases que afirmam isso.
+export function stripFabricatedActions(text: string): string {
+  if (!text) return text;
+  const fake = /(\b(acabei de |j[áa] )?(re)?envie(i|amos)\b|\bencaminhei\b[^.!?]{0,30}\b(pdf|arquivo|e-?mail|cota[çc][ãa]o|proposta)\b|\bsegue (o |em )?(anexo|arquivo|pdf|a proposta)|\banex(o|ei) aqui\b|\bj[áa] anexo\b|\bvou (te )?(mandar|enviar|agilizar o envio)[^.!?]{0,40}\b(pdf|arquivo|e-?mail|cota[çc][ãa]o|proposta)\b|\bestou gerando o arquivo\b|\bacabei de (re)?(enviar|mandar)\b)/i;
+  const parts = text.split(/(?<=[.!?])\s+|\n+/);
+  return parts.filter((p) => !fake.test(p)).join(' ').replace(/\s{2,}/g, ' ').trim();
+}
+
 async function queueTextResponse(
   supabase: any,
   conversation: any,
@@ -5412,7 +5427,11 @@ async function queueTextResponse(
   let { maxScore, mostSimilar } = findHighestSimilarity(aiContent, recentSentMessages || []);
   let antiLoopRegenerated = false;
   let antiLoopFallbackUsed = false;
-  let finalContent = aiContent;
+  let finalContent = stripFabricatedActions(aiContent);
+  if (!finalContent) {
+    console.warn('[Nina][Guard] Resposta só continha ações inventadas (envio de PDF/e-mail) — nada enviado.');
+    return;
+  }
 
   if (maxScore >= ANTI_LOOP_THRESHOLD && mostSimilar) {
     console.warn(`[Nina][AntiLoop] 🔁 Bloqueado score=${maxScore.toFixed(2)} | candidata="${aiContent.substring(0, 80)}..." | similar="${mostSimilar.substring(0, 80)}..."`);
@@ -5669,6 +5688,12 @@ function buildEnhancedPrompt(
  - Se o contato NÃO for transportador de carga OU buscar outro tipo de seguro, NUNCA dispense e NUNCA mande procurar outra corretora. Siga o protocolo "OUTROS SEGUROS" abaixo: a Jacometo trabalha com TODOS os tipos de seguro.`;
 
   // ===== APRENDIZADOS DAS CONVERSAS REAIS DO VENDEDOR =====
+  contextInfo += `\n\n## 🚫 AÇÕES QUE VOCÊ NÃO TEM (NUNCA AFIRMAR)
+- Você NÃO envia e-mail, PDF, arquivo, anexo nem cotação. Nunca diga "enviei", "reenviei", "segue o arquivo", "vou te mandar o PDF".
+- Nunca invente limite de carga, valor, cobertura ou produto. Proposta de contratado é feita pelo corretor humano.
+- Se emissão de CT-e for eventual ("só emito quando..."), pergunte quem emite o CT-e na maioria dos fretes antes de classificar.
+${contact?.cnpj ? `- JÁ COLETADO, NÃO PERGUNTAR DE NOVO: CNPJ ${contact.cnpj}${contact.company ? ` (${contact.company})` : ''}.` : ''}
+${contact?.email ? `- JÁ COLETADO, NÃO PERGUNTAR DE NOVO: e-mail ${contact.email}.` : ''}`;
   contextInfo += `\n\n## 🎓 APRENDIZADOS DOS ATENDIMENTOS REAIS (SEGUIR SEMPRE)
 
 ### 1. LEAD CONTRATADO DIRETO NUNCA É DESCARTADO

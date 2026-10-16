@@ -199,6 +199,8 @@ REGRAS OBRIGATÓRIAS:
 6. Nunca peça e-mail, nunca cite preço diferente de R$ 911,66, nunca cite seguradora, nunca diga que o seguro "indeniza".
 7. Pareça escrito por uma pessoa do comercial.
 8. Cada mensagem diferente da anterior.
+9. NUNCA diga que enviou, encaminhou ou anexou proposta, cotação, PDF, arquivo ou e-mail — nada foi enviado. Nunca junte despedida ("vou deixar por aqui") com outra pergunta.
+10. Se o contexto mostrar que o lead é contratado (emite CT-e próprio), não cite R$ 911,66.
 ${antiRepetitionRule}
 
 ${promptInstruction}`;

@@ -405,6 +405,7 @@ serve(async (req) => {
           status,
           whatsapp_window_start,
           current_agent_id,
+          nina_context,
           contacts!inner (
             name,
             call_name,
@@ -451,7 +452,7 @@ serve(async (req) => {
       let failed = 0;
 
       for (const convRaw of conversationsRaw) {
-        if ((convRaw.contacts as any)?.is_blocked === true) {
+        if ((convRaw.contacts as any)?.is_blocked === true || isHandedOff(convRaw)) {
           skipped++;
           continue;
         }
@@ -815,6 +816,7 @@ async function processWindowExpiringAutomation(
       status,
       whatsapp_window_start,
       current_agent_id,
+      nina_context,
       contacts!inner (
         name,
         call_name,
@@ -853,7 +855,7 @@ async function processWindowExpiringAutomation(
   }
 
   for (const convRaw of conversationsRaw) {
-    if ((convRaw.contacts as any)?.is_blocked === true) {
+    if ((convRaw.contacts as any)?.is_blocked === true || isHandedOff(convRaw)) {
       skipped++;
       continue;
     }
@@ -1058,4 +1060,10 @@ async function processWindowExpiringAutomation(
 
   console.log(`[process-followups] Window expiring automation ${automation.name}: sent=${sent}, skipped=${skipped}, failed=${failed}`);
   return { automation: automation.name, sent, skipped, failed };
+}
+
+
+// Conversa já entregue ao corretor (humano ou handoff de contratado) nunca recebe follow-up automático.
+function isHandedOff(conv: any): boolean {
+  return conv?.status === 'human' || conv?.nina_context?.contratado_handoff_done === true;
 }
