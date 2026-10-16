@@ -5389,7 +5389,7 @@ async function bumpConsecutiveLoops(supabase: any, conversationId: string, incre
 // A Iris NÃO envia e-mail, PDF, arquivo nem cotação. Remove frases que afirmam isso.
 export function stripFabricatedActions(text: string): string {
   if (!text) return text;
-  const fake = /(\b(acabei de |j[áa] )?(re)?envie(i|amos)\b|\bencaminhei\b|\bsegue (o |em )?(anexo|arquivo|pdf|a proposta)|\banex(o|ei) aqui\b|\bj[áa] anexo\b|\bvou (te )?(mandar|enviar|agilizar o envio)[^.!?]{0,40}\b(pdf|arquivo|e-?mail|cota[çc][ãa]o|proposta)\b|\bestou gerando o arquivo\b|\bacabei de (re)?(enviar|mandar)\b)/i;
+  const fake = /(\b(acabei de |j[áa] )?(re)?envie(i|amos)\b|\bencaminhei\b[^.!?]{0,30}\b(pdf|arquivo|e-?mail|cota[çc][ãa]o|proposta)\b|\bsegue (o |em )?(anexo|arquivo|pdf|a proposta)|\banex(o|ei) aqui\b|\bj[áa] anexo\b|\bvou (te )?(mandar|enviar|agilizar o envio)[^.!?]{0,40}\b(pdf|arquivo|e-?mail|cota[çc][ãa]o|proposta)\b|\bestou gerando o arquivo\b|\bacabei de (re)?(enviar|mandar)\b)/i;
   const parts = text.split(/(?<=[.!?])\s+|\n+/);
   return parts.filter((p) => !fake.test(p)).join(' ').replace(/\s{2,}/g, ' ').trim();
 }
